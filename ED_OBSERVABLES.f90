@@ -236,9 +236,10 @@ contains
     write(LOGfile,"(A,10f18.12,f18.12,A)")"nimp"//reg(ed_file_suffix)//"=",(nimp(iorb),iorb=1,Norb),sum(nimp)
     if(ed_supercond)then
        write(LOGfile,"(A,20f18.12,A)")    "phi "//reg(ed_file_suffix)//"=",(phiscimp(iorb),iorb=1,Norb),(uloc(iorb)*phiscimp(iorb),iorb=1,Norb)
+    else
+       write(LOGfile,"(A,10f18.12,A)")    "docc"//reg(ed_file_suffix)//"=",(dimp(iorb),iorb=1,Norb)       
     endif
     if(ed_verbose<1)then
-       write(LOGfile,"(A,10f18.12,A)")    "docc"//reg(ed_file_suffix)//"=",(dimp(iorb),iorb=1,Norb)
        write(LOGfile,"(A,20f18.12,A)")    "sz2 "//reg(ed_file_suffix)//"=",((sz2imp(iorb,jorb),jorb=1,Norb),iorb=1,Norb)
        if(Nspin==2)then
           write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magimp(iorb),iorb=1,Norb)

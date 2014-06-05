@@ -19,7 +19,7 @@
 !########################################################################
 MODULE ED_CHI2FIT
   USE CONSTANTS
-  USE OPTIMIZE, only:fmin_cg
+  USE OPTIMIZE, only:fmin_cg,fmin_cgplus,fmin_cgminimize
   USE MATRIX,   only:matrix_inverse
   USE IOTOOLS,  only:reg,free_unit,txtfy
   USE ED_INPUT_VARS
@@ -54,6 +54,15 @@ contains
     complex(8),dimension(:,:,:)          :: fg
     real(8),dimension(:,:),intent(inout) :: bath
     integer                              :: ispin
+    if(cg_method==0)then
+       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
+    elseif(cg_method==1)then
+       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-minimize"
+    elseif(cg_method==2)then
+       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
+    else
+       stop "ED_CHI2FIT: error cg_method > 2"
+    end if
     select case(bath_type)
     case default
        call chi2_fitgf_irred(fg,bath,ispin)
@@ -66,6 +75,15 @@ contains
     complex(8),dimension(:,:,:,:)          :: fg
     real(8),dimension(:,:),intent(inout) :: bath
     integer                              :: ispin
+    if(cg_method==0)then
+       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
+    elseif(cg_method==1)then
+       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-minimize"
+    elseif(cg_method==2)then
+       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
+    else
+       stop "ED_CHI2FIT: error cg_method > 2"
+    end if
     select case(bath_type)
     case default
        call chi2_fitgf_irred_sc(fg,bath,ispin)
@@ -83,7 +101,6 @@ contains
   !*****************************************************************************
   !*****************************************************************************
   !*****************************************************************************
-
 
 
 
@@ -140,11 +157,27 @@ contains
        Fdelta(1,1:Ldelta) = fg(iorb,iorb,1:Ldelta)
        a(1:Nbath)         = dmft_bath%e(ispin,iorb,1:Nbath)
        a(Nbath+1:2*Nbath) = dmft_bath%v(ispin,iorb,1:Nbath)
-       if(cg_scheme=='weiss')then
-          call fmin_cg(a,chi2_weiss_irred,iter,chi,itmax=cg_niter,ftol=cg_Ftol,iverbose=.false.,istop=cg_stop,eps=cg_eps)
+       if(cg_method==0)then
+          if(cg_scheme=='weiss')then
+             call fmin_cg(a,chi2_weiss_irred,iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
+          else
+             call fmin_cg(a,chi2_delta_irred,dchi2_delta_irred,iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
+          endif
+       elseif(cg_method==1)then
+          if(cg_scheme=='weiss')then
+             call fmin_cgminimize(a,chi2_weiss_irred,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+          else
+             call fmin_cgminimize(a,chi2_delta_irred,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+          endif
+       elseif(cg_method==2)then
+          if(cg_scheme=='weiss')then
+             call fmin_cgplus(a,chi2_weiss_irred,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+          else
+             call fmin_cgplus(a,chi2_delta_irred,dchi2_delta_irred,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+          endif
        else
-          call fmin_cg(a,chi2_delta_irred,dchi2_delta_irred,iter,chi,itmax=cg_niter,ftol=cg_Ftol,iverbose=.false.,istop=cg_stop,eps=cg_eps)
-       endif
+          stop "ED_CHI2FIT: error cg_method > 2"
+       end if
        if(ed_verbose<5)write(LOGfile,"(A,ES18.9,A,I5,A)") 'chi^2|iter'//reg(ed_file_suffix)//'= ',chi," | ",iter,"  <--  Orb"//reg(txtfy(iorb))//" Spin"//reg(txtfy(ispin))
        if(ed_verbose<2)then
           suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
@@ -378,11 +411,27 @@ contains
        a(1:Nbath)         = dmft_bath%e(ispin,iorb,1:Nbath) 
        a(Nbath+1:2*Nbath) = dmft_bath%d(ispin,iorb,1:Nbath)
        a(2*Nbath+1:3*Nbath) = dmft_bath%v(ispin,iorb,1:Nbath)
-       if(cg_scheme=='weiss')then
-          call fmin_cg(a,chi2_weiss_irred_sc,iter,chi,itmax=cg_niter,ftol=cg_Ftol,iverbose=.false.,istop=cg_stop,eps=cg_eps)
+       if(cg_method==0)then
+          if(cg_scheme=='weiss')then
+             call fmin_cg(a,chi2_weiss_irred_sc,iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
+          else
+             call fmin_cg(a,chi2_delta_irred_sc,dchi2_delta_irred_sc,iter,chi,itmax=cg_niter,ftol=cg_Ftol,iverbose=.false.,istop=cg_stop,eps=cg_eps)
+          endif
+       elseif(cg_method==1)then
+          if(cg_scheme=='weiss')then
+             call fmin_cgminimize(a,chi2_weiss_irred_sc,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+          else
+             call fmin_cgminimize(a,chi2_delta_irred_sc,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+          endif
+       elseif(cg_method==2)then
+          if(cg_scheme=='weiss')then
+             call fmin_cgplus(a,chi2_weiss_irred_sc,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+          else
+             call fmin_cgplus(a,chi2_delta_irred_sc,dchi2_delta_irred_sc,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+          endif
        else
-          call fmin_cg(a,chi2_delta_irred_sc,dchi2_delta_irred_sc,iter,chi,itmax=cg_niter,ftol=cg_Ftol,iverbose=.false.,istop=cg_stop,eps=cg_eps)
-       endif
+          stop "ED_CHI2FIT: error cg_method > 2"
+       end if
        if(ed_verbose<5)write(LOGfile,"(A,ES18.9,A,I5,A)") 'chi^2|iter'//reg(ed_file_suffix)//'=',chi," | ",iter,"  <--  Orb"//reg(txtfy(iorb))//" Spin"//reg(txtfy(ispin))
        if(ed_verbose<2)then
           suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
@@ -437,13 +486,6 @@ contains
       enddo
     end subroutine write_fit_result
   end subroutine chi2_fitgf_irred_sc
-
-
-
-
-
-
-
 
 
 
@@ -533,7 +575,6 @@ contains
        dgz(2,i+2*Nb) = 2.d0*vps(i)*dps(i)/den
     enddo
   end function grad_fg_delta_irred_sc
-
 
   !+-------------------------------------------------------------+
   !PURPOSE: Evaluate the \chi^2 distance of G_0 function 
@@ -643,11 +684,27 @@ contains
     call allocate_bath(dmft_bath)
     Spin_indx=ispin
     a(:) = bath_(ispin,:)
-    if(cg_scheme=='weiss')then
-       call fmin_cg(a,chi2_weiss_hybrd,iter,chi,itmax=cg_niter,ftol=cg_Ftol,iverbose=.false.,istop=cg_stop,eps=cg_eps)
+    if(cg_method==0)then
+       if(cg_scheme=='weiss')then
+          call fmin_cg(a,chi2_weiss_hybrd,iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
+       else
+          call fmin_cg(a,chi2_delta_hybrd,dchi2_delta_hybrd,iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
+       endif
+    elseif(cg_method==1)then
+       if(cg_scheme=='weiss')then
+          call fmin_cgminimize(a,chi2_weiss_hybrd,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+       else
+          call fmin_cgminimize(a,chi2_delta_hybrd,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+       endif
+    elseif(cg_method==2)then
+       if(cg_scheme=='weiss')then
+          call fmin_cgplus(a,chi2_weiss_hybrd,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+       else
+          call fmin_cgplus(a,chi2_delta_hybrd,dchi2_delta_hybrd,iter,chi,itmax=cg_niter,ftol=cg_Ftol)
+       endif
     else
-       call fmin_cg(a,chi2_delta_hybrd,dchi2_delta_hybrd,iter,chi,itmax=cg_niter,ftol=cg_Ftol,iverbose=.false.,istop=cg_stop,eps=cg_eps)
-    endif
+       stop "ED_CHI2FIT: error cg_method > 2"
+    end if
     bath_(ispin,:) = a(:)
     call set_bath(bath_,dmft_bath)
     if(ed_verbose<5)write(LOGfile,"(A,ES18.9,A,I5)") 'chi^2|iter'//reg(ed_file_suffix)//'=',chi," | ",iter,"  <--  all Orbs, Spin"//reg(txtfy(ispin))

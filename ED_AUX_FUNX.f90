@@ -600,7 +600,8 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : 
   !+------------------------------------------------------------------+
-  subroutine search_chemical_potential(ntmp,converged)
+  subroutine search_chemical_potential(var,ntmp,converged)
+    real(8),intent(inout) :: var
     real(8),intent(in)    :: ntmp
     logical,intent(inout) :: converged
     logical               :: bool
@@ -649,7 +650,8 @@ contains
        nindex=0
     endif
     !update chemical potential
-    xmu=xmu+dble(nindex)*ndelta
+    var=var+dble(nindex)*ndelta
+    !xmu=xmu+dble(nindex)*ndelta
     !
     !Print information
     write(LOGfile,"(A,f16.9,A,f15.9)")"n    = ",ntmp," /",nread
@@ -660,11 +662,11 @@ contains
     else
        write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," == "
     endif
-    write(LOGfile,"(A,f15.9)")"xmu  = ",xmu
+    write(LOGfile,"(A,f15.9)")"var  = ",var
     write(LOGfile,"(A,ES16.9,A,ES16.9)")"dn   = ",ndiff,"/",nth
     unit=free_unit()
     open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-    write(unit,*)xmu,ntmp,ndiff
+    write(unit,*)var,ntmp,ndiff
     close(unit)
     !
     !check convergence within actual threshold
