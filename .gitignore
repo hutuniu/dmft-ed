@@ -5,3 +5,4 @@ test/
 *~
 revision.inc
 mc_EDsc/
+.bash_completion.d
