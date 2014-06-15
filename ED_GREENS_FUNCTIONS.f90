@@ -6,11 +6,12 @@
 !to different node and accumulate the result at the end.
 !AUTHORS  : Adriano Amaricci
 !###################################################################
+include "BCG.f90"
 MODULE ED_GREENS_FUNCTIONS
   USE CONSTANTS, only:one,xi,zero,pi
   USE TIMER  
   USE IOTOOLS, only: free_unit,reg,free_units,txtfy
-  USE ARRAYS,   only: arange,linspace
+  USE ARRAYS,  only: arange,linspace
   USE MATRIX,  only: matrix_inverse
   USE PLAIN_LANCZOS
   USE ED_INPUT_VARS
@@ -18,6 +19,9 @@ MODULE ED_GREENS_FUNCTIONS
   USE ED_BATH
   USE ED_AUX_FUNX
   USE ED_HAMILTONIAN
+  !<DEBUG
+  USE BCG
+  !>DEBUG
   !
   implicit none
   private 

@@ -5,7 +5,7 @@ include "MIXING.f90"
 !###################################################################
 program lancED
   USE DMFT_ED
-  USE COMMON_VARS
+  USE CONSTANTS
   USE FUNCTIONS
   USE IOTOOLS
   USE TOOLS
@@ -64,7 +64,7 @@ program lancED
 
      !Check convergence (if required change chemical potential)
      converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
-     if(nread/=0.d0)call search_chemical_potential(ed_dens(1),converged)
+     if(nread/=0.d0)call search_chemical_potential(xmu,ed_dens(1),converged)
      call end_loop
   enddo
 

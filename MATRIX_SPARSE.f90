@@ -33,6 +33,10 @@ MODULE MATRIX_SPARSE
      module procedure sp_insert_element_d,sp_insert_element_c
   end interface sp_insert_element
 
+  interface sp_insert_diag
+     module procedure sp_insert_diag_d,sp_insert_diag_c
+  end interface sp_insert_diag
+
   interface sp_load_matrix
      module procedure sp_load_matrix_d,sp_load_matrix_c
   end interface sp_load_matrix
@@ -41,14 +45,21 @@ MODULE MATRIX_SPARSE
      module procedure sp_dump_matrix_d,sp_dump_matrix_c
   end interface sp_dump_matrix
 
+  interface sp_get_diagonal
+     module procedure sp_get_diagonal_d,sp_get_diagonal_c
+  end interface sp_get_diagonal
+
+
   public :: sparse_matrix
   !
   public :: sp_init_matrix      !checked
   public :: sp_delete_matrix    !checked
   !
   public :: sp_insert_element   !checked
+  public :: sp_insert_diag      !checked
   public :: sp_get_element_d    !checked
   public :: sp_get_element_c    !checked
+  public :: sp_get_diagonal     !checked
   public :: sp_delete_element   !checked
   public :: sp_inquire_element  !checked
   !
@@ -100,6 +111,29 @@ contains
     integer,intent(in)                :: i,j
     call insert_element_in_row_c(sparse%row(i),value,j)
   end subroutine sp_insert_element_c
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE: insert a vector of elements at the diagonal of the sparse matrix
+  !+------------------------------------------------------------------+
+  subroutine sp_insert_diag_d(sparse,diag)
+    type(sparse_matrix),intent(inout)  :: sparse
+    real(8),intent(in),dimension(:)    :: diag
+    integer                            :: i
+    if(size(diag)/=sparse%size)stop "sp_insert_diag: error in dimensions"
+    do i=1,size(diag)
+       call insert_element_in_row_d(sparse%row(i),diag(i),i)
+    enddo
+  end subroutine sp_insert_diag_d
+  subroutine sp_insert_diag_c(sparse,diag)
+    type(sparse_matrix),intent(inout)  :: sparse
+    complex(8),intent(in),dimension(:) :: diag
+    integer                            :: i
+    if(size(diag)/=sparse%size)stop "sp_insert_diag: error in dimensions"
+    do i=1,size(diag)
+       call insert_element_in_row_c(sparse%row(i),diag(i),i)
+    enddo
+  end subroutine sp_insert_diag_c
 
 
   !+------------------------------------------------------------------+
@@ -198,6 +232,31 @@ contains
     complex(8)                        :: value
     call get_element_from_row_c(sparse%row(i),value,j)
   end function sp_get_element_c
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE: get the diagonal elements of the sparse matrix
+  !+------------------------------------------------------------------+
+  subroutine sp_get_diagonal_d(sparse,diag)
+    type(sparse_matrix),intent(inout) :: sparse
+    real(8),dimension(:)              :: diag
+    integer                           :: Ndim,i,j
+    Ndim=size(diag);if(Ndim/=sparse%size)stop "sp_get_diagonal: error in diag dimension." 
+    do i=1,Ndim
+       call get_element_from_row_d(sparse%row(i),diag(i),i)
+    enddo
+  end subroutine  sp_get_diagonal_d
+
+  subroutine sp_get_diagonal_c(sparse,diag)
+    type(sparse_matrix),intent(inout) :: sparse
+    complex(8),dimension(:)           :: diag
+    integer                           :: Ndim,i,j
+    Ndim=size(diag);if(Ndim/=sparse%size)stop "sp_get_diagonal: error in diag dimension." 
+    do i=1,Ndim
+       call get_element_from_row_c(sparse%row(i),diag(i),i)
+    enddo
+  end subroutine sp_get_diagonal_c
+
 
 
   !+------------------------------------------------------------------+
