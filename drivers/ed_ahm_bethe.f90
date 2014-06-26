@@ -15,16 +15,19 @@ program lancED
   implicit none
   integer                :: iloop,Nb(2),Lk
   logical                :: converged
-  real(8)                :: wband,ts
+  real(8)                :: wband,ts,wmixing
   !Bath:
-  real(8),allocatable    :: Bath(:,:)
+  real(8),allocatable    :: Bath(:,:),BathOld(:,:)
   !The local hybridization function:
   complex(8),allocatable :: Delta(:,:,:,:)
   character(len=16)      :: finput,fhloc
+  logical :: phsym
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
+  call parse_input_variable(wmixing,"wmixing",finput,default=1.d0,comment="Mixing bath parameter")
   call parse_input_variable(wband,"wband",finput,default=1.d0,comment="Bethe Lattice bandwidth")
   call parse_input_variable(Lk,"Lk",finput,default=500,comment="Number of energy levels for Bethe DOS integration")
+  call parse_input_variable(phsym,"phsym",finput,default=.false.,comment="Flag to enforce p-h symmetry of the bath.")
   !
   call ed_read_input(trim(finput))
 
@@ -34,6 +37,7 @@ program lancED
   !setup solver
   Nb=get_bath_size()
   allocate(bath(Nb(1),Nb(2)))
+  allocate(bathold(Nb(1),Nb(2)))
   call init_ed_solver(bath)
 
 
@@ -51,7 +55,11 @@ program lancED
 
      !Perform the SELF-CONSISTENCY by fitting the new bath
      call chi2_fitgf(delta,bath,ispin=1)
+     if(phsym)call ph_symmetrize_bath(bath)
 
+     !MIXING:
+     if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*BathOld
+     BathOld=Bath
      !Check convergence (if required change chemical potential)
      converged = check_convergence(delta(1,1,1,:)+delta(2,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
      if(nread/=0.d0)call search_chemical_potential(ed_dens(1),converged)
@@ -79,7 +87,7 @@ contains
     delta=zero
     do i=1,Lmats
        iw = xi*wm(i)
-       zita    = iw + xmu - impSmats(1,1,1,1,i)
+       zita    = iw + xmu - Hloc(1,1,1,1) - impSmats(1,1,1,1,i) 
        gloc(:,i)=zero
        do ik=1,Lk
           cdet = abs(zita-epsik(ik))**2 + impSAmats(1,1,1,1,i)**2
@@ -95,11 +103,10 @@ contains
           cdet            =  abs(calG(1,i))**2 + (calG(2,i))**2
           delta(1,1,1,i)  =  conjg(calG(1,i))/cdet
           delta(2,1,1,i)  =  calG(2,i)/cdet
-          write(200,*)wm(i),dimag(delta(1,1,1,i)),dreal(delta(2,1,1,i))
        else
           cdet            = abs(gloc(1,i))**2 + (gloc(2,i))**2
-          delta(1,1,1,i)  = iw + xmu - impSmats(1,1,1,1,i)  - conjg(gloc(1,i))/cdet 
-          delta(2,1,1,i)  =          - impSAmats(1,1,1,1,i) - gloc(2,i)/cdet 
+          delta(1,1,1,i)  = zita  - conjg(gloc(1,i))/cdet 
+          delta(2,1,1,i)  = - impSAmats(1,1,1,1,i) - gloc(2,i)/cdet 
        endif
     enddo
     !

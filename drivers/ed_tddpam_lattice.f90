@@ -1,6 +1,6 @@
 program ed_tddpam_lattice
   USE DMFT_ED
-  USE COMMON_VARS
+  USE CONSTANTS
   USE FFTGF
   USE TOOLS
   USE FUNCTIONS
@@ -85,14 +85,13 @@ program ed_tddpam_lattice
      delta_old=delta
      call get_delta
 
-
      !Fit the new bath, starting from the old bath + the supplied delta
      if(iloop>1)delta = wmixing*delta + (1.d0-wmixing)*delta_old
      call chi2_fitgf(delta,bath,ispin=1)
 
      !Check convergence (if required change chemical potential)
      converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop)
-     if(nread/=0.d0)call search_chemical_potential(nobj,converged)
+     if(nread/=0.d0)call search_chemical_potential(xmu,nobj,converged)
      call end_loop
   enddo
 
@@ -192,14 +191,16 @@ contains
           fg=fg+inverse_gk(zita,Hk(:,:,ik))*dos_wt(ik)
        enddo
        gloc(:,:,i)  = fg
-       !
-       delta(1,1,i) = zita(1) - Hloc(1,1,1,1) - one/fg(1,1)
-       !
+       if(cg_scheme=='weiss')then
+          delta(1,1,i) = one/(one/fg(1,1) + impSmats(1,1,1,1,i))
+       else
+          delta(1,1,i) = zita(1) - Hloc(1,1,1,1) - one/fg(1,1)
+       endif
     enddo
     !Print:
     call splot("Delta_iw.ed",wm,delta(1,1,:))
     do iorb=1,Npd
-       do jorb=1,Npd
+       do jorb=iorb,Npd
           call splot("Gloc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(jorb))//"_iw.ed",wm,gloc(iorb,jorb,:))
        enddo
     enddo
@@ -207,8 +208,8 @@ contains
     ntotal=ed_dens(1)+npimp
     write(*,"(A,F25.18)")"np  =",npimp
     write(*,"(A,F25.18)")"ntot=",ntotal
-    call splot("np.ntot_all.ed",npimp,ntotal,append=.true.)
-    call splot("np.ntot.ed",npimp,ntotal)
+    call splot("nd_np_ntot_all.ed",ed_dens(1),npimp,ntotal,append=.true.)
+    call splot("nd_np_ntot.ed",ed_dens(1),npimp,ntotal)
     deallocate(gloc)
 
 
@@ -224,7 +225,7 @@ contains
     enddo
     !Print:
     do iorb=1,Npd
-       do jorb=1,Npd
+       do jorb=iorb,Npd
           call splot("Gloc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(jorb))//"_realw.ed",wr,gloc(iorb,jorb,:))
           call splot("DOS_l"//reg(txtfy(iorb))//"m"//reg(txtfy(jorb))//"_realw.ed",wr,-dimag(gloc(iorb,jorb,:))/pi)
        enddo

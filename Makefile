@@ -2,11 +2,12 @@
 include sfmake.inc
 FC=ifort
 #=========================================================================
+
 #--> HUBBARD MODELS:
 #EXE=ed_hm_bethe
-EXE=ed_ahm_bethe
+#EXE=ed_ahm_bethe
 #EXE=ed_hm_2dsquare
-#EXE=ed_hm_bethe_mixgf
+EXE=ed_hm_bethe_afm
 
 #--> PERIODIC ANDERSON & P-D MODELS
 #EXE=ed_pam_1b
@@ -32,7 +33,7 @@ OBJS= MATRIX_SPARSE.o ED_EIGENSPACE.o ED_BATH_TYPE.o ED_INPUT_VARS.o ED_VARS_GLO
 #=================STANDARD COMPILATION====================================
 all: FLAG=$(STD) -static-intel
 all: ARGS=$(SFLIBS)
-all:compile
+all:compile 
 
 #================OPTIMIZED COMPILATION====================================
 opt: FLAG=$(OPT)
@@ -46,18 +47,25 @@ debug:compile
 
 compile: version $(OBJS)
 	@echo " ..................... compile ........................... "
-	$(FC) $(FLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE)_$(BRANCH)$(FPP) $(ARGS)
+	$(FC) $(FLAG) $(OBJS) $(DIR)/$(EXE).f90 -o $(DIREXE)/$(EXE)_$(BRANCH) $(ARGS)
 	@echo " ...................... done .............................. "
 	@echo ""
 	@echo ""
-	@echo "created" $(DIREXE)/$(EXE)_$(BRANCH)$(FPP)
+	@echo "created" $(DIREXE)/$(EXE)_$(BRANCH)
 
 .f90.o:	
 	$(FC) $(FLAG) -c $< $(SFINCLUDE) 
 
+
+completion:
+	scifor_completion.sh $(DIR)/$(EXE).f90
+	@echo "run: . .bash_completion.d/$(EXE) to add completion for $(EXE) in this shell"
+
 clean: 
 	@echo "Cleaning:"
-	@rm -f *.mod *.o *~ 
+	@rm -f *.mod *.o *~ revision.inc
+
 
 version:
 	@echo $(VER)
+

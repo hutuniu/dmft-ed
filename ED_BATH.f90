@@ -53,6 +53,7 @@ MODULE ED_BATH
   public :: set_bath
   public :: copy_bath
   public :: spin_symmetrize_bath
+  public :: ph_symmetrize_bath
   public :: break_symmetry_bath
   public :: delta_bath_mats
   public :: delta_bath_real
@@ -496,15 +497,35 @@ contains
 
 
 
-
-
-
-
-
-
-
-
-
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : given a bath array enforces the particle-hole symmetry 
+  ! by setting the positive energies in modulo identical to the negative
+  ! ones.
+  !+-------------------------------------------------------------------+
+  subroutine ph_symmetrize_bath(bath_)
+    real(8),dimension(:,:) :: bath_
+    type(effective_bath)   :: dmft_bath_
+    integer                :: i
+    call allocate_bath(dmft_bath_)
+    call set_bath(bath_,dmft_bath_)
+    if(Nbath==1)return
+    if(mod(Nbath,2)==0)then
+       do i=1,Nbath/2
+          dmft_bath_%e(:,:,Nbath+1-i)=-dmft_bath_%e(:,:,i)
+          dmft_bath_%v(:,:,Nbath+1-i)= dmft_bath_%v(:,:,i)
+          if(ed_supercond)dmft_bath_%d(:,:,Nbath+1-i)=dmft_bath_%d(:,:,i)
+       enddo
+    else
+       do i=1,(Nbath-1)/2
+          dmft_bath_%e(:,:,Nbath+1-i)=-dmft_bath_%e(:,:,i)
+          dmft_bath_%v(:,:,Nbath+1-i)= dmft_bath_%v(:,:,i)
+          if(ed_supercond)dmft_bath_%d(:,:,Nbath+1-i)=dmft_bath_%d(:,:,i)
+       enddo
+       dmft_bath_%e(:,:,(Nbath-1)/2+1)=0.d0
+    endif
+    call copy_bath(dmft_bath_,bath_)
+    call deallocate_bath(dmft_bath_)
+  end subroutine ph_symmetrize_bath
 
 
 
@@ -515,8 +536,6 @@ contains
   ! orbital indices ispin and iorb at point x, from determined bath 
   ! components ebath,vbath
   !+-------------------------------------------------------------------+
-
-
   !NORMAL/IRREDUCIBLE BATH:
   !Matsubara:
   function delta_bath_irred_mats(ispin,iorb,x,dmft_bath_) result(fg)
