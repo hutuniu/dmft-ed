@@ -7,7 +7,7 @@ FC=ifort
 #EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
 #EXE=ed_hm_2dsquare
-EXE=ed_hm_bethe_afm
+#EXE=ed_hm_bethe_afm
 
 #--> PERIODIC ANDERSON & P-D MODELS
 #EXE=ed_pam_1b
@@ -19,7 +19,7 @@ EXE=ed_hm_bethe_afm
 
 #--> B-H-Z MODELS
 #EXE=ed_2x2bhz
-#EXE=ed_bhz
+EXE=ed_bhz
 #EXE=ed_bhz_afm
 
 
