@@ -149,10 +149,8 @@ contains
     if(Nspin>2)stop "Nspin > 2 ERROR. ask developer or develop your own on separate branch"
     if(Norb>3)stop "Norb > 3 ERROR. ask developer or develop your own on separate branch" 
     if(nerr < dmft_error) nerr=dmft_error
-    if(ed_method=='full'.AND.bath_type=='hybrid')stop "FULL ED & HYBRID not implemented yet:ask developer..."
     if(ed_supercond)then
        if(Nspin>1)stop "SC+AFM ERROR. ask developer or develop your own on separate branch" 
-       if(ed_method=='full')stop "FULL ED & SUPERC is not implemented yet:ask developer..."
        if(Norb>1)stop "SC Multi-Band not yet implemented. Wait for the developer to understand what to do..."
        if(ed_type=='c')stop "SC with Hermitian H not yet implemented. Wait for the developer to code it..."
     endif

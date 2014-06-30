@@ -35,12 +35,6 @@ MODULE ED_VARS_GLOBAL
   !=========================================================
   type(effective_bath)                        :: dmft_bath
 
-
-  !Eigenvalues,Eigenvectors FULL DIAGONALIZATION
-  !=========================================================
-  type(full_espace),dimension(:),allocatable  :: espace
-
-
   !Variables for DIAGONALIZATION
   !=========================================================
   integer                                     :: numgs

@@ -2,11 +2,6 @@ module EIGEN_SPACE
   implicit none
   private
 
-  type full_espace
-     real(8),dimension(:),pointer   :: e
-     real(8),dimension(:,:),pointer :: M
-  end type full_espace
-
   type sparse_estate
      integer                         :: sector
      real(8)                         :: e
@@ -32,7 +27,6 @@ module EIGEN_SPACE
      module procedure es_add_state_d,es_add_state_c
   end interface es_add_state
 
-  public :: full_espace
   public :: sparse_estate
   public :: sparse_espace
   !

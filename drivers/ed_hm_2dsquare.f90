@@ -4,30 +4,37 @@
 !###################################################################
 program lancED
   USE DMFT_ED
+  USE PARSE_INPUT
+  USE CONSTANTS
+  USE ARRAYS
   USE FUNCTIONS
   USE TOOLS
+  USE IOTOOLS
+  USE ERROR
   USE INTEGRATE
   implicit none
-  integer :: iloop,Nb,Ne,ie
+  integer :: iloop,Nb(2),Ne,ie
   logical :: converged
   real(8),allocatable    :: wm(:),wr(:)
   real(8)                :: wband,ts,de
   !Bath:
-  real(8),allocatable    :: Bath(:)
+  real(8),allocatable    :: Bath(:,:)
   !The local hybridization function:
-  complex(8),allocatable :: Delta(:,:)
+  complex(8),allocatable :: Delta(:,:,:)
   real(8),allocatable :: epsik(:),wt(:)
 
-  call read_input("inputED.in")
+
   call parse_cmd_variable(ts,"TS",default=1.d0)
   call parse_cmd_variable(Ne,"NE",default=2000)
+  call ed_read_input("inputED.in")
 
-  allocate(wm(NL),wr(Nw))
-  wm = pi/beta*real(2*arange(1,NL)-1,8)
-  wr = linspace(wini,wfin,Nw)
+
+  allocate(wm(Lmats),wr(Lreal))
+  wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+  wr = linspace(wini,wfin,Lreal)
 
   !Allocate Weiss Field:
-  allocate(delta(Norb,NL))
+  allocate(delta(Norb,Norb,Lmats))
 
   allocate(wt(Ne),epsik(Ne))
   wband=4.d0*ts
@@ -41,7 +48,7 @@ program lancED
 
   !setup solver
   Nb=get_bath_size()
-  allocate(bath(Nb))
+  allocate(bath(Nb(1),Nb(2)))
   call init_ed_solver(bath)
 
   !DMFT loop
@@ -60,7 +67,7 @@ program lancED
      call chi2_fitgf(delta,bath,ispin=1)
 
      !Check convergence (if required change chemical potential)
-     converged = check_convergence(delta(1,:),eps_error,nsuccess,nloop)
+     converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
      !if(nread/=0.d0)call search_mu(nimp(1),converged)
      if(iloop>nloop)converged=.true.
      call end_loop
@@ -73,22 +80,22 @@ contains
   subroutine get_delta
     integer                   :: i,j,ie
     complex(8)                :: iw,zita,g0and,g0loc,gg
-    complex(8),dimension(NL)  :: self,gloc
-    complex(8),dimension(Nw)  :: selfr,grloc
+    complex(8),dimension(Lmats)  :: self,gloc
+    complex(8),dimension(Lreal)  :: selfr,grloc
 
-    do i=1,NL
+    do i=1,Lmats
        iw = xi*wm(i)
-       zita    = iw + xmu - impSmats(1,1,i)
+       zita    = iw + xmu - impSmats(1,1,1,1,i)
        gloc(i) = zero
        do ie=1,Ne
           gloc(i)=gloc(i)+wt(ie)/(zita-epsik(ie))
        enddo
-       delta(1,i)= iw + xmu - impSmats(1,1,i) - one/gloc(i)
+       delta(1,1,i)= iw + xmu - impSmats(1,1,1,1,i) - one/gloc(i)
     enddo
 
-    do i=1,Nw
+    do i=1,Lreal
        iw=cmplx(wr(i),eps)
-       zita     = iw + xmu - impSreal(1,1,i)
+       zita     = iw + xmu - impSreal(1,1,1,1,i)
        grloc(i) = zero
        do ie=1,Ne
           grloc(i)=grloc(i)+wt(ie)/(zita-epsik(ie))
@@ -97,7 +104,7 @@ contains
     call splot("Gloc_iw.ed",wm,gloc)
     call splot("Gloc_realw.ed",wr,grloc)
     call splot("DOS.ed",wr,-dimag(grloc)/pi)
-    call splot("Delta_iw.ed",wm,delta(1,:))
+    call splot("Delta_iw.ed",wm,delta(1,1,:))
 
   end subroutine get_delta
   !+----------------------------------------+
