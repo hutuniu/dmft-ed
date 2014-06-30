@@ -1,3 +1,4 @@
+
 module DMFT_ED
   USE IOTOOLS, only:free_unit,reg
   USE ED_INPUT_VARS
@@ -40,7 +41,6 @@ contains
        else
           call setup_pointers_sc
        endif
-       if(ed_method=='full')call setup_eigenspace
     endif
     call deallocate_bath(dmft_bath)
     isetup=.false.
@@ -63,17 +63,9 @@ contains
     open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".used")
     call write_bath(dmft_bath,unit)
     close(unit)
-    select case(ed_method)
-    case default
-       call lanc_ed_diag
-       call lanc_ed_getgf
-       if(chiflag)call lanc_ed_getchi
-    case ('full')
-       call reset_eigenspace()
-       call full_ed_diag
-       call full_ed_getgf
-       if(chiflag)call full_ed_getchi
-    end select
+    call lanc_ed_diag
+    call lanc_ed_getgf
+    if(chiflag)call lanc_ed_getchi
     call ed_getobs
     call deallocate_bath(dmft_bath)
     call es_delete_espace(state_list)

@@ -8,6 +8,8 @@ program lancED
   USE IOTOOLS
   USE FUNCTIONS
   USE TOOLS
+  USE INTEGRATE
+  USE TIMER
   USE MATRIX
   USE ERROR
   USE ARRAYS
@@ -62,10 +64,11 @@ program lancED
      BathOld=Bath
      !Check convergence (if required change chemical potential)
      converged = check_convergence(delta(1,1,1,:)+delta(2,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
-     if(nread/=0.d0)call search_chemical_potential(ed_dens(1),converged)
+     if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu,converged)
      call end_loop
   enddo
 
+  call get_sc_optical_conductivity
   call get_sc_internal_energy(Lmats)
 
 contains
@@ -74,7 +77,7 @@ contains
   subroutine get_delta_bethe
     integer                    :: i,j,iorb,ik
     complex(8)                 :: iw,zita,g0loc,cdet,zita1,zita2
-    complex(8),dimension(Lmats)   :: zeta
+    complex(8),dimension(Lreal)   :: zeta
     complex(8),dimension(2,Lmats) :: gloc,calG
     complex(8),dimension(2,Lreal) :: grloc
     real(8)                    :: wm(Lmats),wr(Lreal),tau(0:Lmats)
@@ -83,7 +86,6 @@ contains
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal)
     call bethe_lattice(wt,epsik,Lk,1.d0)
-
     delta=zero
     do i=1,Lmats
        iw = xi*wm(i)
@@ -129,9 +131,79 @@ contains
     call splot("DOS.ed",wr,-dimag(grloc(1,:))/pi)
     call splot("Delta_iw.ed",wm,delta(1,1,1,:),delta(2,1,1,:))
 
-
   end subroutine get_delta_bethe
   !+----------------------------------------+
+
+
+
+
+  subroutine  get_sc_optical_conductivity()  
+    integer                :: i,ik,iv,iw  
+    real(8),allocatable    :: oc(:), Ak(:,:,:),cDOS(:,:),ocw(:)
+    complex(8)            :: zeta(Lreal)
+    integer               :: Nw
+    real(8)               :: wr(Lreal),dw
+    complex(8)            :: cdet,zita1,zita2,fg(2)
+    real(8),dimension(Lk) :: epsik,wt
+    real(8)                :: vel2,dos,Dfermi,A2,B2,ock
+
+
+    call bethe_lattice(wt,epsik,Lk,wband)
+
+    print*,"Get OC with:",Lreal,"freq."
+    Nw=Lreal/2
+
+    allocate(Ak(2,Lk,Lreal))
+    wr = linspace(wini,wfin,Lreal,mesh=dw)
+
+    allocate(cDOS(2,Lreal))
+    cDOS=0.d0
+    zeta(:) = cmplx(wr(:),eps,8) + xmu - impSreal(1,1,1,1,:)
+    do i=1,Lreal
+       zita1 = zeta(i)
+       zita2 = conjg(zeta(Lreal+1-i))
+       do ik=1,Lk
+          cdet = (zita1-epsik(ik))*(zita2-epsik(ik)) + impSAreal(1,1,1,1,i)*impSAreal(1,1,1,1,i)
+          fg(1)=(zita2-epsik(ik))/cdet
+          fg(2)=impSAreal(1,1,1,1,i)/cdet
+          Ak(1,ik,i)=-dimag(fg(1))/pi
+          Ak(2,ik,i)=-dimag(fg(2))/pi
+          cDOS(1,i)=cDOS(1,i)+Ak(1,ik,i)*wt(ik)
+          cDOS(2,i)=cDOS(2,i)+Ak(2,ik,i)*wt(ik)
+       enddo
+    enddo
+    call splot("ocDOS.last",wr,cDOS(1,:),cDOS(2,:))
+    deallocate(cDOS)
+
+
+
+    !Changing the loop order does not affect the calculation.
+    allocate(oc(Nw),ocw(Lreal))
+    oc=0.d0
+    call start_progress
+    do iv=1,Nw
+       ocw   = 0.d0
+       do iw=1,Lreal-iv
+          !Dfermi  = istep(wr(iw)) - istep(wr(iw+iv))
+          Dfermi  = fermi(wr(iw),beta) - fermi(wr(iw+iv),beta)
+          ock=0.d0
+          do ik=1,Lk
+             A2 = Ak(1,ik,iw)*Ak(1,ik,iw+iv)
+             B2 = Ak(2,ik,iw)*Ak(2,ik,iw+iv)
+             vel2= (wband**2-epsik(ik)**2)/3.d0
+             ock = ock + vel2*(A2-B2)*wt(ik)
+          enddo
+          ocw(iw) = Dfermi*ock
+       enddo
+       oc(iv)=trapz(dw,ocw(:Lreal-iv))/wr(Nw+iv)
+       call progress(iv,Nw)
+    enddo
+    call stop_progress
+    call splot("OC_realw.ipt",wr(Nw+1:Lreal),oc(:))
+    call splot("OC_integral.ipt",uloc(1),trapz(dw,oc))
+
+  end subroutine get_sc_optical_conductivity
+
 
 
 
@@ -247,6 +319,20 @@ contains
     return 
   end subroutine get_sc_internal_energy
 
+
+
+
+  elemental function istep(x) result(out)
+    real(8),intent(in) :: x
+    real(8)            :: out
+    if(x < 0.d0) then
+       out = 1.0d0
+    elseif(x==0.d0)then
+       out = 0.50d0
+    else
+       out = 0.0d0
+    endif
+  end function istep
 
 
 

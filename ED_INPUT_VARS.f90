@@ -39,7 +39,6 @@ MODULE ED_INPUT_VARS
   integer                                     :: cg_stop             !fit stop condition:0-3, 0=default
   real(8)                                     :: cg_eps              !fit eps tolerance
   logical                                     :: finiteT             !flag for finite temperature calculation
-  character(len=4)                            :: ed_method           !flag to set ed method solution: lanc=lanczos method, full=full diagonalization
   character(len=1)                            :: ed_type             !flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)
   logical                                     :: ed_supercond        !flag to set ed symmetry type: F=normal (default), T=superc=superconductive
   character(len=7)                            :: bath_type           !flag to set bath type: irreducible (1bath/imp), reducible(1bath)
@@ -115,7 +114,6 @@ contains
     call parse_input_variable(cg_weight,"CG_WEIGHT",INPUTunit,default=0,comment="Conjugate-Gradient weight form: 0=1.0 ,1=1/n , 2=1/w.")
     call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")
     call parse_input_variable(ed_Supercond,"ED_SUPERCOND",INPUTunit,default=.false.,comment="Flag to set ED type: F=normal, T=superconductive")
-    call parse_input_variable(ed_Method,"ED_METHOD",INPUTunit,default='lanc',comment="flag to set ed method solution: lanc=lanczos method, full=full")
     call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: irreducible (1bath/imp), reducible(1bath)")
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")

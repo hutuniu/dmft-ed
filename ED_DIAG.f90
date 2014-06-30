@@ -19,9 +19,6 @@ module ED_DIAG
   private
 
   public :: lanc_ed_diag
-  public :: full_ed_diag
-  public :: setup_eigenspace
-  public :: reset_eigenspace
 
 contains
 
@@ -82,12 +79,14 @@ contains
           call ed_buildH_d(isector)
           call lanczos_arpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,.false.)
        else
-          allocate(eig_values(Dim),eig_basis(Dim,dim))
+          allocate(eig_values(dim),eig_basis(dim,dim))
           eig_values=0.d0 ; eig_basis=0.d0 
-          call ed_buildH_d(isector,eig_basis)
+          call ed_buildH_d(isector)
+          call sp_dump_matrix(spH0,eig_basis)
           call matrix_diagonalize(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=1.d0
        endif
+       if(spH0%status)call sp_delete_matrix(spH0)
        !
        if(finiteT)then
           do i=1,Neigen
@@ -110,7 +109,6 @@ contains
        !
        if(allocated(eig_values))deallocate(eig_values)
        if(allocated(eig_basis))deallocate(eig_basis)
-       if(spH0%status)call sp_delete_matrix(spH0)
        !
     enddo sector
     if(ed_verbose<2)call stop_progress
@@ -269,10 +267,12 @@ contains
        else
           allocate(eig_values(Dim),eig_basis(Dim,dim))
           eig_values=0.d0 ; eig_basis=zero
-          call ed_buildH_c(isector,eig_basis)
+          call ed_buildH_c(isector)
+          call sp_dump_matrix(spH0,eig_basis)
           call matrix_diagonalize(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=one
        endif
+       if(spH0%status)call sp_delete_matrix(spH0)
        !
        if(finiteT)then
           do i=1,Neigen
@@ -291,12 +291,11 @@ contains
              oldzero=min(oldzero,enemin)
              call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector)
           endif
->>>>>>> devel
+          >>>>>>> devel
        endif
        !
        if(allocated(eig_values))deallocate(eig_values)
        if(allocated(eig_basis))deallocate(eig_basis)
-       if(spH0%status)call sp_delete_matrix(spH0)
        !
     enddo sector
     if(ed_verbose<2)call stop_progress
@@ -404,79 +403,6 @@ contains
     endif
   end subroutine lanc_ed_diag_c
 
-
-
-
-  !+-------------------------------------------------------------------+
-  !                    FULL DIAGONALIZATION
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : Setup the Hilbert space, create the Hamiltonian, get the
-  ! GS, build the Green's functions calling all the necessary routines
-  !+-------------------------------------------------------------------+
-  subroutine full_ed_diag
-    integer                  :: i,j,in,is,isector,dim
-    real(8),dimension(Nsect) :: e0 
-    real(8)                  :: egs
-    e0=0.d0
-    write(LOGfile,"(A)")"Get Hamiltonian:"
-    call start_progress(LOGfile)
-    do isector=1,Nsect
-       call progress(isector,Nsect)
-       dim=getdim(isector)
-       !call setup_Hv_sector(isector)
-       call ed_buildH_d(isector,espace(isector)%M(:,:))
-       !call delete_Hv_sector()
-       call matrix_diagonalize(espace(isector)%M,espace(isector)%e,'V','U')
-
-       e0(isector)=minval(espace(isector)%e)
-    enddo
-    call stop_progress
-    !
-    egs=minval(e0)
-    forall(isector=1:Nsect)espace(isector)%e = espace(isector)%e - egs
-    !Get the partition function Z and rescale energies
-    zeta_function=0.d0;zeta_function=0.d0
-    do isector=1,Nsect
-       dim=getdim(isector)
-       do i=1,dim
-          zeta_function=zeta_function+exp(-beta*espace(isector)%e(i))
-       enddo
-    enddo
-    write(LOGfile,"(A)")"DIAG resume:"
-    write(LOGfile,"(A,f20.12)")'egs  =',egs
-    write(LOGfile,"(A,f20.12)")'Z    =',zeta_function    
-    open(3,file='egs'//reg(ed_file_suffix)//".ed",access='append')
-    write(3,*)egs
-    close(3)
-    return
-  end subroutine full_ed_diag
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : 
-  !+------------------------------------------------------------------+
-  subroutine setup_eigenspace
-    integer :: isector,dim,jsector
-    if(allocated(espace)) deallocate(espace)
-    allocate(espace(1:Nsect))
-    do isector=1,Nsect
-       dim=getdim(isector)
-       allocate(espace(isector)%e(dim),espace(isector)%M(dim,dim))
-    enddo
-  end subroutine setup_eigenspace
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : 
-  !+------------------------------------------------------------------+
-  subroutine reset_eigenspace
-    integer :: isector
-    forall(isector=1:Nsect)
-       espace(isector)%e=0.d0
-       espace(isector)%M=0.d0
-    end forall
-  end subroutine reset_eigenspace
 
 
 

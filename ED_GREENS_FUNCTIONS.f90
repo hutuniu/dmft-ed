@@ -44,9 +44,7 @@ MODULE ED_GREENS_FUNCTIONS
   complex(8),allocatable,dimension(:,:)       :: Chiw,Chiiw
 
   public                                      :: lanc_ed_getgf
-  public                                      :: full_ed_getgf
   public                                      :: lanc_ed_getchi
-  public                                      :: full_ed_getchi
 
 contains
 
@@ -62,27 +60,16 @@ contains
   end subroutine lanc_ed_getgf
 
 
-
-  !                    LANCZOS DIAGONALIZATION 
+  !                    GREEN'S FUNCTIONS 
   !+------------------------------------------------------------------+
   !NORMAL PHASE ROUTINES:
-  include 'ed_lanc_gf_normal.f90'
+  include 'ed_greens_functions_normal.f90'
   !SUPERCONDUCTING PHASE ROUTINES:
-  include 'ed_lanc_gf_superc.f90'
+  include 'ed_greens_functions_superc.f90'
 
-
-  !                    LANC SUSCPTIBILITY
+  !                    SPIN SUSCPTIBILITY
   !+------------------------------------------------------------------+
-  include 'ed_lanc_chi.f90'
-
-  !                    FULL DIAGONALIZATION
-  !+------------------------------------------------------------------+
-  include 'ed_full_gf.f90'
-
-
-  !                    FULL SUSCEPTIBILITY
-  !+------------------------------------------------------------------+
-  include 'ed_full_chi.f90'
+  include 'ed_greens_functions_spinchi.f90'
 
 
 
