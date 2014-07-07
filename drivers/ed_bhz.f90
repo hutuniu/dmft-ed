@@ -108,7 +108,6 @@ program ed_bhz
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      Bath_=Bath
      converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
-
      call end_loop
   enddo
 

@@ -243,7 +243,7 @@ contains
     unit = free_unit()
     open(unit,file="columns_info.ed")
     if(.not.ed_supercond)then
-       write(unit,"(A1,90(A10,5X))")"#",&
+       write(unit,"(A1,90(A10,6X))")"#",&
             (reg(txtfy(iorb))//"nimp_"//reg(txtfy(iorb)),iorb=1,Norb),&
             (reg(txtfy(Norb+iorb))//"docc_"//reg(txtfy(iorb)),iorb=1,Norb),&
             (reg(txtfy(2*Norb+iorb))//"nup_"//reg(txtfy(iorb)),iorb=1,Norb),&
@@ -252,11 +252,11 @@ contains
             reg(txtfy(5*Norb+1))//"s2",&
             reg(txtfy(5*Norb+2))//"egs",&
             ((reg(txtfy(5*Norb+2+(iorb-1)*Norb+jorb))//"sz2_"//reg(txtfy(iorb))//reg(txtfy(jorb)),jorb=1,Norb),iorb=1,Norb),&
-            ((reg(txtfy(7*Norb+2+(iorb-1)*Norb+jorb))//"n2_"//reg(txtfy(iorb))//reg(txtfy(jorb)),jorb=1,Norb),iorb=1,Norb),&
-            ((reg(txtfy(9*Norb+2+(ispin-1)*Nspin+iorb))//"z_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin),&
-            ((reg(txtfy(10*Norb+2+(ispin-1)*Nspin+iorb))//"sig_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
+            ((reg(txtfy((5+Norb)*Norb+2+(iorb-1)*Norb+jorb))//"n2_"//reg(txtfy(iorb))//reg(txtfy(jorb)),jorb=1,Norb),iorb=1,Norb),&
+            ((reg(txtfy((5+2*Norb)*Norb+2+(ispin-1)*Nspin+iorb))//"z_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin),&
+            ((reg(txtfy((6+2*Norb)*Norb+2+Nspin+(ispin-1)*Nspin+iorb))//"sig_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
     else
-       write(unit,"(A1,90(A10,5X))")"#",&
+       write(unit,"(A1,90(A10,6X))")"#",&
             (reg(txtfy(iorb))//"nimp_"//reg(txtfy(iorb)),iorb=1,Norb),&
             (reg(txtfy(Norb+iorb))//"phi_"//reg(txtfy(iorb)),iorb=1,Norb),&
             (reg(txtfy(2*Norb+iorb))//"docc_"//reg(txtfy(iorb)),iorb=1,Norb),&
@@ -266,15 +266,15 @@ contains
             reg(txtfy(6*Norb+1))//"s2",&
             reg(txtfy(6*Norb+2))//"egs",&
             ((reg(txtfy(6*Norb+2+(iorb-1)*Norb+jorb))//"sz2_"//reg(txtfy(iorb))//reg(txtfy(jorb)),jorb=1,Norb),iorb=1,Norb),&
-            ((reg(txtfy(8*Norb+2+(iorb-1)*Norb+jorb))//"n2_"//reg(txtfy(iorb))//reg(txtfy(jorb)),jorb=1,Norb),iorb=1,Norb),&
-            ((reg(txtfy(10*Norb+2+(ispin-1)*Nspin+iorb))//"z_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin),&
-            ((reg(txtfy(11*Norb+2+(ispin-1)*Nspin+iorb))//"sig_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
+            ((reg(txtfy((6+Norb)*Norb+2+(iorb-1)*Norb+jorb))//"n2_"//reg(txtfy(iorb))//reg(txtfy(jorb)),jorb=1,Norb),iorb=1,Norb),&
+            ((reg(txtfy((6+2*Norb)*Norb+2+(ispin-1)*Nspin+iorb))//"z_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin),&
+            ((reg(txtfy((7+2*Norb)*Norb+2+Nspin+(ispin-1)*Nspin+iorb))//"sig_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
     endif
     close(unit)
     !
     unit = free_unit()
     open(unit,file="control_info.ed")
-    write(unit,"(A1,90(A10,5X))")"#","1xmu","2beta",&
+    write(unit,"(A1,90(A10,6X))")"#","1xmu","2beta",&
          (reg(txtfy(2+iorb))//"U_"//reg(txtfy(iorb)),iorb=1,Norb),&
          reg(txtfy(2+Norb+1))//"U`",reg(txtfy(2+Norb+2))//"Jh"
     close(unit)
@@ -299,7 +299,7 @@ contains
        unit = free_unit()
        open(unit,file="observables_all"//reg(ed_file_suffix)//".ed",position='append')
        if(.not.ed_supercond)then
-          write(unit,"(90F15.9)")&
+          write(unit,"(90(F15.9,1X))")&
                (nimp(iorb),iorb=1,Norb),&
                (dimp(iorb),iorb=1,Norb),&
                (nupimp(iorb),iorb=1,Norb),&
@@ -311,7 +311,7 @@ contains
                ((zimp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin),&
                ((simp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin)
        else
-          write(unit,"(90F15.9)")&
+          write(unit,"(90(F15.9,1X))")&
                (nimp(iorb),iorb=1,Norb),&
                (phiscimp(iorb),iorb=1,Norb),&
                (dimp(iorb),iorb=1,Norb),&
@@ -330,7 +330,7 @@ contains
     unit = free_unit()
     open(unit,file="observables_last"//reg(ed_file_suffix)//".ed")
     if(.not.ed_supercond)then
-       write(unit,"(90F15.9)")&
+       write(unit,"(90(F15.9,1X))")&
             (nimp(iorb),iorb=1,Norb),&
             (dimp(iorb),iorb=1,Norb),&
             (nupimp(iorb),iorb=1,Norb),&
@@ -342,7 +342,7 @@ contains
             ((zimp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin),&
             ((simp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin)
     else
-       write(unit,"(90F15.9)")&
+       write(unit,"(90(F15.9,1X))")&
             (nimp(iorb),iorb=1,Norb),&
             (phiscimp(iorb),iorb=1,Norb),&
             (dimp(iorb),iorb=1,Norb),&
