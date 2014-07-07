@@ -1,11 +1,11 @@
-include "MIXING.f90"
+!include "MIXING.f90"
 !###################################################################
 !PURPOSE  : LANCZOS ED solution of DMFT problem for Hubbard model.
 !AUTHORS  : A. Amaricci
 !###################################################################
 program lancED
   USE DMFT_ED
-  USE COMMON_VARS
+  USE CONSTANTS
   USE FUNCTIONS
   USE IOTOOLS
   USE TOOLS
@@ -14,7 +14,7 @@ program lancED
   USE ARRAYS
   USE FFTGF
   USE PARSE_INPUT
-  USE MIXING
+  !USE MIXING
   implicit none
   integer                :: iloop,Nb(2)
   logical                :: converged
@@ -58,13 +58,13 @@ program lancED
      delta_old=delta
      call get_delta_bethe()
 
-     if(iloop>1)call broyden_mix(delta(1,1,:),delta_old(1,1,:),alpha,M,iloop-1)
+     !if(iloop>1)call broyden_mix(delta(1,1,:),delta_old(1,1,:),alpha,M,iloop-1)
      !Perform the SELF-CONSISTENCY by fitting the new bath
      call chi2_fitgf(delta,bath,ispin=1)
 
      !Check convergence (if required change chemical potential)
      converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
-     if(nread/=0.d0)call search_chemical_potential(ed_dens(1),converged)
+     if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu,converged)
      call end_loop
   enddo
 

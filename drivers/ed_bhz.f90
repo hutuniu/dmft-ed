@@ -65,7 +65,13 @@ program ed_bhz
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
 
-  if(getdelta.OR.getak)then
+  if(getak)then
+     call get_Akw
+     stop
+  endif
+
+
+  if(getdelta)then
      call get_delta
      stop
   endif
@@ -102,7 +108,6 @@ program ed_bhz
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      Bath_=Bath
      converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
-
      call end_loop
   enddo
 
@@ -110,7 +115,6 @@ program ed_bhz
 
 
 contains
-
 
 
 
@@ -134,79 +138,6 @@ contains
     wr = linspace(wini,wfin,Lreal)
     delta = zero
     !
-    if(getak)then
-       print*,"Get A(k,w):"
-       allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
-       call read_sigma(Sreal)
-       allocate(gk(Lk,Nspin,Norb,Lreal))
-       allocate(gfoo(Nspin,Nspin,Norb,Norb))
-       call start_progress(LOGfile)
-       do i=1,Lreal
-          iw=dcmplx(wr(i),eps)
-          zeta=zero
-          forall(iso=1:Nso)zeta(iso,iso)=iw+xmu
-          zeta(:,:) = zeta(:,:)-so2j(Sreal(:,:,:,:,i))
-          do ik=1,Lk
-             fgk = inverse_gk(zeta,Hk(:,:,ik))
-             gfoo(:,:,:,:) = j2so(fgk(:,:))
-             forall(ispin=1:Nspin,iorb=1:Norb)gk(ik,ispin,iorb,i) = gfoo(ispin,ispin,iorb,iorb)
-          enddo
-          call progress(i,Lreal)
-       enddo
-       call stop_progress()
-       !PRINT
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             unit=free_unit()
-             suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-             print*,"printing: Ak"//reg(suffix)
-             call splot3d("Ak"//reg(suffix),(/(dble(ik),ik=1,Lk)/),wr,-dimag(gk(:,ispin,iorb,:))/pi,ymin=-akrange,ymax=akrange,nosurface=.true.)
-          enddo
-       enddo
-       deallocate(gk,gfoo)
-       return
-    endif
-
-
-    if(getdelta)then
-       print*,"Get Delta(w):"
-       allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
-       call read_sigma(Sreal)
-       if(allocated(delta))deallocate(delta)
-       allocate(delta(Nspin,Nspin,Norb,Norb,Lreal))
-       call start_progress(LOGfile)
-       do i=1,Lreal
-          iw=dcmplx(wr(i),eps)
-          forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
-          zeta(:,:) = zeta(:,:) - so2j(Sreal(:,:,:,:,i))
-          fg=zero
-          do ik=1,Lk         
-             fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
-          enddo
-          call matrix_inverse(fg)
-          if(cg_scheme=='weiss')then
-             gdelta = fg + so2j(Sreal(:,:,:,:,i))
-             call matrix_inverse(gdelta)
-          else
-             gdelta = zeta(:,:) - bhzHloc - fg(:,:)
-          endif
-          delta(:,:,:,:,i) = j2so(gdelta(:,:))
-          call progress(i,Lreal)
-       enddo
-       call stop_progress()
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-             call splot("Delta"//reg(suffix),wr,-dimag(delta(ispin,ispin,iorb,iorb,:))/pi,dreal(delta(ispin,ispin,iorb,iorb,:)))
-          enddo
-       enddo
-       return
-    endif
-
-
-
-
-
     !MATSUBARA AXIS
     print*,"Get Gloc_iw:"
     allocate(gloc(Nspin,Nspin,Norb,Norb,Lmats))
@@ -215,18 +146,34 @@ contains
        forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
        zeta(:,:) = zeta(:,:) - so2j(impSmats(:,:,:,:,i))
        fg=zero
-       do ik=1,Lk
-          fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
-       enddo
-       gloc(:,:,:,:,i) = j2so(fg)
-       !
-       !Get Delta=\Delta or G_0
-       call matrix_inverse(fg)
-       if(cg_scheme=='weiss')then
-          gdelta = fg + so2j(impSmats(:,:,:,:,i))
-          call matrix_inverse(gdelta)
+       if(lambda==0.d0)then
+          do ik=1,Lk
+             forall(iorb=1:Nso)&
+                  fg(iorb,iorb) = fg(iorb,iorb) + dos_wt(ik)/(zeta(iorb,iorb)-Hk(iorb,iorb,ik))
+          enddo
+          gloc(:,:,:,:,i) = j2so(fg)
+          !Get Delta=\Delta or G_0
+          gdelta=zero
+          forall(iorb=1:Nso)fg(iorb,iorb)=one/fg(iorb,iorb)
+          if(cg_scheme=='weiss')then
+             gdelta = fg + so2j(impSmats(:,:,:,:,i))
+             forall(iorb=1:Nso)gdelta(iorb,iorb)=one/gdelta(iorb,iorb)
+          else
+             forall(iorb=1:Nso)gdelta(iorb,iorb) = zeta(iorb,iorb) - bhzHloc(iorb,iorb) - fg(iorb,iorb)
+          endif
        else
-          gdelta = zeta(:,:) - bhzHloc - fg(:,:)
+          do ik=1,Lk
+             fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
+          enddo
+          gloc(:,:,:,:,i) = j2so(fg)
+          !Get Delta=\Delta or G_0
+          call matrix_inverse(fg)
+          if(cg_scheme=='weiss')then
+             gdelta = fg + so2j(impSmats(:,:,:,:,i))
+             call matrix_inverse(gdelta)
+          else
+             gdelta = zeta(:,:) - bhzHloc - fg(:,:)
+          endif
        endif
        !
        delta(:,:,:,:,i) = j2so(gdelta(:,:))
@@ -240,10 +187,7 @@ contains
        enddo
     enddo
     deallocate(gloc)
-
-
-
-
+    !
     !REAL AXIS
     allocate(gloc(Nspin,Nspin,Norb,Norb,Lreal))
     print*,"Get Gloc_realw:"
@@ -264,8 +208,6 @@ contains
        enddo
     enddo
     deallocate(gloc)
-
-
   end subroutine get_delta
 
 
@@ -400,6 +342,112 @@ contains
 
 
 
+  !---------------------------------------------------------------------
+  !PURPOSE: GET A(k,w)
+  !---------------------------------------------------------------------
+  subroutine get_Akw
+    integer                                     :: i,j,ik,iorb,jorb,ispin,jspin,iso,unit
+    complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta,fgk
+    complex(8),dimension(:,:,:,:,:),allocatable :: gloc,Sreal,Smats
+    complex(8),dimension(:,:,:,:),allocatable   :: gk,gfoo,ReSmat
+    complex(8),dimension(:,:,:),allocatable     :: Hktilde
+    complex(8)                                  :: iw
+    real(8)                                     :: wm(Lmats),wr(Lreal)
+    real(8),dimension(:,:),allocatable          :: Ktrim,Ev
+    character(len=20)                           :: suffix
+    !
+    !
+    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr = linspace(wini,wfin,Lreal)
+    !
+    print*,"Get A(k,w):"
+    allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
+    call read_sigma(Sreal)
+    allocate(gk(Lk,Nspin,Norb,Lreal))
+    allocate(gfoo(Nspin,Nspin,Norb,Norb))
+    call start_progress(LOGfile)
+    do i=1,Lreal
+       iw=dcmplx(wr(i),eps)
+       zeta=zero
+       forall(iso=1:Nso)zeta(iso,iso)=iw+xmu
+       zeta(:,:) = zeta(:,:)-so2j(Sreal(:,:,:,:,i))
+       do ik=1,Lk
+          fgk = inverse_gk(zeta,Hk(:,:,ik))
+          gfoo(:,:,:,:) = j2so(fgk(:,:))
+          forall(ispin=1:Nspin,iorb=1:Norb)gk(ik,ispin,iorb,i) = gfoo(ispin,ispin,iorb,iorb)
+       enddo
+       call progress(i,Lreal)
+    enddo
+    call stop_progress()
+    !PRINT
+    do ispin=1,Nspin
+       do iorb=1,Norb
+          unit=free_unit()
+          suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+          print*,"printing: Ak"//reg(suffix)
+          call splot3d("Ak"//reg(suffix),(/(dble(ik),ik=1,Lk)/),wr,-dimag(gk(:,ispin,iorb,:))/pi,ymin=-akrange,ymax=akrange,nosurface=.true.)
+       enddo
+    enddo
+    deallocate(gk,gfoo)
+    return
+  end subroutine get_Akw
+
+
+
+  !---------------------------------------------------------------------
+  !PURPOSE: GET DELTA FUNCTION ON REAL AXIS
+  !---------------------------------------------------------------------
+  subroutine get_deltaw
+    integer                                     :: i,j,ik,iorb,jorb,ispin,jspin,iso,unit
+    complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta,fgk
+    complex(8),dimension(:,:,:,:,:),allocatable :: gloc,Sreal,Smats
+    complex(8),dimension(:,:,:,:),allocatable   :: gk,gfoo,ReSmat
+    complex(8),dimension(:,:,:),allocatable     :: Hktilde
+    complex(8)                                  :: iw
+    real(8)                                     :: wm(Lmats),wr(Lreal)
+    real(8),dimension(:,:),allocatable          :: Ktrim,Ev
+    character(len=20)                           :: suffix
+    !
+    !
+    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr = linspace(wini,wfin,Lreal)
+    delta = zero
+    !
+    print*,"Get Delta(w):"
+    allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
+    call read_sigma(Sreal)
+    if(allocated(delta))deallocate(delta)
+    allocate(delta(Nspin,Nspin,Norb,Norb,Lreal))
+    call start_progress(LOGfile)
+    do i=1,Lreal
+       iw=dcmplx(wr(i),eps)
+       forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
+       zeta(:,:) = zeta(:,:) - so2j(Sreal(:,:,:,:,i))
+       fg=zero
+       do ik=1,Lk         
+          fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
+       enddo
+       call matrix_inverse(fg)
+       if(cg_scheme=='weiss')then
+          gdelta = fg + so2j(Sreal(:,:,:,:,i))
+          call matrix_inverse(gdelta)
+       else
+          gdelta = zeta(:,:) - bhzHloc - fg(:,:)
+       endif
+       delta(:,:,:,:,i) = j2so(gdelta(:,:))
+       call progress(i,Lreal)
+    enddo
+    call stop_progress()
+    do ispin=1,Nspin
+       do iorb=1,Norb
+          suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+          call splot("Delta"//reg(suffix),wr,-dimag(delta(ispin,ispin,iorb,iorb,:))/pi,dreal(delta(ispin,ispin,iorb,iorb,:)))
+       enddo
+    enddo
+    return
+  end subroutine get_deltaw
+
+
 
 
 
@@ -435,13 +483,18 @@ contains
     complex(8)                  :: zita(2)
     complex(8),dimension(4,4)   :: zeta,hk
     complex(8),dimension(4,4)   :: gk
-    gk=zero
-    zita(1)=zeta(1,1);zita(2)=zeta(2,2)
-    gk(1:2,1:2) = inverse_gk2x2(zita,hk(1:2,1:2))
-    zita(1)=zeta(3,3);zita(2)=zeta(4,4)
-    gk(3:4,3:4) = inverse_gk2x2(zita,hk(3:4,3:4))
-    ! gk=zeta-Hk                  !
-    ! call matrix_inverse(gk)
+    integer                     :: i
+
+    select case(lambda==0.d0)
+    case default
+       zita(1)=zeta(1,1);zita(2)=zeta(2,2)
+       gk(1:2,1:2) = inverse_gk2x2(zita,hk(1:2,1:2))
+       zita(1)=zeta(3,3);zita(2)=zeta(4,4)
+       gk(3:4,3:4) = inverse_gk2x2(zita,hk(3:4,3:4))
+    case (.true.)
+       gk=zero
+       forall(i=1:4)gk(i,i)=one/(zeta(i,i)-hk(i,i))
+    end select
   end function inverse_gk
   !
   function inverse_gk2x2(zeta,hk) result(gk)
@@ -457,7 +510,7 @@ contains
     gk(1,1) = one/(delta - abs(vmix)**2/ppi)
     gk(2,2) = one/(ppi - abs(vmix)**2/delta)
     gk(1,2) = -vmix/(ppi*delta - abs(vmix)**2)
-    gk(2,1) = conjg(gk(1,2))
+    gk(2,1) = -conjg(vmix)/(ppi*delta - abs(vmix)**2)
   end function inverse_gk2x2
 
 

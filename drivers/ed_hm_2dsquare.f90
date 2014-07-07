@@ -23,11 +23,9 @@ program lancED
   complex(8),allocatable :: Delta(:,:,:)
   real(8),allocatable :: epsik(:),wt(:)
 
-
-  call parse_cmd_variable(ts,"TS",default=1.d0)
-  call parse_cmd_variable(Ne,"NE",default=2000)
+  call parse_input_variable(ts,"TS","inputED.in",default=1.d0)
+  call parse_input_variable(Ne,"NE","inputED.in",default=2000)
   call ed_read_input("inputED.in")
-
 
   allocate(wm(Lmats),wr(Lreal))
   wm = pi/beta*real(2*arange(1,Lmats)-1,8)
@@ -43,7 +41,7 @@ program lancED
      wt(ie)=dens_2dsquare(epsik(ie),ts)
   enddo
   wt=wt/trapz(de,wt)
-  call splot("DOS2d.qmc",epsik,wt)
+  call splot("DOS2d.ed",epsik,wt)
   wt = wt*de
 
   !setup solver
@@ -69,7 +67,6 @@ program lancED
      !Check convergence (if required change chemical potential)
      converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
      !if(nread/=0.d0)call search_mu(nimp(1),converged)
-     if(iloop>nloop)converged=.true.
      call end_loop
   enddo
 
