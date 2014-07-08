@@ -181,7 +181,7 @@ contains
     dmft_bath_%e(:,:,Nbath)= hwband_ 
     Nh=Nbath/2
     if(mod(Nbath,2)==0)then
-       de=hwband_/dble(Nh-1)
+       de=hwband_/max(dble(Nh-1),1.d0)
        dmft_bath_%e(:,:,Nh)  = -1.d-4
        dmft_bath_%e(:,:,Nh+1)=  1.d-4
        do i=2,Nh-1
@@ -207,7 +207,7 @@ contains
     !
     inquire(file=trim(Hfile)//trim(ed_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
-       write(LOGfile,"(A)")'Reading bath from file'//trim(Hfile)//trim(ed_file_suffix)//".restart"
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")'Reading bath from file'//trim(Hfile)//trim(ed_file_suffix)//".restart"
        unit = free_unit()
        flen = file_length(trim(Hfile)//trim(ed_file_suffix)//".restart")
        open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".restart")
@@ -272,6 +272,7 @@ contains
     type(effective_bath) :: dmft_bath_
     integer              :: i,unit,ispin,iorb
     if(.not.dmft_bath_%status)stop "WRITE_BATH: bath not allocated"
+    if(ED_MPI_ID==0)then
     select case(bath_type)
     case default
        if(.not.ed_supercond)then
@@ -309,6 +310,7 @@ contains
           enddo
        endif
     end select
+    endif
   end subroutine write_bath
 
 
@@ -483,7 +485,7 @@ contains
     real(8),dimension(:,:) :: bath_
     type(effective_bath)   :: dmft_bath_
     if(Nspin==1)then
-       write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
        return
     endif
     call allocate_bath(dmft_bath_)

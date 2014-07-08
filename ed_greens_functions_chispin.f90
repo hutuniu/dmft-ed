@@ -9,7 +9,7 @@ subroutine lanc_ed_getchi()
   Chiw=zero
   Chiiw=zero
   do iorb=1,Norb
-     write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))
+     if(ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))
      select case(ed_type)
      case default
         call lanc_ed_buildchi_d(iorb)
@@ -52,9 +52,9 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
   numstates=numgs
   if(finiteT)numstates=state_list%size
   !
-  call start_progress
+  if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     call progress(izero,numstates)
+     if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -75,15 +75,13 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isect0)
-     call lanczos_plain_set_htimesv_d(lanc_spHtimesV_dd)
-     call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax)
-     call lanczos_plain_delete_htimesv
+     call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
      call add_to_lanczos_chi(norm0,state_e,nitermax,alfa_,beta_,iorb)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
   enddo
-  call stop_progress
+  if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildchi_d
 
@@ -112,9 +110,9 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
   numstates=numgs
   if(finiteT)numstates=state_list%size
   !
-  call start_progress
+  if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     call progress(izero,numstates)
+     if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_cvec => es_return_cvector(state_list,izero)
@@ -133,16 +131,14 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call lanczos_plain_set_htimesv_c(lanc_spHtimesV_cc)
      call ed_buildH_c(isect0)
-     call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax)
-     call lanczos_plain_delete_htimesv
+     call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_cc)
      call add_to_lanczos_chi(norm0,state_e,nitermax,alfa_,beta_,iorb)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  call stop_progress
+  if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildchi_c
 

@@ -1,5 +1,6 @@
 
 module DMFT_ED
+  USE MPI_VARS
   USE IOTOOLS, only:free_unit,reg
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
@@ -27,7 +28,7 @@ contains
     logical,save                         :: isetup=.true.
     hwband_=2.d0;if(present(hwband))hwband_=hwband
     Hunit_='inputHLOC.in';if(present(Hunit))Hunit_=Hunit
-    if(ed_verbose<2)write(LOGfile,"(A)")"INIT SOLVER FOR "//reg(ed_file_suffix)
+    if(ed_verbose<2.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"INIT SOLVER FOR "//reg(ed_file_suffix)
     if(isetup)call init_ed_structure(Hunit_)
     bath_ = 0.d0
     check = check_bath_dimension(bath_)
@@ -58,11 +59,13 @@ contains
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"
     call allocate_bath(dmft_bath)
     call set_bath(bath_,dmft_bath)
-    if(ed_verbose<2)call write_bath(dmft_bath,LOGfile)
+    if(ed_verbose<2.AND.ED_MPI_ID==0)call write_bath(dmft_bath,LOGfile)
+    if(ED_MPI_ID==0)then
     unit=free_unit()
     open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".used")
     call write_bath(dmft_bath,unit)
     close(unit)
+    endif
     call lanc_ed_diag
     call lanc_ed_getgf
     if(chiflag)call lanc_ed_getchi

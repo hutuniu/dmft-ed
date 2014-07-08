@@ -18,6 +18,7 @@ MODULE ED_GREENS_FUNCTIONS
   USE ED_BATH
   USE ED_AUX_FUNX
   USE ED_HAMILTONIAN
+  USE ED_MATVEC
   !
   implicit none
   private 
@@ -69,7 +70,7 @@ contains
 
   !                    SPIN SUSCPTIBILITY
   !+------------------------------------------------------------------+
-  include 'ed_greens_functions_spinchi.f90'
+  include 'ed_greens_functions_chispin.f90'
 
 
 
@@ -123,6 +124,7 @@ contains
           enddo
        enddo
        !
+       if(ED_MPI_ID==0)then	
        do iorb=1,Norb
           suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))
           call open_units(reg(suffix))
@@ -154,6 +156,7 @@ contains
           endif
           call close_units
        enddo
+       endif
 
     case ('hybrid')             !Diagonal in spin only. Full Orbital structure
        !                        !intra-orbital hopping allow for mixed _ab GF
@@ -201,7 +204,7 @@ contains
        enddo
        !
        !Print the impurity functions:
-       if(ed_verbose)then
+       if(ED_MPI_ID==0)then
           do iorb=1,Norb
              do jorb=1,Norb
                 suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
@@ -236,7 +239,6 @@ contains
              enddo
           enddo
        endif
-       write(LOGfile,*)""
     end select
 
   contains
@@ -244,10 +246,10 @@ contains
     subroutine open_units(string)
       character(len=*) :: string
       unit=free_units(size(unit))
-      !if(ed_verbose<3)then
+      if(ed_verbose<4)then
       open(unit(1),file="impSigma"//string//"_iw"//reg(ed_file_suffix)//".ed")
       open(unit(2),file="impSigma"//string//"_realw"//reg(ed_file_suffix)//".ed")
-      !endif
+      endif
       if(ed_verbose<2)then
          open(unit(3),file="impG"//string//"_iw"//reg(ed_file_suffix)//".ed")
          open(unit(4),file="impG"//string//"_realw"//reg(ed_file_suffix)//".ed")
@@ -349,6 +351,7 @@ contains
     deallocate(fg0,fg,sigma,det)
 
     !
+    if(ED_MPI_ID==0)then
     do iorb=1,Norb
        suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))
        call open_units(reg(suffix))
@@ -408,6 +411,7 @@ contains
        endif
        call close_units
     enddo
+    endif
 
   contains
 
@@ -472,7 +476,7 @@ contains
   subroutine print_imp_chi
     integer                               :: i,j,iorb
     integer                               :: unit(3)
-    if(ed_verbose<3)then
+    if(ed_verbose<3.AND.ED_MPI_ID==0)then
        do iorb=1,Norb
           unit(1)=free_unit()
           open(unit(1),file="Chi_orb"//reg(txtfy(iorb))//"_tau"//reg(ed_file_suffix)//".ed")

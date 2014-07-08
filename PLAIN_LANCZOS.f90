@@ -1,13 +1,13 @@
 MODULE PLAIN_LANCZOS_HTIMESV_INTERFACE
   implicit none
   abstract interface 
-     subroutine lanc_htimesv_d(nloc,n,vin,vout)
+     subroutine lanc_htimesv_d(n,nloc,vin,vout)
        integer :: n,nloc
        real(8) :: vin(n)
        real(8) :: vout(n)
      end subroutine lanc_htimesv_d
      !
-     subroutine lanc_htimesv_c(nloc,n,vin,vout)
+     subroutine lanc_htimesv_c(n,nloc,vin,vout)
        integer    :: n,nloc
        complex(8) :: vin(n)
        complex(8) :: vout(n)
@@ -18,21 +18,18 @@ END MODULE PLAIN_LANCZOS_HTIMESV_INTERFACE
 
 MODULE PLAIN_LANCZOS
   USE CONSTANTS, only:zero
-  USE IOFILE, only: reg
+  USE IOFILE,    only: reg
   USE PLAIN_LANCZOS_HTIMESV_INTERFACE
   USE ED_VARS_GLOBAL
-  USE ED_INPUT_VARS, only:ed_file_suffix
+  USE ED_INPUT_VARS, only:ed_file_suffix,ED_MPI_SIZE,ED_MPI_ID,ED_MPI_ERR
   implicit none
   private
   procedure(lanc_htimesv_d),pointer     :: dp_hprod
   procedure(lanc_htimesv_c),pointer     :: cp_hprod
   logical                               :: verb=.false.
-  real(8)                               :: threshold_=1.d-12
+  real(8)                               :: threshold_=1.d-15
   real(8)                               :: ncheck_=10
 
-  public :: lanczos_plain_set_htimesv_d
-  public :: lanczos_plain_set_htimesv_c
-  public :: lanczos_plain_delete_htimesv
   public :: lanczos_plain_iteration_d
   public :: lanczos_plain_iteration_c
   public :: lanczos_plain_tridiag_d
@@ -43,31 +40,6 @@ MODULE PLAIN_LANCZOS
   public :: tql2
 
 contains
-
-
-  !---------------------------------------------------------------------
-  !Purpose: set the H*v function operator (use abstract interface)
-  !---------------------------------------------------------------------
-  subroutine lanczos_plain_set_htimesv_d(Hprod)
-    procedure(lanc_htimesv_d)  :: Hprod
-    if(associated(dp_hprod))nullify(dp_hprod)
-    dp_hprod=>Hprod
-  end subroutine lanczos_plain_set_htimesv_d
-  !
-  subroutine lanczos_plain_set_htimesv_c(Hprod)
-    procedure(lanc_htimesv_c)  :: Hprod
-    if(associated(cp_hprod))nullify(cp_hprod)
-    cp_hprod=>Hprod
-  end subroutine lanczos_plain_set_htimesv_c
-
-
-  !---------------------------------------------------------------------
-  !Purpose: delete the H*v function operator (use abstract interface)
-  !---------------------------------------------------------------------
-  subroutine lanczos_plain_delete_htimesv()
-    if(associated(dp_hprod))nullify(dp_hprod)
-    if(associated(cp_hprod))nullify(cp_hprod)
-  end subroutine lanczos_plain_delete_htimesv
 
 
 
@@ -83,12 +55,12 @@ contains
   subroutine lanczos_plain_iteration_d(iter,vin,vout,a,b)
     real(8),dimension(:),intent(inout)         :: vin
     real(8),dimension(size(vin)),intent(inout) :: vout
-    real(8),dimension(size(vin))               :: dummy,tmp
+    real(8),dimension(size(vin))               :: tmp!,dummy
     real(8),intent(inout)                      :: a,b
-    integer                                    :: i,iter,ns_,nloc
+    integer                                    :: i,iter,ndim,nloc
     real(8)                                    :: norm
     integer                                    :: mpiQ,mpiR
-    ns_=size(vin)
+    ndim=size(vin)
     if(iter==1)then
        norm=sqrt(dot_product(vin,vin))
        if(norm==0.d0)stop "lanczos_plain_iteration: norm =0!!"
@@ -96,24 +68,30 @@ contains
        b=0.d0
     end if
     nloc=1
-    call dp_Hprod(nloc,ns_,vin,tmp)
-    tmp=tmp-b*vout
-    a = dot_product(vin,tmp)
-    dummy=tmp-a*vin
-    b = sqrt(dot_product(dummy,dummy))
-    vout = vin
-    vin = dummy/b
+#ifdef _MPI
+    mpiQ = ndim/ED_MPI_SIZE
+    mpiR = 0
+    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(ndim,ED_MPI_SIZE)
+    nloc=mpiQ+mpiR
+#endif
+    call dp_Hprod(nloc,ndim,vin,tmp)
+    tmp = tmp-b*vout
+    a   = dot_product(vin,tmp)
+    tmp = tmp-a*vin                  !tmp<==dummy
+    b   = sqrt(dot_product(tmp,tmp)) !tmp<==dummy
+    vout= vin
+    vin = tmp/b
   end subroutine lanczos_plain_iteration_d
   !
   subroutine lanczos_plain_iteration_c(iter,vin,vout,a,b)
     complex(8),dimension(:),intent(inout)         :: vin
     complex(8),dimension(size(vin)),intent(inout) :: vout
-    complex(8),dimension(size(vin))               :: dummy,tmp
+    complex(8),dimension(size(vin))               :: tmp!,dummy
     real(8),intent(inout)                         :: a,b
-    integer                                       :: i,iter,ns_,nloc
+    integer                                       :: i,iter,ndim,nloc
     real(8)                                       :: norm
     integer                                       :: mpiQ,mpiR
-    ns_=size(vin)
+    ndim=size(vin)
     if(iter==1)then
        norm=sqrt(dot_product(vin,vin))
        if(norm==0.d0)stop "lanczos_plain_iteration: norm =0!!"
@@ -121,13 +99,19 @@ contains
        b=0.d0
     end if
     nloc = 1 
-    call cp_Hprod(nloc,ns_,vin,tmp)
-    tmp=tmp-b*vout
-    a = dot_product(vin,tmp)
-    dummy=tmp-a*vin
-    b = sqrt(dot_product(dummy,dummy))
-    vout = vin
-    vin = dummy/b
+#ifdef _MPI
+    mpiQ = ndim/ED_MPI_SIZE
+    mpiR = 0
+    if(ED_MPI_ID == ED_MPI_SIZE-1)mpiR=mod(ndim,ED_MPI_SIZE)
+    nloc=mpiQ+mpiR
+#endif
+    call cp_Hprod(nloc,ndim,vin,tmp)
+    tmp = tmp-b*vout
+    a   = dot_product(vin,tmp)
+    tmp = tmp-a*vin                    !tmp<==dummy
+    b   = sqrt(dot_product(tmp,tmp))   !tmp<==dummy
+    vout= vin
+    vin = tmp/b
   end subroutine lanczos_plain_iteration_c
 
 
@@ -137,11 +121,12 @@ contains
   !Purpose: use simple Lanczos to tri-diagonalize a matrix H (defined 
   ! in the H*v function).
   !---------------------------------------------------------------------
-  subroutine lanczos_plain_tridiag_d(vin,alanc,blanc,nitermax,iverbose,threshold)
+  subroutine lanczos_plain_tridiag_d(vin,alanc,blanc,nitermax,hprod,iverbose,threshold)
     real(8),dimension(:),intent(inout)        :: vin
     real(8),dimension(size(vin))              :: vout
     real(8),dimension(nitermax),intent(inout) :: alanc
     real(8),dimension(nitermax),intent(inout) :: blanc
+    procedure(lanc_htimesv_d)                 :: Hprod
     integer                                   :: i,nitermax,ierr
     integer                                   :: iter,nlanc
     real(8)                                   :: a_,b_,diff
@@ -149,6 +134,8 @@ contains
     logical,optional                          :: iverbose
     if(present(iverbose))verb=iverbose
     if(present(threshold))threshold_=threshold
+    if(associated(dp_hprod))nullify(dp_hprod)
+    dp_hprod=>Hprod
     a_=0.d0
     b_=0.d0
     vout=0.d0
@@ -161,11 +148,12 @@ contains
     enddo
   end subroutine lanczos_plain_tridiag_d
   !
-  subroutine lanczos_plain_tridiag_c(vin,alanc,blanc,nitermax,iverbose,threshold)
+  subroutine lanczos_plain_tridiag_c(vin,alanc,blanc,nitermax,hprod,iverbose,threshold)
     complex(8),dimension(:),intent(inout)     :: vin
     complex(8),dimension(size(vin))           :: vout
     real(8),dimension(nitermax),intent(inout) :: alanc
     real(8),dimension(nitermax),intent(inout) :: blanc
+    procedure(lanc_htimesv_c)                 :: Hprod
     integer                                   :: i,nitermax,ierr
     integer                                   :: iter,nlanc
     real(8)                                   :: a_,b_,diff
@@ -173,6 +161,8 @@ contains
     logical,optional                          :: iverbose
     if(present(iverbose))verb=iverbose
     if(present(threshold))threshold_=threshold
+    if(associated(cp_hprod))nullify(cp_hprod)
+    cp_hprod=>Hprod
     a_=0.d0
     b_=0.d0
     vout=zero
@@ -189,16 +179,18 @@ contains
 
 
 
+
   !---------------------------------------------------------------------
   !Purpose: use plain lanczos to get the groundstate energy
   !---------------------------------------------------------------------
-  subroutine lanczos_plain_d(ns,nitermax,egs,vect,Nlanc,iverbose,threshold,ncheck)
+  subroutine lanczos_plain_d(ns,nitermax,egs,vect,Nlanc,Hprod,iverbose,threshold,ncheck)
     integer                              :: ns,nitermax
     real(8),dimension(nitermax)          :: egs
     real(8),dimension(ns)                :: vect
     real(8),dimension(ns)                :: vin,vout
     integer                              :: iter,nlanc
     real(8),dimension(nitermax+1)        :: alanc,blanc
+    procedure(lanc_htimesv_d)            :: Hprod
     real(8),dimension(Nitermax,Nitermax) :: Z
     real(8),dimension(Nitermax)          :: diag,subdiag,esave
     real(8)                              :: a_,b_,norm,diff
@@ -209,6 +201,8 @@ contains
     if(present(iverbose))verb=iverbose
     if(present(threshold))threshold_=threshold
     if(present(ncheck))ncheck_=ncheck
+    if(associated(dp_hprod))nullify(dp_hprod)
+    dp_hprod=>Hprod
     if(.not.associated(dp_hprod))then
        print*,"LANCZOS_PLAIN: dp_hprod is not set. call lanczos_plain_set_htimesv"
        stop
@@ -286,13 +280,14 @@ contains
     vect=vect/norm
   end subroutine lanczos_plain_d
 
-  subroutine lanczos_plain_c(ns,nitermax,egs,vect,Nlanc,iverbose,threshold,ncheck)
+  subroutine lanczos_plain_c(ns,nitermax,egs,vect,Nlanc,Hprod,iverbose,threshold,ncheck)
     integer                              :: ns,nitermax
     real(8),dimension(nitermax)          :: egs
     complex(8),dimension(ns)             :: vect
     complex(8),dimension(ns)             :: vin,vout
     integer                              :: iter,nlanc
     real(8),dimension(nitermax+1)        :: alanc,blanc
+    procedure(lanc_htimesv_c)            :: Hprod
     real(8),dimension(Nitermax,Nitermax) :: Z
     real(8),dimension(Nitermax)          :: diag,subdiag,esave
     real(8)                              :: a_,b_,norm,diff,ran(2)
@@ -303,6 +298,8 @@ contains
     if(present(iverbose))verb=iverbose
     if(present(threshold))threshold_=threshold
     if(present(ncheck))ncheck_=ncheck
+    if(associated(cp_hprod))nullify(cp_hprod)
+    cp_hprod=>Hprod
     if(.not.associated(cp_hprod))then
        print*,"LANCZOS_PLAIN: cp_hprod is not set. call lanczos_plain_set_htimesv"
        stop

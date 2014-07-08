@@ -54,6 +54,7 @@ contains
     complex(8),dimension(:,:,:)          :: fg
     real(8),dimension(:,:),intent(inout) :: bath
     integer                              :: ispin
+    if(ED_MPI_ID==0)then
     if(cg_method==0)then
        if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
     elseif(cg_method==1)then
@@ -69,12 +70,17 @@ contains
     case ('hybrid')
        call chi2_fitgf_hybrd(fg,bath,ispin)
     end select
+    endif
+#ifdef _MPI
+    call MPI_BCAST(bath,size(bath),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
   end subroutine chi2_fitgf_
 
   subroutine chi2_fitgf__(fg,bath,ispin)
     complex(8),dimension(:,:,:,:)          :: fg
     real(8),dimension(:,:),intent(inout) :: bath
     integer                              :: ispin
+    if(ED_MPI_ID==0)then
     if(cg_method==0)then
        if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
     elseif(cg_method==1)then
@@ -90,6 +96,10 @@ contains
     case ('hybrid')
        stop 'Error: Hybrid bath + SC is not implemented yet: ask the developer...'
     end select
+    endif
+#ifdef _MPI
+    call MPI_BCAST(bath,size(bath),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
   end subroutine chi2_fitgf__
 
 
@@ -101,6 +111,7 @@ contains
   !*****************************************************************************
   !*****************************************************************************
   !*****************************************************************************
+
 
 
 

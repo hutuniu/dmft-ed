@@ -34,6 +34,12 @@ program ed_bhz
   character(len=32)      :: hkfile
   logical                :: spinsym,getak,getdelta,gethti
 
+  call MPI_INIT(ED_MPI_ERR)
+  call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD,ED_MPI_SIZE,ED_MPI_ERR)
+  write(*,"(A,I4,A,I4,A)")'Processor ',ED_MPI_ID,' of ',ED_MPI_SIZE,' is alive'
+  call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
+
   !Parse additional variables && read Input && read H(k)^4x4
   call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ.in')
   call parse_input_variable(hkfile,"HKFILE",finput,default="hkfile.in")
@@ -52,15 +58,9 @@ program ed_bhz
   if(Nspin/=2.OR.Norb/=2)stop "Wrong setup from input file: Nspin=Norb=2 -> 4Spin-Orbitals"
   Nso=Nspin*Norb
 
-  !<DEBUG
-  ! if(gethti)then
-  !    call checkZ2
-  !    stop
-  ! endif
-  !>DEBUG
-
   !Allocate Weiss Field:
   allocate(delta(Nspin,Nspin,Norb,Norb,Lmats))
+
 
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
@@ -89,14 +89,13 @@ program ed_bhz
   iloop=0;converged=.false.
   do while(.not.converged.AND.iloop<nloop)
      iloop=iloop+1
-     call start_loop(iloop,nloop,"DMFT-loop")
+     if(ED_MPI_ID==0)call start_loop(iloop,nloop,"DMFT-loop")
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solver(bath) 
 
      !Get the Weiss field/Delta function to be fitted (user defined)
      call get_delta
-
      !Fit the new bath, starting from the old bath + the supplied delta
      call chi2_fitgf(delta(1,1,:,:,:),bath,ispin=1)
      if(.not.spinsym)then
@@ -104,15 +103,17 @@ program ed_bhz
      else
         call spin_symmetrize_bath(bath(:,:))
      endif
+
      !MIXING:
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      Bath_=Bath
-     converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
-     call end_loop
+     if(ED_MPI_ID==0)converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
+     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
+     if(ED_MPI_ID==0)call end_loop
   enddo
 
 
-
+  call MPI_FINALIZE(ED_MPI_ERR)
 
 contains
 
@@ -139,7 +140,7 @@ contains
     delta = zero
     !
     !MATSUBARA AXIS
-    print*,"Get Gloc_iw:"
+    if(ED_MPI_ID==0)print*,"Get Gloc_iw:"
     allocate(gloc(Nspin,Nspin,Norb,Norb,Lmats))
     do i=1,Lmats
        iw = xi*wm(i)
@@ -179,6 +180,7 @@ contains
        delta(:,:,:,:,i) = j2so(gdelta(:,:))
        !
     enddo
+    if(ED_MPI_ID==0)then
     do ispin=1,Nspin
        do iorb=1,Norb
           suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
@@ -186,11 +188,12 @@ contains
           call splot("Gloc"//reg(suffix),wm,gloc(ispin,ispin,iorb,iorb,:))
        enddo
     enddo
+    endif
     deallocate(gloc)
     !
     !REAL AXIS
     allocate(gloc(Nspin,Nspin,Norb,Norb,Lreal))
-    print*,"Get Gloc_realw:"
+    if(ED_MPI_ID==0)print*,"Get Gloc_realw:"
     do i=1,Lreal
        iw=dcmplx(wr(i),eps)
        forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
@@ -201,12 +204,14 @@ contains
        enddo
        gloc(:,:,:,:,i) = j2so(fg)
     enddo
+    if(ED_MPI_ID==0)then
     do ispin=1,Nspin
        do iorb=1,Norb
           suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
           call splot("Gloc"//reg(suffix),wr,-dimag(gloc(ispin,ispin,iorb,iorb,:))/pi,dreal(gloc(ispin,ispin,iorb,iorb,:)))
        enddo
     enddo
+    endif
     deallocate(gloc)
   end subroutine get_delta
 

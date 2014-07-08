@@ -23,6 +23,12 @@ program lancED
   complex(8),allocatable :: Delta(:,:,:)
   real(8),allocatable :: epsik(:),wt(:)
 
+  call MPI_INIT(ED_MPI_ERR)
+  call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD,ED_MPI_SIZE,ED_MPI_ERR)
+  write(*,"(A,I4,A,I4,A)")'Processor ',ED_MPI_ID,' of ',ED_MPI_SIZE,' is alive'
+  call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
+
   call parse_input_variable(ts,"TS","inputED.in",default=1.d0)
   call parse_input_variable(Ne,"NE","inputED.in",default=2000)
   call ed_read_input("inputED.in")
@@ -41,7 +47,7 @@ program lancED
      wt(ie)=dens_2dsquare(epsik(ie),ts)
   enddo
   wt=wt/trapz(de,wt)
-  call splot("DOS2d.ed",epsik,wt)
+  if(ED_MPI_ID==0)call splot("DOS2d.ed",epsik,wt)
   wt = wt*de
 
   !setup solver
@@ -53,7 +59,7 @@ program lancED
   iloop=0;converged=.false.
   do while(.not.converged.AND.iloop<nloop)
      iloop=iloop+1
-     call start_loop(iloop,nloop,"DMFT-loop")
+     if(ED_MPI_ID==0)call start_loop(iloop,nloop,"DMFT-loop")
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solver(bath) 
@@ -65,9 +71,10 @@ program lancED
      call chi2_fitgf(delta,bath,ispin=1)
 
      !Check convergence (if required change chemical potential)
-     converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
+     if(ED_MPI_ID==0)converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
      !if(nread/=0.d0)call search_mu(nimp(1),converged)
-     call end_loop
+     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
+     if(ED_MPI_ID==0)call end_loop
   enddo
 
 
@@ -98,11 +105,12 @@ contains
           grloc(i)=grloc(i)+wt(ie)/(zita-epsik(ie))
        enddo
     enddo
-    call splot("Gloc_iw.ed",wm,gloc)
-    call splot("Gloc_realw.ed",wr,grloc)
-    call splot("DOS.ed",wr,-dimag(grloc)/pi)
-    call splot("Delta_iw.ed",wm,delta(1,1,:))
-
+    if(ED_MPI_ID==0)then
+       call splot("Gloc_iw.ed",wm,gloc)
+       call splot("Gloc_realw.ed",wr,grloc)
+       call splot("DOS.ed",wr,-dimag(grloc)/pi)
+       call splot("Delta_iw.ed",wm,delta(1,1,:))
+    endif
   end subroutine get_delta
   !+----------------------------------------+
 

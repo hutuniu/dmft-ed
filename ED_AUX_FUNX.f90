@@ -3,7 +3,7 @@
 !AUTHORS  : Adriano Amaricci
 !########################################################################
 MODULE ED_AUX_FUNX
-  !USE COMMON_VARS
+  USE MPI_VARS
   USE TIMER
   USE IOTOOLS, only:free_unit,reg
   USE ED_INPUT_VARS
@@ -63,16 +63,18 @@ contains
        NP=get_sc_sector_dimension(0)
     endif
     !
-    write(LOGfile,*)"Summary:"
-    write(LOGfile,*)"--------------------------------------------"
-    write(LOGfile,*)'Number of impurities         = ',Norb
-    write(LOGfile,*)'Number of bath/impurity      = ',Nbath
-    write(LOGfile,*)'Total # of Bath sites/spin   = ',Nbo
-    write(LOGfile,*)'Total # of sites/spin        = ',Ns
-    write(LOGfile,*)'Maximum dimension            = ',NP
-    write(LOGfile,*)'Total size, Hilber space dim.= ',Ntot,NN
-    write(LOGfile,*)'Number of sectors            = ',Nsect
-    write(LOGfile,*)"--------------------------------------------"
+    if(ED_MPI_ID==0)then
+       write(LOGfile,*)"Summary:"
+       write(LOGfile,*)"--------------------------------------------"
+       write(LOGfile,*)'Number of impurities         = ',Norb
+       write(LOGfile,*)'Number of bath/impurity      = ',Nbath
+       write(LOGfile,*)'Total # of Bath sites/spin   = ',Nbo
+       write(LOGfile,*)'Total # of sites/spin        = ',Ns
+       write(LOGfile,*)'Maximum dimension            = ',NP
+       write(LOGfile,*)'Total size, Hilber space dim.= ',Ntot,NN
+       write(LOGfile,*)'Number of sectors            = ',Nsect
+       write(LOGfile,*)"--------------------------------------------"
+    endif
 
     allocate(Hloc(Nspin,Nspin,Norb,Norb))
     reHloc = 0.d0
@@ -80,7 +82,7 @@ contains
 
     inquire(file=Hunit,exist=control)
     if(control)then
-       write(LOGfile,*)"Reading Hloc from file: "//Hunit
+       if(ED_MPI_ID==0)write(LOGfile,*)"Reading Hloc from file: "//Hunit
        open(50,file=Hunit,status='old')
        do ispin=1,Nspin
           do iorb=1,Norb
@@ -94,12 +96,16 @@ contains
        enddo
        close(50)
     else
-       write(LOGfile,*)"Hloc file not found."
-       write(LOGfile,*)"Hloc should be defined elsewhere..."
+       if(ED_MPI_ID==0)then
+          write(LOGfile,*)"Hloc file not found."
+          write(LOGfile,*)"Hloc should be defined elsewhere..."
+       endif
     endif
     Hloc = dcmplx(reHloc,imHloc)
-    write(LOGfile,"(A)")"H_local:"
-    call print_Hloc(Hloc)
+    if(ED_MPI_ID==0)then
+       write(LOGfile,"(A)")"H_local:"
+       call print_Hloc(Hloc)
+    endif
 
 
 
@@ -121,7 +127,7 @@ contains
     if(lanc_nstates_total==1)then     !is you only want to keep 1 state
        lanc_nstates_sector=1            !set the required eigen per sector to 1 see later for neigen_sector
        finiteT=.false.          !set to do zero temperature calculations
-       write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
     endif
 
 
@@ -129,19 +135,19 @@ contains
     if(finiteT)then
        if(mod(lanc_nstates_sector,2)/=0)then
           lanc_nstates_sector=lanc_nstates_sector+1
-          write(LOGfile,"(A,I10)")"Increased Lanc_nstates_sector:",lanc_nstates_sector
+          if(ED_MPI_ID==0)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_sector:",lanc_nstates_sector
        endif
        if(mod(lanc_nstates_total,2)/=0)then
           lanc_nstates_total=lanc_nstates_total+1
-          write(LOGfile,"(A,I10)")"Increased Lanc_nstates_total:",lanc_nstates_total
+          if(ED_MPI_ID==0)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_total:",lanc_nstates_total
        endif
 
     endif
 
     if(finiteT)then
-       write(LOGfile,"(A)")"Lanczos FINITE temperature calculation:"
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"Lanczos FINITE temperature calculation:"
     else
-       write(LOGfile,"(A)")"Lanczos ZERO temperature calculation:"
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"Lanczos ZERO temperature calculation:"
     endif
 
     !Some check:
@@ -221,8 +227,8 @@ contains
     integer                          :: nup,ndw,jup,jdw,iorb
     integer,dimension(:),allocatable :: imap
     integer,dimension(:),allocatable :: invmap
-    write(LOGfile,"(A)")"Setting up pointers:"
-    call start_timer
+    if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
+    if(ED_MPI_ID==0)call start_timer
     isector=0
     do nup=0,Ns
        do ndw=0,Ns
@@ -235,7 +241,7 @@ contains
           neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
        enddo
     enddo
-    call stop_timer
+    if(ED_MPI_ID==0)call stop_timer
 
     do in=1,Norb
        impIndex(in,1)=in
@@ -292,8 +298,8 @@ contains
     integer                          :: sz,iorb,dim2,jsz
     integer,dimension(:),allocatable :: imap
     integer,dimension(:),allocatable :: invmap
-    write(LOGfile,"(A)")"Setting up pointers:"
-    call start_timer
+    if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
+    if(ED_MPI_ID==0)call start_timer
     isector=0
     do isz=-Ns,Ns
        sz=abs(isz)
@@ -304,7 +310,7 @@ contains
        getdim(isector)=dim
        neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
     enddo
-    call stop_timer
+    if(ED_MPI_ID==0)call stop_timer
 
     do in=1,Norb
        impIndex(in,1)=in
@@ -614,6 +620,7 @@ contains
     logical,save          :: ireduce=.true.
     integer               :: unit
     !
+    if(ED_MPI_ID==0)then
     ndiff=ntmp-nread
     nratio = 0.5d0;!nratio = 1.d0/(6.d0/11.d0*pi)
     !
@@ -704,6 +711,10 @@ contains
     write(LOGfile,"(A,L2)"),"Converged=",converged
     print*,""
     !
+    endif
+#ifdef _MPI
+    call MPI_BCAST(xmu,1,MPI_Double_Precision,0,MPI_COMM_WORLD,mpiERR)
+#endif
   end subroutine search_chemical_potential
 
 

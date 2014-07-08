@@ -15,56 +15,48 @@ MODULE ED_HAMILTONIAN
   !Get sparse sector Hamiltonian
   public                       :: ed_buildH_d,ed_buildH_c
 
-  !Sparse Matrix-vector product using stored sparse matrix 
-  public                       :: spHtimesV_dd,spHtimesV_dc,spHtimesV_cc
-  public                       :: lanc_spHtimesV_dd,lanc_spHtimesV_dc,lanc_spHtimesV_cc
-
-  integer                      :: Hsector
-  integer,dimension(:),pointer :: Hmap    !map of the Sector S to Hilbert space H
 
 contains
 
 
   !+------------------------------------------------------------------+
-  !PURPOSE : 
-  !+------------------------------------------------------------------+
-  subroutine setup_Hv_sector(isector)
-    integer                              :: isector
-    integer                              :: dim
-    Hsector=isector
-    dim = getdim(Hsector)
-    allocate(Hmap(dim))
-    call build_sector(isector,Hmap)
-  end subroutine setup_Hv_sector
-
-  subroutine delete_Hv_sector()
-    deallocate(Hmap)
-  end subroutine delete_Hv_sector
-
-
-
-  !+------------------------------------------------------------------+
   !PURPOSE  : Build Hamiltonian sparse matrix DOUBLE PRECISION
   !+------------------------------------------------------------------+
-  subroutine ed_buildH_d(isector)
-    integer                          :: isector
-    integer,dimension(Ntot)          :: ib
-    integer                          :: mpiQ,mpiR                
-    integer                          :: dim,iup,idw
-    integer                          :: i,j,m,ms,iorb,jorb,ispin
-    integer                          :: kp,k1,k2,k3,k4
-    real(8)                          :: sg1,sg2,sg3,sg4
-    real(8)                          :: htmp
-    real(8),dimension(Norb)          :: nup,ndw
-    real(8),dimension(Nspin,Norb)    :: eloc
-    logical                          :: Jcondition
-    integer                          :: first_state,last_state
-    !
-    call setup_Hv_sector(isector)
+  subroutine ed_buildH_d(isector,Hmat)
+    real(8),dimension(:,:),optional    :: Hmat
+    real(8),dimension(:,:),allocatable :: Hredux
+    integer                            :: isector
+    integer,dimension(:),allocatable   :: Hmap    !map of the Sector S to Hilbert space H
+    integer,dimension(Ntot)            :: ib
+    integer                            :: mpiQ,mpiR                
+    integer                            :: dim,iup,idw
+    integer                            :: i,j,m,ms,iorb,jorb,ispin
+    integer                            :: kp,k1,k2,k3,k4
+    real(8)                            :: sg1,sg2,sg3,sg4
+    real(8)                            :: htmp
+    real(8),dimension(Norb)            :: nup,ndw
+    real(8),dimension(Nspin,Norb)      :: eloc
+    logical                            :: Jcondition
+    integer                            :: first_state,last_state
     !
     dim=getdim(isector)
+    allocate(Hmap(dim))
+    call build_sector(isector,Hmap)
+    !
+    first_state= 1
+    last_state = dim
+    !
     if(spH0%status)call sp_delete_matrix(spH0) 
+#ifdef _MPI
+    mpiQ = dim/ED_MPI_SIZE
+    mpiR = 0
+    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE)
+    call sp_init_matrix(spH0,mpiQ+mpiR)
+    first_state= ED_MPI_ID*mpiQ+1
+    last_state = (ED_MPI_ID+1)*mpiQ+mpiR
+#else
     call sp_init_matrix(spH0,dim)
+#endif
     !
     !Get diagonal part of Hloc
     do ispin=1,Nspin
@@ -73,7 +65,7 @@ contains
        enddo
     enddo
     !
-    do i=1,dim
+    do i=first_state,last_state
        m=Hmap(i)
        call bdecomp(m,ib)
        htmp=0.d0
@@ -133,7 +125,11 @@ contains
        enddo
        !
        !
+#ifdef _MPI
+       call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,i)
+#else
        call sp_insert_element(spH0,htmp,i,i)
+#endif
        !
        !
        if(Norb>1.AND.Jhflag)then
@@ -159,7 +155,11 @@ contains
                    call cdg(iorb,k3,k4,sg4)
                    j=binary_search(Hmap,k4)
                    htmp = Jh*sg1*sg2*sg3*sg4
+#ifdef _MPI
+                   call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                    call sp_insert_element(spH0,htmp,i,j)
+#endif
                 endif
              enddo
           enddo
@@ -182,7 +182,11 @@ contains
                    call cdg(iorb,k3,k4,sg4)
                    j=binary_search(Hmap,k4)
                    htmp = Jh*sg1*sg2*sg3*sg4
+#ifdef _MPI
+                   call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                    call sp_insert_element(spH0,htmp,i,j)
+#endif
                 endif
              enddo
           enddo
@@ -198,7 +202,11 @@ contains
                 call cdg(iorb,k1,k2,sg2)
                 j=binary_search(Hmap,k2)
                 htmp = Hloc(1,1,iorb,jorb)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
              !SPIN DW
              if((ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
@@ -206,7 +214,11 @@ contains
                 call cdg(iorb+Ns,k1,k2,sg2)
                 j=binary_search(Hmap,k2)
                 htmp = Hloc(Nspin,Nspin,iorb,jorb)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
           enddo
        enddo
@@ -220,7 +232,11 @@ contains
                 call cdg(ms,k1,k2,sg2)
                 j = binary_search(Hmap,k2)
                 htmp = dmft_bath%v(1,iorb,kp)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
              !
              if(ib(iorb) == 0 .AND. ib(ms) == 1)then
@@ -228,7 +244,11 @@ contains
                 call cdg(iorb,k1,k2,sg2)
                 j=binary_search(Hmap,k2)
                 htmp = dmft_bath%v(1,iorb,kp)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
              !
              if(ib(iorb+Ns) == 1 .AND. ib(ms+Ns) == 0)then
@@ -236,7 +256,11 @@ contains
                 call cdg(ms+Ns,k1,k2,sg2)
                 j=binary_search(Hmap,k2)
                 htmp=dmft_bath%v(Nspin,iorb,kp)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
              !
              if(ib(iorb+Ns) == 0 .AND. ib(ms+Ns) == 1)then
@@ -244,7 +268,11 @@ contains
                 call cdg(iorb+Ns,k1,k2,sg2)
                 j=binary_search(Hmap,k2)
                 htmp=dmft_bath%v(Nspin,iorb,kp)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
           enddo
        enddo
@@ -262,17 +290,23 @@ contains
                    call c(ms+Ns,k1,k2,sg2)
                    j=binary_search(Hmap,k2)
                    htmp=dmft_bath%d(1,iorb,kp)*sg1*sg2
+#ifdef _MPI
+                   call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                    call sp_insert_element(spH0,htmp,i,j)
+#endif
                 endif
                 !\Delta_l cdg_{\dw,ms} cdg_{\up,ms}
                 if(ib(ms)==0 .AND. ib(ms+Ns)==0)then
                    call cdg(ms+Ns,m,k1,sg1)
                    call cdg(ms,k1,k2,sg2)
-                   ! call cdg(ms,m,k1,sg1)
-                   ! call cdg(ms+Ns,k1,k2,sg2)
                    j=binary_search(Hmap,k2)
                    htmp=dmft_bath%d(1,iorb,kp)*sg1*sg2 !
+#ifdef _MPI
+                   call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                    call sp_insert_element(spH0,htmp,i,j)
+#endif
                 endif
              enddo
           enddo
@@ -280,9 +314,24 @@ contains
        !
     enddo
     !
-    call delete_Hv_sector()
+    deallocate(Hmap)
+    !
+    if(present(Hmat))then
+       if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "ED_HAMILTONIAN/ed_buildH_d: wrong dimensions in Hmat"
+#ifdef _MPI
+       allocate(Hredux(dim,dim))
+       call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
+       call MPI_AllReduce(Hredux,Hmat,dim,MPI_Double_Precision,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
+#else
+       call sp_dump_matrix(spH0,Hmat)
+#endif
+    endif
     !
   end subroutine ed_buildH_d
+
+
+
+
 
 
 
@@ -294,35 +343,50 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : Build Hamiltonian sparse matrix DOUBLE COMPLEX
   !+------------------------------------------------------------------+
-  subroutine ed_buildH_c(isector)
-    integer                            :: isector
-    integer,dimension(Ntot)            :: ib
-    integer                            :: mpiQ,mpiR                
-    integer                            :: dim,iup,idw
-    integer                            :: i,j,m,ms,iorb,jorb,ispin
-    integer                            :: kp,k1,k2,k3,k4
-    real(8)                            :: sg1,sg2,sg3,sg4
-    complex(8)                         :: htmp
-    real(8),dimension(Norb)            :: nup,ndw
-    real(8),dimension(Nspin,Norb)      :: eloc
-    logical                            :: Jcondition
-    integer                            :: first_state,last_state
-    !
-    call setup_Hv_sector(isector)
+  subroutine ed_buildH_c(isector,Hmat)
+    complex(8),dimension(:,:),optional    :: Hmat
+    complex(8),dimension(:,:),allocatable :: Hredux
+    integer                               :: isector
+    integer,dimension(:),allocatable      :: Hmap    !map of the Sector S to Hilbert space H
+    integer,dimension(Ntot)               :: ib
+    integer                               :: mpiQ,mpiR                
+    integer                               :: dim,iup,idw
+    integer                               :: i,j,m,ms,iorb,jorb,ispin
+    integer                               :: kp,k1,k2,k3,k4
+    real(8)                               :: sg1,sg2,sg3,sg4
+    complex(8)                            :: htmp
+    real(8),dimension(Norb)               :: nup,ndw
+    complex(8),dimension(Nspin,Norb)      :: eloc
+    logical                               :: Jcondition
+    integer                               :: first_state,last_state
     !
     dim=getdim(isector)
+    allocate(Hmap(dim))
+    call build_sector(isector,Hmap)
+    !
+    first_state= 1
+    last_state = dim
+    !
     if(spH0%status)call sp_delete_matrix(spH0) 
+#ifdef _MPI
+    mpiQ = dim/ED_MPI_SIZE
+    mpiR = 0
+    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE)
+    call sp_init_matrix(spH0,mpiQ+mpiR)
+    first_state= ED_MPI_ID*mpiQ+1
+    last_state = (ED_MPI_ID+1)*mpiQ+mpiR
+#else
     call sp_init_matrix(spH0,dim)
+#endif
     !
     !Get diagonal part of Hloc
     do ispin=1,Nspin
        do iorb=1,Norb
-          eloc(ispin,iorb)=dreal(Hloc(ispin,ispin,iorb,iorb))
+          eloc(ispin,iorb)=Hloc(ispin,ispin,iorb,iorb)
        enddo
     enddo
-
     !
-    do i=1,dim
+    do i=first_state,last_state
        m=Hmap(i)
        call bdecomp(m,ib)
        htmp=0.d0
@@ -367,8 +431,11 @@ contains
        enddo
        !
        !
+#ifdef _MPI
+       call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,i)
+#else
        call sp_insert_element(spH0,htmp,i,i)
-       !
+#endif
        !
        if(Norb>1.AND.Jhflag)then
           !SPIN-EXCHANGE (S-E) and PAIR-HOPPING TERMS
@@ -393,7 +460,11 @@ contains
                    call cdg(iorb,k3,k4,sg4)
                    j=binary_search(Hmap,k4)
                    htmp = Jh*sg1*sg2*sg3*sg4
+#ifdef _MPI
+                   call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                    call sp_insert_element(spH0,htmp,i,j)
+#endif
                 endif
              enddo
           enddo
@@ -416,7 +487,11 @@ contains
                    call cdg(iorb,k3,k4,sg4)
                    j=binary_search(Hmap,k4)
                    htmp = Jh*sg1*sg2*sg3*sg4
+#ifdef _MPI
+                   call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                    call sp_insert_element(spH0,htmp,i,j)
+#endif
                 endif
              enddo
           enddo
@@ -432,7 +507,11 @@ contains
                 call cdg(iorb,k1,k2,sg2)
                 j=binary_search(Hmap,k2)
                 htmp = Hloc(1,1,iorb,jorb)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
              !SPIN DW
              if((ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
@@ -440,7 +519,11 @@ contains
                 call cdg(iorb+Ns,k1,k2,sg2)
                 j=binary_search(Hmap,k2)
                 htmp = Hloc(Nspin,Nspin,iorb,jorb)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
           enddo
        enddo
@@ -454,7 +537,11 @@ contains
                 call cdg(ms,k1,k2,sg2)
                 j = binary_search(Hmap,k2)
                 htmp = dmft_bath%v(1,iorb,kp)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
              !
              if(ib(iorb) == 0 .AND. ib(ms) == 1)then
@@ -462,7 +549,11 @@ contains
                 call cdg(iorb,k1,k2,sg2)
                 j=binary_search(Hmap,k2)
                 htmp = dmft_bath%v(1,iorb,kp)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
              !
              if(ib(iorb+Ns) == 1 .AND. ib(ms+Ns) == 0)then
@@ -470,7 +561,11 @@ contains
                 call cdg(ms+Ns,k1,k2,sg2)
                 j=binary_search(Hmap,k2)
                 htmp=dmft_bath%v(Nspin,iorb,kp)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
              !
              if(ib(iorb+Ns) == 0 .AND. ib(ms+Ns) == 1)then
@@ -478,7 +573,11 @@ contains
                 call cdg(iorb+Ns,k1,k2,sg2)
                 j=binary_search(Hmap,k2)
                 htmp=dmft_bath%v(Nspin,iorb,kp)*sg1*sg2
+#ifdef _MPI
+                call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                 call sp_insert_element(spH0,htmp,i,j)
+#endif
              endif
           enddo
        enddo
@@ -495,7 +594,11 @@ contains
                    call c(ms+Ns,k1,k2,sg2)
                    j=binary_search(Hmap,k2)
                    htmp=dmft_bath%d(1,iorb,kp)*sg1*sg2
+#ifdef _MPI
+                   call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                    call sp_insert_element(spH0,htmp,i,j)
+#endif
                 endif
                 !\Delta_l cdg_{\up,ms} cdg_{\dw,ms}
                 if(ib(ms)==0 .AND. ib(ms+Ns)==0)then
@@ -503,7 +606,11 @@ contains
                    call cdg(ms+Ns,k1,k2,sg2)
                    j=binary_search(Hmap,k2)
                    htmp=dmft_bath%d(1,iorb,kp)*sg1*sg2 !
+#ifdef _MPI
+                   call sp_insert_element(spH0,htmp,i-ED_MPI_ID*mpiQ,j)
+#else
                    call sp_insert_element(spH0,htmp,i,j)
+#endif
                 endif
              enddo
           enddo
@@ -511,94 +618,20 @@ contains
        !
     enddo
     !
-    call delete_Hv_sector()
+    deallocate(Hmap)
+    !
+    if(present(Hmat))then
+       if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "ED_HAMILTONIAN/ed_buildH_d: wrong dimensions in Hmat"
+#ifdef _MPI
+       allocate(Hredux(dim,dim))
+       call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
+       call MPI_AllReduce(Hredux,Hmat,dim,MPI_Double_Precision,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
+#else
+       call sp_dump_matrix(spH0,Hmat)
+#endif
+    endif
     !
   end subroutine ed_buildH_c
-
-
-
-
-
-
-
-
-
-  !               RELATED COMPUTATIONAL ROUTINES
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Perform the matrix-vector product H*v used in the
-  ! Lanczos algorithm using serial double real, complex, and MPI
-  !+------------------------------------------------------------------+
-  subroutine spHtimesV_dd(N,Nloc,v,Hv)
-    integer                    :: N,Nloc
-    real(8),dimension(Nloc)    :: v
-    real(8),dimension(Nloc)    :: Hv
-    integer                    :: Q,R
-    real(8),dimension(N)       :: vin,vtmp
-    integer                    :: i
-    Hv=0.d0
-    call sp_matrix_vector_product_dd(spH0,Nloc,v,Hv)
-  end subroutine spHtimesV_dd
-
-  subroutine spHtimesV_dc(N,Nloc,v,Hv)
-    integer                    :: N,Nloc
-    complex(8),dimension(Nloc) :: v
-    complex(8),dimension(Nloc) :: Hv
-    integer                    :: Q,R
-    complex(8),dimension(N)    :: vin,vtmp
-    integer                    :: i
-    Hv=zero
-    call sp_matrix_vector_product_dc(spH0,Nloc,v,Hv)
-  end subroutine spHtimesV_dc
-
-  subroutine spHtimesV_cc(N,Nloc,v,Hv)
-    integer                    :: N,Nloc
-    complex(8),dimension(Nloc) :: v
-    complex(8),dimension(Nloc) :: Hv
-    integer                    :: Q,R
-    complex(8),dimension(N)    :: vin,vtmp
-    integer                    :: i
-    Hv=zero
-    call sp_matrix_vector_product_cc(spH0,Nloc,v,Hv)
-  end subroutine spHtimesV_cc
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Perform the matrix-vector product H*v used in the
-  ! Plain Lanczos algorithm for GF using MPI
-  !NOTE that the integer arguments are inverted here with respect 
-  ! to previous routines to respect the structure of the hamiltonian
-  ! and the P_ARPACK algorithm using smaller block arrays (Nloc).
-  !+------------------------------------------------------------------+
-  subroutine lanc_spHtimesV_dd(Nloc,N,v,Hv)
-    integer                 :: Nloc,N
-    real(8),dimension(N)    :: v,Hv,Hvtmp
-    real(8),dimension(Nloc) :: vout
-    integer                 :: Q,R
-    integer                 :: i
-    Hv=0.d0
-    call sp_matrix_vector_product_dd(spH0,N,v,Hv)
-  end subroutine lanc_spHtimesV_dd
-
-  subroutine lanc_spHtimesV_dc(Nloc,N,v,Hv)
-    integer                 :: Nloc,N
-    complex(8),dimension(N)    :: v,Hv,Hvtmp
-    complex(8),dimension(Nloc) :: vout
-    integer                 :: Q,R
-    integer                 :: i
-    Hv=zero
-    call sp_matrix_vector_product_dc(spH0,N,v,Hv)
-  end subroutine lanc_spHtimesV_dc
-
-  subroutine lanc_spHtimesV_cc(Nloc,N,v,Hv)
-    integer                 :: Nloc,N
-    complex(8),dimension(N)    :: v,Hv,Hvtmp
-    complex(8),dimension(Nloc) :: vout
-    integer                 :: Q,R
-    integer                 :: i
-    Hv=zero
-    call sp_matrix_vector_product_cc(spH0,N,v,Hv)
-  end subroutine lanc_spHtimesV_cc
 
 
 end MODULE ED_HAMILTONIAN

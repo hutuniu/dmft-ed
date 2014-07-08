@@ -5,6 +5,9 @@
 !!that I am not gonna use in ED code (for which this module is developed).
 MODULE MATRIX_SPARSE
   USE CONSTANTS, only:zero
+#ifdef _MPI
+  USE MPI
+#endif
   implicit none
   private
 
@@ -23,7 +26,7 @@ MODULE MATRIX_SPARSE
   end type sparse_row
 
   type sparse_matrix
-     integer                               :: size
+     integer                               :: Nrow
      logical                               :: status=.false.
      type(sparse_row),dimension(:),pointer :: row
   end type sparse_matrix
@@ -60,6 +63,11 @@ MODULE MATRIX_SPARSE
   public :: sp_matrix_vector_product_dc !checked
   public :: sp_matrix_vector_product_cc !checked
 
+#ifdef _MPI
+  public :: sp_matrix_vector_product_mpi_dd
+  public :: sp_matrix_vector_product_mpi_dc
+  public :: sp_matrix_vector_product_mpi_cc
+#endif
 
 contains       
 
@@ -72,7 +80,7 @@ contains
     integer                           :: i,N
     !put here a delete statement to avoid problems
     if(sparse%status)stop "sp_init_matrix: alreay allocate can not init"
-    sparse%size=N
+    sparse%Nrow=N
     sparse%status=.true.
     allocate(sparse%row(N))
     do i=1,N
@@ -274,12 +282,12 @@ contains
   subroutine sp_delete_matrix(sparse)    
     type(sparse_matrix),intent(inout) :: sparse
     integer                           :: i,Ndim
-    do i=1,sparse%size
+    do i=1,sparse%Nrow
        call delete_row(sparse%row(i))
        deallocate(sparse%row(i)%root)
     end do
     deallocate(sparse%row)
-    sparse%size=0
+    sparse%Nrow=0
     sparse%status=.false.
   end subroutine sp_delete_matrix
 
@@ -380,7 +388,7 @@ contains
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
     if(Ndim1/=Ndim2)print*,"Warning: SPARSE/load_matrix Ndim1.ne.Ndim2"
-    if(sparse%size /= Ndim1)stop"Warning SPARSE/load_matrix: dimensions error"
+    if(sparse%Nrow /= Ndim1)stop"Warning SPARSE/load_matrix: dimensions error"
     do i=1,Ndim1
        do j=1,Ndim2
           if(matrix(i,j)/=0.d0)call sp_insert_element_d(sparse,matrix(i,j),i,j)
@@ -395,7 +403,7 @@ contains
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
     if(Ndim1/=Ndim2)print*,"Warning: SPARSE/load_matrix Ndim1.ne.Ndim2"
-    if(sparse%size /= Ndim1)stop "Warning SPARSE/load_matrix: dimensions error"
+    if(sparse%Nrow /= Ndim1)stop "Warning SPARSE/load_matrix: dimensions error"
     do i=1,Ndim1
        do j=1,Ndim2
           if(matrix(i,j)/=cmplx(0.d0,0.d0,8))call sp_insert_element_c(sparse,matrix(i,j),i,j)
@@ -417,8 +425,8 @@ contains
     integer                               :: i,j,Ndim1,Ndim2
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
-    if(Ndim1/=Ndim2)print*,"Warning: SPARSE/load_matrix Ndim1.ne.Ndim2"
-    if(sparse%size /= Ndim1)stop "Warning SPARSE/load_matrix: dimensions error"
+    !if(Ndim1/=Ndim2)print*,"Warning: SPARSE_MATRIX/sp_dump_matrix_d: Ndim1/=Ndim2"
+    if(sparse%Nrow /= Ndim1)stop "Warning SPARSE_MATRIX/sp_dump_matrix_d: dimensions error"
     matrix=0.d0
     do i=1,Ndim1
        c => sparse%row(i)%root%next
@@ -437,8 +445,8 @@ contains
     integer                                 :: i,j,Ndim1,Ndim2
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
-    if(Ndim1/=Ndim2)print*,"Warning: SPARSE/load_matrix Ndim1.ne.Ndim2"
-    if(sparse%size /= Ndim1)stop "Warning SPARSE/load_matrix: dimensions error"
+    !if(Ndim1/=Ndim2)print*,"Warning: SPARSE_MATRIX/sp_dump_matrix_d: Ndim1/=Ndim2"
+    if(sparse%Nrow /= Ndim1)stop "Warning SPARSE/load_matrix: dimensions error"
     matrix=0.d0
     do i=1,Ndim1
        c => sparse%row(i)%root%next
@@ -471,7 +479,7 @@ contains
     fmt_='F8.3';if(present(fmt))fmt_=fmt
     type_='d';if(present(type))type_=type
     full_=.false.;if(present(full))full_=full
-    Ns=sparse%size
+    Ns=sparse%Nrow
     select case(type_)
     case('d')
        if(full_)then
@@ -612,5 +620,63 @@ contains
 
 
 
+#ifdef _MPI
+  subroutine sp_matrix_vector_product_mpi_dd(sparse,Ndim,vin,Nloc,vout)
+    integer                               :: Ndim,Nloc
+    type(sparse_matrix),intent(in)        :: sparse
+    real(8),dimension(Ndim),intent(in)    :: vin
+    real(8),dimension(Nloc),intent(inout) :: vout
+    type(sparse_element),pointer          :: c
+    integer                               :: i
+    integer                               :: Nini,Nfin
+    vout=0.d0
+    do i=1,Nloc
+       c => sparse%row(i)%root%next
+       matmul: do
+          if(.not.associated(c))exit matmul
+          vout(i) = vout(i) + c%val*vin(c%col)
+          c => c%next
+       end do matmul
+    end do
+  end subroutine sp_matrix_vector_product_mpi_dd
+  !+------------------------------------------------------------------+
+  subroutine sp_matrix_vector_product_mpi_dc(sparse,Ndim,vin,Nloc,vout)
+    integer                                  :: Ndim,Nloc
+    type(sparse_matrix),intent(in)           :: sparse
+    complex(8),dimension(Ndim),intent(in)    :: vin
+    complex(8),dimension(Nloc),intent(inout) :: vout
+    type(sparse_element),pointer             :: c
+    integer                                  :: i
+    integer                                  :: Nini,Nfin
+    vout=zero
+    do i=1,Nloc
+       c => sparse%row(i)%root%next       
+       matmul: do
+          if(.not.associated(c))exit matmul
+          vout(i) = vout(i) + c%val*vin(c%col)
+          c => c%next
+       end do matmul
+    end do
+  end subroutine sp_matrix_vector_product_mpi_dc
+  !+------------------------------------------------------------------+
+  subroutine sp_matrix_vector_product_mpi_cc(sparse,Ndim,vin,Nloc,vout)
+    integer                                  :: Ndim,Nloc
+    type(sparse_matrix),intent(in)           :: sparse
+    complex(8),dimension(Ndim),intent(in)    :: vin
+    complex(8),dimension(Nloc),intent(inout) :: vout
+    type(sparse_element),pointer             :: c
+    integer                                  :: i
+    integer                                  :: Nini,Nfin
+    vout=zero
+    do i=1,Nloc
+       c => sparse%row(i)%root%next       
+       matmul: do
+          if(.not.associated(c))exit matmul
+          vout(i) = vout(i) + c%cval*vin(c%col)
+          c => c%next
+       end do matmul
+    end do
+  end subroutine sp_matrix_vector_product_mpi_cc
+#endif
 
 end module MATRIX_SPARSE

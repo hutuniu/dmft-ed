@@ -7,6 +7,7 @@ MODULE ED_OBSERVABLES
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_AUX_FUNX
+  USE ED_MATVEC
   implicit none
   private
 
@@ -41,6 +42,7 @@ contains
     integer,allocatable,dimension(:) :: Hmap,HJmap
     real(8),allocatable              :: vvinit(:)
     !
+    if(ED_MPI_ID==0)then
     allocate(nimp(Norb),dimp(Norb),nupimp(Norb),ndwimp(Norb),magimp(Norb),sz2imp(Norb,Norb),n2imp(Norb,Norb))
     Egs    = state_list%emin
     nimp   = 0.d0
@@ -209,7 +211,12 @@ contains
     deallocate(nimp,dimp,nupimp,ndwimp,magimp,sz2imp,n2imp)
     deallocate(simp,zimp)
     if(ed_supercond)deallocate(phiscimp)
-
+	endif
+#ifdef _MPI
+    call MPI_BCAST(ed_dens,Norb,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
+    call MPI_BCAST(ed_docc,Norb,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
+    if(ed_supercond)call MPI_BCAST(ed_phisc,Norb,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
   end subroutine ed_getobs
 
 
