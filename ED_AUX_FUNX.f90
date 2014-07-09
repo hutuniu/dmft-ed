@@ -3,13 +3,16 @@
 !AUTHORS  : Adriano Amaricci
 !########################################################################
 MODULE ED_AUX_FUNX
-  USE MPI_VARS
   USE TIMER
   USE IOTOOLS, only:free_unit,reg
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   implicit none
   private
+
+  interface print_state_vector
+     module procedure print_state_vector_ivec,print_state_vector_int
+  end interface print_state_vector
 
   public :: print_Hloc
   !
@@ -20,8 +23,13 @@ MODULE ED_AUX_FUNX
   public :: setup_pointers_sc
   public :: build_sector
   public :: bdecomp
+  public :: bjoin
+  public :: flip_state
+  public :: print_state_vector
   public :: c,cdg
   public :: binary_search
+  public :: twin_sector_order
+  public :: get_twin_sector
 
 contains
 
@@ -110,7 +118,7 @@ contains
 
 
     allocate(impIndex(Norb,2))
-    allocate(getdim(Nsect),getnup(Nsect),getndw(Nsect),getsz(Nsect))
+    allocate(getdim(Nsect),getnup(Nsect),getndw(Nsect),getsz(Nsect),twin_mask(Nsect))
     if(.not.ed_supercond)then
        allocate(getsector(0:Ns,0:Ns))
     else
@@ -152,20 +160,24 @@ contains
 
     !Some check:
     if(Lfit>Lmats)Lfit=Lmats
-    if(Nspin>2)stop "Nspin > 2 ERROR. ask developer or develop your own on separate branch"
-    if(Norb>3)stop "Norb > 3 ERROR. ask developer or develop your own on separate branch" 
+    if(Nspin>2)stop "Nspin > 2 ERROR. ask developer or develop your own on separate branch..."
+    if(Norb>3)stop "Norb > 3 ERROR. ask developer or develop your own on separate branch..." 
     if(nerr < dmft_error) nerr=dmft_error
     if(ed_supercond)then
-       if(Nspin>1)stop "SC+AFM ERROR. ask developer or develop your own on separate branch" 
+       if(Nspin>1)stop "SC+AFM ERROR. ask developer or develop your own on separate branch..." 
        if(Norb>1)stop "SC Multi-Band not yet implemented. Wait for the developer to understand what to do..."
        if(ed_type=='c')stop "SC with Hermitian H not yet implemented. Wait for the developer to code it..."
+       if(ed_twin)stop  "SC reduction with twim sectors not yet implemented. Ask developer or do it your own..."
     endif
+
+
     if(nread/=0.d0)then
        i=abs(floor(log10(abs(nerr)))) !modulus of the order of magnitude of nerror
        niter=nloop/3
        !nloop=(i-1)*niter                !increase the max number of dmft loop allowed so to do threshold loop
        !write(LOGfile,"(A,I10)")"Increased Nloop to:",nloop
     endif
+    if(Nspin>1.AND.ed_twin==.true.)write(LOGfile,"(A)")"WARNING: using twin_sector with Nspin>1"
 
     !allocate functions
     allocate(impSmats(Nspin,Nspin,Norb,Norb,Lmats))
@@ -241,6 +253,15 @@ contains
           neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
        enddo
     enddo
+    twin_mask=.true.
+    if(ed_twin)then
+       do isector=1,Nsect
+          nup=getnup(isector)
+          ndw=getndw(isector)
+          if(nup<ndw)twin_mask(isector)=.false.
+       enddo
+       if(ED_MPI_ID==0)write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsect
+    endif
     if(ED_MPI_ID==0)call stop_timer
 
     do in=1,Norb
@@ -257,7 +278,7 @@ contains
        enddo
     case ('hybrid')
        do i=1,Nbath
-          getBathStride(:,i)      = Norb + i
+          getBathStride(:,i)       = Norb + i
        enddo
     end select
 
@@ -368,18 +389,6 @@ contains
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
   !+------------------------------------------------------------------+
   !PURPOSE  : constructs the sectors by storing the map to the 
   !states i\in Hilbert_space from the states count in H_sector.
@@ -391,7 +400,7 @@ contains
     integer              :: nup,ndw,sz
     integer              :: ivec(Ntot)
     integer,dimension(:) :: map
-    !if(size(map)/=getdim(isector)stop "error in build_sector: wrong dimension of map"
+    !if(size(map)/=getdim(isector))stop "error in build_sector: wrong dimension of map"
     dim=0
     if(.not.ed_supercond)then
        nup = getnup(isector)
@@ -442,6 +451,106 @@ contains
        if(busy)ivec(l+1)=1
     enddo
   end subroutine bdecomp
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : input a vector ib(Ntot) with the binary sequence 
+  ! and output the corresponding state |i>
+  !(corresponds to the recomposition of the number i-1)
+  !+------------------------------------------------------------------+
+  subroutine bjoin(ivec,i)
+    integer,dimension(ntot) :: ivec
+    integer                 :: i,j
+    i=1
+    do j=1,Ntot
+       i=i+ivec(j)*2**(j-1)
+    enddo
+  end subroutine bjoin
+
+
+
+
+
+
+
+
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Build the re-ordering map to go from sector A(nup,ndw)
+  ! to its twin sector B(ndw,nup), with nup!=ndw. 
+  !+------------------------------------------------------------------+
+  subroutine twin_sector_order(isector,order)
+    integer                          :: isector
+    integer,dimension(:)             :: order
+    integer,dimension(:),allocatable :: Hmap
+    integer                          :: i,dim
+    dim = getdim(isector)
+    if(size(Order)/=dim)stop "ED_AUX_FUNX/build_twin_sector: wrong dimensions."
+    allocate(Hmap(dim))
+    call build_sector(isector,Hmap) !build the map from the A-sector to \HHH
+    do i=1,dim                      !
+       Order(i)=flip_state(Hmap(i)) !get the list of states in \HHH corresponding to sector B twin of A
+    enddo                           !
+    call sort_array(Order)          !return the ordering of B-states in \HHH with respect to those of A
+  end subroutine twin_sector_order
+  subroutine sort_array(array)
+    integer,dimension(:),intent(inout)      :: array
+    integer,dimension(size(array))          :: order
+    integer                                 :: i
+    forall(i=1:size(array))order(i)=i
+    call qsort_sort( array, order, 1, size(array) )
+    array=order
+  contains
+    recursive subroutine qsort_sort( array, order, left, right )
+      integer, dimension(:)                 :: array
+      integer, dimension(:)                 :: order
+      integer                               :: left
+      integer                               :: right
+      integer                               :: i
+      integer                               :: last
+      if ( left .ge. right ) return
+      call qsort_swap( order, left, qsort_rand(left,right) )
+      last = left
+      do i = left+1, right
+         if ( compare(array(order(i)), array(order(left)) ) .lt. 0 ) then
+            last = last + 1
+            call qsort_swap( order, last, i )
+         endif
+      enddo
+      call qsort_swap( order, left, last )
+      call qsort_sort( array, order, left, last-1 )
+      call qsort_sort( array, order, last+1, right )
+    end subroutine qsort_sort
+    !---------------------------------------------!
+    subroutine qsort_swap( order, first, second )
+      integer, dimension(:)                 :: order
+      integer                               :: first, second
+      integer                               :: tmp
+      tmp           = order(first)
+      order(first)  = order(second)
+      order(second) = tmp
+    end subroutine qsort_swap
+    !---------------------------------------------!
+    function qsort_rand( lower, upper )
+      implicit none
+      integer                               :: lower, upper
+      real(8)                               :: r
+      integer                               :: qsort_rand
+      call random_number(r)
+      qsort_rand =  lower + nint(r * (upper-lower))
+    end function qsort_rand
+    function compare(f,g)
+      integer                               :: f,g
+      integer                               :: compare
+      compare=1
+      if(f<g)compare=-1
+    end function compare
+  end subroutine sort_array
+
 
 
 
@@ -509,6 +618,72 @@ contains
   end subroutine cdg
 
 
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : print a state vector |{up}>|{dw}>
+  !+------------------------------------------------------------------+
+  subroutine print_state_vector_ivec(ib,unit)
+    integer,optional :: unit
+    integer :: i,j,unit_
+    integer :: ib(ntot)
+    unit_=6;if(present(unit))unit_=unit
+    call bjoin(ib,i)
+    write(unit_,"(I3,1x,A1)",advance="no")i,"|"
+    write(unit_,"(10I1)",advance="no")(ib(j),j=1,Ns)
+    write(unit_,"(A1,A1)",advance="no")">","|"
+    write(unit_,"(10I1)",advance="no")(ib(ns+j),j=1,Ns)
+    write(unit_,"(A1)",advance="yes")">"
+  end subroutine print_state_vector_ivec
+  !
+  subroutine print_state_vector_int(i,unit)
+    integer,optional :: unit
+    integer :: i,j,unit_
+    integer :: ib(ntot)
+    unit_=6;if(present(unit))unit_=unit
+    call bdecomp(i,ib)
+    write(unit_,"(I3,1x,A1)",advance="no")i,"|"
+    write(unit_,"(10I1)",advance="no")(ib(j),j=1,Ns)
+    write(unit_,"(A2)",advance="no")">|"
+    write(unit_,"(10I1)",advance="no")(ib(ns+j),j=1,Ns)
+    write(unit_,"(A1)",advance="yes")">"
+  end subroutine print_state_vector_int
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Flip an Hilbert space state m=|{up}>|{dw}> into 
+  ! j=|{dw}>|{up}>
+  !+------------------------------------------------------------------+
+  function flip_state(m) result(j)
+    integer :: m
+    integer :: j
+    integer :: ivec(Ntot),foo(Ntot)
+    call bdecomp(m,ivec)
+    foo(1:Ns)=Ivec(Ns+1:2*Ns)
+    foo(Ns+1:2*Ns)=Ivec(1:Ns)
+    call bjoin(foo,j)
+  end function flip_state
+
+
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Flip an Hilbert space state m=|{up}>|{dw}> into 
+  ! j=|{dw}>|{up}>
+  !+------------------------------------------------------------------+
+  function get_twin_sector(isector) result(jsector)
+    integer,intent(in) :: isector
+    integer :: jsector
+    integer :: nup,ndw
+    nup=getnup(isector)
+    ndw=getndw(isector)
+    jsector=getsector(ndw,nup)
+  end function get_twin_sector
 
 
 
@@ -621,99 +796,99 @@ contains
     integer               :: unit
     !
     if(ED_MPI_ID==0)then
-    ndiff=ntmp-nread
-    nratio = 0.5d0;!nratio = 1.d0/(6.d0/11.d0*pi)
-    !
-    !check actual value of the density *ntmp* with respect to goal value *nread*
-    count=count+1
-    totcount=totcount+1
-    if(count>2)then
-       do i=1,2
-          nindex_old(i+1)=nindex_old(i)
-       enddo
-    endif
-    nindex_old(1)=nindex
-    !
-    if(ndiff >= nth)then
-       nindex=-1
-    elseif(ndiff <= -nth)then
-       nindex=1
-    else
-       nindex=0
-    endif
-    !
-    ndelta_old=ndelta
-    bool=nindex/=0.AND.( (nindex+nindex_old(1)==0).OR.(nindex+sum(nindex_old(:))==0) )
-    !if(nindex_old(1)+nindex==0.AND.nindex/=0)then !avoid loop forth and back
-    if(bool)then
-       ndelta=ndelta_old*nratio !decreasing the step
-    else
-       ndelta=ndelta_old
-    endif
-    !
-    if(ndelta_old<1.d-9)then
-       ndelta_old=0.d0
-       nindex=0
-    endif
-    !update chemical potential
-    var=var+dble(nindex)*ndelta
-    !xmu=xmu+dble(nindex)*ndelta
-    !
-    !Print information
-    write(LOGfile,"(A,f16.9,A,f15.9)")"n    = ",ntmp," /",nread
-    if(nindex>0)then
-       write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," ==>"
-    elseif(nindex<0)then
-       write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," <=="
-    else
-       write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," == "
-    endif
-    write(LOGfile,"(A,f15.9)")"var  = ",var
-    write(LOGfile,"(A,ES16.9,A,ES16.9)")"dn   = ",ndiff,"/",nth
-    unit=free_unit()
-    open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-    write(unit,*)var,ntmp,ndiff
-    close(unit)
-    !
-    !check convergence within actual threshold
-    !if reduce is activetd
-    !if density is in the actual threshold
-    !if DMFT is converged
-    !if threshold is larger than nerror (i.e. this is not last loop)
-    bool=ireduce.AND.(abs(ndiff)<nth).AND.converged.AND.(nth>nerr)
-    if(bool)then
-       nth_magnitude_old=nth_magnitude        !save old threshold magnitude
-       nth_magnitude=nth_magnitude_old-1      !decrease threshold magnitude || floor(log10(abs(ntmp-nread)))
-       nth=max(nerr,10.d0**(nth_magnitude))   !set the new threshold 
-       count=0                                !reset the counter
-       converged=.false.                      !reset convergence
-       ndelta=ndelta_old*nratio                  !reduce the delta step
+       ndiff=ntmp-nread
+       nratio = 0.5d0;!nratio = 1.d0/(6.d0/11.d0*pi)
+       !
+       !check actual value of the density *ntmp* with respect to goal value *nread*
+       count=count+1
+       totcount=totcount+1
+       if(count>2)then
+          do i=1,2
+             nindex_old(i+1)=nindex_old(i)
+          enddo
+       endif
+       nindex_old(1)=nindex
+       !
+       if(ndiff >= nth)then
+          nindex=-1
+       elseif(ndiff <= -nth)then
+          nindex=1
+       else
+          nindex=0
+       endif
+       !
+       ndelta_old=ndelta
+       bool=nindex/=0.AND.( (nindex+nindex_old(1)==0).OR.(nindex+sum(nindex_old(:))==0) )
+       !if(nindex_old(1)+nindex==0.AND.nindex/=0)then !avoid loop forth and back
+       if(bool)then
+          ndelta=ndelta_old*nratio !decreasing the step
+       else
+          ndelta=ndelta_old
+       endif
+       !
+       if(ndelta_old<1.d-9)then
+          ndelta_old=0.d0
+          nindex=0
+       endif
+       !update chemical potential
+       var=var+dble(nindex)*ndelta
+       !xmu=xmu+dble(nindex)*ndelta
+       !
+       !Print information
+       write(LOGfile,"(A,f16.9,A,f15.9)")"n    = ",ntmp," /",nread
+       if(nindex>0)then
+          write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," ==>"
+       elseif(nindex<0)then
+          write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," <=="
+       else
+          write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," == "
+       endif
+       write(LOGfile,"(A,f15.9)")"var  = ",var
+       write(LOGfile,"(A,ES16.9,A,ES16.9)")"dn   = ",ndiff,"/",nth
+       unit=free_unit()
+       open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+       write(unit,*)var,ntmp,ndiff
+       close(unit)
+       !
+       !check convergence within actual threshold
+       !if reduce is activetd
+       !if density is in the actual threshold
+       !if DMFT is converged
+       !if threshold is larger than nerror (i.e. this is not last loop)
+       bool=ireduce.AND.(abs(ndiff)<nth).AND.converged.AND.(nth>nerr)
+       if(bool)then
+          nth_magnitude_old=nth_magnitude        !save old threshold magnitude
+          nth_magnitude=nth_magnitude_old-1      !decrease threshold magnitude || floor(log10(abs(ntmp-nread)))
+          nth=max(nerr,10.d0**(nth_magnitude))   !set the new threshold 
+          count=0                                !reset the counter
+          converged=.false.                      !reset convergence
+          ndelta=ndelta_old*nratio                  !reduce the delta step
+          !
+       endif
+       !
+       !if density is not converged set convergence to .false.
+       if(abs(ntmp-nread)>nth)converged=.false.
+       !
+       !check convergence for this threshold
+       !!---if smallest threshold-- NO MORE
+       !if reduce is active (you reduced the treshold at least once)
+       !if # iterations > max number
+       !if not yet converged
+       !set threshold back to the previous larger one.
+       !bool=(nth==nerr).AND.ireduce.AND.(count>niter).AND.(.not.converged)
+       bool=ireduce.AND.(count>niter).AND.(.not.converged)
+       if(bool)then
+          ireduce=.false.
+          nth=10.d0**(nth_magnitude_old)
+       endif
+       !
+       write(LOGfile,"(A,I5)")"count= ",count
+       write(LOGfile,"(A,L2)"),"Converged=",converged
+       print*,""
        !
     endif
-    !
-    !if density is not converged set convergence to .false.
-    if(abs(ntmp-nread)>nth)converged=.false.
-    !
-    !check convergence for this threshold
-    !!---if smallest threshold-- NO MORE
-    !if reduce is active (you reduced the treshold at least once)
-    !if # iterations > max number
-    !if not yet converged
-    !set threshold back to the previous larger one.
-    !bool=(nth==nerr).AND.ireduce.AND.(count>niter).AND.(.not.converged)
-    bool=ireduce.AND.(count>niter).AND.(.not.converged)
-    if(bool)then
-       ireduce=.false.
-       nth=10.d0**(nth_magnitude_old)
-    endif
-    !
-    write(LOGfile,"(A,I5)")"count= ",count
-    write(LOGfile,"(A,L2)"),"Converged=",converged
-    print*,""
-    !
-    endif
 #ifdef _MPI
-    call MPI_BCAST(xmu,1,MPI_Double_Precision,0,MPI_COMM_WORLD,mpiERR)
+    call MPI_BCAST(xmu,1,MPI_Double_Precision,0,MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
   end subroutine search_chemical_potential
 

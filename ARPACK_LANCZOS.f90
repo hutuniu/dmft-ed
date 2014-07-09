@@ -1,6 +1,7 @@
 module ARPACK_LANCZOS
   USE CONSTANTS, only:zero
   USE ED_VARS_GLOBAL
+  USE ED_INPUT_VARS
   implicit none
   private 
 
@@ -135,7 +136,7 @@ contains
     !  * The work array WORKL is used in SSAUPD as workspace.  Its dimension
     !  LWORKL is set as illustrated below. 
     lworkl = ncv*(ncv+8)
-    tol    = 0.d0
+    tol    = lanc_tolerance!0.d0
     info   = 1
     ido    = 0
 
@@ -340,7 +341,7 @@ contains
     !  * The work array WORKL is used in SSAUPD as workspace.  Its dimension
     !  LWORKL is set as illustrated below. 
     lworkl = ncv*(3*ncv+5) + 10
-    tol    = 0.0 
+    tol    = lanc_tolerance!0.0 
     ido    = 0
     info   = 1
 
@@ -545,12 +546,11 @@ contains
     end interface
 
     verb=.false.;if(present(iverbose))verb=iverbose
-    ! call MPI_COMM_RANK( MPI_COMM_WORLD, ED_MPI_ID, ED_MPI_ERR )
-    ! call MPI_COMM_SIZE( MPI_COMM_WORLD, ED_MPI_SIZE, ED_MPI_ERR )
-    !comm = MPI_COMM_WORLD
+
     mpiQ = Ns/ED_MPI_SIZE
     mpiR = 0
     if(ED_MPI_ID == ED_MPI_SIZE-1)mpiR=mod(Ns,ED_MPI_SIZE)
+
     !=========================================================================
     !  Specifications for ARPACK usage are set below:
     !  0) N   = Ns set the dimension of the problem
@@ -623,7 +623,7 @@ contains
     !  * The work array WORKL is used in SSAUPD as workspace.  Its dimension
     !  LWORKL is set as illustrated below. 
     lworkl = ncv*(ncv+8)
-    tol    = 0.d0
+    tol    = lanc_tolerance!0.d0
     info   = 1
     ido    = 0
 
@@ -659,7 +659,6 @@ contains
        if(ido/=-1.AND.ido/=1)exit
        !  Perform matrix vector multiplication
        !    y <--- OP*x ; workd(ipntr(1))=input, workd(ipntr(2))=output
-       !call hprod(mpiQ,mpiR,ldv,n,workd(ipntr(1)),workd(ipntr(2)))
        call hprod(n,ldv,workd(ipntr(1)),workd(ipntr(2)))
     end do
     !=========================================================================
@@ -786,9 +785,7 @@ contains
        end subroutine hprod
     end interface
     verb=.false.;if(present(iverbose))verb=iverbose
-    call MPI_COMM_RANK( MPI_COMM_WORLD, ED_MPI_ID, ED_MPI_ERR )
-    call MPI_COMM_SIZE( MPI_COMM_WORLD, ED_MPI_SIZE, ED_MPI_ERR )
-    !comm = MPI_COMM_WORLD
+
     mpiQ = Ns/ED_MPI_SIZE
     mpiR = 0
     if(ED_MPI_ID == ED_MPI_SIZE-1)mpiR=mod(Ns,ED_MPI_SIZE)
@@ -870,7 +867,7 @@ contains
     !  * The work array WORKL is used in SSAUPD as workspace.  Its dimension
     !  LWORKL is set as illustrated below. 
     lworkl = ncv*(3*ncv+5) + 10
-    tol    = 0.d0 
+    tol    = lanc_tolerance!0.d0 
     ido    = 0
     info   = 1
 

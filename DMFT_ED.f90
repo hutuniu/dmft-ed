@@ -1,9 +1,8 @@
-
 module DMFT_ED
-  USE MPI_VARS
   USE IOTOOLS, only:free_unit,reg
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
+  USE ED_EIGENSPACE, only: state_list,es_delete_espace
   USE ED_BATH
   USE ED_AUX_FUNX
   USE ED_CHI2FIT
@@ -61,10 +60,10 @@ contains
     call set_bath(bath_,dmft_bath)
     if(ed_verbose<2.AND.ED_MPI_ID==0)call write_bath(dmft_bath,LOGfile)
     if(ED_MPI_ID==0)then
-    unit=free_unit()
-    open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".used")
-    call write_bath(dmft_bath,unit)
-    close(unit)
+       unit=free_unit()
+       open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".used")
+       call write_bath(dmft_bath,unit)
+       close(unit)
     endif
     call lanc_ed_diag
     call lanc_ed_getgf

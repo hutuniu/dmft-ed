@@ -5,6 +5,8 @@ subroutine lanc_ed_getgf_normal()
   integer :: izero,iorb,jorb,ispin,i
   integer :: isect0,numstates
   real(8) :: norm0
+  logical :: verbose
+  verbose=.false.;if(ed_verbose<0)verbose=.true.
   call allocate_grids
 
   if(.not.allocated(impGmats))allocate(impGmats(Nspin,Nspin,Norb,Norb,Lmats))
@@ -17,9 +19,9 @@ subroutine lanc_ed_getgf_normal()
         if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
         select case(ed_type)
         case default
-           call lanc_ed_buildgf_d(iorb,ispin,.false.)
+           call lanc_ed_buildgf_d(iorb,ispin,verbose)
         case ('c')
-           call lanc_ed_buildgf_c(iorb,ispin,.false.)
+           call lanc_ed_buildgf_c(iorb,ispin,verbose)
         end select
      enddo
   enddo
@@ -32,9 +34,9 @@ subroutine lanc_ed_getgf_normal()
                    reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))
               select case(ed_type)
               case default
-                 call lanc_ed_buildgf_mix_d(iorb,jorb,ispin,.false.)
+                 call lanc_ed_buildgf_mix_d(iorb,jorb,ispin,verbose)
               case ('c')
-                 call lanc_ed_buildgf_mix_c(iorb,jorb,ispin,.false.)                    
+                 call lanc_ed_buildgf_mix_c(iorb,jorb,ispin,verbose)                    
               end select
            enddo
         enddo
@@ -89,12 +91,11 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
   !
   isite=impIndex(iorb,ispin)
   !
-  numstates=numgs
-  if(finiteT)numstates=state_list%size
+  numstates=state_list%size
   !   
   if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
+     if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -108,8 +109,7 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
      jsect0 = getCDGsector(ispin,isect0)
      if(jsect0/=0)then 
         jdim0  = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'add particle:',&
-             getnup(jsect0),getndw(jsect0),jdim0
+        if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),vvinit(jdim0))
         call build_sector(jsect0,HJmap) !note that here you are doing twice the map building...
         vvinit=0.d0
@@ -138,8 +138,7 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
      jsect0 = getCsector(ispin,isect0)
      if(jsect0/=0)then
         jdim0  = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'del particle:',&
-             getnup(jsect0),getndw(jsect0),jdim0
+        if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),vvinit(jdim0))
         call build_sector(jsect0,HJmap)
         vvinit=0.d0
@@ -198,12 +197,11 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
   !
   isite=impIndex(iorb,ispin)
   !
-  numstates=numgs
-  if(finiteT)numstates=state_list%size
+  numstates=state_list%size
   !   
   if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
+     if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_cvec => es_return_cvector(state_list,izero)
@@ -217,7 +215,7 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
      jsect0 = getCDGsector(ispin,isect0)
      if(jsect0/=0)then 
         jdim0  = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'add particle:',&
+        if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',&
              getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),vvinit(jdim0))
         call build_sector(jsect0,HJmap) !note that here you are doing twice the map building...
@@ -247,7 +245,7 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
      jsect0 = getCsector(ispin,isect0)
      if(jsect0/=0)then
         jdim0  = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'del particle:',&
+        if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',&
              getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),vvinit(jdim0))
         call build_sector(jsect0,HJmap)
@@ -312,12 +310,11 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
   isite=impIndex(iorb,ispin)  !orbital 1
   jsite=impIndex(jorb,ispin)  !orbital 2
   !
-  numstates=numgs
-  if(finiteT)numstates=state_list%size
+  numstates=state_list%size
   !   
   if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
+     if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -333,8 +330,7 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
      jsect0 = getCDGsector(ispin,isect0)
      if(jsect0/=0)then 
         jdim0  = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")'add particle:',&
-             getnup(jsect0),getndw(jsect0),jdim0
+        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")' add particle:',getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),vvinit(jdim0))
         call build_sector(jsect0,HJmap)
         vvinit=0.d0
@@ -372,8 +368,7 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
      jsect0 = getCsector(ispin,isect0)
      if(jsect0/=0)then
         jdim0   = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")'del particle:',&
-             getnup(jsect0),getndw(jsect0),jdim0
+        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")' del particle:',getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),vvinit(jdim0))
         call build_sector(jsect0,HJmap)
         vvinit=0.d0
@@ -411,8 +406,7 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
      jsect0 = getCDGsector(ispin,isect0)
      if(jsect0/=0)then 
         jdim0  = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")'add particle:',&
-             getnup(jsect0),getndw(jsect0),jdim0
+        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")' add particle:',getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),cvinit(jdim0))
         call build_sector(jsect0,HJmap)
         cvinit=zero
@@ -450,8 +444,7 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
      jsect0 = getCsector(ispin,isect0)
      if(jsect0/=0)then
         jdim0   = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")'del particle:',&
-             getnup(jsect0),getndw(jsect0),jdim0
+        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")' del particle:',getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),cvinit(jdim0))
         call build_sector(jsect0,HJmap)
         cvinit=zero
@@ -521,12 +514,11 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
   isite=impIndex(iorb,ispin)  !orbital 1
   jsite=impIndex(jorb,ispin)  !orbital 2
   !
-  numstates=numgs
-  if(finiteT)numstates=state_list%size
+  numstates=state_list%size
   !   
   if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
+     if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_cvec => es_return_cvector(state_list,izero)
@@ -542,8 +534,7 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
      jsect0 = getCDGsector(ispin,isect0)
      if(jsect0/=0)then 
         jdim0  = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)&
-             write(*,"(A,2I3,I15)")'add particle:',getnup(jsect0),getndw(jsect0),jdim0
+        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")' add particle:',getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),vvinit(jdim0))
         call build_sector(jsect0,HJmap)
         vvinit=0.d0
@@ -581,8 +572,7 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
      jsect0 = getCsector(ispin,isect0)
      if(jsect0/=0)then
         jdim0   = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)&
-             write(*,"(A,2I3,I15)")'del particle:',getnup(jsect0),getndw(jsect0),jdim0
+        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")' del particle:',getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),vvinit(jdim0))
         call build_sector(jsect0,HJmap)
         vvinit=0.d0
@@ -620,8 +610,7 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
      jsect0 = getCDGsector(ispin,isect0)
      if(jsect0/=0)then 
         jdim0  = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)&
-             write(*,"(A,2I3,I15)")'add particle:',getnup(jsect0),getndw(jsect0),jdim0
+        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")' add particle:',getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),cvinit(jdim0))
         call build_sector(jsect0,HJmap)
         cvinit=zero
@@ -659,8 +648,7 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
      jsect0 = getCsector(ispin,isect0)
      if(jsect0/=0)then
         jdim0   = getdim(jsect0)
-        if(iverbose_.AND.ED_MPI_ID==0)&
-             write(*,"(A,2I3,I15)")'del particle:',getnup(jsect0),getndw(jsect0),jdim0
+        if(iverbose_.AND.ED_MPI_ID==0)write(*,"(A,2I3,I15)")' del particle:',getnup(jsect0),getndw(jsect0),jdim0
         allocate(HJmap(jdim0),cvinit(jdim0))
         call build_sector(jsect0,HJmap)
         cvinit=zero

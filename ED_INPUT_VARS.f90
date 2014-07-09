@@ -1,6 +1,7 @@
 MODULE ED_INPUT_VARS
   USE SCIFOR_VERSION
   USE PARSE_INPUT
+  USE ED_VARS_GLOBAL, only: ED_MPI_ID
   implicit none
 
   !GIT VERSION
@@ -25,8 +26,10 @@ MODULE ED_INPUT_VARS
   logical                                     :: chiflag             !
   logical                                     :: HFmode              !flag for HF interaction form U(n-1/2)(n-1/2) VS Unn
   real(8)                                     :: cutoff              !cutoff for spectral summation
+  real(8)                                     :: gs_threshold        !Energy threshold for ground state degeneracy loop up
   real(8)                                     :: dmft_error          !dmft convergence threshold
   real(8)                                     :: sb_field            !symmetry breaking field
+  real(8)                                     :: lanc_tolerance      !Tolerance for the Lanczos iterations as used in Arpack and plain lanczos. 
   integer                                     :: lanc_niter          !Max number of Lanczos iterations
   integer                                     :: lanc_ngfiter        !Max number of iteration in resolvant tri-diagonalization
   integer                                     :: lanc_nstates_sector !Max number of required eigenvalues per sector
@@ -39,6 +42,7 @@ MODULE ED_INPUT_VARS
   integer                                     :: cg_stop             !fit stop condition:0-3, 0=default
   real(8)                                     :: cg_eps              !fit eps tolerance
   logical                                     :: finiteT             !flag for finite temperature calculation
+  logical                                     :: ed_twin             !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   character(len=1)                            :: ed_type             !flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)
   logical                                     :: ed_supercond        !flag to set ed symmetry type: F=normal (default), T=superc=superconductive
   character(len=7)                            :: bath_type           !flag to set bath type: irreducible (1bath/imp), reducible(1bath)
@@ -50,7 +54,7 @@ MODULE ED_INPUT_VARS
   integer                                     :: ed_verbose
 
 
- !Some parameters for function dimension:
+  !Some parameters for function dimension:
   !=========================================================
   integer                                     :: Lmats
   integer                                     :: Lreal
@@ -86,6 +90,7 @@ contains
     call parse_input_variable(nloop,"NLOOP",INPUTunit,default=100,comment="Max number of DMFT iterations.")
     call parse_input_variable(dmft_error,"DMFT_ERROR",INPUTunit,default=0.00001d0,comment="Error threshold for DMFT convergence")
     call parse_input_variable(sb_field,"SB_FIELD",INPUTunit,default=0.1d0,comment="Value of a symmetry breaking field for magnetic solutions.")
+    call parse_input_variable(ed_twin,"ED_TWIN",INPUTunit,default=.false.,comment="flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.")
     call parse_input_variable(nsuccess,"NSUCCESS",INPUTunit,default=1,comment="Number of successive iterations below threshold for convergence")
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=2000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=2000,comment="Number of real-axis frequencies.")
@@ -101,10 +106,12 @@ contains
     call parse_input_variable(hfmode,"HFMODE",INPUTunit,default=.true.,comment="Flag to set the Hartree form of the interaction (n-1/2). see xmu.")
     call parse_input_variable(eps,"EPS",INPUTunit,default=0.01d0,comment="Broadening on the real-axis.")
     call parse_input_variable(cutoff,"CUTOFF",INPUTunit,default=1.d-9,comment="Spectrum cut-off, used to determine the number states to be retained.")
+    call parse_input_variable(gs_threshold,"GS_THRESHOLD",INPUTunit,default=1.d-9,comment="Energy threshold for ground state degeneracy loop up")
     call parse_input_variable(lanc_nstates_sector,"LANC_NSTATES_SECTOR",INPUTunit,default=1,comment="Initial number of states per sector to be determined.")
     call parse_input_variable(lanc_nstates_total,"LANC_NSTATES_TOTAL",INPUTunit,default=1,comment="Initial number of total states to be determined.")
     call parse_input_variable(lanc_niter,"LANC_NITER",INPUTunit,default=512,comment="Number of Lanczos iteration in spectrum determination.")
     call parse_input_variable(lanc_ngfiter,"LANC_NGFITER",INPUTunit,default=200,comment="Number of Lanczos iteration in GF determination. Number of momenta.")
+    call parse_input_variable(lanc_tolerance,"LANC_TOLERANCE",INPUTunit,default=0.d0,comment="Tolerance for the Lanczos iterations as used in Arpack and plain lanczos.")
     call parse_input_variable(cg_niter,"CG_NITER",INPUTunit,default=500,comment="Max. number of Conjugate-Gradient iterations.")
     call parse_input_variable(cg_scheme,"CG_SCHEME",INPUTunit,default='delta',comment="Conjugate-Gradient fit scheme: delta or weiss.")
     call parse_input_variable(cg_ftol,"CG_FTOL",INPUTunit,default=0.00001d0,comment="Conjugate-Gradient tolerance.")
@@ -124,7 +131,7 @@ contains
     call substring_delete(Hfile,".ed")
     Ltau=max(int(beta),Ltau)
     !
-    call save_input_file(INPUTunit)
+    if(ED_MPI_ID==0)call save_input_file(INPUTunit)
     !
     call version(revision)
   end subroutine ed_read_input

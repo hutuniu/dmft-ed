@@ -75,8 +75,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
   !
   isite=impIndex(iorb,ispin)
   !
-  numstates=numgs
-  if(finiteT)numstates=state_list%size
+  numstates=state_list%size
   !   
   if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates

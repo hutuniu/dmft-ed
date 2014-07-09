@@ -1,7 +1,6 @@
 MODULE ED_VARS_GLOBAL  
   USE ED_BATH_TYPE
   USE MATRIX_SPARSE
-  USE EIGEN_SPACE
 #ifdef _MPI
   USE MPI
 #endif
@@ -32,6 +31,7 @@ MODULE ED_VARS_GLOBAL
   integer,allocatable,dimension(:,:)          :: getBathStride
   integer,allocatable,dimension(:,:)          :: impIndex
   integer,allocatable,dimension(:)            :: getdim,getnup,getndw,getsz
+  logical,allocatable,dimension(:)            :: twin_mask
 
 
   !Effective Bath used in the ED code (this is opaque to user)
@@ -39,9 +39,7 @@ MODULE ED_VARS_GLOBAL
   type(effective_bath)                        :: dmft_bath
 
   !Variables for DIAGONALIZATION
-  !=========================================================
-  integer                                     :: numgs
-  type(sparse_espace)                         :: state_list
+  !=========================================================  
   type(sparse_matrix)                         :: spH0
   integer,allocatable,dimension(:)            :: neigen_sector
 

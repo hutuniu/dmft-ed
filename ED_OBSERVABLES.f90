@@ -6,6 +6,7 @@ MODULE ED_OBSERVABLES
   USE IOTOOLS, only:free_unit,reg,txtfy
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
+  USE ED_EIGENSPACE
   USE ED_AUX_FUNX
   USE ED_MATVEC
   implicit none
@@ -42,7 +43,6 @@ contains
     integer,allocatable,dimension(:) :: Hmap,HJmap
     real(8),allocatable              :: vvinit(:)
     !
-    if(ED_MPI_ID==0)then
     allocate(nimp(Norb),dimp(Norb),nupimp(Norb),ndwimp(Norb),magimp(Norb),sz2imp(Norb,Norb),n2imp(Norb,Norb))
     Egs    = state_list%emin
     nimp   = 0.d0
@@ -53,8 +53,7 @@ contains
     sz2imp = 0.d0
     n2imp  = 0.d0
     s2tot  = 0.d0
-    numstates=numgs
-    if(finiteT)numstates=state_list%size
+    numstates=state_list%size
     do izero=1,numstates
        isect0 = es_return_sector(state_list,izero)
        Ei     = es_return_energy(state_list,izero)
@@ -66,10 +65,7 @@ contains
           gscvec  => es_return_cvector(state_list,izero)
           norm0=sqrt(dot_product(gscvec,gscvec))
        endif
-       if(abs(norm0-1.d0)>1.d-9)then
-          write(LOGfile,*) "GS : "//reg(txtfy(izero))//"is not normalized:"//txtfy(norm0)
-          stop
-       endif
+       if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
        peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
        peso = peso/zeta_function
        !
@@ -119,10 +115,7 @@ contains
        phiscimp = 0.d0
        do ispin=1,Nspin
           do iorb=1,Norb
-             !
-             numstates=numgs
-             if(finiteT)numstates=state_list%size
-             !   
+             numstates=state_list%size
              do izero=1,numstates
                 !
                 isect0 = es_return_sector(state_list,izero)
@@ -135,10 +128,7 @@ contains
                    gscvec  => es_return_cvector(state_list,izero)
                    norm0=sqrt(dot_product(gscvec,gscvec))
                 endif
-                if(abs(norm0-1.d0)>1.d-9)then
-                   write(LOGfile,*) "GS : "//reg(txtfy(izero))//"is not normalized:"//txtfy(norm0)
-                   stop
-                endif
+                if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
                 peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
                 peso = peso/zeta_function
                 allocate(Hmap(dim0))
@@ -187,18 +177,20 @@ contains
 
     allocate(simp(Norb,Nspin),zimp(Norb,Nspin))
     call get_szr
-    if(iolegend)call write_legend
-    call write_to_unit_column()
-    write(LOGfile,"(A,10f18.12,f18.12,A)")"nimp"//reg(ed_file_suffix)//"=",(nimp(iorb),iorb=1,Norb),sum(nimp)
-    if(ed_supercond)then
-       write(LOGfile,"(A,20f18.12,A)")    "phi "//reg(ed_file_suffix)//"=",(phiscimp(iorb),iorb=1,Norb),(uloc(iorb)*phiscimp(iorb),iorb=1,Norb)
-    else
-       write(LOGfile,"(A,10f18.12,A)")    "docc"//reg(ed_file_suffix)//"=",(dimp(iorb),iorb=1,Norb)       
-    endif
-    if(ed_verbose<1)then
-       write(LOGfile,"(A,20f18.12,A)")    "sz2 "//reg(ed_file_suffix)//"=",((sz2imp(iorb,jorb),jorb=1,Norb),iorb=1,Norb)
-       if(Nspin==2)then
-          write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magimp(iorb),iorb=1,Norb)
+    if(ED_MPI_ID==0)then
+       if(iolegend)call write_legend
+       call write_to_unit_column()
+       write(LOGfile,"(A,10f18.12,f18.12,A)")"nimp"//reg(ed_file_suffix)//"=",(nimp(iorb),iorb=1,Norb),sum(nimp)
+       if(ed_supercond)then
+          write(LOGfile,"(A,20f18.12,A)")    "phi "//reg(ed_file_suffix)//"=",(phiscimp(iorb),iorb=1,Norb),(uloc(iorb)*phiscimp(iorb),iorb=1,Norb)
+       else
+          write(LOGfile,"(A,10f18.12,A)")    "docc"//reg(ed_file_suffix)//"=",(dimp(iorb),iorb=1,Norb)       
+       endif
+       if(ed_verbose<1)then
+          write(LOGfile,"(A,20f18.12,A)")    "sz2 "//reg(ed_file_suffix)//"=",((sz2imp(iorb,jorb),jorb=1,Norb),iorb=1,Norb)
+          if(Nspin==2)then
+             write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magimp(iorb),iorb=1,Norb)
+          endif
        endif
     endif
     !
@@ -211,7 +203,7 @@ contains
     deallocate(nimp,dimp,nupimp,ndwimp,magimp,sz2imp,n2imp)
     deallocate(simp,zimp)
     if(ed_supercond)deallocate(phiscimp)
-	endif
+
 #ifdef _MPI
     call MPI_BCAST(ed_dens,Norb,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
     call MPI_BCAST(ed_docc,Norb,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)

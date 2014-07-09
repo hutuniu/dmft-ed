@@ -82,8 +82,10 @@ program ed_bhz
   allocate(Bath_(Nb(1),Nb(2)))
   call init_ed_solver(bath)
   Hloc = j2so(bhzHloc)
-  write(LOGfile,*)"Updated Hloc:"
-  call print_Hloc(Hloc)
+  if(ED_MPI_ID==0)then
+     write(LOGfile,*)"Updated Hloc:"
+     call print_Hloc(Hloc)
+  endif
 
   !DMFT loop
   iloop=0;converged=.false.
@@ -181,13 +183,13 @@ contains
        !
     enddo
     if(ED_MPI_ID==0)then
-    do ispin=1,Nspin
-       do iorb=1,Norb
-          suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
-          call splot("Delta"//reg(suffix),wm,delta(ispin,ispin,iorb,iorb,:))
-          call splot("Gloc"//reg(suffix),wm,gloc(ispin,ispin,iorb,iorb,:))
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+             call splot("Delta"//reg(suffix),wm,delta(ispin,ispin,iorb,iorb,:))
+             call splot("Gloc"//reg(suffix),wm,gloc(ispin,ispin,iorb,iorb,:))
+          enddo
        enddo
-    enddo
     endif
     deallocate(gloc)
     !
@@ -205,12 +207,12 @@ contains
        gloc(:,:,:,:,i) = j2so(fg)
     enddo
     if(ED_MPI_ID==0)then
-    do ispin=1,Nspin
-       do iorb=1,Norb
-          suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-          call splot("Gloc"//reg(suffix),wr,-dimag(gloc(ispin,ispin,iorb,iorb,:))/pi,dreal(gloc(ispin,ispin,iorb,iorb,:)))
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+             call splot("Gloc"//reg(suffix),wr,-dimag(gloc(ispin,ispin,iorb,iorb,:))/pi,dreal(gloc(ispin,ispin,iorb,iorb,:)))
+          enddo
        enddo
-    enddo
     endif
     deallocate(gloc)
   end subroutine get_delta
@@ -242,56 +244,58 @@ contains
     real(8)                             :: wm(Lmats),wr(Lreal),dw,n0(Nso),eig(Nso)
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal,mesh=dw)
-    call start_progress(LOGfile)
+    if(ED_MPI_ID==0)call start_progress(LOGfile)
     if(getak)then
        !This routine build the H(k) along the GXMG path in BZ,
        !Hk(k) is used in get_delta with getak=T
-       write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-       unit=free_unit() 
-       open(unit,file="Eigenbands.dat")
-       Lk=3*Nk
-       ik = 0
-       allocate(Hk(Nso,Nso,Lk))
-       !From \Gamma=(0,0) to X=(pi,0): Nk steps
-       do ix=1,Nk
-          ik=ik+1
-          kx = 0.d0 + pi*real(ix-1,8)/dble(Nk)
-          ky = 0.d0
-          Hk(:,:,ik)=hk_bhz(kx,ky)
-          eig = Eigk(hk_bhz(kx,ky))
-          call progress(ik,Lk)
-          write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
-       enddo
-       !From X=(pi,0) to M=(pi,pi): Nk steps
-       do iy=1,Nk
-          ik=ik+1
-          kx = pi
-          ky = 0.d0 + pi*real(iy-1,8)/dble(Nk)
-          Hk(:,:,ik)=hk_bhz(kx,ky)
-          eig = Eigk(hk_bhz(kx,ky))
-          call progress(ik,Lk)
-          write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
-       enddo
-       !From M=(pi,pi) to \Gamma=(0,0): Nk steps
-       do ix=1,Nk
-          ik=ik+1
-          iy=ix
-          kx = pi - pi*real(ix-1,8)/dble(Nk)
-          ky = pi - pi*real(iy-1,8)/dble(Nk)
-          Hk(:,:,ik)=hk_bhz(kx,ky)
-          eig = Eigk(hk_bhz(kx,ky))
-          call progress(ik,Lk)
-          write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
-       enddo
-       close(unit)
+       if(ED_MPI_ID==0)then
+          write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
+          unit=free_unit() 
+          open(unit,file="Eigenbands.dat")
+          Lk=3*Nk
+          ik = 0
+          allocate(Hk(Nso,Nso,Lk))
+          !From \Gamma=(0,0) to X=(pi,0): Nk steps
+          do ix=1,Nk
+             ik=ik+1
+             kx = 0.d0 + pi*real(ix-1,8)/dble(Nk)
+             ky = 0.d0
+             Hk(:,:,ik)=hk_bhz(kx,ky)
+             eig = Eigk(hk_bhz(kx,ky))
+             call progress(ik,Lk)
+             write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
+          enddo
+          !From X=(pi,0) to M=(pi,pi): Nk steps
+          do iy=1,Nk
+             ik=ik+1
+             kx = pi
+             ky = 0.d0 + pi*real(iy-1,8)/dble(Nk)
+             Hk(:,:,ik)=hk_bhz(kx,ky)
+             eig = Eigk(hk_bhz(kx,ky))
+             call progress(ik,Lk)
+             write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
+          enddo
+          !From M=(pi,pi) to \Gamma=(0,0): Nk steps
+          do ix=1,Nk
+             ik=ik+1
+             iy=ix
+             kx = pi - pi*real(ix-1,8)/dble(Nk)
+             ky = pi - pi*real(iy-1,8)/dble(Nk)
+             Hk(:,:,ik)=hk_bhz(kx,ky)
+             eig = Eigk(hk_bhz(kx,ky))
+             call progress(ik,Lk)
+             write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
+          enddo
+          close(unit)
+       endif
        !
     else
        !
-       write(LOGfile,*)"Build H(k) for BHZ:"
+       if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for BHZ:"
        Lk=Nk**2
        allocate(Hk(Nso,Nso,Lk))
-       unit=free_unit()
-       open(unit,file=file)
+       if(ED_MPI_ID==0)unit=free_unit()
+       if(ED_MPI_ID==0)open(unit,file=file)
        fg=zero
        fgr=zero
        do ix=1,Nk
@@ -300,21 +304,23 @@ contains
              ky = -pi + 2.d0*pi*dble(iy-1)/dble(Nk)
              ik=ik+1
              Hk(:,:,ik) = hk_bhz(kx,ky)
-             write(unit,"(3(F10.7,1x))")kx,ky,pi
-             do i=1,Nso
-                write(unit,"(100(2F10.7,1x))")(Hk(i,j,ik),j=1,Nso)
-             enddo
+             if(ED_MPI_ID==0)then
+                write(unit,"(3(F10.7,1x))")kx,ky,pi
+                do i=1,Nso
+                   write(unit,"(100(2F10.7,1x))")(Hk(i,j,ik),j=1,Nso)
+                enddo
+             endif
              do i=1,Lreal
                 fgr(i,:,:)=fgr(i,:,:) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))
              enddo
              do i=1,Lmats
                 fg(i,:,:) =fg(i,:,:)  + inverse_g0k(xi*wm(i)+xmu,Hk(:,:,ik))
              enddo
-             call progress(ik,Lk)
+             if(ED_MPI_ID==0)call progress(ik,Lk)
           enddo
        enddo
-       call stop_progress()
-       write(unit,*)""
+       if(ED_MPI_ID==0)call stop_progress()
+       if(ED_MPI_ID==0)write(unit,*)""
        allocate(dos_wt(Lk))
        dos_wt=1.d0/dble(Lk)
        fgr= fgr/dble(Lk)
@@ -322,25 +328,27 @@ contains
        do i=1,Nso
           n0(i) = -2.d0*sum(dimag(fgr(:,i,i))*fermi(wr(:),beta))*dw/pi
        enddo
-       write(unit,"(24F20.12)")mh,lambda,xmu,(n0(i),i=1,Nso),sum(n0)
-       write(LOGfile,"(24F20.12)")mh,lambda,xmu,(n0(i),i=1,Nso),sum(n0)
-       open(10,file="U0_DOS.ed")
-       do i=1,Lreal
-          write(10,"(100(F25.12))") wr(i),(-dimag(fgr(i,iorb,iorb))/pi,iorb=1,Nso)
-       enddo
-       close(10)
-       open(11,file="U0_Gloc_iw.ed")
-       do i=1,Lmats
-          write(11,"(20(2F20.12))") wm(i),(fg(i,iorb,iorb),iorb=1,Nso)
-       enddo
-       close(11)
+       if(ED_MPI_ID==0)then
+          write(unit,"(24F20.12)")mh,lambda,xmu,(n0(i),i=1,Nso),sum(n0)
+          write(LOGfile,"(24F20.12)")mh,lambda,xmu,(n0(i),i=1,Nso),sum(n0)
+          open(10,file="U0_DOS.ed")
+          do i=1,Lreal
+             write(10,"(100(F25.12))") wr(i),(-dimag(fgr(i,iorb,iorb))/pi,iorb=1,Nso)
+          enddo
+          close(10)
+          open(11,file="U0_Gloc_iw.ed")
+          do i=1,Lmats
+             write(11,"(20(2F20.12))") wm(i),(fg(i,iorb,iorb),iorb=1,Nso)
+          enddo
+          close(11)
+       endif
        allocate(bhzHloc(Nso,Nso))
        bhzHloc = sum(Hk(:,:,:),dim=3)/dble(Lk)
        where(abs(dreal(bhzHloc))<1.d-9)bhzHloc=0.d0
     endif
     !
-    write(*,*)"# of k-points     :",Lk
-    write(*,*)"# of SO-bands     :",Nso
+    if(ED_MPI_ID==0)write(*,*)"# of k-points     :",Lk
+    if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
   end subroutine build_hk
 
 

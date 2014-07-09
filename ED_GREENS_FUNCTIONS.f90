@@ -15,6 +15,7 @@ MODULE ED_GREENS_FUNCTIONS
   USE PLAIN_LANCZOS
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
+  USE ED_EIGENSPACE
   USE ED_BATH
   USE ED_AUX_FUNX
   USE ED_HAMILTONIAN
@@ -125,37 +126,37 @@ contains
        enddo
        !
        if(ED_MPI_ID==0)then	
-       do iorb=1,Norb
-          suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))
-          call open_units(reg(suffix))
-          if(ed_verbose<4)then
-             do i=1,Lmats
-                write(unit(1),"(F26.15,6(F26.15))")wm(i),(dimag(impSmats(ispin,ispin,iorb,iorb,i)),dreal(impSmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lreal
-                write(unit(2),"(F26.15,6(F26.15))")wr(i),(dimag(impSreal(ispin,ispin,iorb,iorb,i)),dreal(impSreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-          endif
-          !
-          if(ed_verbose<2)then
-             do i=1,Lmats
-                write(unit(3),"(F26.15,6(F26.15))")wm(i),(dimag(impGmats(ispin,ispin,iorb,iorb,i)),dreal(impGmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lreal
-                write(unit(4),"(F26.15,6(F26.15))")wr(i),(dimag(impGreal(ispin,ispin,iorb,iorb,i)),dreal(impGreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-          endif
-          !
-          if(ed_verbose<1)then
-             do i=1,Lmats
-                write(unit(5),"(F26.15,6(F26.15))")wm(i),(dimag(impG0mats(ispin,ispin,iorb,iorb,i)),dreal(impG0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lreal
-                write(unit(6),"(F26.15,6(F26.15))")wr(i),(dimag(impG0real(ispin,ispin,iorb,iorb,i)),dreal(impG0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-          endif
-          call close_units
-       enddo
+          do iorb=1,Norb
+             suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))
+             call open_units(reg(suffix))
+             if(ed_verbose<4)then
+                do i=1,Lmats
+                   write(unit(1),"(F26.15,6(F26.15))")wm(i),(dimag(impSmats(ispin,ispin,iorb,iorb,i)),dreal(impSmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lreal
+                   write(unit(2),"(F26.15,6(F26.15))")wr(i),(dimag(impSreal(ispin,ispin,iorb,iorb,i)),dreal(impSreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+             endif
+             !
+             if(ed_verbose<2)then
+                do i=1,Lmats
+                   write(unit(3),"(F26.15,6(F26.15))")wm(i),(dimag(impGmats(ispin,ispin,iorb,iorb,i)),dreal(impGmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lreal
+                   write(unit(4),"(F26.15,6(F26.15))")wr(i),(dimag(impGreal(ispin,ispin,iorb,iorb,i)),dreal(impGreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+             endif
+             !
+             if(ed_verbose<1)then
+                do i=1,Lmats
+                   write(unit(5),"(F26.15,6(F26.15))")wm(i),(dimag(impG0mats(ispin,ispin,iorb,iorb,i)),dreal(impG0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lreal
+                   write(unit(6),"(F26.15,6(F26.15))")wr(i),(dimag(impG0real(ispin,ispin,iorb,iorb,i)),dreal(impG0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+             endif
+             call close_units
+          enddo
        endif
 
     case ('hybrid')             !Diagonal in spin only. Full Orbital structure
@@ -247,8 +248,8 @@ contains
       character(len=*) :: string
       unit=free_units(size(unit))
       if(ed_verbose<4)then
-      open(unit(1),file="impSigma"//string//"_iw"//reg(ed_file_suffix)//".ed")
-      open(unit(2),file="impSigma"//string//"_realw"//reg(ed_file_suffix)//".ed")
+         open(unit(1),file="impSigma"//string//"_iw"//reg(ed_file_suffix)//".ed")
+         open(unit(2),file="impSigma"//string//"_realw"//reg(ed_file_suffix)//".ed")
       endif
       if(ed_verbose<2)then
          open(unit(3),file="impG"//string//"_iw"//reg(ed_file_suffix)//".ed")
@@ -352,65 +353,65 @@ contains
 
     !
     if(ED_MPI_ID==0)then
-    do iorb=1,Norb
-       suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))
-       call open_units(reg(suffix))
-       if(ed_verbose<4)then
-          do i=1,Lmats
-             write(unit(1),"(F26.15,6(F26.15))")wm(i),&
-                  (dimag(impSmats(ispin,ispin,iorb,iorb,i)),dreal(impSmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-          do i=1,Lmats
-             write(unit(2),"(F26.15,6(F26.15))")wm(i),&
-                  (dimag(impSAmats(ispin,ispin,iorb,iorb,i)),dreal(impSAmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-          do i=1,Lreal
-             write(unit(3),"(F26.15,6(F26.15))")wr(i),&
-                  (dimag(impSreal(ispin,ispin,iorb,iorb,i)),dreal(impSreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-          do i=1,Lreal
-             write(unit(4),"(F26.15,6(F26.15))")wr(i),&
-                  (dimag(impSAreal(ispin,ispin,iorb,iorb,i)),dreal(impSAreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-       endif
-       if(ed_verbose<2)then
-          do i=1,Lmats
-             write(unit(5),"(F26.15,6(F26.15))")wm(i),&
-                  (dimag(impGmats(ispin,ispin,iorb,iorb,i)),dreal(impGmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-          do i=1,Lmats
-             write(unit(6),"(F26.15,6(F26.15))")wm(i),&
-                  (dimag(impFmats(ispin,ispin,iorb,iorb,i)),dreal(impFmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-          do i=1,Lreal
-             write(unit(7),"(F26.15,6(F26.15))")wr(i),&
-                  (dimag(impGreal(ispin,ispin,iorb,iorb,i)),dreal(impGreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-          do i=1,Lreal
-             write(unit(8),"(F26.15,6(F26.15))")wr(i),&
-                  (dimag(impFreal(ispin,ispin,iorb,iorb,i)),dreal(impFreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-       endif
-       if(ed_verbose<1)then
-          do i=1,Lmats
-             write(unit(9),"(F26.15,6(F26.15))")wm(i),&
-                  (dimag(impG0mats(ispin,ispin,iorb,iorb,i)),dreal(impG0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-          do i=1,Lmats
-             write(unit(10),"(F26.15,6(F26.15))")wm(i),&
-                  (dimag(impF0mats(ispin,ispin,iorb,iorb,i)),dreal(impF0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-          do i=1,Lreal
-             write(unit(11),"(F26.15,6(F26.15))")wr(i),&
-                  (dimag(impG0real(ispin,ispin,iorb,iorb,i)),dreal(impG0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-          do i=1,Lreal
-             write(unit(12),"(F26.15,6(F26.15))")wr(i),&
-                  (dimag(impF0real(ispin,ispin,iorb,iorb,i)),dreal(impF0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-          enddo
-       endif
-       call close_units
-    enddo
+       do iorb=1,Norb
+          suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))
+          call open_units(reg(suffix))
+          if(ed_verbose<4)then
+             do i=1,Lmats
+                write(unit(1),"(F26.15,6(F26.15))")wm(i),&
+                     (dimag(impSmats(ispin,ispin,iorb,iorb,i)),dreal(impSmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+             do i=1,Lmats
+                write(unit(2),"(F26.15,6(F26.15))")wm(i),&
+                     (dimag(impSAmats(ispin,ispin,iorb,iorb,i)),dreal(impSAmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+             do i=1,Lreal
+                write(unit(3),"(F26.15,6(F26.15))")wr(i),&
+                     (dimag(impSreal(ispin,ispin,iorb,iorb,i)),dreal(impSreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+             do i=1,Lreal
+                write(unit(4),"(F26.15,6(F26.15))")wr(i),&
+                     (dimag(impSAreal(ispin,ispin,iorb,iorb,i)),dreal(impSAreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+          endif
+          if(ed_verbose<2)then
+             do i=1,Lmats
+                write(unit(5),"(F26.15,6(F26.15))")wm(i),&
+                     (dimag(impGmats(ispin,ispin,iorb,iorb,i)),dreal(impGmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+             do i=1,Lmats
+                write(unit(6),"(F26.15,6(F26.15))")wm(i),&
+                     (dimag(impFmats(ispin,ispin,iorb,iorb,i)),dreal(impFmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+             do i=1,Lreal
+                write(unit(7),"(F26.15,6(F26.15))")wr(i),&
+                     (dimag(impGreal(ispin,ispin,iorb,iorb,i)),dreal(impGreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+             do i=1,Lreal
+                write(unit(8),"(F26.15,6(F26.15))")wr(i),&
+                     (dimag(impFreal(ispin,ispin,iorb,iorb,i)),dreal(impFreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+          endif
+          if(ed_verbose<1)then
+             do i=1,Lmats
+                write(unit(9),"(F26.15,6(F26.15))")wm(i),&
+                     (dimag(impG0mats(ispin,ispin,iorb,iorb,i)),dreal(impG0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+             do i=1,Lmats
+                write(unit(10),"(F26.15,6(F26.15))")wm(i),&
+                     (dimag(impF0mats(ispin,ispin,iorb,iorb,i)),dreal(impF0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+             do i=1,Lreal
+                write(unit(11),"(F26.15,6(F26.15))")wr(i),&
+                     (dimag(impG0real(ispin,ispin,iorb,iorb,i)),dreal(impG0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+             do i=1,Lreal
+                write(unit(12),"(F26.15,6(F26.15))")wr(i),&
+                     (dimag(impF0real(ispin,ispin,iorb,iorb,i)),dreal(impF0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+             enddo
+          endif
+          call close_units
+       enddo
     endif
 
   contains
