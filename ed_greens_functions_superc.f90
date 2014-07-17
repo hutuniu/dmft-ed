@@ -59,7 +59,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
   integer                          :: iorb,ispin,isite,isect0,izero
   integer                          :: idim0,jsect0
   integer                          :: jdim0,isz0,jsz0
-  integer                          :: ib(Ntot)
+  integer                          :: ivec(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
@@ -100,8 +100,8 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0                     !loop over |gs> components m
            i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
-           if(ib(iorb)==0)then           !if impurity is empty: proceed
+           call bdecomp(i,ivec)            !i into binary representation
+           if(ivec(iorb)==0)then           !if impurity is empty: proceed
               call cdg(iorb,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsect0
               vvinit(j) = sgn*state_vec(m)  !build the cdg_up|gs> state
@@ -130,8 +130,8 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0                     !loop over |gs> components m
            i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
-           if(ib(iorb+Ns)==1)then           !if impurity is empty: proceed
+           call bdecomp(i,ivec)            !i into binary representation
+           if(ivec(iorb+Ns)==1)then           !if impurity is empty: proceed
               call c(iorb+Ns,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsect0
               vvinit(j) = sgn*state_vec(m)  !build the cdg_up|gs> state
@@ -162,8 +162,8 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0                     !loop over |gs> components m
            i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
-           if(ib(iorb)==0)then           !if impurity is empty: proceed
+           call bdecomp(i,ivec)            !i into binary representation
+           if(ivec(iorb)==0)then           !if impurity is empty: proceed
               call cdg(iorb,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsect0
               vvinit(j) = sgn*state_vec(m)  !build the cdg_up|gs> state
@@ -171,8 +171,8 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         enddo
         do m=1,idim0                     !loop over |gs> components m
            i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
-           if(ib(iorb+Ns)==1)then           !if impurity is empty: proceed
+           call bdecomp(i,ivec)            !i into binary representation
+           if(ivec(iorb+Ns)==1)then           !if impurity is empty: proceed
               call c(iorb+Ns,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsect0
               vvinit(j) = vvinit(j) + sgn*state_vec(m)  !build the cdg_up|gs> state
@@ -205,8 +205,8 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0                     !loop over |gs> components m
            i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
-           if(ib(iorb)==1)then           !if impurity is empty: proceed
+           call bdecomp(i,ivec)            !i into binary representation
+           if(ivec(iorb)==1)then           !if impurity is empty: proceed
               call c(iorb,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsect0
               vvinit(j) = sgn*state_vec(m)  !build the cdg_up|gs> state
@@ -235,8 +235,8 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0                     !loop over |gs> components m
            i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
-           if(ib(iorb+Ns)==0)then           !if impurity is empty: proceed
+           call bdecomp(i,ivec)            !i into binary representation
+           if(ivec(iorb+Ns)==0)then           !if impurity is empty: proceed
               call cdg(iorb+Ns,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsect0
               vvinit(j) = sgn*state_vec(m)  !build the cdg_up|gs> state
@@ -267,8 +267,8 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0                     !loop over |gs> components m
            i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
-           if(ib(iorb)==1)then           !if impurity is empty: proceed
+           call bdecomp(i,ivec)            !i into binary representation
+           if(ivec(iorb)==1)then           !if impurity is empty: proceed
               call c(iorb,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsect0
               vvinit(j) = sgn*state_vec(m)  !build the cdg_up|gs> state
@@ -276,8 +276,8 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         enddo
         do m=1,idim0                     !loop over |gs> components m
            i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
-           if(ib(iorb+Ns)==0)then           !if impurity is empty: proceed
+           call bdecomp(i,ivec)            !i into binary representation
+           if(ivec(iorb+Ns)==0)then           !if impurity is empty: proceed
               call cdg(iorb+Ns,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsect0
               vvinit(j) = vvinit(j) + sgn*state_vec(m)  !build the cdg_up|gs> state

@@ -34,7 +34,7 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ivec(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
@@ -65,8 +65,8 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
         i=HImap(m)
-        call bdecomp(i,ib)
-        sgn = real(ib(iorb),8)-real(ib(iorb+Ns),8)
+        call bdecomp(i,ivec)
+        sgn = real(ivec(iorb),8)-real(ivec(iorb+Ns),8)
         vvinit(m) = sgn*state_vec(m)   !build the cdg_up|gs> state
      enddo
      deallocate(HImap)
@@ -90,7 +90,7 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ivec(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
@@ -121,8 +121,8 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
         i=HImap(m)
-        call bdecomp(i,ib)
-        sgn = dble(ib(iorb))-dble(ib(iorb+Ns))
+        call bdecomp(i,ivec)
+        sgn = dble(ivec(iorb))-dble(ivec(iorb+Ns))
         vvinit(m) = sgn*state_cvec(m)   !build the cdg_up|gs> state
      enddo
      deallocate(HImap)

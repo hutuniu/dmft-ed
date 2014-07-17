@@ -26,7 +26,7 @@ contains
   !PURPOSE  : Evaluate and print out many interesting physical qties
   !+-------------------------------------------------------------------+
   subroutine ed_getobs()
-    integer,dimension(Ntot)          :: ib
+    integer,dimension(Nlevels)       :: ivec
     integer                          :: i,j
     integer                          :: k,r
     integer                          :: ia,isector
@@ -74,7 +74,7 @@ contains
        !
        do i=1,dim0
           m=Hmap(i)
-          call bdecomp(m,ib)
+          call bdecomp(m,ivec)
           if(ed_type=='d')then
              gs_weight=gsvec(i)**2
           elseif(ed_type=='c')then
@@ -82,8 +82,8 @@ contains
           endif
           !Get operators:
           do iorb=1,Norb
-             nup(iorb)= dble(ib(iorb))
-             ndw(iorb)= dble(ib(iorb+Ns))
+             nup(iorb)= dble(ivec(iorb))
+             ndw(iorb)= dble(ivec(iorb+Ns))
              sz(iorb) =(nup(iorb)-ndw(iorb))/2.d0
              nt(iorb) = nup(iorb)+ndw(iorb)
           enddo
@@ -144,8 +144,8 @@ contains
                    vvinit=0.d0
                    do m=1,dim0                     !loop over |gs> components m
                       i=Hmap(m)                    !map m to Hilbert space state i
-                      call bdecomp(i,ib)            !i into binary representation
-                      if(ib(iorb)==0)then           !if impurity is empty: proceed
+                      call bdecomp(i,ivec)            !i into binary representation
+                      if(ivec(iorb)==0)then           !if impurity is empty: proceed
                          call cdg(iorb,i,r,sgn)
                          j=binary_search(HJmap,r)      !map r back to  jsect0
                          vvinit(j) = sgn*gsvec(m)  !build the cdg_up|gs> state
@@ -153,8 +153,8 @@ contains
                    enddo
                    do m=1,dim0                     !loop over |gs> components m
                       i=Hmap(m)                    !map m to Hilbert space state i
-                      call bdecomp(i,ib)            !i into binary representation
-                      if(ib(iorb+Ns)==1)then           !if impurity is empty: proceed
+                      call bdecomp(i,ivec)            !i into binary representation
+                      if(ivec(iorb+Ns)==1)then           !if impurity is empty: proceed
                          call c(iorb+Ns,i,r,sgn)
                          j=binary_search(HJmap,r)      !map r back to  jsect0
                          vvinit(j) = vvinit(j) + sgn*gsvec(m)  !build the cdg_up|gs> state

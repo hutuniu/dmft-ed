@@ -75,7 +75,7 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
   integer                          :: iorb,ispin,isite,isect0,izero
   integer                          :: idim0,jsect0
   integer                          :: jdim0
-  integer                          :: ib(Ntot)
+  integer                          :: ivec(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
@@ -115,8 +115,8 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0                     !loop over |gs> components m
            i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
-           if(ib(isite)==0)then          !if impurity is empty: proceed
+           call bdecomp(i,ivec)            !i into binary representation
+           if(ivec(isite)==0)then          !if impurity is empty: proceed
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsect0
               vvinit(j) = sgn*state_vec(m)  !build the cdg_up|gs> state
@@ -144,8 +144,8 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==1)then
+           call bdecomp(i,ivec)
+           if(ivec(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
               vvinit(j) = sgn*state_vec(m)
@@ -181,7 +181,7 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
   integer                          :: iorb,ispin,isite,isect0,izero
   integer                          :: idim0,jsect0
   integer                          :: jdim0
-  integer                          :: ib(Ntot)
+  integer                          :: ivec(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
@@ -222,8 +222,8 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0                     !loop over |gs> components m
            i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
-           if(ib(isite)==0)then          !if impurity is empty: proceed
+           call bdecomp(i,ivec)            !i into binary representation
+           if(ivec(isite)==0)then          !if impurity is empty: proceed
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsect0
               vvinit(j) = sgn*state_cvec(m)  !build the cdg_up|gs> state
@@ -252,8 +252,8 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==1)then
+           call bdecomp(i,ivec)
+           if(ivec(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
               vvinit(j) = sgn*state_cvec(m)
@@ -291,7 +291,7 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
   integer                          :: iorb,jorb,ispin,isite,jsite,isect0,izero
   integer                          :: idim0,jsect0
   integer                          :: jdim0
-  integer                          :: ib(Ntot)
+  integer                          :: ivec(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
@@ -336,8 +336,8 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==0)then
+           call bdecomp(i,ivec)
+           if(ivec(isite)==0)then
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)
               vvinit(j) = sgn*state_vec(m)
@@ -345,8 +345,8 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         enddo
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(jsite)==0)then
+           call bdecomp(i,ivec)
+           if(ivec(jsite)==0)then
               call cdg(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
@@ -374,8 +374,8 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==1)then
+           call bdecomp(i,ivec)
+           if(ivec(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
               vvinit(j) = sgn*state_vec(m)
@@ -383,8 +383,8 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         enddo
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(jsite)==1)then
+           call bdecomp(i,ivec)
+           if(ivec(jsite)==1)then
               call c(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
@@ -412,8 +412,8 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         cvinit=zero
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==0)then
+           call bdecomp(i,ivec)
+           if(ivec(isite)==0)then
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)
               cvinit(j) = sgn*state_vec(m)
@@ -421,8 +421,8 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         enddo
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(jsite)==0)then
+           call bdecomp(i,ivec)
+           if(ivec(jsite)==0)then
               call cdg(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
               cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
@@ -450,8 +450,8 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         cvinit=zero
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==1)then
+           call bdecomp(i,ivec)
+           if(ivec(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
               cvinit(j) = sgn*state_vec(m)
@@ -459,8 +459,8 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         enddo
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(jsite)==1)then
+           call bdecomp(i,ivec)
+           if(ivec(jsite)==1)then
               call c(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
               cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
@@ -491,11 +491,11 @@ end subroutine lanc_ed_buildgf_mix_d
 !+------------------------------------------------------------------+
 !PURPOSE  : DOUBLE COMPLEX
 !+------------------------------------------------------------------+
-subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
+subroutine lanc_ed_buildgf_mix_c(iovrb,jorb,ispin,iverbose)
   integer                          :: iorb,jorb,ispin,isite,jsite,isect0,izero
   integer                          :: idim0,jsect0
   integer                          :: jdim0
-  integer                          :: ib(Ntot)
+  integer                          :: ivec(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
@@ -540,8 +540,8 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==0)then
+           call bdecomp(i,ivec)
+           if(ivec(isite)==0)then
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)
               vvinit(j) = sgn*state_cvec(m)
@@ -549,8 +549,8 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         enddo
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(jsite)==0)then
+           call bdecomp(i,ivec)
+           if(ivec(jsite)==0)then
               call cdg(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
               vvinit(j) = vvinit(j) + sgn*state_cvec(m)
@@ -578,8 +578,8 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         vvinit=0.d0
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==1)then
+           call bdecomp(i,ivec)
+           if(ivec(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
               vvinit(j) = sgn*state_cvec(m)
@@ -587,8 +587,8 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         enddo
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(jsite)==1)then
+           call bdecomp(i,ivec)
+           if(ivec(jsite)==1)then
               call c(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
               vvinit(j) = vvinit(j) + sgn*state_cvec(m)
@@ -616,8 +616,8 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         cvinit=zero
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==0)then
+           call bdecomp(i,ivec)
+           if(ivec(isite)==0)then
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)
               cvinit(j) = sgn*state_cvec(m)
@@ -625,8 +625,8 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         enddo
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(jsite)==0)then
+           call bdecomp(i,ivec)
+           if(ivec(jsite)==0)then
               call cdg(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
               cvinit(j) = cvinit(j) + xi*sgn*state_cvec(m)
@@ -654,8 +654,8 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         cvinit=zero
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==1)then
+           call bdecomp(i,ivec)
+           if(ivec(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
               cvinit(j) = sgn*state_cvec(m)
@@ -663,8 +663,8 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         enddo
         do m=1,idim0
            i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(jsite)==1)then
+           call bdecomp(i,ivec)
+           if(ivec(jsite)==1)then
               call c(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
               cvinit(j) = cvinit(j) - xi*sgn*state_cvec(m)

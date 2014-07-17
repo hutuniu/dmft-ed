@@ -71,22 +71,36 @@ contains
     if(dmft_bath_%status)call deallocate_bath(dmft_bath_)
     select case(bath_type)
     case default
-       if(.not.ed_supercond)then
-          allocate(dmft_bath_%e(Nspin,Norb,Nbath),dmft_bath_%v(Nspin,Norb,Nbath))
+       if(ed_mode=="superc")then
+          allocate(&
+               dmft_bath_%e(Nspin,Norb,Nbath),& !local energies of the bath
+               dmft_bath_%v(Nspin,Norb,Nbath),& !hybridization from impurities to bath, same spins (up->up,dw->dw)
+               dmft_bath_%d(Nspin,Norb,Nbath))  !local SC order parameters the bath  
+       elseif(ed_mode=="nonsu2")then
+          allocate(&
+               dmft_bath_%e(Nspin,Norb,Nbath),& !local energies of the bath
+               dmft_bath_%v(Nspin,Norb,Nbath),& !hybridization from impurities to bath, same spins (up->up,dw->dw)
+               dmft_bath_%w(Nspin,Norb,Nbath))  !hybridization from impurities to bath, different spins (up->dw,dw->up)
        else
           allocate(&
-               dmft_bath_%e(Nspin,Norb,Nbath),&
-               dmft_bath_%v(Nspin,Norb,Nbath),&
-               dmft_bath_%d(Nspin,Norb,Nbath))
+               dmft_bath_%e(Nspin,Norb,Nbath),& !local energies of the bath
+               dmft_bath_%v(Nspin,Norb,Nbath))  !hybridization from impurities to bath, same spins (up->up,dw->dw)
        endif
     case('hybrid')
-       if(.not.ed_supercond)then
-          allocate(dmft_bath_%e(Nspin,1,Nbath),dmft_bath_%v(Nspin,Norb,Nbath))
+       if(ed_mode=="superc")then
+          allocate(&
+               dmft_bath_%e(Nspin,1   ,Nbath),& !local energies of the bath
+               dmft_bath_%v(Nspin,Norb,Nbath),& !hybridization from impurities to bath, same spins (up->up,dw->dw)
+               dmft_bath_%d(Nspin,1,Nbath))     !local SC order parameters the bath
+       elseif(ed_mode=="nonsu2")then
+          allocate(&
+               dmft_bath_%e(Nspin,1   ,Nbath),& !local energies of the bath
+               dmft_bath_%v(Nspin,Norb,Nbath),& !hybridization from impurities to bath, same spins (up->up,dw->dw)
+               dmft_bath_%w(Nspin,Norb,Nbath))  !hybridization from impurities to bath, different spins (up->dw,dw->up)
        else
           allocate(&
-               dmft_bath_%e(Nspin,1,Nbath),&
-               dmft_bath_%v(Nspin,Norb,Nbath),&
-               dmft_bath_%d(Nspin,1,Nbath))
+               dmft_bath_%e(Nspin,1,   Nbath),& !local energies of the bath
+               dmft_bath_%v(Nspin,Norb,Nbath))  !hybridization from impurities to bath, same spins (up->up,dw->dw)
        endif
     end select
     dmft_bath_%status=.true.
@@ -101,9 +115,9 @@ contains
     if(allocated(dmft_bath_%e))deallocate(dmft_bath_%e)
     if(allocated(dmft_bath_%v))deallocate(dmft_bath_%v)
     if(allocated(dmft_bath_%d))deallocate(dmft_bath_%d)
+    if(allocated(dmft_bath_%w))deallocate(dmft_bath_%w)
     dmft_bath_%status=.false.
   end subroutine deallocate_bath
-
 
 
 
@@ -116,19 +130,29 @@ contains
     dims(1)=Nspin
     select case(bath_type)
     case default
-       if(.not.ed_supercond)then
-          dims(2) = (2*Norb)*Nbath
+       if(ed_mode=="superc")then
+          dims(2) = (3*Norb)*Nbath   !(e_Norb*Nbath + v_Norb*Nbath + d_Norb*Nbath)
+       elseif(ed_mode=="nonsu2")then
+          dims(2) = (3*Norb)*Nbath   !(e_Norb*Nbath + v_Norb*Nbath + w_Norb*Nbath)
        else
-          dims(2) = (3*Norb)*Nbath
+          dims(2) = (2*Norb)*Nbath   !(e_Norb*Nbath + v_Norb*Nbath)
        endif
     case('hybrid')
-       if(.not.ed_supercond)then
-          dims(2) = (Norb+1)*Nbath
+       if(ed_mode=="superc")then
+          dims(2) = (Norb+2)*Nbath   !(e_Nbath + v_Norb*Nbath + d_Nbath)
+       elseif(ed_mode=="nonsu2")then 
+          dims(2) = (2*Norb+1)*Nbath !(e_Nbath + v_Norb*Nbath + w_Norb*Nbath)
        else
-          dims(2) = (Norb+2)*Nbath
+          dims(2) = (Norb+1)*Nbath   !(e_Nbath + v_Norb*Nbath)
        endif
     end select
   end function get_bath_size
+
+
+
+
+
+
 
 
 
@@ -143,16 +167,20 @@ contains
     N2_=size(bath_,2)
     select case(bath_type)
     case default
-       if(.not.ed_supercond)then
-          Ntrue = (2*Norb)*Nbath
-       else
+       if(ed_mode=="superc")then
           Ntrue = (3*Norb)*Nbath
+       elseif(ed_mode=="nonsu2")then
+          Ntrue = (3*Norb)*Nbath
+       else
+          Ntrue = (2*Norb)*Nbath
        endif
     case('hybrid')
-       if(.not.ed_supercond)then
-          Ntrue = (Norb+1)*Nbath
-       else
+       if(ed_mode=="superc")then
           Ntrue = (Norb+2)*Nbath
+       elseif(ed_mode=="nonsu2")then
+          Ntrue = (2*Norb+1)*Nbath
+       else
+          Ntrue = (Norb+1)*Nbath
        endif
     end select
     bool = (N1_ == Nspin).AND.(N2_ == Ntrue)
@@ -199,9 +227,15 @@ contains
     do i=1,Nbath
        dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))
     enddo
-    if(ed_supercond)then
+    if(ed_mode=="superc")then
        dmft_bath_%d(:,:,:)=deltasc
     endif
+    if(ed_mode=="nonsu2")then
+       do i=1,Nbath
+          dmft_bath_%w(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))
+       enddo
+    endif
+
     !
     !Read from file if exist:
     !
@@ -214,27 +248,53 @@ contains
        read(unit,*)
        select case(bath_type)
        case default
-          if(.not.ed_supercond)then
+          if(ed_mode=="superc")then
              do i=1,min(flen,Nbath)
-                read(unit,*)((dmft_bath_%e(ispin,iorb,i),&
-                     dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                read(unit,*)((&
+                     dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%d(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb) ,ispin=1,Nspin)
+             enddo
+          elseif(ed_mode=="nonsu2")then
+             do i=1,min(flen,Nbath)
+                read(unit,*)((&
+                     dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     dmft_bath_%w(ispin,iorb,i),&
+                     iorb=1,Norb) ,ispin=1,Nspin)
              enddo
           else
              do i=1,min(flen,Nbath)
-                read(unit,*)((dmft_bath_%e(ispin,iorb,i),dmft_bath_%d(ispin,iorb,i),&
-                     dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                read(unit,*)((&
+                     dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb) ,ispin=1,Nspin)
              enddo
           endif
        case ('hybrid')
-          if(.not.ed_supercond)then
+          if(ed_mode=="superc")then
              do i=1,min(flen,Nbath)
-                read(unit,*)(dmft_bath_%e(ispin,1,i),&
-                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                read(unit,*)(&
+                     dmft_bath_%e(ispin,1,i),&
+                     dmft_bath_%d(ispin,1,i),&
+                     (dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          elseif(ed_mode="nonsu2")then
+             do i=1,min(flen,Nbath)
+                read(unit,*)(&
+                     dmft_bath_%e(ispin,1,i),&
+                     (dmft_bath_%v(ispin,iorb,i),&
+                     dmft_bath_%w(ispin,iorb,i) ,&
+                     iorb=1,Norb) ,ispin=1,Nspin)
              enddo
           else
              do i=1,min(flen,Nbath)
-                read(unit,*)(dmft_bath_%e(ispin,1,i),dmft_bath_%d(ispin,1,i),&
-                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                read(unit,*)(&
+                     dmft_bath_%e(ispin,1,i),&
+                     (dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
              enddo
           endif
        end select
@@ -243,22 +303,6 @@ contains
   end subroutine init_bath_ed
 
 
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : breaking symmetry in a given direction using given field
-  !+------------------------------------------------------------------+
-  subroutine break_symmetry_bath(bath_,field,sign)
-    real(8),dimension(:,:) :: bath_
-    type(effective_bath)   :: dmft_bath_
-    real(8)                :: field
-    real(8)                :: sign
-    call allocate_bath(dmft_bath_)
-    call set_bath(bath_,dmft_bath_)
-    dmft_bath_%e(1,:,:)    =dmft_bath_%e(1,:,:)      + sign*field
-    dmft_bath_%e(Nspin,:,:)=dmft_bath_%e(Nspin,:,:)  - sign*field
-    call copy_bath(dmft_bath_,bath_)
-    call deallocate_bath(dmft_bath_)
-  end subroutine break_symmetry_bath
 
 
 
@@ -273,45 +317,95 @@ contains
     integer              :: i,unit,ispin,iorb
     if(.not.dmft_bath_%status)stop "WRITE_BATH: bath not allocated"
     if(ED_MPI_ID==0)then
-    select case(bath_type)
-    case default
-       if(.not.ed_supercond)then
-          write(unit,"(90(A21,1X))")&
-               (("#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-               "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
-          do i=1,Nbath
-             write(unit,"(90(F21.12,1X))")((dmft_bath_%e(ispin,iorb,i),&
-                  dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
-          enddo
-       else
-          write(unit,"(90(A21,1X))")&
-               (("#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),"#Dk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-               "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
-          do i=1,Nbath
-             write(unit,"(90(F21.12,1X))")((dmft_bath_%e(ispin,iorb,i),dmft_bath_%d(ispin,iorb,i),&
-                  dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
-          enddo
-       endif
+       select case(bath_type)
+       case default
+          if(ed_mode=="superc")then
+             write(unit,"(90(A21,1X))")&
+                  ((&
+                  "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  "Dk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  iorb=1,Norb),ispin=1,Nspin)
+             do i=1,Nbath
+                write(unit,"(90(F21.12,1X))")((&
+                     dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%d(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          elseif(ed_mode=="nonsu2")then
+             write(unit,"(90(A21,1X))")&
+                  ((&
+                  "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  "Wk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  iorb=1,Norb), ispin=1,Nspin)
+             do i=1,Nbath
+                write(unit,"(90(F21.12,1X))")((&
+                     dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     dmft_bath_%w(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          else
+             write(unit,"(90(A21,1X))")&
+                  ((&
+                  "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  iorb=1,Norb),ispin=1,Nspin)
+             do i=1,Nbath
+                write(unit,"(90(F21.12,1X))")((&
+                     dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          endif
 
-    case('hybrid')
-       if(.not.ed_supercond)then
-          write(unit,"(90(A21,1X))")("#Ek_s"//reg(txtfy(ispin)),&
-               ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
-          do i=1,Nbath
-             write(unit,"(90(F21.12,1X))")( dmft_bath_%e(ispin,1,i),&
-                  (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
-          enddo
-       else
-          write(unit,"(90(A21,1X))")("#Ek_s"//reg(txtfy(ispin)),"#Dk_s"//reg(txtfy(ispin)),&
-               ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
-          do i=1,Nbath
-             write(unit,"(90(F21.12,1X))")( dmft_bath_%e(ispin,1,i),dmft_bath_%d(ispin,1,i),&
-                  (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
-          enddo
-       endif
-    end select
+       case('hybrid')
+          if(ed_mode=="superc")then
+             write(unit,"(90(A21,1X))")(&
+                  "#Ek_s"//reg(txtfy(ispin)),&
+                  "Dk_s"//reg(txtfy(ispin)) ,&
+                  ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  iorb=1,Norb),ispin=1,Nspin)
+             do i=1,Nbath
+                write(unit,"(90(F21.12,1X))")(&
+                     dmft_bath_%e(ispin,1,i),&
+                     dmft_bath_%d(ispin,1,i),&
+                     (dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          elseif(ed_mode=="nonsu2")then
+             write(unit,"(90(A21,1X))")(&
+                  "#Ek_s"//reg(txtfy(ispin)),&
+                  ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  "Wk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)), &
+                  iorb=1,Norb),ispin=1,Nspin)
+             do i=1,Nbath
+                write(unit,"(90(F21.12,1X))")(&
+                     dmft_bath_%e(ispin,1,i),    &
+                     (dmft_bath_%v(ispin,iorb,i),&
+                     dmft_bath_%w(ispin,iorb,i), &
+                     iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          else
+             write(unit,"(90(A21,1X))")(&
+                  "#Ek_s"//reg(txtfy(ispin)),&
+                  ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  iorb=1,Norb),ispin=1,Nspin)
+             do i=1,Nbath
+                write(unit,"(90(F21.12,1X))")(&
+                     dmft_bath_%e(ispin,1,i),&
+                     (dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          endif
+       end select
     endif
   end subroutine write_bath
+
+
+
 
 
 
@@ -325,26 +419,14 @@ contains
     real(8),dimension(:,:) :: bath_
     type(effective_bath)   :: dmft_bath_
     integer                :: iorb,ispin,stride_spin,stride_orb
-    integer                :: ei(2),vi(2),di(2)
+    integer                :: ei(2),vi(2),di(2),wi(2)
     logical                :: check
     if(.not.dmft_bath_%status)stop "SET_BATH: bath not allocated"
     check = check_bath_dimension(bath_)
     if(.not.check)stop "set_bath: wrong bath dimensions"
     select case(bath_type)
     case default
-       if(.not.ed_supercond)then
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                stride_orb =(iorb-1)*2*Nbath
-                ei(1)=stride_orb + 1
-                ei(2)=stride_orb + Nbath
-                vi(1)=stride_orb + Nbath + 1
-                vi(2)=stride_orb + Nbath + Nbath
-                dmft_bath_%e(ispin,iorb,1:Nbath) = bath_(ispin,ei(1):ei(2)) 
-                dmft_bath_%v(ispin,iorb,1:Nbath) = bath_(ispin,vi(1):vi(2)) 
-             enddo
-          enddo
-       else
+       if(ed_mode=="superc")then
           do ispin=1,Nspin
              do iorb=1,Norb
                 stride_orb =(iorb-1)*3*Nbath
@@ -359,21 +441,36 @@ contains
                 dmft_bath_%v(ispin,iorb,1:Nbath) = bath_(ispin,vi(1):vi(2))
              enddo
           enddo
-       endif
-    case ('hybrid')
-       if(.not.ed_supercond)then
+       elseif(ed_mode=="nonsu2")then
           do ispin=1,Nspin
-             ei(1)=1
-             ei(2)=Nbath
-             dmft_bath_%e(ispin,1,1:Nbath) = bath_(ispin,ei(1):ei(2))
-             do iorb=1,Norb             
-                stride_orb = iorb*Nbath
-                vi(1)=stride_orb + 1
-                vi(2)=stride_orb + Nbath             
+             do iorb=1,Norb
+                stride_orb =(iorb-1)*3*Nbath
+                ei(1)=stride_orb + 1
+                ei(2)=stride_orb + Nbath
+                vi(1)=stride_orb + Nbath + 1
+                vi(2)=stride_orb + Nbath + Nbath
+                wi(1)=stride_orb + Nbath + Nbath + 1
+                wi(2)=stride_orb + Nbath + Nbath + Nbath
+                dmft_bath_%e(ispin,iorb,1:Nbath) = bath_(ispin,ei(1):ei(2))
+                dmft_bath_%d(ispin,iorb,1:Nbath) = bath_(ispin,di(1):di(2))
                 dmft_bath_%v(ispin,iorb,1:Nbath) = bath_(ispin,vi(1):vi(2))
              enddo
           enddo
        else
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                stride_orb =(iorb-1)*2*Nbath
+                ei(1)=stride_orb + 1
+                ei(2)=stride_orb + Nbath
+                vi(1)=stride_orb + Nbath + 1
+                vi(2)=stride_orb + Nbath + Nbath
+                dmft_bath_%e(ispin,iorb,1:Nbath) = bath_(ispin,ei(1):ei(2)) 
+                dmft_bath_%v(ispin,iorb,1:Nbath) = bath_(ispin,vi(1):vi(2)) 
+             enddo
+          enddo
+       endif
+    case ('hybrid')
+       if(ed_mode=="superc")then
           do ispin=1,Nspin
              ei(1)=1
              ei(2)=Nbath
@@ -383,6 +480,33 @@ contains
              dmft_bath_%d(ispin,1,1:Nbath) = bath_(ispin,di(1):di(2))
              do iorb=1,Norb             
                 stride_orb = (iorb+1)*Nbath
+                vi(1)=stride_orb + 1
+                vi(2)=stride_orb + Nbath             
+                dmft_bath_%v(ispin,iorb,1:Nbath) = bath_(ispin,vi(1):vi(2))
+             enddo
+          enddo
+       elseif(ed_mode=="nonsu2")then
+          do ispin=1,Nspin
+             ei(1)=1
+             ei(2)=Nbath
+             dmft_bath_%e(ispin,1,1:Nbath) = bath_(ispin,ei(1):ei(2))
+             do iorb=1,Norb
+                stride_orb = iorb*Nbath
+                vi(1)=stride_orb + 1
+                vi(2)=stride_orb + Nbath
+                wi(1)=stride_orb + Nbath + 1
+                wi(2)=stride_orb + Nbath + Nbath
+                dmft_bath_%v(ispin,iorb,1:Nbath) = bath_(ispin,vi(1):vi(2))
+                dmft_bath_%w(ispin,iorb,1:Nbath) = bath_(ispin,wi(1):wi(2))
+             enddo
+          enddo
+       else
+          do ispin=1,Nspin
+             ei(1)=1
+             ei(2)=Nbath
+             dmft_bath_%e(ispin,1,1:Nbath) = bath_(ispin,ei(1):ei(2))
+             do iorb=1,Norb             
+                stride_orb = iorb*Nbath
                 vi(1)=stride_orb + 1
                 vi(2)=stride_orb + Nbath             
                 dmft_bath_%v(ispin,iorb,1:Nbath) = bath_(ispin,vi(1):vi(2))
@@ -405,26 +529,14 @@ contains
     real(8),dimension(:,:) :: bath_
     integer                :: iorb,ispin
     integer                :: stride_spin,stride_orb
-    integer                :: ei(2),vi(2),di(2)
+    integer                :: ei(2),vi(2),di(2),wi(2)
     logical                :: check
     if(.not.dmft_bath_%status)stop "COPY_BATH: bath not allocated"
     check=check_bath_dimension(bath_)
     if(.not.check)stop "copy_bath: wrong bath dimensions"
     select case(bath_type)
     case default
-       if(.not.ed_supercond)then
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                stride_orb =(iorb-1)*2*Nbath 
-                ei(1)=stride_orb + 1
-                ei(2)=stride_orb + Nbath
-                vi(1)=stride_orb + Nbath + 1
-                vi(2)=stride_orb + Nbath + Nbath
-                bath_(ispin,ei(1):ei(2)) = dmft_bath_%e(ispin,iorb,1:Nbath)
-                bath_(ispin,vi(1):vi(2)) = dmft_bath_%v(ispin,iorb,1:Nbath)
-             enddo
-          enddo
-       else
+       if(ed_mode=="superc")then
           do ispin=1,Nspin
              do iorb=1,Norb
                 stride_orb =(iorb-1)*3*Nbath
@@ -439,21 +551,36 @@ contains
                 bath_(ispin,vi(1):vi(2)) = dmft_bath_%v(ispin,iorb,1:Nbath)  
              enddo
           enddo
-       endif
-    case ('hybrid')
-       if(.not.ed_supercond)then
+       elseif(ed_mode=="nonsu2")then
           do ispin=1,Nspin
-             ei(1)=1
-             ei(2)=Nbath
-             bath_(ispin,ei(1):ei(2)) = dmft_bath_%e(ispin,1,1:Nbath)
-             do iorb=1,Norb             
-                stride_orb = iorb*Nbath
-                vi(1) = stride_orb + 1
-                vi(2) = stride_orb + Nbath             
+             do iorb=1,Norb
+                stride_orb =(iorb-1)*3*Nbath
+                ei(1)=stride_orb + 1
+                ei(2)=stride_orb + Nbath
+                vi(1)=stride_orb + Nbath + 1
+                vi(2)=stride_orb + Nbath + Nbath
+                wi(1)=stride_orb + Nbath + Nbath + 1
+                wi(2)=stride_orb + Nbath + Nbath + Nbath
+                bath_(ispin,ei(1):ei(2)) = dmft_bath_%e(ispin,iorb,1:Nbath)
+                bath_(ispin,di(1):di(2)) = dmft_bath_%d(ispin,iorb,1:Nbath)
                 bath_(ispin,vi(1):vi(2)) = dmft_bath_%v(ispin,iorb,1:Nbath)
              enddo
           enddo
        else
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                stride_orb =(iorb-1)*2*Nbath 
+                ei(1)=stride_orb + 1
+                ei(2)=stride_orb + Nbath
+                vi(1)=stride_orb + Nbath + 1
+                vi(2)=stride_orb + Nbath + Nbath
+                bath_(ispin,ei(1):ei(2)) = dmft_bath_%e(ispin,iorb,1:Nbath)
+                bath_(ispin,vi(1):vi(2)) = dmft_bath_%v(ispin,iorb,1:Nbath)
+             enddo
+          enddo
+       endif
+    case ('hybrid')
+       if(ed_mode=="superc")then
           do ispin=1,Nspin
              ei(1)=1
              ei(2)=Nbath
@@ -468,12 +595,57 @@ contains
                 bath_(ispin,vi(1):vi(2)) = dmft_bath_%v(ispin,iorb,1:Nbath)
              enddo
           enddo
+       elseif(ed_mode=="nonsu2")then
+          do ispin=1,Nspin
+             ei(1)=1
+             ei(2)=Nbath
+             bath_(ispin,ei(1):ei(2)) = dmft_bath_%e(ispin,1,1:Nbath)
+             do iorb=1,Norb
+                stride_orb = iorb*Nbath
+                vi(1)=stride_orb + 1
+                vi(2)=stride_orb + Nbath
+                wi(1)=stride_orb + Nbath + 1
+                wi(2)=stride_orb + Nbath + Nbath
+                bath_(ispin,vi(1):vi(2)) = dmft_bath_%v(ispin,iorb,1:Nbath)
+                bath_(ispin,wi(1):wi(2)) = dmft_bath_%w(ispin,iorb,1:Nbath)
+             enddo
+          enddo
+       else
+          do ispin=1,Nspin
+             ei(1)=1
+             ei(2)=Nbath
+             bath_(ispin,ei(1):ei(2)) = dmft_bath_%e(ispin,1,1:Nbath)
+             do iorb=1,Norb             
+                stride_orb = iorb*Nbath
+                vi(1) = stride_orb + 1
+                vi(2) = stride_orb + Nbath             
+                bath_(ispin,vi(1):vi(2)) = dmft_bath_%v(ispin,iorb,1:Nbath)
+             enddo
+          enddo
        endif
     end select
   end subroutine copy_bath
 
 
 
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : breaking symmetry in a given direction using given field
+  !+------------------------------------------------------------------+
+  subroutine break_symmetry_bath(bath_,field,sign)
+    real(8),dimension(:,:) :: bath_
+    type(effective_bath)   :: dmft_bath_
+    real(8)                :: field
+    real(8)                :: sign
+    call allocate_bath(dmft_bath_)
+    call set_bath(bath_,dmft_bath_)
+    dmft_bath_%e(1,:,:)    =dmft_bath_%e(1,:,:)      + sign*field
+    dmft_bath_%e(Nspin,:,:)=dmft_bath_%e(Nspin,:,:)  - sign*field
+    call copy_bath(dmft_bath_,bath_)
+    call deallocate_bath(dmft_bath_)
+  end subroutine break_symmetry_bath
 
 
 
@@ -492,7 +664,8 @@ contains
     call set_bath(bath_,dmft_bath_)
     dmft_bath_%e(Nspin,:,:)=dmft_bath_%e(1,:,:)
     dmft_bath_%v(Nspin,:,:)=dmft_bath_%v(1,:,:)
-    if(ed_supercond)dmft_bath_%d(Nspin,:,:)=dmft_bath_%d(1,:,:)
+    if(ed_mode=="superc")dmft_bath_%d(Nspin,:,:)=dmft_bath_%d(1,:,:)
+    if(ed_mode=="nonsu2")dmft_bath_%w(Nspin,:,:)=dmft_bath_%w(1,:,:)
     call copy_bath(dmft_bath_,bath_)
     call deallocate_bath(dmft_bath_)
   end subroutine spin_symmetrize_bath
@@ -508,6 +681,7 @@ contains
     real(8),dimension(:,:) :: bath_
     type(effective_bath)   :: dmft_bath_
     integer                :: i
+    if(ed_mode=="nonsu2")stop "PH symmetry not yet implemented for non-SU(2)..."
     call allocate_bath(dmft_bath_)
     call set_bath(bath_,dmft_bath_)
     if(Nbath==1)return
@@ -540,16 +714,24 @@ contains
   !+-------------------------------------------------------------------+
   !NORMAL/IRREDUCIBLE BATH:
   !Matsubara:
-  function delta_bath_irred_mats(ispin,iorb,x,dmft_bath_) result(fg)
+  function delta_bath_irred_mats(ispin,jspin,iorb,x,dmft_bath_) result(fg)
     type(effective_bath)  :: dmft_bath_
     complex(8),intent(in) :: x
-    integer,intent(in)    :: iorb,ispin
+    integer,intent(in)    :: iorb,ispin,jspin
     complex(8)            :: fg
-    if(.not.ed_supercond)then
-       fg = sum(dmft_bath_%v(ispin,iorb,1:Nbath)**2/(x-dmft_bath_%e(ispin,iorb,1:Nbath)))
+    if(ed_mode=="superc")then
+       fg = -sum(&
+            dmft_bath_%v(ispin,iorb,:)**2*(x+dmft_bath_%e(ispin,iorb,:))/&
+            (dimag(x)**2+dmft_bath_%e(ispin,iorb,:)**2+dmft_bath_%d(ispin,iorb,:)**2)&
+            )
+    elseif(ed_mode=="nonsu2")then
+       fg = sum(&
+            dmft_bath_%w(ispin,iorb,:)*dmft_bath_%v(jspin,iorb,:)/(x-dmft_bath_%e(jspin,iorb,:))&
+            )
     else
-       fg = -sum(dmft_bath_%v(ispin,iorb,1:Nbath)**2*(x+dmft_bath_%e(ispin,iorb,1:Nbath))/&
-            (dimag(x)**2+dmft_bath_%e(ispin,iorb,1:Nbath)**2+dmft_bath_%d(ispin,iorb,1:Nbath)**2))
+       fg = sum( &
+            dmft_bath_%v(ispin,iorb,:)**2/(x-dmft_bath_%e(ispin,iorb,:))&
+            )
     endif
   end function delta_bath_irred_mats
   !
@@ -558,8 +740,10 @@ contains
     complex(8),intent(in) :: x
     integer,intent(in)    :: iorb,ispin
     complex(8)            :: fg
-    fg = sum(dmft_bath_%d(ispin,iorb,1:Nbath)*dmft_bath_%v(ispin,iorb,1:Nbath)**2/&
-         (dimag(x)**2+dmft_bath_%e(ispin,iorb,1:Nbath)**2+dmft_bath_%d(ispin,iorb,1:Nbath)**2))
+    fg = sum(&
+         dmft_bath_%d(ispin,iorb,:)*dmft_bath_%v(ispin,iorb,:)**2/&
+         (dimag(x)**2+dmft_bath_%e(ispin,iorb,:)**2+dmft_bath_%d(ispin,iorb,:)**2)&
+         )
   end function fdelta_bath_irred_mats
 
 
@@ -571,11 +755,17 @@ contains
     integer,intent(in)    :: iorb,ispin
     complex(8),intent(in) :: x
     complex(8)            :: fg
-    if(.not.ed_supercond)then
-       fg = sum(dmft_bath_%v(ispin,iorb,1:Nbath)**2/(x-dmft_bath_%e(ispin,iorb,1:Nbath)))
+    if(ed_mode=="superc")then
+       fg = -sum(&
+            dmft_bath_%v(ispin,iorb,:)**2*(x+dmft_bath_%e(ispin,iorb,:))/&
+            ( x*(-x)+dmft_bath_%e(ispin,iorb,:)**2+dmft_bath_%d(ispin,iorb,:)**2 )&
+            )
+    elseif(ed_mode=="nonsu2")then
+       
     else
-       fg = -sum(dmft_bath_%v(ispin,iorb,1:Nbath)**2*(x+dmft_bath_%e(ispin,iorb,1:Nbath))/&
-            ( x*(-x)+dmft_bath_%e(ispin,iorb,1:Nbath)**2+dmft_bath_%d(ispin,iorb,1:Nbath)**2))
+       fg = sum(&
+            dmft_bath_%v(ispin,iorb,:)**2/(x-dmft_bath_%e(ispin,iorb,:))&
+            )
     endif
   end function delta_bath_irred_real
   !
@@ -591,19 +781,31 @@ contains
 
 
 
-  !<ACTHUNG/TODO: extend the irred expressions for the Delta to the hybrid case.
+
+
+
+
   !HYBRIDIZED BATH:
+  !<ACTHUNG/TODO: extend the irred expressions for the Delta to the hybrid case.
   !Matsubara:
   function delta_bath_hybrd_mats(ispin,iorb,jorb,x,dmft_bath_) result(fg)
     type(effective_bath)  :: dmft_bath_
     complex(8),intent(in) :: x
     integer,intent(in)    :: iorb,jorb,ispin
     complex(8)            :: fg
-    if(.not.ed_supercond)then
-       fg = sum(dmft_bath_%v(ispin,iorb,1:Nbath)*dmft_bath_%v(ispin,jorb,1:Nbath)/(x - dmft_bath_%e(ispin,1,1:Nbath)))
+    if(ed_mode=="superc")then
+       fg = -sum(&
+            dmft_bath_%v(ispin,iorb,:)*dmft_bath_%v(ispin,jorb,:)*(x + dmft_bath_%e(ispin,1,:))/&
+            (dimag(x)**2 + dmft_bath_%e(ispin,1,:)**2 + dmft_bath_%d(ispin,1,:)**2)&
+            )
+    elseif(ed_mode=="nonsu2")then
+       fg = sum(&
+            dmft_bath_%w(ispin,iorb,:)*dmft_bath_%v(jspin,jorb,:)/(x - dmft_bath_%e(jspin,1,:))&
+            )
     else
-       fg = -sum(dmft_bath_%v(ispin,iorb,1:Nbath)*dmft_bath_%v(ispin,jorb,1:Nbath)*(x + dmft_bath_%e(ispin,1,1:Nbath))/&
-            (dimag(x)**2 + dmft_bath_%e(ispin,1,1:Nbath)**2 + dmft_bath_%d(ispin,1,1:Nbath)**2))
+       fg = sum(&
+            dmft_bath_%v(ispin,iorb,:)*dmft_bath_%v(ispin,jorb,:)/(x - dmft_bath_%e(ispin,1,:))&
+            )
     endif
   end function delta_bath_hybrd_mats
   !
@@ -624,12 +826,14 @@ contains
     type(effective_bath)  :: dmft_bath_
     integer,intent(in)    :: iorb,jorb,ispin
     complex(8)            :: fg,x
-    if(.not.ed_supercond)then
-       fg = sum(dmft_bath_%v(ispin,iorb,1:Nbath)*dmft_bath_%v(ispin,jorb,1:Nbath)&
-            /(x-dmft_bath_%e(ispin,1,1:Nbath)))
-    else
+    if(ed_mode=="superc")then
        fg = sum(dmft_bath_%v(ispin,iorb,1:Nbath)*dmft_bath_%v(ispin,jorb,1:Nbath)*(x+dmft_bath_%e(ispin,1,1:Nbath))/&
             ( -x**2 + dmft_bath_%e(ispin,1,1:Nbath)**2 + dmft_bath_%d(ispin,1,1:Nbath)**2))
+    elseif(ed_mode=="nonsu2")then
+
+    else
+       fg = sum(dmft_bath_%v(ispin,iorb,1:Nbath)*dmft_bath_%v(ispin,jorb,1:Nbath)&
+            /(x-dmft_bath_%e(ispin,1,1:Nbath)))
     endif
   end function delta_bath_hybrd_real
   !
@@ -640,7 +844,6 @@ contains
     fg =sum(dmft_bath_%d(ispin,1,1:Nbath)*dmft_bath_%v(ispin,iorb,1:Nbath)*dmft_bath_%v(ispin,jorb,1:Nbath)/&
          ( -x**2  + dmft_bath_%e(ispin,1,1:Nbath)**2 + dmft_bath_%d(ispin,1,1:Nbath)**2))
   end function fdelta_bath_hybrd_real
-
 
 
 

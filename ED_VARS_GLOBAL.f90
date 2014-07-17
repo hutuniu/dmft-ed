@@ -7,14 +7,16 @@ MODULE ED_VARS_GLOBAL
   implicit none
 
   !SIZE OF THE PROBLEM
-  !Ns   = # of levels per spin
-  !Ntot = 2*Ns = total #  of levels
-  !NN   = 2**Ntot = 2**(2Ns) max size of the Hilbert space
-  !Nbo  =# number of bath sites (all sites - impurity sites)
-  !Nsect=# of sectors
+  !Ns       = # of levels per spin
+  !Nlevels  = 2*Ns = total #  of levels
+  !Nhilbert = 2**Ntot = 2**(2Ns) max size of the Hilbert space
+  !Nbo      = # number of bath sites (all sites - impurity sites)
+  !Nsectors = # of sectors
   !=========================================================
-  integer                                     :: Ns,Ntot,NN
-  integer                                     :: Nsect
+  integer                                     :: Ns!,Ntot,NN
+  integer                                     :: Nlevels
+  integer                                     :: Nhilbert
+  integer                                     :: Nsectors
   integer                                     :: Nbo
 
 
@@ -30,7 +32,10 @@ MODULE ED_VARS_GLOBAL
   integer,allocatable,dimension(:,:)          :: getCDGsector
   integer,allocatable,dimension(:,:)          :: getBathStride
   integer,allocatable,dimension(:,:)          :: impIndex
-  integer,allocatable,dimension(:)            :: getdim,getnup,getndw,getsz
+  integer,allocatable,dimension(:)            :: getdim
+  integer,allocatable,dimension(:)            :: getnup,getndw
+  integer,allocatable,dimension(:)            :: getsz
+  integer,allocatable,dimension(:)            :: getn
   logical,allocatable,dimension(:)            :: twin_mask
 
 

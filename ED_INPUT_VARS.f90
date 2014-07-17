@@ -44,7 +44,7 @@ MODULE ED_INPUT_VARS
   logical                                     :: finiteT             !flag for finite temperature calculation
   logical                                     :: ed_twin             !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   character(len=1)                            :: ed_type             !flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)
-  logical                                     :: ed_supercond        !flag to set ed symmetry type: F=normal (default), T=superc=superconductive
+  character(len=7)                            :: ed_mode             !flag to set ed symmetry type: normal=normal (default), superc=superconductive, nonsu2=broken SU(2)
   character(len=7)                            :: bath_type           !flag to set bath type: irreducible (1bath/imp), reducible(1bath)
   character(len=100)                          :: ed_file_suffix      !suffix string attached to the output files.
   real(8)                                     :: nread               !fixed density. if 0.d0 fixed chemical potential calculation.
@@ -75,7 +75,6 @@ contains
   !+-------------------------------------------------------------------+
   subroutine ed_read_input(INPUTunit)
     character(len=*) :: INPUTunit
-    logical          :: control
     integer          :: iorb,jorb,ispin,jspin
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals.")
@@ -120,7 +119,7 @@ contains
     call parse_input_variable(cg_eps,"CG_EPS",INPUTunit,default=0.000001d0,comment="Conjugate-Gradient eps tolerance.")
     call parse_input_variable(cg_weight,"CG_WEIGHT",INPUTunit,default=0,comment="Conjugate-Gradient weight form: 0=1.0 ,1=1/n , 2=1/w.")
     call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")
-    call parse_input_variable(ed_Supercond,"ED_SUPERCOND",INPUTunit,default=.false.,comment="Flag to set ED type: F=normal, T=superconductive")
+    call parse_input_variable(ed_mode,"ED_MODE",INPUTunit,default='normal',comment="Flag to set ED type: normal=normal, superc=superconductive, nonsu2=broken SU(2)")
     call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: irreducible (1bath/imp), reducible(1bath)")
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")

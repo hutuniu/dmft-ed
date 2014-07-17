@@ -3,6 +3,7 @@ MODULE ED_BATH_TYPE
   type effective_bath
      real(8),dimension(:,:,:),allocatable :: e
      real(8),dimension(:,:,:),allocatable :: v
+     real(8),dimension(:,:,:),allocatable :: w
      real(8),dimension(:,:,:),allocatable :: d
      logical                              :: status=.false.
   end type effective_bath
