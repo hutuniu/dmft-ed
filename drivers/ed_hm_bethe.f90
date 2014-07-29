@@ -26,6 +26,7 @@ program lancED
   character(len=16)      :: finput
   integer :: M
   real(8) :: alpha
+  real(8),allocatable :: Gtau(:)
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
   call parse_input_variable(wband,"wband",finput,default=1.d0)
@@ -33,7 +34,7 @@ program lancED
   call parse_input_variable(alpha,"ALPHA",finput,default=1.d0)
   !
   call ed_read_input(trim(finput))
-  Hloc=zero
+  !Hloc=zero
 
   !Allocate Weiss Field:
   allocate(delta(Norb,Norb,Lmats))
@@ -43,7 +44,6 @@ program lancED
   Nb=get_bath_size()
   allocate(bath(Nb(1),Nb(2)))
   call init_ed_solver(bath)
-
 
   !DMFT loop
   iloop=0;converged=.false.
@@ -79,7 +79,8 @@ contains
     complex(8),dimension(Lmats)  :: gloc,sigma
     complex(8),dimension(Lreal)  :: grloc
     real(8)                   :: wm(Lmats),wr(Lreal),tau(0:Lmats),C0,C1,n0
-    real(8),dimension(0:Lmats)   :: sigt
+    real(8),dimension(0:Lmats)   :: sigt,gtau
+    
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal)
     tau(0:) = linspace(0.d0,beta,Lmats+1)
@@ -117,6 +118,10 @@ contains
        ! call fftgf_tau2iw(sigt(0:),sigma,beta)
 
        ! call splot("Sigma_"//reg(txtfy(iorb))//"_iw.ed",wm,sigma)
+
+       call fftgf_iw2tau(gloc,gtau(0:),beta)
+       call splot("Gloc_tau.ed",tau(0:),gtau(0:))
+       
     enddo
 
 

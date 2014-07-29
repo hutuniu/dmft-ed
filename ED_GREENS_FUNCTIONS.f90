@@ -10,7 +10,7 @@ MODULE ED_GREENS_FUNCTIONS
   USE CONSTANTS, only:one,xi,zero,pi
   USE TIMER  
   USE IOTOOLS, only: free_unit,reg,free_units,txtfy
-  USE ARRAYS,   only: arange,linspace
+  USE ARRAYS,  only: arange,linspace
   USE MATRIX,  only: matrix_inverse
   USE PLAIN_LANCZOS
   USE ED_INPUT_VARS
@@ -44,6 +44,10 @@ MODULE ED_GREENS_FUNCTIONS
   !=========================================================
   real(8),allocatable,dimension(:,:)          :: Chitau
   complex(8),allocatable,dimension(:,:)       :: Chiw,Chiiw
+
+  !Poles & Weights 
+  !=========================================================
+  real(8),allocatable,dimension(:,:,:,:,:,:)  :: GFpoles,GFweights
 
   public                                      :: lanc_ed_getgf
   public                                      :: lanc_ed_getchi
@@ -96,7 +100,7 @@ contains
   !PURPOSE  : Print normal Green's functions
   !+------------------------------------------------------------------+
   subroutine print_imp_gf
-    integer                                           :: i,j,ispin,unit(6),iorb,jorb
+    integer                                           :: i,j,ispin,isign,unit(7),iorb,jorb
     complex(8)                                        :: fg0
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real
@@ -135,6 +139,13 @@ contains
                 enddo
                 do i=1,Lreal
                    write(unit(2),"(F26.15,6(F26.15))")wr(i),(dimag(impSreal(ispin,ispin,iorb,iorb,i)),dreal(impSreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                !
+                do isign=1,2
+                   do i=1,lanc_nGFiter
+                      write(unit(7),"(6(F26.15,1x))")(GFpoles(ispin,ispin,iorb,iorb,isign,i),GFweights(ispin,ispin,iorb,iorb,isign,i),ispin=1,Nspin)
+                   enddo
+                   write(unit(7),*)""
                 enddo
              endif
              !
@@ -217,6 +228,11 @@ contains
                    do i=1,Lreal
                       write(unit(2),"(F26.15,6(F26.15))")wr(i),(dimag(impSreal(ispin,ispin,iorb,jorb,i)),dreal(impSreal(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
                    enddo
+                   do isign=1,2
+                      do i=1,lanc_nGFiter
+                         write(unit(7),"(6(F26.15,1x))")(GFpoles(ispin,ispin,iorb,iorb,isign,i),GFweights(ispin,ispin,iorb,iorb,isign,i),ispin=1,Nspin)
+                      enddo
+                   enddo
                 endif
                 !
                 if(ed_verbose<2)then
@@ -250,6 +266,7 @@ contains
       if(ed_verbose<4)then
          open(unit(1),file="impSigma"//string//"_iw"//reg(ed_file_suffix)//".ed")
          open(unit(2),file="impSigma"//string//"_realw"//reg(ed_file_suffix)//".ed")
+         open(unit(7),file="Gpoles_weights"//string//reg(ed_file_suffix)//".ed")
       endif
       if(ed_verbose<2)then
          open(unit(3),file="impG"//string//"_iw"//reg(ed_file_suffix)//".ed")
@@ -262,9 +279,10 @@ contains
     end subroutine open_units
 
     subroutine close_units()
-      if(ed_verbose<3)then
+      if(ed_verbose<4)then
          close(unit(1))
          close(unit(2))
+         close(unit(7))
       endif
       if(ed_verbose<2)then
          close(unit(3))

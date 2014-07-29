@@ -14,6 +14,11 @@ subroutine lanc_ed_getgf_normal()
   impGmats=zero
   impGreal=zero
 
+  if(.not.allocated(GFpoles))allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+  if(.not.allocated(GFweights))allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+  GFpoles=0.d0
+  GFweights=0.d0
+
   do ispin=1,Nspin
      do iorb=1,Norb
         if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
@@ -704,7 +709,7 @@ end subroutine lanc_ed_buildgf_mix_c
 subroutine add_to_lanczos_gf(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,ispin)
   complex(8)                                 :: vnorm2,pesoBZ,peso
   real(8)                                    :: Ei,Egs,de
-  integer                                    :: nlanc
+  integer                                    :: nlanc,itype
   real(8),dimension(nlanc)                   :: alanc,blanc 
   integer                                    :: isign,iorb,jorb,ispin
   real(8),dimension(size(alanc),size(alanc)) :: Z
@@ -716,6 +721,7 @@ subroutine add_to_lanczos_gf(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,ispin)
   pesoBZ = vnorm2/zeta_function
   if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
   !
+  itype=(3+isign)/2
   diag=0.d0 ; subdiag=0.d0 ; Z=0.d0
   forall(i=1:Nlanc)Z(i,i)=1.d0
   diag(1:Nlanc)    = alanc(1:Nlanc)
@@ -732,5 +738,9 @@ subroutine add_to_lanczos_gf(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,ispin)
         iw=dcmplx(wr(i),eps)
         impGreal(ispin,ispin,iorb,jorb,i)=impGreal(ispin,ispin,iorb,jorb,i) + peso/(iw-isign*de)
      enddo
+     GFpoles(ispin,ispin,iorb,jorb,itype,j)   = isign*de
+     GFweights(ispin,ispin,iorb,jorb,itype,j) = peso
   enddo
+
+
 end subroutine add_to_lanczos_gf

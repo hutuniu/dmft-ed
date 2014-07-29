@@ -58,12 +58,12 @@ MODULE ED_VARS_GLOBAL
   real(8),dimension(:),allocatable            ::  ed_dens,ed_docc,ed_phisc
 
 
-#ifdef _MPI
+!#ifdef _MPI
   !MPI Parallel environment variables
   !=========================================================
   integer                                     :: ED_MPI_ID=0
   integer                                     :: ED_MPI_SIZE=1
   integer                                     :: ED_MPI_ERR
-#endif  
+!#endif  
 
 END MODULE ED_VARS_GLOBAL
