@@ -20,8 +20,8 @@ MODULE PLAIN_LANCZOS
   USE CONSTANTS, only:zero
   USE IOFILE,    only: reg
   USE PLAIN_LANCZOS_HTIMESV_INTERFACE
-  USE ED_VARS_GLOBAL
-  USE ED_INPUT_VARS, only:ed_file_suffix,ED_MPI_SIZE,ED_MPI_ID,ED_MPI_ERR
+  USE ED_VARS_GLOBAL, only:ED_MPI_SIZE,ED_MPI_ID,ED_MPI_ERR
+  USE ED_INPUT_VARS , only:ed_file_suffix
   implicit none
   private
   procedure(lanc_htimesv_d),pointer     :: dp_hprod

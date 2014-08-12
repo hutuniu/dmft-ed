@@ -35,11 +35,14 @@ program ed_bhz
   character(len=32)      :: hkfile
   logical                :: spinsym,getak,getdeltaw,getpoles,getener
   type(finter_type)      :: finter_func
+
+#ifdef _MPI
   call MPI_INIT(ED_MPI_ERR)
   call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
   call MPI_COMM_SIZE(MPI_COMM_WORLD,ED_MPI_SIZE,ED_MPI_ERR)
   write(*,"(A,I4,A,I4,A)")'Processor ',ED_MPI_ID,' of ',ED_MPI_SIZE,' is alive'
   call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
 
   !Parse additional variables && read Input && read H(k)^4x4
   call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ.in')
@@ -118,13 +121,15 @@ program ed_bhz
      Bath_=Bath
 
      if(ED_MPI_ID==0)converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
+#ifdef _MPI
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
      if(ED_MPI_ID==0)call end_loop
   enddo
 
-
+#ifdef _MPI
   call MPI_FINALIZE(ED_MPI_ERR)
-
+#endif
 contains
 
 

@@ -31,7 +31,6 @@ MODULE MATRIX_SPARSE
      type(sparse_row),dimension(:),pointer :: row
   end type sparse_matrix
 
-
   type sparse_matrix_csr
      logical                          :: status=.false.
      integer                          :: Nrow

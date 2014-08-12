@@ -391,8 +391,8 @@ contains
        call bdecomp(m,ib)
        htmp=0.d0
        do iorb=1,Norb
-          nup(iorb)=real(ib(iorb),8)
-          ndw(iorb)=real(ib(iorb+Ns),8)
+          nup(iorb)=dble(ib(iorb))
+          ndw(iorb)=dble(ib(iorb+Ns))
        enddo
        !
        !LOCAL HAMILTONIAN PART:
