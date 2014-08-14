@@ -24,82 +24,115 @@ MODULE ED_GREENS_FUNCTIONS
   implicit none
   private 
 
-  !Frequency and time arrays:
-  !=========================================================
-  real(8),dimension(:),allocatable            :: wm,tau,wr,vm
-
   !Lanczos shared variables
   !=========================================================
-  real(8),dimension(:),pointer                :: state_vec
-  complex(8),dimension(:),pointer             :: state_cvec
-  real(8)                                     :: state_e
+  real(8),dimension(:),pointer               :: state_vec
+  complex(8),dimension(:),pointer            :: state_cvec
+  real(8)                                    :: state_e
 
-  !Impurity GF
+  !Frequency and time arrays:
   !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:,:) :: impGmats,impFmats
-  complex(8),allocatable,dimension(:,:,:,:,:) :: impGreal,impFreal
-  complex(8),allocatable,dimension(:,:)       :: Gaux_mats,Gaux_real
+  real(8),dimension(:),allocatable           :: wm,tau,wr,vm
 
-  !Spin Susceptibilities
+
+  !AUX GF
   !=========================================================
-  real(8),allocatable,dimension(:,:)          :: Chitau
-  complex(8),allocatable,dimension(:,:)       :: Chiw,Chiiw
+  complex(8),allocatable,dimension(:,:)      :: Gaux_mats,Gaux_real
+
 
   !Poles & Weights 
   !=========================================================
-  real(8),allocatable,dimension(:,:,:,:,:,:)  :: GFpoles,GFweights
+  real(8),allocatable,dimension(:,:,:,:,:,:) :: GFpoles,GFweights
 
-  public                                      :: lanc_ed_getgf
-  public                                      :: lanc_ed_getchi
+
+  !Spin Susceptibilities
+  !=========================================================
+  real(8),allocatable,dimension(:,:)         :: Chitau
+  complex(8),allocatable,dimension(:,:)      :: Chiw,Chiiw
+
+
+  public                                     :: buildgf_impurity
+  public                                     :: buildchi_impurity
 
 contains
 
   !+------------------------------------------------------------------+
   !PURPOSE  : Interface routine for Green's function calculation
   !+------------------------------------------------------------------+
-  subroutine lanc_ed_getgf()
+  subroutine buildgf_impurity()
+    call allocate_grids
+    if(.not.allocated(GFpoles))allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+    if(.not.allocated(GFweights))allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+    GFpoles=zero
+    GFweights=zero
+    if(ed_supercond)then
+       if(.not.allocated(Gaux_mats))allocate(Gaux_mats(3,Lmats))
+       if(.not.allocated(Gaux_real))allocate(Gaux_real(3,Lreal))
+       Gaux_mats=zero
+       Gaux_real=zero
+    endif
+    !
     if(.not.ed_supercond)then
-       call lanc_ed_getgf_normal()
+       call build_gf_normal()
+       call print_gf_normal()
     else
-       call lanc_ed_getgf_superc()
+       call build_gf_superc()
+       call print_gf_superc()
     end if
-  end subroutine lanc_ed_getgf
-
-
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(vm))deallocate(vm)
+    if(allocated(tau))deallocate(tau)
+    if(allocated(wr))deallocate(wr)
+    if(allocated(Gaux_mats))deallocate(Gaux_mats)
+    if(allocated(Gaux_real))deallocate(Gaux_real)
+    if(allocated(GFpoles))deallocate(GFpoles)
+    if(allocated(GFweights))deallocate(GFweights)
+  end subroutine buildgf_impurity
+  !+------------------------------------------------------------------+
   !                    GREEN'S FUNCTIONS 
   !+------------------------------------------------------------------+
-  !NORMAL PHASE ROUTINES:
-  include 'ed_greens_functions_normal.f90'
-  !SUPERCONDUCTING PHASE ROUTINES:
-  include 'ed_greens_functions_superc.f90'
+  include 'ed_build_gf_normal.f90'
+  include 'ed_build_gf_superc.f90'
 
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Interface routine for Susceptibility calculation
+  !+------------------------------------------------------------------+
+  subroutine buildchi_impurity()
+    call allocate_grids()
+    if(.not.allocated(Chitau))allocate(Chitau(Norb,0:Ltau))
+    if(.not.allocated(Chiw))  allocate(Chiw(Norb,Lreal))
+    if(.not.allocated(Chiiw)) allocate(Chiiw(Norb,0:Lmats))
+    Chitau=zero
+    Chiw=zero
+    Chiiw=zero
+    !
+    call build_chi_spin()
+    call print_chi_spin()
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(vm))deallocate(vm)
+    if(allocated(tau))deallocate(tau)
+    if(allocated(wr))deallocate(wr)
+    if(allocated(Chitau))deallocate(Chitau)
+    if(allocated(Chiw))deallocate(Chiw)
+    if(allocated(Chiiw))deallocate(Chiiw)
+  end subroutine buildchi_impurity
+  !+------------------------------------------------------------------+
   !                    SPIN SUSCPTIBILITY
   !+------------------------------------------------------------------+
-  include 'ed_greens_functions_chispin.f90'
+  include 'ed_build_chi_spin.f90'
 
 
 
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Allocate and setup arrays with frequencies and times
-  !+------------------------------------------------------------------+
-  subroutine allocate_grids
-    integer :: i
-    allocate(wm(Lmats))
-    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
-    allocate(vm(0:Lmats))          !bosonic frequencies
-    do i=0,Lmats
-       vm(i) = pi/beta*2.d0*real(i,8)
-    enddo
-    allocate(wr(Lreal))
-    wr     = linspace(wini,wfin,Lreal)
-    allocate(tau(0:Ltau))
-    tau(0:)= linspace(0.d0,beta,Ltau+1)
-  end subroutine allocate_grids
+
 
   !+------------------------------------------------------------------+
   !PURPOSE  : Print normal Green's functions
   !+------------------------------------------------------------------+
-  subroutine print_imp_gf
+  subroutine print_gf_normal
     integer                                           :: i,j,ispin,isign,unit(7),iorb,jorb
     complex(8)                                        :: fg0
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats
@@ -294,7 +327,7 @@ contains
       endif
     end subroutine close_units
 
-  end subroutine print_imp_gf
+  end subroutine print_gf_normal
 
 
 
@@ -302,7 +335,7 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : Print Superconducting Green's functions
   !+------------------------------------------------------------------+
-  subroutine print_imp_gf_sc
+  subroutine print_gf_superc
     integer                                        :: i,j,ispin,unit(12),iorb,jorb
     complex(8)                                     :: iw
     complex(8),allocatable,dimension(:)            :: det
@@ -478,7 +511,7 @@ contains
       endif
     end subroutine close_units
 
-  end subroutine print_imp_gf_sc
+  end subroutine print_gf_superc
 
 
 
@@ -492,7 +525,7 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : 
   !+------------------------------------------------------------------+
-  subroutine print_imp_chi
+  subroutine print_chi_spin
     integer                               :: i,j,iorb
     integer                               :: unit(3)
     if(ed_verbose<3.AND.ED_MPI_ID==0)then
@@ -517,7 +550,29 @@ contains
           close(unit(3))
        enddo
     endif
-  end subroutine print_imp_chi
+  end subroutine print_chi_spin
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Allocate arrays and setup frequencies and times
+  !+------------------------------------------------------------------+
+  subroutine allocate_grids
+    integer :: i
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(vm))allocate(vm(0:Lmats))          !bosonic frequencies
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    if(.not.allocated(tau))allocate(tau(0:Ltau))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    do i=0,Lmats
+       vm(i) = pi/beta*2.d0*dble(i)
+    enddo
+    wr     = linspace(wini,wfin,Lreal)
+    tau(0:)= linspace(0.d0,beta,Ltau+1)
+  end subroutine allocate_grids
+
+
 
 
 end MODULE ED_GREENS_FUNCTIONS

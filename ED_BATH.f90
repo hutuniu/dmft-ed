@@ -50,6 +50,7 @@ MODULE ED_BATH
   public :: init_bath_ed
   public :: get_bath_size
   public :: write_bath
+  public :: save_bath
   public :: set_bath
   public :: copy_bath
   public :: spin_symmetrize_bath
@@ -270,48 +271,66 @@ contains
   !+-------------------------------------------------------------------+
   subroutine write_bath(dmft_bath_,unit)
     type(effective_bath) :: dmft_bath_
-    integer              :: i,unit,ispin,iorb
-    if(.not.dmft_bath_%status)stop "WRITE_BATH: bath not allocated"
+    integer,optional     :: unit
+    integer              :: unit_
+    integer              :: i,ispin,iorb
     if(ED_MPI_ID==0)then
-    select case(bath_type)
-    case default
-       if(.not.ed_supercond)then
-          write(unit,"(90(A21,1X))")&
-               (("#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-               "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
-          do i=1,Nbath
-             write(unit,"(90(F21.12,1X))")((dmft_bath_%e(ispin,iorb,i),&
-                  dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
-          enddo
-       else
-          write(unit,"(90(A21,1X))")&
-               (("#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),"#Dk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-               "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
-          do i=1,Nbath
-             write(unit,"(90(F21.12,1X))")((dmft_bath_%e(ispin,iorb,i),dmft_bath_%d(ispin,iorb,i),&
-                  dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
-          enddo
-       endif
+       unit_=LOGfile;if(present(unit))unit_=unit
+       if(.not.dmft_bath_%status)stop "WRITE_BATH: bath not allocated"
+       select case(bath_type)
+       case default
+          if(.not.ed_supercond)then
+             write(unit_,"(90(A21,1X))")&
+                  (("#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
+             do i=1,Nbath
+                write(unit_,"(90(F21.12,1X))")((dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          else
+             write(unit_,"(90(A21,1X))")&
+                  (("#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),"#Dk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
+             do i=1,Nbath
+                write(unit_,"(90(F21.12,1X))")((dmft_bath_%e(ispin,iorb,i),dmft_bath_%d(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          endif
 
-    case('hybrid')
-       if(.not.ed_supercond)then
-          write(unit,"(90(A21,1X))")("#Ek_s"//reg(txtfy(ispin)),&
-               ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
-          do i=1,Nbath
-             write(unit,"(90(F21.12,1X))")( dmft_bath_%e(ispin,1,i),&
-                  (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
-          enddo
-       else
-          write(unit,"(90(A21,1X))")("#Ek_s"//reg(txtfy(ispin)),"#Dk_s"//reg(txtfy(ispin)),&
-               ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
-          do i=1,Nbath
-             write(unit,"(90(F21.12,1X))")( dmft_bath_%e(ispin,1,i),dmft_bath_%d(ispin,1,i),&
-                  (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
-          enddo
-       endif
-    end select
+       case('hybrid')
+          if(.not.ed_supercond)then
+             write(unit_,"(90(A21,1X))")("#Ek_s"//reg(txtfy(ispin)),&
+                  ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
+             do i=1,Nbath
+                write(unit_,"(90(F21.12,1X))")( dmft_bath_%e(ispin,1,i),&
+                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          else
+             write(unit_,"(90(A21,1X))")("#Ek_s"//reg(txtfy(ispin)),"#Dk_s"//reg(txtfy(ispin)),&
+                  ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
+             do i=1,Nbath
+                write(unit_,"(90(F21.12,1X))")( dmft_bath_%e(ispin,1,i),dmft_bath_%d(ispin,1,i),&
+                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+             enddo
+          endif
+       end select
     endif
   end subroutine write_bath
+
+
+  subroutine save_bath(dmft_bath_,file)
+    type(effective_bath) :: dmft_bath_
+    integer              :: unit_
+    character(len=*)     :: file
+    integer              :: i,ispin,iorb
+    if(ED_MPI_ID==0)then
+       if(.not.dmft_bath_%status)stop "WRITE_BATH: bath not allocated"
+       unit_=free_unit()
+       open(unit_,file=trim(file)//".used")
+       call write_bath(dmft_bath_,unit_)
+       close(unit_)
+    endif
+  end subroutine save_bath
 
 
 

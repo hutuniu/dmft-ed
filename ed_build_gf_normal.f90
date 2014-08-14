@@ -1,23 +1,16 @@
 !+------------------------------------------------------------------+
 !PURPOSE  : Evaluate Green's functions using Lanczos algorithm
 !+------------------------------------------------------------------+
-subroutine lanc_ed_getgf_normal()
+subroutine build_gf_normal()
   integer :: izero,iorb,jorb,ispin,i
   integer :: isect0,numstates
   real(8) :: norm0
   logical :: verbose
   verbose=.false.;if(ed_verbose<0)verbose=.true.
-  call allocate_grids
-
-  if(.not.allocated(impGmats))allocate(impGmats(Nspin,Nspin,Norb,Norb,Lmats))
-  if(.not.allocated(impGreal))allocate(impGreal(Nspin,Nspin,Norb,Norb,Lreal))
+  if(.not.allocated(impGmats))stop "build_gf_normal: Gmats not allocated"
+  if(.not.allocated(impGreal))stop "build_gf_normal: Greal not allocated"
   impGmats=zero
   impGreal=zero
-
-  if(.not.allocated(GFpoles))allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
-  if(.not.allocated(GFweights))allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
-  GFpoles=0.d0
-  GFweights=0.d0
 
   do ispin=1,Nspin
      do iorb=1,Norb
@@ -59,11 +52,7 @@ subroutine lanc_ed_getgf_normal()
      enddo
   endif
   !
-  !Print impurity functions:
-  call print_imp_gf
-  deallocate(wm,wr,tau,vm)
-  deallocate(impGmats,impGreal)
-end subroutine lanc_ed_getgf_normal
+end subroutine build_gf_normal
 
 
 

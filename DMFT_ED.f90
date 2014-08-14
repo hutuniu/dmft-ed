@@ -58,19 +58,22 @@ contains
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"
     call allocate_bath(dmft_bath)
     call set_bath(bath_,dmft_bath)
-    if(ed_verbose<2.AND.ED_MPI_ID==0)call write_bath(dmft_bath,LOGfile)
     if(ED_MPI_ID==0)then
-       unit=free_unit()
-       open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".used")
-       call write_bath(dmft_bath,unit)
-       close(unit)
+       if(ed_verbose<2)call write_bath(dmft_bath,LOGfile)
+       call save_bath(dmft_bath,file=trim(Hfile)//trim(ed_file_suffix))
     endif
-    call lanc_ed_diag
-    call lanc_ed_getgf
-    if(chiflag)call lanc_ed_getchi
-    call ed_getobs
-    call deallocate_bath(dmft_bath)
-    call es_delete_espace(state_list)
+    !
+    !SOLVE THE QUANTUM IMPURITY PROBLEM:
+    call diagonalize_impurity         !find target states by digonalization of Hamiltonian
+    ! call allocate_gf_impurity         !allocate the necessary memory to store the impurity GF.
+    call buildgf_impurity             !build the one-particle impurity Green's functions
+    if(chiflag)call buildchi_impurity !build the local susceptibilities (spin [todo charge])
+    call observables_impurity         !obtain impurity observables as thermal averages.  
+    call energy_impurity              !obtain the internal energy of the effective impurity problem.
+    ! call deallocate_gf_impurity       !deallocate the necessary memory to store the impurity GF.
+    !
+    call deallocate_bath(dmft_bath)   
+    call es_delete_espace(state_list) 
   end subroutine ed_solver
 
 
