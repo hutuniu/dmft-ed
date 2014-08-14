@@ -186,6 +186,12 @@ contains
        allocate(impSAmats(Nspin,Nspin,Norb,Norb,Lmats))
        allocate(impSAreal(Nspin,Nspin,Norb,Norb,Lreal))
     endif
+    allocate(impGmats(Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(impGreal(Nspin,Nspin,Norb,Norb,Lreal))
+    if(ed_supercond)then
+       allocate(impFmats(Nspin,Nspin,Norb,Norb,Lmats))
+       allocate(impFreal(Nspin,Nspin,Norb,Norb,Lreal))
+    endif
 
     !allocate observables
     allocate(ed_dens(Norb),ed_docc(Norb))

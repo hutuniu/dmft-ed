@@ -1,24 +1,18 @@
 !+------------------------------------------------------------------+
 !PURPOSE  : Evaluate Green's functions using Lanczos algorithm
 !+------------------------------------------------------------------+
-subroutine lanc_ed_getgf_superc()
+subroutine build_gf_superc()
   integer :: izero,iorb,jorb,ispin,i
   integer :: isect0,numstates
   real(8) :: norm0
-  call allocate_grids
-  allocate(Gaux_mats(3,Lmats),Gaux_real(3,Lreal))
-
-  if(.not.allocated(impGmats))allocate(impGmats(Nspin,Nspin,Norb,Norb,Lmats))
-  if(.not.allocated(impGreal))allocate(impGreal(Nspin,Nspin,Norb,Norb,Lreal))
-  if(.not.allocated(impFmats))allocate(impFmats(Nspin,Nspin,Norb,Norb,Lmats))
-  if(.not.allocated(impFreal))allocate(impFreal(Nspin,Nspin,Norb,Norb,Lreal))
+  if(.not.allocated(impGmats))stop "build_gf_super: impGmats not allocated"
+  if(.not.allocated(impGreal))stop "build_gf_super: impGreal not allocated"
+  if(.not.allocated(impFmats))stop "build_gf_super: impFmats not allocated"
+  if(.not.allocated(impFreal))stop "build_gf_super: impFreal not allocated"
   impGmats=zero
   impGreal=zero
   impFmats=zero
   impFreal=zero
-
-  Gaux_mats=zero
-  Gaux_real=zero
 
   do ispin=1,Nspin
      do iorb=1,Norb
@@ -36,13 +30,7 @@ subroutine lanc_ed_getgf_superc()
      enddo
   enddo
   !
-  !Print impurity functions:
-  call print_imp_gf_sc
-  deallocate(wm,wr,tau,vm)
-  deallocate(impGmats,impGreal)
-  deallocate(impFmats,impFreal)
-  deallocate(Gaux_mats,Gaux_real)
-end subroutine lanc_ed_getgf_superc
+end subroutine build_gf_superc
 
 
 

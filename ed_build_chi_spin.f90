@@ -1,13 +1,13 @@
 !+------------------------------------------------------------------+
 !PURPOSE  : Evaluate Spin Susceptibility using Lanczos algorithm
 !+------------------------------------------------------------------+
-subroutine lanc_ed_getchi()
+subroutine build_chi_spin()
   integer :: iorb,jorb,ispin
-  call allocate_grids
-  allocate(Chitau(Norb,0:Ltau),Chiw(Norb,Lreal),Chiiw(Norb,0:Lmats))
-  Chitau=0.d0
-  Chiw=zero
-  Chiiw=zero
+  ! call allocate_grids
+  ! allocate(Chitau(Norb,0:Ltau),Chiw(Norb,Lreal),Chiiw(Norb,0:Lmats))
+  ! Chitau=0.d0
+  ! Chiw=zero
+  ! Chiiw=zero
   do iorb=1,Norb
      if(ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))
      select case(ed_type)
@@ -20,10 +20,10 @@ subroutine lanc_ed_getchi()
   Chitau = Chitau/zeta_function
   Chiw   = Chiw/zeta_function
   Chiiw  = Chiiw/zeta_function
-  call print_imp_chi()
-  deallocate(Chitau,Chiw,Chiiw)
-  deallocate(wm,wr,tau,vm)
-end subroutine lanc_ed_getchi
+  ! call print_imp_chi()
+  ! deallocate(Chitau,Chiw,Chiiw)
+  ! deallocate(wm,wr,tau,vm)
+end subroutine build_chi_spin
 
 
 !+------------------------------------------------------------------+

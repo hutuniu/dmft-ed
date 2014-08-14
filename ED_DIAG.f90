@@ -19,7 +19,7 @@ module ED_DIAG
   implicit none
   private
 
-  public :: lanc_ed_diag
+  public :: diagonalize_impurity
 
 contains
 
@@ -28,16 +28,16 @@ contains
   !PURPOSE  : Setup the Hilbert space, create the Hamiltonian, get the
   ! GS, build the Green's functions calling all the necessary routines
   !+------------------------------------------------------------------+
-  subroutine lanc_ed_diag
+  subroutine diagonalize_impurity
     logical :: iverbose_
     select case(ed_type)
     case default
-       call lanc_ed_diag_d
+       call ed_diag_d
     case('c')
-       call lanc_ed_diag_c
+       call ed_diag_c
     end select
-    call lanc_ed_analysis
-  end subroutine lanc_ed_diag
+    call ed_analysis
+  end subroutine diagonalize_impurity
 
 
 
@@ -45,7 +45,7 @@ contains
   !PURPOSE  : diagonalize the Hamiltonian in each sector and find the 
   ! spectrum DOUBLE PRECISION
   !+------------------------------------------------------------------+
-  subroutine lanc_ed_diag_d
+  subroutine ed_diag_d
     integer             :: nup,ndw,isector,dim
     integer             :: nup0,ndw0,isect0,dim0,izero,sz0
     integer             :: i,j,iter
@@ -131,7 +131,7 @@ contains
        !
     enddo sector
     if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
-  end subroutine lanc_ed_diag_d
+  end subroutine ed_diag_d
 
 
 
@@ -139,7 +139,7 @@ contains
   !PURPOSE  : diagonalize the Hamiltonian in each sector and find the 
   ! spectrum DOUBLE COMPLEX
   !+------------------------------------------------------------------+
-  subroutine lanc_ed_diag_c
+  subroutine ed_diag_c
     integer                :: nup,ndw,isector,dim
     integer                :: nup0,ndw0,isect0,dim0,izero,sz0
     integer                :: i,j,iter
@@ -158,7 +158,21 @@ contains
     sector: do isector=1,Nsect
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
-       if(ed_verbose<1.AND.ED_MPI_ID==0)call progress(iter,count(twin_mask))
+       if(ED_MPI_ID==0)then
+          if(ed_verbose==0)then
+             call progress(iter,count(twin_mask))
+          elseif(ed_verbose==-1)then
+             dim      = getdim(isector)
+             if(.not.ed_supercond)then
+                nup0  = getnup(isector)
+                ndw0  = getndw(isector)
+                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
+             else
+                sz0   = getsz(isector)
+                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
+             endif
+          endif
+       endif
        Tflag    = twin_mask(isector).AND.ed_twin.AND.(getnup(isector)/=getndw(isector))
        dim      = getdim(isector)
        Neigen   = min(dim,neigen_sector(isector))
@@ -211,7 +225,7 @@ contains
        !
     enddo sector
     if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
-  end subroutine lanc_ed_diag_c
+  end subroutine ed_diag_c
 
 
 
@@ -225,7 +239,7 @@ contains
   !PURPOSE  : analyse the spectrum and print some information after 
   !lanczos  diagonalization. 
   !+------------------------------------------------------------------+
-  subroutine lanc_ed_analysis()
+  subroutine ed_analysis()
     integer             :: nup,ndw,isector,dim
     integer             :: nup0,ndw0,isect0,dim0,izero,sz0
     integer             :: i,j,unit
@@ -338,7 +352,7 @@ contains
           if(ED_MPI_ID==0)write(*,"(A,I4)")"Increasing lanc_nstates_total+2:",lanc_nstates_total
        endif
     endif
-  end subroutine lanc_ed_analysis
+  end subroutine ed_analysis
 
 
 
