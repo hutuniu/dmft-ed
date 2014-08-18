@@ -30,13 +30,13 @@ program ed_tddpam_lattice
 
   !parse additional variables
   call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
-  call parse_input_variable(ntype,"NTYPE",trim(finput),default=0)
-  call parse_input_variable(Nx,"NX",trim(finput),default=100)
-  call parse_input_variable(tpp,"TPP",trim(finput),default=0.25d0)
-  call parse_input_variable(alpha,"ALPHA",trim(finput),default=0.d0)
-  call parse_input_variable(tpd,"TPD",trim(finput),default=0.d0)
-  call parse_input_variable(v0,"V0",trim(finput),default=0.d0)
-  call parse_input_variable(ep0,"EP0",trim(finput),default=0.d0)
+  call parse_input_variable(ntype,"NTYPE",finput,default=0)
+  call parse_input_variable(Nx,"NX",finput,default=100)
+  call parse_input_variable(tpp,"TPP",finput,default=0.25d0)
+  call parse_input_variable(alpha,"ALPHA",finput,default=0.d0)
+  call parse_input_variable(tpd,"TPD",finput,default=0.d0)
+  call parse_input_variable(v0,"V0",finput,default=0.d0)
+  call parse_input_variable(ep0,"EP0",finput,default=0.d0)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.75d0)
   call ed_read_input(trim(finput))
 

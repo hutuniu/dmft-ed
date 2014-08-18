@@ -127,6 +127,7 @@ program ed_bhz
      if(ED_MPI_ID==0)call end_loop
   enddo
 
+
 #ifdef _MPI
   call MPI_FINALIZE(ED_MPI_ERR)
 #endif
@@ -140,13 +141,12 @@ contains
   !---------------------------------------------------------------------
   subroutine get_delta
     integer                                     :: i,j,ik,iorb,jorb,ispin,jspin,iso,unit
-    complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta,fgk
-    complex(8),dimension(:,:,:,:,:),allocatable :: gloc,Sreal,Smats
-    complex(8),dimension(:,:,:,:),allocatable   :: gk,gfoo,ReSmat
-    complex(8),dimension(:,:,:),allocatable     :: Hktilde
+    complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta
+    complex(8),dimension(:,:,:),allocatable     :: Smats
+    complex(8),dimension(:,:,:,:,:),allocatable :: gloc
+    complex(8),dimension(:,:,:,:),allocatable   :: gk
     complex(8)                                  :: iw
     real(8)                                     :: wm(Lmats),wr(Lreal)
-    real(8),dimension(:,:),allocatable          :: Ktrim,Ev
     character(len=20)                           :: suffix
     !
     !
@@ -228,11 +228,16 @@ contains
        enddo
     endif
     deallocate(gloc)
+
+    !Get Kinetic Energy too
+    allocate(Smats(Nso,Nso,Lmats))
+    do i=1,Lmats
+       Smats(:,:,i)=so2j(impSmats(:,:,:,:,i))
+    enddo
+    call ed_kinetic_energy(Smats,Hk,dos_wt)
+    deallocate(Smats)
+
   end subroutine get_delta
-
-
-
-
 
 
 
@@ -922,7 +927,7 @@ contains
   ! end subroutine checkZ2
   !>DEBUG
 
-end program
+end program ed_bhz
 
 
 
