@@ -605,13 +605,13 @@ contains
        enddo
     endif
   end subroutine get_poles
-
+  
   function det_poles(w) result(det)
     real(8) :: w
     real(8) :: det
     det = finter(finter_func,w)
   end function det_poles
-
+  
 
 
 

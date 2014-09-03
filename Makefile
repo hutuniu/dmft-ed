@@ -1,12 +1,13 @@
 #COMPILER (PARALLEL)
 FC=mpif90
 #PRECOMPILATION FLAG (leave blank for serial code)
-FPP=
+FPP=MPI
 
 #--> HUBBARD MODELS:
 #EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
 #EXE=ed_hm_2dsquare
+EXE=ed_hm_2b_cubic
 #EXE=ed_hm_bethe_afm
 #--> PERIODIC ANDERSON & P-D MODELS
 #EXE=ed_pam_1b
@@ -17,12 +18,12 @@ FPP=
 #EXE=ed_tddpam_bethe
 #--> B-H-Z MODELS
 #EXE=ed_2x2bhz
-EXE=ed_bhz
+#EXE=ed_bhz
 #EXE=ed_bhz_afm
 
 
 DIR =drivers
-DIREXE=$(HOME)/.bin
+DIREXE=$(HOME_G)/.project_bin
 
 .SUFFIXES: .f90
 
