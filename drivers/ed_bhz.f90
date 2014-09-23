@@ -15,6 +15,9 @@
 program ed_bhz
   USE DMFT_ED
   USE SCIFOR
+#ifdef _MPI
+  USE MPI
+#endif
   implicit none
   integer                :: iloop,Lk,Nso
   logical                :: converged
@@ -33,7 +36,7 @@ program ed_bhz
   real(8)                :: mh,lambda,wmixing,akrange
   character(len=16)      :: finput
   character(len=32)      :: hkfile
-  logical                :: spinsym,getak,getdeltaw,getpoles,getener
+  logical                :: spinsym,getak,getdeltaw,getpoles
   type(finter_type)      :: finter_func
 
 #ifdef _MPI
@@ -50,7 +53,6 @@ program ed_bhz
   call parse_input_variable(getak,"GETAK",finput,default=.false.)
   call parse_input_variable(getdeltaw,"GETDELTAW",finput,default=.false.)
   call parse_input_variable(getpoles,"GETPOLES",finput,default=.false.)
-  call parse_input_variable(getener,"GETENER",finput,default=.false.)
   call parse_input_variable(akrange,"AKRANGE",finput,default=10.d0)
   call parse_input_variable(nk,"NK",finput,default=100)
   call parse_input_variable(mh,"MH",finput,default=0.d0)
@@ -263,7 +265,6 @@ contains
 
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal,mesh=dw)
-    if(ED_MPI_ID==0)call start_progress(LOGfile)
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for BHZ:"
     Lk=Nk**2
     if(allocated(Hk))deallocate(Hk)
@@ -296,11 +297,9 @@ contains
              do i=1,Lmats
                 fg(i,:,:) =fg(i,:,:)  + inverse_g0k(xi*wm(i)+xmu,Hk(:,:,ik))/dble(Lk)
              enddo
-             call progress(ik,Lk)
           endif
        enddo
     enddo
-    if(ED_MPI_ID==0)call stop_progress()
     if(ED_MPI_ID==0.AND.present(file))write(unit,*)""
     allocate(dos_wt(Lk))
     dos_wt=1.d0/dble(Lk)
@@ -357,14 +356,12 @@ contains
     if(allocated(Hk))deallocate(Hk)
     allocate(Hk(Nso,Nso,Lk))
     !From \Gamma=(0,0) to X=(pi,0): Nk steps
-    if(ed_mpi_id==0)call start_progress(LOGfile)
     do ix=1,Nk
        ik=ik+1
        kx = 0.d0 + pi*real(ix-1,8)/dble(Nk)
        ky = 0.d0
        Hk(:,:,ik)=hk_bhz(kx,ky)
        eig = Eigk(hk_bhz(kx,ky))
-       if(ed_mpi_id==0)call progress(ik,Lk)
        if(ed_mpi_id==0)write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
     enddo
     !From X=(pi,0) to M=(pi,pi): Nk steps
@@ -374,7 +371,6 @@ contains
        ky = 0.d0 + pi*real(iy-1,8)/dble(Nk)
        Hk(:,:,ik)=hk_bhz(kx,ky)
        eig = Eigk(hk_bhz(kx,ky))
-       if(ed_mpi_id==0)call progress(ik,Lk)
        if(ed_mpi_id==0)write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
     enddo
     !From M=(pi,pi) to \Gamma=(0,0): Nk steps
@@ -385,11 +381,9 @@ contains
        ky = pi - pi*real(iy-1,8)/dble(Nk)
        Hk(:,:,ik)=hk_bhz(kx,ky)
        eig = Eigk(hk_bhz(kx,ky))
-       if(ed_mpi_id==0)call progress(ik,Lk)
        if(ed_mpi_id==0)write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
     enddo
     if(ed_mpi_id==0)close(unit)
-    if(ed_mpi_id==0)call stop_progress()
   end subroutine build_hk_GXMG
 
 
@@ -479,9 +473,9 @@ contains
     complex(8),dimension(:,:),allocatable       :: detGiw
     real(8)                                     :: wr(Lreal),wm(Lmats)
     real(8),dimension(Lreal)                    :: Den
-    real(8),dimension(:),allocatable            :: Ipoles,Xcsign
+    real(8),dimension(:),allocatable            :: Ipoles,Xcsign,Iweight
     real(8),dimension(:,:),allocatable          :: Ipoles3d
-    real(8),dimension(:,:),allocatable          :: Mpoles
+    real(8),dimension(:,:),allocatable          :: Mpoles,Mweight
     real(8),dimension(:,:,:),allocatable        :: Mpoles3d
     integer                                     :: Linterval
     integer                                     :: count,Ninterval,maxNinterval,int
@@ -494,24 +488,24 @@ contains
     call read_sigma(Smats)
     !
     call build_hk_GXMG
-    allocate(detGiw(Lk,Lmats))
-    unit=free_unit()
-    open(unit,file="detGk_iw.ed")
-    do ik=1,Lk
-       do i=1,Lmats
-          forall(iorb=1:Nso)zeta(iorb,iorb)=xi*wm(i)+xmu
-          zeta(:,:)    = zeta(:,:) - (so2j(Smats(:,:,:,:,i)))
-          detGiw(ik,i) = one/( (zeta(1,1) - Hk(1,1,ik))*(zeta(2,2) - Hk(2,2,ik)) - Hk(1,2,ik)*Hk(2,1,ik))
-          write(unit,*)wm(i),dimag(detGiw(ik,i)),dreal(detGiw(ik,i))
-       enddo
-       write(unit,*)""
-    enddo
+    ! allocate(detGiw(Lk,Lmats))
+    ! ! unit=free_unit()
+    ! ! open(unit,file="detGk_iw.ed")
+    ! do ik=1,Lk
+    !    do i=1,Lmats
+    !       forall(iorb=1:Nso)zeta(iorb,iorb)=xi*wm(i)+xmu
+    !       zeta(:,:)    = zeta(:,:) - (so2j(Smats(:,:,:,:,i)))
+    !       detGiw(ik,i) = one/( (zeta(1,1) - Hk(1,1,ik))*(zeta(2,2) - Hk(2,2,ik)) - Hk(1,2,ik)*Hk(2,1,ik))
+    !       write(unit,*)wm(i),dimag(detGiw(ik,i)),dreal(detGiw(ik,i))
+    !    enddo
+    !    write(unit,*)""
+    ! enddo
 
     Linterval = 150 !Maximum number of allowed intervals to look for zeros&poles
     !
     allocate(Xcsign(0:Linterval))
-    allocate(Ipoles(Lk))
-    allocate(Mpoles(Lk,Linterval))
+    allocate(Ipoles(Lk),Iweight(Lk))
+    allocate(Mpoles(Lk,Linterval),Mweight(Lk,Linterval))
     !
     !FINDING THE POLES:
     !assume \eps=0.d0 ==> the ImSigma(poles)=0 this condition should be automatically
@@ -545,17 +539,19 @@ contains
        call init_finter(finter_func,wr,Den,3)
        do int=1,Ninterval
           Mpoles(ik,int) = fzero_brentq(det_poles,Xcsign(int-1),Xcsign(int))
+          Mweight(ik,int)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1)))
        enddo
        ipoles(ik) = fzero_brentq(det_poles,0.d0,wr(Lreal))
+       iweight(ik)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1)))
        call delete_finter(finter_func)
     enddo
-    call splot("BHZpoles.ed",(/(ik-1,ik=1,Lk)/),ipoles(:))
+    call splot("BHZpoles.ed",(/(ik-1,ik=1,Lk)/),ipoles(:),iweight(:))
     unit=free_unit()
     open(unit,file="BHZpoles_all.ed")
     do int=1,maxNinterval
        if(any((Mpoles(:,int)/=0.d0)))then
           do ik=1,Lk
-             if(Mpoles(ik,int)/=0.d0)write(unit,*)ik-1,Mpoles(ik,int)
+             if(Mpoles(ik,int)/=0.d0)write(unit,*)ik-1,Mpoles(ik,int),Mweight(ik,int)
           enddo
           write(unit,*)""
        endif
@@ -564,7 +560,7 @@ contains
 
 
 
-    if(.false.)then
+    if(.true.)then
        call build_hk
        allocate(Ipoles3d(Nk,Nk))
        allocate(Mpoles3d(Nk,Nk,Linterval))
@@ -605,13 +601,21 @@ contains
        enddo
     endif
   end subroutine get_poles
-  
+
   function det_poles(w) result(det)
     real(8) :: w
     real(8) :: det
     det = finter(finter_func,w)
   end function det_poles
-  
+
+  function get_weight(hk) result(wt)
+    complex(8),dimension(4,4) :: hk,foo
+    real(8),dimension(4)      :: eig
+    real(8) :: wt
+    foo = hk
+    call matrix_diagonalize(foo,eig)
+    wt = sum(foo(:,1))
+  end function Get_Weight
 
 
 
@@ -672,31 +676,8 @@ contains
     return
   end subroutine get_deltaw
 
-  !---------------------------------------------------------------------
-  !PURPOSE: GET INTERNAL ENERGY OF THE BHZ MODEL
-  !---------------------------------------------------------------------
-  subroutine get_energy
-    real(8)                                     :: wm(Lmats)
-    complex(8),dimension(:,:,:,:,:),allocatable :: Smats
-    complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta,fgk
-    complex(8),dimension(:,:,:,:,:),allocatable :: gloc
-    complex(8),dimension(:,:,:,:),allocatable   :: gk,gfoo,ReSmat
-    complex(8),dimension(:,:,:),allocatable     :: Hktilde
-    complex(8)                                  :: iw
-
-    !
-    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
-    !
-    call build_hk()
-    !
-    print*,"Get Etotal:"
-    allocate(Smats(Nspin,Nspin,Norb,Norb,Lmats))
-    call read_sigma(Smats)
 
 
-
-
-  end subroutine get_energy
 
 
 

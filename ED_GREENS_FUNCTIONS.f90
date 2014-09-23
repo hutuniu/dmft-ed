@@ -150,12 +150,12 @@ contains
        do ispin=1,Nspin
           do iorb=1,Norb
              do i=1,Lmats
-                fg0 = xi*wm(i) + xmu - hloc(ispin,ispin,iorb,iorb) - delta_bath_mats(ispin,iorb,xi*wm(i),dmft_bath)
+                fg0 = xi*wm(i) + xmu - impHloc(ispin,ispin,iorb,iorb) - delta_bath_mats(ispin,iorb,xi*wm(i),dmft_bath)
                 impSmats(ispin,ispin,iorb,iorb,i)= fg0 - one/impGmats(ispin,ispin,iorb,iorb,i)
                 impG0mats(ispin,ispin,iorb,iorb,i) = one/fg0
              enddo
              do i=1,Lreal
-                fg0 = wr(i) + xmu - hloc(ispin,ispin,iorb,iorb) - delta_bath_real(ispin,iorb,wr(i)+xi*eps,dmft_bath)
+                fg0 = wr(i) + xmu - impHloc(ispin,ispin,iorb,iorb) - delta_bath_real(ispin,iorb,wr(i)+xi*eps,dmft_bath)
                 impSreal(ispin,ispin,iorb,iorb,i)= fg0 - one/impGreal(ispin,ispin,iorb,iorb,i)
                 impG0real(ispin,ispin,iorb,iorb,i) = one/fg0
              enddo
@@ -208,21 +208,21 @@ contains
        do ispin=1,Nspin         !Spin diagona
           do iorb=1,Norb        !Orbital diagonal part GF_0=(iw+mu)_aa-hloc_aa-Delta_aa
              do i=1,Lmats
-                impG0mats(ispin,ispin,iorb,iorb,i)= xi*wm(i)+xmu-hloc(ispin,ispin,iorb,iorb)-delta_bath_mats(ispin,iorb,iorb,xi*wm(i),dmft_bath)
+                impG0mats(ispin,ispin,iorb,iorb,i)= xi*wm(i)+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_mats(ispin,iorb,iorb,xi*wm(i),dmft_bath)
              enddo
              do i=1,Lreal
-                impG0real(ispin,ispin,iorb,iorb,i)= wr(i)+xi*eps+xmu-hloc(ispin,ispin,iorb,iorb)-delta_bath_real(ispin,iorb,iorb,wr(i)+xi*eps,dmft_bath)
+                impG0real(ispin,ispin,iorb,iorb,i)= wr(i)+xi*eps+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_real(ispin,iorb,iorb,wr(i)+xi*eps,dmft_bath)
              enddo
           enddo
           do iorb=1,Norb         !Orbital non-diagonal part
              do jorb=iorb+1,Norb !GF_0=-hloc_ab-Delta_ab
                 do i=1,Lmats
-                   impG0mats(ispin,ispin,iorb,jorb,i)= -hloc(ispin,ispin,iorb,jorb)-delta_bath_mats(ispin,iorb,jorb,xi*wm(i),dmft_bath)
-                   impG0mats(ispin,ispin,jorb,iorb,i)= -hloc(ispin,ispin,jorb,iorb)-delta_bath_mats(ispin,jorb,iorb,xi*wm(i),dmft_bath)
+                   impG0mats(ispin,ispin,iorb,jorb,i)= -impHloc(ispin,ispin,iorb,jorb)-delta_bath_mats(ispin,iorb,jorb,xi*wm(i),dmft_bath)
+                   impG0mats(ispin,ispin,jorb,iorb,i)= -impHloc(ispin,ispin,jorb,iorb)-delta_bath_mats(ispin,jorb,iorb,xi*wm(i),dmft_bath)
                 enddo
                 do i=1,Lreal
-                   impG0real(ispin,ispin,iorb,jorb,i)= -hloc(ispin,ispin,iorb,jorb)-delta_bath_real(ispin,iorb,jorb,wr(i)+xi*eps,dmft_bath)
-                   impG0real(ispin,ispin,jorb,iorb,i)= -hloc(ispin,ispin,jorb,iorb)-delta_bath_real(ispin,jorb,iorb,wr(i)+xi*eps,dmft_bath)
+                   impG0real(ispin,ispin,iorb,jorb,i)= -impHloc(ispin,ispin,iorb,jorb)-delta_bath_real(ispin,iorb,jorb,wr(i)+xi*eps,dmft_bath)
+                   impG0real(ispin,ispin,jorb,iorb,i)= -impHloc(ispin,ispin,jorb,iorb)-delta_bath_real(ispin,jorb,iorb,wr(i)+xi*eps,dmft_bath)
                 enddo
              enddo
           enddo
@@ -361,7 +361,7 @@ contains
           fg(2,:) =  impFmats(ispin,ispin,iorb,iorb,:)/det
           do i=1,LMats
              iw = xi*wm(i)
-             fg0(1,i) = iw+xmu-hloc(ispin,ispin,iorb,iorb)-delta_bath_mats(ispin,iorb,iw,dmft_bath)
+             fg0(1,i) = iw+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_mats(ispin,iorb,iw,dmft_bath)
              fg0(2,i) = -fdelta_bath_mats(ispin,iorb,iw,dmft_bath)
           enddo
           impSmats(ispin,ispin,iorb,iorb,:)= fg0(1,:) - fg(1,:)
@@ -388,7 +388,7 @@ contains
                   impFreal(ispin,ispin,iorb,iorb,i)*impFreal(ispin,ispin,iorb,iorb,i)
              fg(1,i) =  -conjg(impGreal(ispin,ispin,iorb,iorb,Lreal+1-i))/det(i)
              fg(2,i) =  -impFreal(ispin,ispin,iorb,iorb,i)/det(i)
-             fg0(1,i) =  wr(i)+xmu-hloc(ispin,ispin,iorb,iorb)-delta_bath_real(ispin,iorb,wr(i)+xi*eps,dmft_bath)
+             fg0(1,i) =  wr(i)+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_real(ispin,iorb,wr(i)+xi*eps,dmft_bath)
              fg0(2,i) = -fdelta_bath_real(ispin,iorb,wr(i)+xi*eps,dmft_bath)
           enddo
           impSreal(ispin,ispin,iorb,iorb,:)= fg0(1,:) - fg(1,:)

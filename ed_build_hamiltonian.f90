@@ -131,7 +131,7 @@
               call c(jorb,m,k1,sg1)
               call cdg(iorb,k1,k2,sg2)
               j=binary_search(Hmap,k2)
-              htmp = Hloc(1,1,iorb,jorb)*sg1*sg2
+              htmp = impHloc(1,1,iorb,jorb)*sg1*sg2
               !
               call sp_insert_element(spH0,htmp,impi,j)
               !
@@ -141,7 +141,7 @@
               call c(jorb+Ns,m,k1,sg1)
               call cdg(iorb+Ns,k1,k2,sg2)
               j=binary_search(Hmap,k2)
-              htmp = Hloc(Nspin,Nspin,iorb,jorb)*sg1*sg2
+              htmp = impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2
               !
               call sp_insert_element(spH0,htmp,impi,j)
               !

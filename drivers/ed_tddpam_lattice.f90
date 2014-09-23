@@ -18,9 +18,9 @@ program ed_tddpam_lattice
   real(8),allocatable    :: Bath(:,:)
   complex(8),allocatable :: Delta(:,:,:),Delta_Old(:,:,:)
   !Hamiltonian input:
-  complex(8),allocatable :: Hk(:,:,:)
-  real(8),allocatable    :: fg0(:,:,:)
-  real(8),allocatable    :: dos_wt(:)
+  real(8),allocatable    :: Hk(:,:,:)
+  real(8),allocatable    :: Wtk(:)
+  complex(8),allocatable :: Smats(:,:,:)
   !variables for the model:
   character(len=32)      :: hkfile,finput
   integer                :: Nx,Lk,ntype
@@ -40,6 +40,10 @@ program ed_tddpam_lattice
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.75d0)
   call ed_read_input(trim(finput))
 
+  !Number of orbitals:
+  Npd=2
+
+  if(wmixing==0.d0)stop "error: wmixing=0 is not allowed."
 
   inquire(file="last_mu.restart",exist=bool)
   if(bool.AND.nread/=0.d0)then
@@ -69,8 +73,10 @@ program ed_tddpam_lattice
   allocate(bath(Nb(1),Nb(2)))
   call init_ed_solver(bath)
 
+
   !Read/Build the H(k)
   call build_hk()
+
 
   !DMFT loop
   iloop=0;converged=.false.
@@ -95,6 +101,11 @@ program ed_tddpam_lattice
      call end_loop
   enddo
 
+  allocate(Smats(Npd,Npd,Lmats))
+  Smats=zero
+  Smats(1,1,:)=impSmats(1,1,1,1,:)
+  call ed_kinetic_energy(Smats,Hk,wtk)
+  deallocate(Smats)
 
   if(nread/=0.d0)then
      open(100,file='last_mu.restart')
@@ -106,59 +117,10 @@ program ed_tddpam_lattice
 contains
 
 
-  subroutine build_hk()
-    integer                :: ix,iy,i,j,ik,iorb,jorb,unit
-    real(8)                :: kx,ky
-    real(8),allocatable    :: peloc(:)
-    complex(8),allocatable :: pHloc(:,:)
-    Npd=2
-    Lk=Nx*Nx
-    allocate(Hk(Npd,Npd,Lk),pHloc(Npd,Npd),peloc(Npd))
-    allocate(dos_wt(Lk))
-    unit=free_unit()
-    open(unit,file="Eigenbands.ed")
-    ik=0
-    do ix=1,Nx
-       kx=-pi + 2.d0*pi*dble(ix-1)/dble(nx)
-       do iy=1,Nx
-          ky=-pi + 2.d0*pi*dble(iy-1)/dble(Nx)
-          ik=ik+1
-          Hk(:,:,ik)=Hk_model(kx,ky)
-       enddo
-    enddo
-    dos_wt = 1.d0/dble(Lk)
-    ik=0
-    do ix=1,100
-       ik=ik+1
-       kx = 0.d0 + pi*real(ix-1,8)/100.d0
-       ky = 0.d0
-       pHloc=Hk_model(kx,ky) 
-       call matrix_diagonalize(pHloc,peloc)
-       write(unit,*)ik,peloc(1),peloc(2)
-    enddo
-    !From X=(pi,0) to M=(pi,pi): 100 steps
-    do iy=1,100
-       ik=ik+1
-       kx = pi
-       ky = 0.d0 + pi*real(iy-1,8)/100.d0
-       pHloc=Hk_model(kx,ky) 
-       call matrix_diagonalize(pHloc,peloc)
-       write(unit,*)ik,peloc(1),peloc(2)
-    enddo
-    !From M=(pi,pi) to \Gamma=(0,0): 100 steps
-    do ix=1,100
-       ik=ik+1
-       iy=ix
-       kx = pi - pi*real(ix-1,8)/100.d0
-       ky = pi - pi*real(iy-1,8)/100.d0
-       pHloc=Hk_model(kx,ky) 
-       call matrix_diagonalize(pHloc,peloc)
-       write(unit,*)ik,peloc(1),peloc(2)
-    enddo
-  end subroutine build_hk
+  !MODEL HAMILTONIAN
   function Hk_model(kx,ky) result(Hk)
-    real(8)                   :: kx,ky,epsik,vpsik
-    complex(8),dimension(2,2) :: Hk
+    real(8)                    :: kx,ky,epsik,vpsik
+    real(8),dimension(Npd,Npd) :: Hk
     epsik = cos(kx)+cos(ky)
     vpsik = sin(kx)*sin(ky)
     Hk(1,1) = Hloc(1,1,1,1) - 2.d0*alpha*tpp*epsik
@@ -168,13 +130,70 @@ contains
   end function Hk_model
 
 
+  !BUILD H(k) from model Hamiltonian
+  subroutine build_hk()
+    integer                :: ix,iy,i,j,ik,iorb,jorb,unit,units(2)
+    real(8)                :: kx,ky
+    real(8),allocatable    :: pEloc(:)
+    real(8),allocatable    :: pHk(:,:)
+    Lk=Nx*Nx
+    allocate(Hk(Npd,Npd,Lk),pHk(Npd,Npd),peloc(Npd))
+    allocate(wtk(Lk))
+    units=free_units(2)
+    open(units(1),file="Eigenband_l1.ed")
+    open(units(2),file="Eigenband_l2.ed")
+    ik=0
+    do ix=1,Nx
+       kx=-pi + 2.d0*pi*dble(ix-1)/dble(nx)
+       do iy=1,Nx
+          ky=-pi + 2.d0*pi*dble(iy-1)/dble(Nx)
+          ik=ik+1
+          Hk(:,:,ik)=Hk_model(kx,ky)
+       enddo
+    enddo
+    wtk = 1.d0/dble(Lk)
+    !
+    ik=0
+    do ix=1,Lk
+       ik=ik+1
+       kx = 0.d0 + pi*real(ix-1,8)/dble(Lk)
+       ky = 0.d0
+       pHk=Hk_model(kx,ky) 
+       call matrix_diagonalize(pHk,peloc,'V')
+       write(units(1),"(I,100F18.12)")ik,peloc(1),(pHk(i,1)**2,i=1,size(pHk(:,1)))
+       write(units(2),"(I,100F18.12)")ik,peloc(2),(pHk(i,2)**2,i=1,size(pHk(:,2)))
+    enddo
+    !From X=(pi,0) to M=(pi,pi): 100 steps
+    do iy=1,Lk
+       ik=ik+1
+       kx = pi
+       ky = 0.d0 + pi*real(iy-1,8)/dble(Lk)
+       pHk=Hk_model(kx,ky) 
+       call matrix_diagonalize(pHk,peloc,'V')
+       write(units(1),"(I,100F18.12)")ik,peloc(1),(pHk(i,1)**2,i=1,size(pHk(:,1)))
+       write(units(2),"(I,100F18.12)")ik,peloc(2),(pHk(i,2)**2,i=1,size(pHk(:,2)))
+    enddo
+    !From M=(pi,pi) to \Gamma=(0,0): 100 steps
+    do ix=1,Lk
+       ik=ik+1
+       iy=ix
+       kx = pi - pi*real(ix-1,8)/dble(Lk)
+       ky = pi - pi*real(iy-1,8)/dble(Lk)
+       pHk=Hk_model(kx,ky) 
+       call matrix_diagonalize(pHk,peloc,'V')
+       write(units(1),"(I,100F18.12)")ik,peloc(1),(pHk(i,1)**2,i=1,size(pHk(:,1)))
+       write(units(2),"(I,100F18.12)")ik,peloc(2),(pHk(i,2)**2,i=1,size(pHk(:,2)))
+    enddo
+  end subroutine build_hk
+
+
   !+----------------------------------------+
 
 
 
   subroutine get_delta
     integer                                 :: i,j,ik,iorb,jorb
-    complex(8)                              :: iw,zita(2),fg(Npd,Npd)
+    complex(8)                              :: iw,zeta(2),fg(Npd,Npd)
     complex(8),dimension(:,:,:),allocatable :: gloc
     real(8)                                 :: wm(Lmats),wr(Lreal),npimp,ntotal
     !
@@ -184,17 +203,17 @@ contains
     delta=zero
     allocate(gloc(Npd,Npd,Lmats))
     do i=1,Lmats
-       zita(1)= xi*wm(i)+xmu  - impSmats(1,1,1,1,i)
-       zita(2)= xi*wm(i)+xmu
+       zeta(1)= xi*wm(i)+xmu  - impSmats(1,1,1,1,i)
+       zeta(2)= xi*wm(i)+xmu
        fg=zero
        do ik=1,Lk
-          fg=fg+inverse_gk(zita,Hk(:,:,ik))*dos_wt(ik)
+          fg=fg+inverse_gk(zeta,Hk(:,:,ik))*Wtk(ik)
        enddo
        gloc(:,:,i)  = fg
        if(cg_scheme=='weiss')then
           delta(1,1,i) = one/(one/fg(1,1) + impSmats(1,1,1,1,i))
        else
-          delta(1,1,i) = zita(1) - Hloc(1,1,1,1) - one/fg(1,1)
+          delta(1,1,i) = zeta(1) - Hloc(1,1,1,1) - one/fg(1,1)
        endif
     enddo
     !Print:
@@ -215,19 +234,18 @@ contains
 
     allocate(gloc(Npd,Npd,Lreal))
     do i=1,Lreal
-       zita(1) = dcmplx(wr(i),eps)+xmu - impSreal(1,1,1,1,i)
-       zita(2) = dcmplx(wr(i),eps)+xmu
+       zeta(1) = dcmplx(wr(i),eps)+xmu - impSreal(1,1,1,1,i)
+       zeta(2) = dcmplx(wr(i),eps)+xmu
        fg=zero
        do ik=1,Lk
-          fg=fg+inverse_gk(zita,Hk(:,:,ik))*dos_wt(ik)
+          fg=fg+inverse_gk(zeta,Hk(:,:,ik))*Wtk(ik)
        enddo
        gloc(:,:,i)  = fg
     enddo
     !Print:
     do iorb=1,Npd
        do jorb=iorb,Npd
-          call splot("Gloc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(jorb))//"_realw.ed",wr,gloc(iorb,jorb,:))
-          call splot("DOS_l"//reg(txtfy(iorb))//"m"//reg(txtfy(jorb))//"_realw.ed",wr,-dimag(gloc(iorb,jorb,:))/pi)
+          call splot("Gloc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(jorb))//"_realw.ed",wr,-dimag(gloc(iorb,jorb,:))/pi,dreal(gloc(iorb,jorb,:)))
        enddo
     enddo
     deallocate(gloc)
@@ -246,12 +264,17 @@ contains
   !+----------------------------------------+
 
 
+
+
+
+
+  !INVERT 2x2 MATRICES ROUTINES:
   function inverse_g0k(iw,hk) result(g0k)
-    integer                     :: i,M
-    complex(8),dimension(2,2)   :: hk
-    complex(8)                  :: iw
-    complex(8),dimension(2,2)   :: g0k
-    complex(8)                  :: delta,ppi,vmix
+    integer                   :: i,M
+    real(8),dimension(2,2)    :: hk
+    complex(8)                :: iw
+    complex(8),dimension(2,2) :: g0k
+    complex(8)                :: delta,ppi,vmix
     g0k=zero
     delta = iw - hk(1,1)
     ppi   = iw - hk(2,2)
@@ -263,11 +286,11 @@ contains
   end function inverse_g0k
 
   function inverse_gk(zeta,hk) result(gk)
-    integer                     :: i,M
-    complex(8),dimension(2,2)   :: hk
-    complex(8),dimension(2)     :: zeta
-    complex(8),dimension(2,2)   :: gk
-    complex(8)                  :: delta,ppi,vmix
+    integer                   :: i,M
+    real(8),dimension(2,2)    :: hk
+    complex(8),dimension(2)   :: zeta
+    complex(8),dimension(2,2) :: gk
+    complex(8)                :: delta,ppi,vmix
     gk=zero
     delta = zeta(1) - hk(1,1)
     ppi   = zeta(2) - hk(2,2)
@@ -278,6 +301,9 @@ contains
     gk(2,1) = conjg(gk(1,2))
   end function inverse_gk
 
+
+
+  !ADDITIONAL ROUTINES:
   function get_density_fromFFT(giw,beta) result(n)
     complex(8),dimension(:) :: giw
     real(8)                 :: gtau(0:size(giw))
@@ -287,15 +313,15 @@ contains
   end function get_density_fromFFT
 
   function eplus(hk)
-    complex(8),dimension(2,2) :: hk
-    real(8)                   :: eplus
+    real(8),dimension(2,2) :: hk
+    real(8)                :: eplus
     eplus = hk(1,1)+hk(2,2) + sqrt(abs(hk(1,1)-hk(2,2))**2 + 4.d0*hk(1,2)*hk(2,1) )
     eplus = eplus/2.d0
   end function eplus
 
   function eminus(hk)
-    complex(8),dimension(2,2) :: hk
-    real(8)                   :: eminus
+    real(8),dimension(2,2) :: hk
+    real(8)                :: eminus
     eminus = hk(1,1)+hk(2,2) -sqrt(abs(hk(1,1)-hk(2,2))**2 + 4.d0*hk(1,2)*hk(2,1) )
     eminus = eminus/2.d0
   end function eminus

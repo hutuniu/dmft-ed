@@ -14,7 +14,12 @@ MODULE ED_AUX_FUNX
      module procedure print_state_vector_ivec,print_state_vector_int
   end interface print_state_vector
 
+  interface set_Hloc
+     module procedure set_Hloc_1,set_Hloc_2
+  end interface set_Hloc
+
   public :: print_Hloc
+  public :: set_Hloc
   !
   public :: init_ed_structure
   public :: search_chemical_potential
@@ -30,6 +35,8 @@ MODULE ED_AUX_FUNX
   public :: binary_search
   public :: twin_sector_order
   public :: get_twin_sector
+
+
 
 contains
 
@@ -84,13 +91,13 @@ contains
        write(LOGfile,*)"--------------------------------------------"
     endif
 
-    allocate(Hloc(Nspin,Nspin,Norb,Norb))
+    allocate(impHloc(Nspin,Nspin,Norb,Norb))
     reHloc = 0.d0
     imHloc = 0.d0
 
     inquire(file=Hunit,exist=control)
     if(control)then
-       if(ED_MPI_ID==0)write(LOGfile,*)"Reading Hloc from file: "//Hunit
+       if(ED_MPI_ID==0)write(LOGfile,*)"Reading impHloc from file: "//Hunit
        open(50,file=Hunit,status='old')
        do ispin=1,Nspin
           do iorb=1,Norb
@@ -105,14 +112,14 @@ contains
        close(50)
     else
        if(ED_MPI_ID==0)then
-          write(LOGfile,*)"Hloc file not found."
-          write(LOGfile,*)"Hloc should be defined elsewhere..."
+          write(LOGfile,*)"impHloc file not found."
+          write(LOGfile,*)"impHloc should be defined elsewhere..."
        endif
     endif
-    Hloc = dcmplx(reHloc,imHloc)
+    impHloc = dcmplx(reHloc,imHloc)
     if(ED_MPI_ID==0)then
        write(LOGfile,"(A)")"H_local:"
-       call print_Hloc(Hloc)
+       call print_Hloc(impHloc)
     endif
 
 
@@ -202,6 +209,10 @@ contains
 
 
 
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : 
+  !+------------------------------------------------------------------+
   subroutine print_Hloc(hloc,unit)
     integer,optional                            :: unit
     integer                                     :: iorb,jorb,ispin,jspin
@@ -231,6 +242,39 @@ contains
        write(unit,*)""
     endif
   end subroutine print_Hloc
+
+
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : 
+  !+------------------------------------------------------------------+
+  subroutine set_Hloc_1(hloc,ispin)
+    complex(8),dimension(:,:) :: hloc
+    integer,optional          :: ispin
+    integer                   :: ispin_
+    if(size(hloc,1)/=Norb.OR.size(hloc,2)/=Norb)stop "set_impHloc error: wrong dimensions of Hloc"
+    if(present(ispin))then
+       impHloc(ispin,ispin,1:Norb,1:Norb) = Hloc
+    else
+       forall(ispin_=1:Nspin)&
+            impHloc(ispin_,ispin_,1:Norb,1:Norb) = Hloc
+    endif
+    write(LOGfile,*)"Updated impHloc:"
+    call print_Hloc(impHloc)
+  end subroutine set_Hloc_1
+  !
+  subroutine set_Hloc_2(hloc)
+    complex(8),dimension(:,:,:,:) :: hloc
+    if(size(hloc,1)/=Nspin.OR.size(hloc,2)/=Nspin)stop "set_impHloc error: wrong Nspin dimensions of Hloc"
+    if(size(hloc,3)/=Norb.OR.size(hloc,4)/=Norb)stop "set_impHloc error: wrong Norb dimensions of Hloc"
+    impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = Hloc
+    write(LOGfile,*)"Updated impHloc:"
+    call print_Hloc(impHloc)
+  end subroutine set_Hloc_2
+
 
 
 

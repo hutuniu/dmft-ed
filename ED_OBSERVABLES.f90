@@ -274,7 +274,7 @@ contains
   subroutine write_legend()
     integer :: unit,iorb,jorb,ispin
     unit = free_unit()
-    open(unit,file="columns_info.ed")
+    open(unit,file="observables_info.ed")
     if(.not.ed_supercond)then
        write(unit,"(A1,90(A10,6X))")"#",&
             (reg(txtfy(iorb))//"dens_"//reg(txtfy(iorb)),iorb=1,Norb),&
@@ -306,7 +306,7 @@ contains
     close(unit)
     !
     unit = free_unit()
-    open(unit,file="control_info.ed")
+    open(unit,file="parameters_info.ed")
     write(unit,"(A1,90(A14,1X))")"#","1xmu","2beta",&
          (reg(txtfy(2+iorb))//"U_"//reg(txtfy(iorb)),iorb=1,Norb),&
          reg(txtfy(2+Norb+1))//"U'",reg(txtfy(2+Norb+2))//"Jh"
@@ -324,7 +324,7 @@ contains
     integer :: iorb,jorb,ispin
     if(ed_verbose<2)then
        unit = free_unit()
-       open(unit,file="control_vars"//reg(ed_file_suffix)//".ed")
+       open(unit,file="parameters_last"//reg(ed_file_suffix)//".ed")
        write(unit,"(90F15.9)")xmu,beta,(uloc(iorb),iorb=1,Norb),Ust,Jh
        close(unit)
        !

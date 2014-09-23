@@ -20,7 +20,7 @@ MODULE ED_VARS_GLOBAL
 
   !local part of the Hamiltonian
   !=========================================================
-  complex(8),dimension(:,:,:,:),allocatable   :: Hloc           !local hamiltonian
+  complex(8),dimension(:,:,:,:),allocatable   :: impHloc           !local hamiltonian
 
 
   !Some maps between sectors and full Hilbert space (pointers)

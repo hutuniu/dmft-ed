@@ -225,7 +225,7 @@ contains
          do i=1,Ldelta
             w = Xdelta(i)
             if(cg_scheme=='weiss')then
-               fgand = xi*w + xmu - hloc(ispin,ispin,iorb,iorb) - delta_bath_mats(ispin,iorb,xi*w,dmft_bath)
+               fgand = xi*w + xmu - impHloc(ispin,ispin,iorb,iorb) - delta_bath_mats(ispin,iorb,xi*w,dmft_bath)
                fgand = one/fgand
             else
                fgand = delta_bath_mats(ispin,iorb,xi*w,dmft_bath)
@@ -347,7 +347,7 @@ contains
     integer                      :: i,iorb,ispin
     ispin=Spin_indx
     delta=fg_delta_irred(w,iorb,a)
-    gg = one/(xi*w+xmu-hloc(ispin,ispin,iorb,iorb)-delta)
+    gg = one/(xi*w+xmu-impHloc(ispin,ispin,iorb,iorb)-delta)
   end function fg_weiss_irred
 
 
@@ -481,7 +481,7 @@ contains
          do i=1,Ldelta
             w = Xdelta(i)
             if(cg_scheme=='weiss')then
-               fgand(1) = xi*w + xmu - hloc(ispin,ispin,iorb,iorb) - delta_bath_mats(ispin,iorb,xi*w,dmft_bath)
+               fgand(1) = xi*w + xmu - impHloc(ispin,ispin,iorb,iorb) - delta_bath_mats(ispin,iorb,xi*w,dmft_bath)
                fgand(2) = -fdelta_bath_mats(ispin,iorb,xi*w,dmft_bath)
                det     =  abs(fgand(1))**2 + (fgand(2))**2
                fgand(1) = conjg(fgand(1))/det
@@ -616,7 +616,7 @@ contains
     integer                      :: i,iorb,ispin
     ispin = Spin_indx
     delta = fg_delta_irred_sc(w,iorb,a)
-    g0(1) = xi*w + xmu - hloc(ispin,ispin,iorb,iorb) - delta(1)
+    g0(1) = xi*w + xmu - impHloc(ispin,ispin,iorb,iorb) - delta(1)
     g0(2) = -delta(2)
     det   = abs(g0(1))**2 + (g0(2))**2
     gg(1) = conjg(g0(1))/det
@@ -747,10 +747,10 @@ contains
          w=Xdelta(i)
          if(cg_scheme=='weiss')then
             do l=1,Norb
-               gwf(l,l)=xi*w + xmu - hloc(ispin,ispin,l,l) - delta_bath_mats(ispin,l,l,xi*w,dmft_bath)
+               gwf(l,l)=xi*w + xmu - impHloc(ispin,ispin,l,l) - delta_bath_mats(ispin,l,l,xi*w,dmft_bath)
                do m=l+1,Norb
-                  gwf(l,m) = - hloc(ispin,ispin,l,m) - delta_bath_mats(ispin,l,m,xi*w,dmft_bath)
-                  gwf(m,l) = - hloc(ispin,ispin,m,l) - delta_bath_mats(ispin,m,l,xi*w,dmft_bath)
+                  gwf(l,m) = - impHloc(ispin,ispin,l,m) - delta_bath_mats(ispin,l,m,xi*w,dmft_bath)
+                  gwf(m,l) = - impHloc(ispin,ispin,m,l) - delta_bath_mats(ispin,m,l,xi*w,dmft_bath)
                enddo
             enddo
             call matrix_inverse(gwf)
@@ -927,10 +927,10 @@ contains
     integer                      :: i,l,m,ispin
     ispin=Spin_indx
     do l=1,Norb
-       gwf(l,l) = xi*w + xmu - hloc(ispin,ispin,l,l) - fg_delta_hybrd(w,l,l,a) !sum(vps(l,:)**2/(xi*w-eps(:)))
+       gwf(l,l) = xi*w + xmu - impHloc(ispin,ispin,l,l) - fg_delta_hybrd(w,l,l,a) !sum(vps(l,:)**2/(xi*w-eps(:)))
        do m=l+1,Norb
-          gwf(l,m) = -hloc(ispin,ispin,l,m) - fg_delta_hybrd(w,l,m,a) !sum(vps(l,:)*vps(m,:)/(xi*w-eps(:)))
-          gwf(m,l) = -hloc(ispin,ispin,m,l) - fg_delta_hybrd(w,m,l,a) !sum(vps(m,:)*vps(l,:)/(xi*w-eps(:)))
+          gwf(l,m) = -impHloc(ispin,ispin,l,m) - fg_delta_hybrd(w,l,m,a) !sum(vps(l,:)*vps(m,:)/(xi*w-eps(:)))
+          gwf(m,l) = -impHloc(ispin,ispin,m,l) - fg_delta_hybrd(w,m,l,a) !sum(vps(m,:)*vps(l,:)/(xi*w-eps(:)))
        enddo
     enddo
     call matrix_inverse(gwf)

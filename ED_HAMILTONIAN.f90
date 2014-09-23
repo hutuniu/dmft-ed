@@ -64,7 +64,7 @@ contains
     !Get diagonal part of Hloc
     do ispin=1,Nspin
        do iorb=1,Norb
-          eloc(ispin,iorb)=dreal(Hloc(ispin,ispin,iorb,iorb))
+          eloc(ispin,iorb)=dreal(impHloc(ispin,ispin,iorb,iorb))
        enddo
     enddo
     !
@@ -139,7 +139,7 @@ contains
     !Get diagonal part of Hloc
     do ispin=1,Nspin
        do iorb=1,Norb
-          eloc(ispin,iorb)=Hloc(ispin,ispin,iorb,iorb)
+          eloc(ispin,iorb)=impHloc(ispin,ispin,iorb,iorb)
        enddo
     enddo
     !
