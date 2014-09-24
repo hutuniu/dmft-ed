@@ -13,6 +13,8 @@ subroutine build_gf_superc()
   impGreal=zero
   impFmats=zero
   impFreal=zero
+  Gaux_mats=zero
+  Gaux_real=zero
 
   do ispin=1,Nspin
      do iorb=1,Norb

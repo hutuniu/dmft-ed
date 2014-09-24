@@ -82,14 +82,16 @@ contains
     complex(8),dimension(2,Lreal) :: grloc
     real(8)                    :: wm(Lmats),wr(Lreal),tau(0:Lmats)
     real(8),dimension(Lk)       :: epsik,wt
+    complex(8),dimension(Norb,Norb) :: Hloc
 
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal)
+    call get_Hloc(Hloc,1)
     call bethe_lattice(wt,epsik,Lk,1.d0)
     delta=zero
     do i=1,Lmats
        iw = xi*wm(i)
-       zita    = iw + xmu - Hloc(1,1,1,1) - impSmats(1,1,1,1,i) 
+       zita    = iw + xmu - Hloc(1,1) - impSmats(1,1,1,1,i) 
        gloc(:,i)=zero
        do ik=1,Lk
           cdet = abs(zita-epsik(ik))**2 + impSAmats(1,1,1,1,i)**2

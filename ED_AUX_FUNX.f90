@@ -18,8 +18,13 @@ MODULE ED_AUX_FUNX
      module procedure set_Hloc_1,set_Hloc_2
   end interface set_Hloc
 
+  interface get_Hloc
+     module procedure get_Hloc_1,get_Hloc_2
+  end interface get_Hloc
+
   public :: print_Hloc
   public :: set_Hloc
+  public :: get_Hloc
   !
   public :: init_ed_structure
   public :: search_chemical_potential
@@ -253,15 +258,9 @@ contains
   !+------------------------------------------------------------------+
   subroutine set_Hloc_1(hloc,ispin)
     complex(8),dimension(:,:) :: hloc
-    integer,optional          :: ispin
-    integer                   :: ispin_
+    integer                   :: ispin
     if(size(hloc,1)/=Norb.OR.size(hloc,2)/=Norb)stop "set_impHloc error: wrong dimensions of Hloc"
-    if(present(ispin))then
-       impHloc(ispin,ispin,1:Norb,1:Norb) = Hloc
-    else
-       forall(ispin_=1:Nspin)&
-            impHloc(ispin_,ispin_,1:Norb,1:Norb) = Hloc
-    endif
+    impHloc(ispin,ispin,1:Norb,1:Norb) = Hloc
     write(LOGfile,*)"Updated impHloc:"
     call print_Hloc(impHloc)
   end subroutine set_Hloc_1
@@ -274,6 +273,30 @@ contains
     write(LOGfile,*)"Updated impHloc:"
     call print_Hloc(impHloc)
   end subroutine set_Hloc_2
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : 
+  !+------------------------------------------------------------------+
+  subroutine get_Hloc_1(hloc,ispin)
+    complex(8),dimension(:,:) :: hloc
+    integer                   :: ispin
+    if(size(hloc,1)/=Norb.OR.size(hloc,2)/=Norb)stop "set_impHloc error: wrong dimensions of Hloc"
+    Hloc = impHloc(ispin,ispin,1:Norb,1:Norb)
+    write(LOGfile,*)"Updated impHloc:"
+    call print_Hloc(impHloc)
+  end subroutine get_Hloc_1
+  !
+  subroutine get_Hloc_2(hloc)
+    complex(8),dimension(:,:,:,:) :: hloc
+    if(size(hloc,1)/=Nspin.OR.size(hloc,2)/=Nspin)stop "set_impHloc error: wrong Nspin dimensions of Hloc"
+    if(size(hloc,3)/=Norb.OR.size(hloc,4)/=Norb)stop "set_impHloc error: wrong Norb dimensions of Hloc"
+    Hloc = impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb)
+    write(LOGfile,*)"Updated impHloc:"
+    call print_Hloc(impHloc)
+  end subroutine get_Hloc_2
 
 
 
@@ -381,6 +404,10 @@ contains
        getdim(isector)=dim
        neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
     enddo
+    twin_mask=.true.
+    !<TODO
+    !build the twin sector statements in the Superconducting channel.
+    !>TODO
     if(ED_MPI_ID==0)call stop_timer
 
     do in=1,Norb

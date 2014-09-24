@@ -213,8 +213,8 @@
               endif
               !\Delta_l cdg_{\up,ms} cdg_{\dw,ms}
               if(ib(ms)==0 .AND. ib(ms+Ns)==0)then
-                 call cdg(ms,m,k1,sg1)
-                 call cdg(ms+Ns,k1,k2,sg2)
+                 call cdg(ms+Ns,m,k1,sg1)
+                 call cdg(ms,k1,k2,sg2)
                  j=binary_search(Hmap,k2)
                  htmp=dmft_bath%d(1,iorb,kp)*sg1*sg2 !
                  !

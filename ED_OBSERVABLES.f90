@@ -180,7 +180,7 @@ contains
                       if(ib(iorb)==0)then
                          call cdg(iorb,m,r,sgn)
                          j=binary_search(HJmap,r)
-                         vvinit(j) = sgn*gsvec(m)
+                         vvinit(j) = sgn*gsvec(i)
                       endif
                    enddo
                    do i=1,idim
@@ -189,7 +189,7 @@ contains
                       if(ib(iorb+Ns)==1)then
                          call c(iorb+Ns,m,r,sgn)
                          j=binary_search(HJmap,r)
-                         vvinit(j) = vvinit(j) + sgn*gsvec(m)
+                         vvinit(j) = vvinit(j) + sgn*gsvec(i)
                       endif
                    enddo
                    deallocate(HJmap)
