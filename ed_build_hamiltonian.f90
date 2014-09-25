@@ -16,8 +16,6 @@
      !Hbath: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
      do iorb=1,size(dmft_bath%e,2)
         do kp=1,Nbath
-           ! ms=Norb+(iorb-1)*Nbath + kp
-           ! if(bath_type=='hybrid')ms=Norb+kp
            ms=getBathStride(iorb,kp)
            htmp =htmp + dmft_bath%e(1,iorb,kp)*real(ib(ms),8) + &
                 dmft_bath%e(Nspin,iorb,kp)*real(ib(ms+Ns),8)
@@ -26,12 +24,12 @@
      !
      !Density-density interaction: same orbital, opposite spins
      !Euloc=\sum=i U_i*(n_u*n_d)_i
-     if(.not.ed_supercond) then
-        htmp = htmp + dot_product(uloc,nup*ndw)!=\sum=i U_i*(n_u*n_d)_i
-     else
-        !htmp = htmp - dot_product(uloc,nup*ndw)!=\sum=i U_i*(n_u*n_d)_i
-        htmp = htmp - uloc(1)*(nup(1)-0.5d0)*(ndw(1)-0.5d0)
-     end if
+     !     if(.not.ed_supercond) then
+     htmp = htmp + dot_product(uloc,nup*ndw)!=\sum=i U_i*(n_u*n_d)_i
+     !     else
+     !!htmp = htmp - dot_product(uloc,nup*ndw)!=\sum=i U_i*(n_u*n_d)_i
+     !        htmp = htmp - uloc(1)*(nup(1)-0.5d0)*(ndw(1)-0.5d0)
+     !     end if
      if(Norb>1)then
         !density-density interaction: different orbitals, opposite spins
         !Eust=\sum_ij Ust*(n_up_i*n_dn_j + n_up_j*n_dn_i)
@@ -53,7 +51,7 @@
      endif
      !if using the Hartree-shifted chemical potential: mu=0 for half-filling
      !sum up the contributions of hartree terms:
-     if(hfmode.and..not.ed_supercond)then
+     if(hfmode)then
         htmp=htmp - 0.5d0*dot_product(uloc,nup+ndw) + 0.25d0*sum(uloc)
         if(Norb>1)then
            do iorb=1,Norb

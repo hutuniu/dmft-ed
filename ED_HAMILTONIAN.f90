@@ -81,7 +81,7 @@ contains
 #ifdef _MPI
        allocate(Hredux(dim,dim))
        call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
-       call MPI_AllReduce(Hredux,Hmat,dim,MPI_Double_Precision,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
+       call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Precision,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
 #else
        call sp_dump_matrix(spH0,Hmat)
 #endif
@@ -156,7 +156,7 @@ contains
 #ifdef _MPI
        allocate(Hredux(dim,dim))
        call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
-       call MPI_AllReduce(Hredux,Hmat,dim,MPI_Double_Complex,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
+       call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Complex,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
 #else
        call sp_dump_matrix(spH0,Hmat)
 #endif

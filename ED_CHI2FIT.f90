@@ -55,47 +55,55 @@ contains
     real(8),dimension(:,:),intent(inout) :: bath
     integer                              :: ispin
     if(ED_MPI_ID==0)then
-    if(cg_method==0)then
-       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
-    elseif(cg_method==1)then
-       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-minimize"
-    elseif(cg_method==2)then
-       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
-    else
-       stop "ED_CHI2FIT: error cg_method > 2"
-    end if
-    select case(bath_type)
-    case default
-       call chi2_fitgf_irred(fg,bath,ispin)
-    case ('hybrid')
-       call chi2_fitgf_hybrd(fg,bath,ispin)
-    end select
+       if(cg_method==0)then
+          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
+       elseif(cg_method==1)then
+          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-minimize"
+       elseif(cg_method==2)then
+          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
+       else
+          stop "ED_CHI2FIT: error cg_method > 2"
+       end if
+       select case(bath_type)
+       case default
+          call chi2_fitgf_irred(fg,bath,ispin)
+       case ('hybrid')
+          call chi2_fitgf_hybrd(fg,bath,ispin)
+       end select
     endif
 #ifdef _MPI
     call MPI_BCAST(bath,size(bath),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
   end subroutine chi2_fitgf_
-
+  
   subroutine chi2_fitgf__(fg,bath,ispin)
     complex(8),dimension(:,:,:,:)          :: fg
     real(8),dimension(:,:),intent(inout) :: bath
     integer                              :: ispin
     if(ED_MPI_ID==0)then
-    if(cg_method==0)then
-       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
-    elseif(cg_method==1)then
-       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-minimize"
-    elseif(cg_method==2)then
-       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
-    else
-       stop "ED_CHI2FIT: error cg_method > 2"
-    end if
-    select case(bath_type)
-    case default
-       call chi2_fitgf_irred_sc(fg,bath,ispin)
-    case ('hybrid')
-       stop 'Error: Hybrid bath + SC is not implemented yet: ask the developer...'
-    end select
+       if(cg_method==0)then
+          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
+       elseif(cg_method==1)then
+          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-minimize"
+       elseif(cg_method==2)then
+          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
+       else
+          stop "ED_CHI2FIT: error cg_method > 2"
+       end if
+       select case(bath_type)
+       case default
+          if(.not.ed_supercond) then
+             call chi2_fitgf_irred(fg(1,:,:,:),bath,ispin)
+          else
+             call chi2_fitgf_irred_sc(fg,bath,ispin)
+          end if
+       case ('hybrid')
+          if(.not.ed_supercond) then
+             call chi2_fitgf_hybrd(fg(1,:,:,:),bath,ispin)
+          else
+             stop 'Error: Hybrid bath + SC is not implemented yet: ask the developer...'
+          end if
+       end select
     endif
 #ifdef _MPI
     call MPI_BCAST(bath,size(bath),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
