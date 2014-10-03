@@ -178,23 +178,23 @@ contains
     !update some entries. This way you can restart even 
     !from different Ns calculation, this is better than 
     !start from a complete guess
-    dmft_bath_%e(:,:,1)    =-hwband_ 
-    dmft_bath_%e(:,:,Nbath)= hwband_ 
+    dmft_bath_%e(:,:,1)    =-hwband_
+    dmft_bath_%e(:,:,Nbath)= hwband_
     Nh=Nbath/2
     if(mod(Nbath,2)==0)then
        de=hwband_/max(dble(Nh-1),1.d0)
        dmft_bath_%e(:,:,Nh)  = -1.d-4
        dmft_bath_%e(:,:,Nh+1)=  1.d-4
        do i=2,Nh-1
-          dmft_bath_%e(:,:,i)   =-hwband_ + (i-1)*de
-          dmft_bath_%e(:,:,Nh+i)= hwband_ - (i-1)*de
+          dmft_bath_%e(:,:,i)   =-hwband_ + (i-1)*de 
+          dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de
        enddo
     else
        de=hwband_/dble(Nh)
        dmft_bath_%e(:,:,Nh+1)= 0.d0
        do i=2,Nh
-          dmft_bath_%e(:,:,i)   =-hwband_ + (i-1)*de
-          dmft_bath_%e(:,:,Nh+i)= hwband_ - (i-1)*de
+          dmft_bath_%e(:,:,i)        =-hwband_ + (i-1)*de
+          dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de
        enddo
     endif
     do i=1,Nbath

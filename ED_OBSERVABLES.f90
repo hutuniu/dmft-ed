@@ -217,7 +217,6 @@ contains
           write(LOGfile,"(A,10f18.12,A)")    "docc"//reg(ed_file_suffix)//"=",(docc(iorb),iorb=1,Norb)       
        endif
        if(ed_verbose<0)then
-          write(LOGfile,"(A,20f18.12,A)")    "sz2 "//reg(ed_file_suffix)//"=",((sz2(iorb,jorb),jorb=1,Norb),iorb=1,Norb)
           if(Nspin==2)then
              write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magz(iorb),iorb=1,Norb)
           endif

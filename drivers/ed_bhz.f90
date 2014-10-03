@@ -93,11 +93,12 @@ program ed_bhz
   allocate(Bath(Nb(1),Nb(2)))
   allocate(Bath_(Nb(1),Nb(2)))
   call init_ed_solver(bath)
-  Hloc = j2so(bhzHloc)
-  if(ED_MPI_ID==0)then
-     write(LOGfile,*)"Updated Hloc:"
-     call print_Hloc(Hloc)
-  endif
+  call set_hloc(j2so(bhzHloc))
+  !impHloc = j2so(bhzHloc)
+  ! if(ED_MPI_ID==0)then
+  !    write(LOGfile,*)"Updated Hloc:"
+  !    call print_Hloc(j2so(bhzHloc))
+  ! endif
 
   !DMFT loop
   iloop=0;converged=.false.

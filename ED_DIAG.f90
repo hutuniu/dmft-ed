@@ -59,23 +59,26 @@ contains
     state_list=es_init_espace()
     oldzero=1000.d0
     numgs=0
-    if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress(LOGfile)
+    if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress(LOGfile)
+    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
     iter=0
     sector: do isector=1,Nsect
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        if(ED_MPI_ID==0)then
-          if(ed_verbose==0)then
-             call progress(iter,count(twin_mask))
-          elseif(ed_verbose==-1)then
-             dim      = getdim(isector)
-             if(.not.ed_supercond)then
-                nup0  = getnup(isector)
-                ndw0  = getndw(isector)
-                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
+          if(ed_verbose<2)then
+             if(ed_verbose<1)then
+                dim      = getdim(isector)
+                if(.not.ed_supercond)then
+                   nup0  = getnup(isector)
+                   ndw0  = getndw(isector)
+                   write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
+                else
+                   sz0   = getsz(isector)
+                   write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
+                endif
              else
-                sz0   = getsz(isector)
-                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
+                call progress(iter,count(twin_mask))
              endif
           endif
        endif
@@ -130,7 +133,7 @@ contains
        if(allocated(eig_basis))deallocate(eig_basis)
        !
     enddo sector
-    if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
+    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
   end subroutine ed_diag_d
 
 
@@ -148,28 +151,32 @@ contains
     real(8)                :: oldzero,enemin,Egs,Ei,Ec
     real(8),allocatable    :: eig_values(:)
     complex(8),allocatable :: eig_basis(:,:)
-    logical             :: lanc_solve,Tflag
+    logical                :: lanc_solve,Tflag
+
     if(state_list%status)call es_delete_espace(state_list)
     state_list=es_init_espace()
     oldzero=1000.d0
     numgs=0
-    if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress(LOGfile)
+    if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress(LOGfile)
+    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
     iter=0
     sector: do isector=1,Nsect
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        if(ED_MPI_ID==0)then
-          if(ed_verbose==0)then
-             call progress(iter,count(twin_mask))
-          elseif(ed_verbose==-1)then
-             dim      = getdim(isector)
-             if(.not.ed_supercond)then
-                nup0  = getnup(isector)
-                ndw0  = getndw(isector)
-                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
+          if(ed_verbose<2)then
+             if(ed_verbose<1)then
+                dim      = getdim(isector)
+                if(.not.ed_supercond)then
+                   nup0  = getnup(isector)
+                   ndw0  = getndw(isector)
+                   write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
+                else
+                   sz0   = getsz(isector)
+                   write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
+                endif
              else
-                sz0   = getsz(isector)
-                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
+                call progress(iter,count(twin_mask))
              endif
           endif
        endif
@@ -224,14 +231,39 @@ contains
        if(allocated(eig_basis))deallocate(eig_basis)
        !
     enddo sector
-    if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
+    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
   end subroutine ed_diag_c
 
 
 
 
 
-
+  subroutine print_state_list(unit)
+    integer :: nup,ndw,isector,dim
+    integer :: nup0,ndw0,isect0,dim0,izero,sz0
+    integer :: i,j,unit,Nsize,NtoBremoved,nstates_below_cutoff
+    integer :: numgs
+    real(8) :: Egs,Ei,Ec
+    if(ED_MPI_ID==0)then
+       if(.not.ed_supercond)then
+          write(unit,"(A)")"# i         E_i           exp(-(E-E0)/T)    nup ndw Sect      Dim"
+       else
+          write(unit,"(A)")"# i          E_i           exp(-(E-E0)/T)     Sz    Sect    Dim"
+       endif
+       do i=1,state_list%size
+          Ei     = es_return_energy(state_list,i)
+          isect0 = es_return_sector(state_list,i)
+          if(.not.ed_supercond)then
+             nup0   = getnup(isect0)
+             ndw0   = getndw(isect0)
+             write(unit,"(i3,f18.12,ES21.12,1x,2i3,3x,i3,i10)")i,Ei,exp(-beta*(Ei-state_list%emin)),nup0,ndw0,isect0,getdim(isect0)
+          else
+             sz0   = getsz(isect0)
+             write(unit,"(i3,f18.12,ES21.12,1x,i3,3x,i3,i10)"),i,Ei,exp(-beta*(Ei-state_list%emin)),sz0,isect0,getdim(isect0)
+          endif
+       enddo
+    endif
+  end subroutine print_state_list
 
 
 
@@ -242,7 +274,7 @@ contains
   subroutine ed_analysis()
     integer             :: nup,ndw,isector,dim
     integer             :: nup0,ndw0,isect0,dim0,izero,sz0
-    integer             :: i,j,unit
+    integer             :: i,j,unit,Nsize,NtoBremoved,nstates_below_cutoff
     integer             :: numgs
     real(8)             :: Egs,Ei,Ec
     logical             :: lanc_solve
@@ -251,28 +283,12 @@ contains
     integer             :: hist_n
     integer,allocatable :: list_sector(:),count_sector(:)    
     !POST PROCESSING:
-    if(ed_verbose<2.AND.ED_MPI_ID==0)then
-       unit=free_unit()
-       open(unit,file="state_list"//reg(ed_file_suffix)//".ed")
-       if(.not.ed_supercond)then
-          write(unit,"(A)")"#i       E_i           exp(-(E-E0)/T)    nup ndw Sect  Dim"
-       else
-          write(unit,"(A)")"#i       E_i           exp(-(E-E0)/T)     Sz    Sect    Dim"
-       endif
-       do i=1,state_list%size
-          Ei     = es_return_energy(state_list,i)
-          isect0 = es_return_sector(state_list,i)
-          if(.not.ed_supercond)then
-             nup0   = getnup(isect0)
-             ndw0   = getndw(isect0)
-             write(unit,"(i3,f18.12,E18.9,1x,2i3,3x,i3,i10)"),i,Ei,exp(-beta*(Ei-state_list%emin)),nup0,ndw0,isect0,getdim(isect0)
-          else
-             sz0   = getsz(isect0)
-             write(unit,"(i3,f18.12,E18.9,1x,i3,3x,i3,i10)"),i,Ei,exp(-beta*(Ei-state_list%emin)),sz0,isect0,getdim(isect0)
-          endif
-       enddo
-       close(unit)
-    endif
+    unit=free_unit()
+    open(unit,file="state_list"//reg(ed_file_suffix)//".ed")
+    call print_state_list(unit)
+    close(unit)
+    if(ed_verbose<=3)call print_state_list(LOGfile)
+
     zeta_function=0.d0
     Egs = state_list%emin
     if(finiteT)then
@@ -301,6 +317,7 @@ contains
     enddo
     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12)")'Z   =',zeta_function
     !
+    !
     !Get histogram distribution of the sector contributing to the evaluated spectrum:
     !Go thru states list and update the neigen_sector(isector) sector-by-sector
     if(ed_verbose<2.AND.finiteT.AND.ED_MPI_ID==0)then
@@ -319,6 +336,8 @@ contains
        call histogram_print(hist,unit)
        write(unit,*)""
        close(unit)
+       !
+       !
        !
        allocate(list_sector(state_list%size),count_sector(Nsect))
        !get the list of actual sectors contributing to the list
@@ -345,11 +364,29 @@ contains
        !check if the number of states is enough to reach the required accuracy:
        !the condition to fullfill is:
        ! exp(-beta(Ec-Egs)) < \epsilon_c
+       ! if this condition is violated then required number of states is increased
+       ! if number of states is larger than those required to fullfill the cutoff: 
+       ! trim the list and number of states.
        Egs = state_list%emin
        Ec  = state_list%emax
+       Nsize=state_list%size
        if(exp(-beta*(Ec-Egs)) > cutoff)then
-          lanc_nstates_total=lanc_nstates_total + 2!*lanc_nincrement
-          if(ED_MPI_ID==0)write(*,"(A,I4)")"Increasing lanc_nstates_total+2:",lanc_nstates_total
+          lanc_nstates_total=lanc_nstates_total + lanc_nstates_step
+          if(ED_MPI_ID==0)write(LOGfile,"(A,I4)")"Increasing lanc_nstates_total:",lanc_nstates_total
+       else
+          !Find the energy level beyond which cutoff condition is verified & cut the list to that size
+          do i=1,Nsize
+             Ei = es_return_energy(state_list,i)
+             if(exp(-beta*(Ei-Egs)) <= cutoff)exit
+          enddo
+          nstates_below_cutoff=i
+          if(trim_state_list)lanc_nstates_total=max(nstates_below_cutoff,lanc_nstates_step)
+          NtoBremoved=state_list%size - nstates_below_cutoff + 1
+          do i=1,NtoBremoved
+             call es_pop_state(state_list)
+          enddo
+          if(ED_MPI_ID==0.AND.trim_state_list)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
+          if(ED_MPI_ID==0)write(*,"(A,I4)")"Adjusting list_size to         :",state_list%size
        endif
     endif
   end subroutine ed_analysis

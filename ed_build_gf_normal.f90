@@ -6,12 +6,12 @@ subroutine build_gf_normal()
   integer :: isect0,numstates
   real(8) :: norm0
   logical :: verbose
-  verbose=.false.;if(ed_verbose<0)verbose=.true.
+  verbose=.false.;if(ed_verbose<1)verbose=.true.
   if(.not.allocated(impGmats))stop "build_gf_normal: Gmats not allocated"
   if(.not.allocated(impGreal))stop "build_gf_normal: Greal not allocated"
   impGmats=zero
   impGreal=zero
-
+  write(LOGfile,"(A)")"Get impurity Greens functions:"
   do ispin=1,Nspin
      do iorb=1,Norb
         if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
@@ -87,9 +87,8 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
   !
   numstates=state_list%size
   !   
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -161,7 +160,7 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
      deallocate(HImap)
      !
   enddo
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildgf_d
 
@@ -193,9 +192,9 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
   !
   numstates=state_list%size
   !   
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
+     !if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_cvec => es_return_cvector(state_list,izero)
@@ -269,7 +268,7 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
      deallocate(HImap)
      !
   enddo
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildgf_c
 
@@ -306,9 +305,9 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
   !
   numstates=state_list%size
   !   
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
+     !if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -476,7 +475,7 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
      deallocate(HImap)
      !
   enddo
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildgf_mix_d
 
@@ -510,9 +509,9 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
   !
   numstates=state_list%size
   !   
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
+     !if(ed_verbose>0.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_cvec => es_return_cvector(state_list,izero)
@@ -680,7 +679,7 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
      deallocate(HImap)
      !
   enddo
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildgf_mix_c
 

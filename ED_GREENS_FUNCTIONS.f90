@@ -261,6 +261,9 @@ contains
                    do i=1,Lreal
                       write(unit(2),"(F26.15,6(F26.15))")wr(i),(dimag(impSreal(ispin,ispin,iorb,jorb,i)),dreal(impSreal(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
                    enddo
+                endif
+                !
+                if(ed_verbose<3)then
                    do isign=1,2
                       do i=1,lanc_nGFiter
                          write(unit(7),"(6(F26.15,1x))")(GFpoles(ispin,ispin,iorb,iorb,isign,i),GFweights(ispin,ispin,iorb,iorb,isign,i),ispin=1,Nspin)
@@ -299,6 +302,8 @@ contains
       if(ed_verbose<4)then
          open(unit(1),file="impSigma"//string//"_iw"//reg(ed_file_suffix)//".ed")
          open(unit(2),file="impSigma"//string//"_realw"//reg(ed_file_suffix)//".ed")
+      endif
+      if(ed_verbose<3)then
          open(unit(7),file="Gpoles_weights"//string//reg(ed_file_suffix)//".ed")
       endif
       if(ed_verbose<2)then
@@ -315,6 +320,8 @@ contains
       if(ed_verbose<4)then
          close(unit(1))
          close(unit(2))
+      endif
+      if(ed_verbose<3)then
          close(unit(7))
       endif
       if(ed_verbose<2)then

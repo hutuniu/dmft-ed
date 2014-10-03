@@ -5,6 +5,8 @@ subroutine build_gf_superc()
   integer :: izero,iorb,jorb,ispin,i
   integer :: isect0,numstates
   real(8) :: norm0
+  logical :: verbose
+  verbose=.false.;if(ed_verbose<1)verbose=.true.
   if(.not.allocated(impGmats))stop "build_gf_super: impGmats not allocated"
   if(.not.allocated(impGreal))stop "build_gf_super: impGreal not allocated"
   if(.not.allocated(impFmats))stop "build_gf_super: impFmats not allocated"
@@ -15,11 +17,11 @@ subroutine build_gf_superc()
   impFreal=zero
   Gaux_mats=zero
   Gaux_real=zero
-
+  write(LOGfile,"(A)")"Get impurity Greens functions:"
   do ispin=1,Nspin
      do iorb=1,Norb
         if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G&F_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
-        call lanc_ed_buildgf_sc_d(iorb,ispin,.false.)
+        call lanc_ed_buildgf_sc_d(iorb,ispin,verbose)
      enddo
   enddo
   !
@@ -67,9 +69,9 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
   !
   numstates=state_list%size
   !   
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
+     !if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -289,7 +291,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
      deallocate(HImap)
      !
   enddo
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildgf_sc_d
 

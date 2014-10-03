@@ -3,18 +3,21 @@
 !+------------------------------------------------------------------+
 subroutine build_chi_spin()
   integer :: iorb,jorb,ispin
+  logical :: verbose
+  verbose=.false.;if(ed_verbose<1)verbose=.true.
   ! call allocate_grids
   ! allocate(Chitau(Norb,0:Ltau),Chiw(Norb,Lreal),Chiiw(Norb,0:Lmats))
   ! Chitau=0.d0
   ! Chiw=zero
   ! Chiiw=zero
+  write(LOGfile,"(A)")"Get impurity Chi:"
   do iorb=1,Norb
      if(ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))
      select case(ed_type)
      case default
-        call lanc_ed_buildchi_d(iorb)
+        call lanc_ed_buildchi_d(iorb,verbose)
      case ('c')
-        call lanc_ed_buildchi_c(iorb)
+        call lanc_ed_buildchi_c(iorb,verbose)
      end select
   enddo
   Chitau = Chitau/zeta_function
@@ -51,9 +54,9 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
   !
   numstates=state_list%size
   !
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
+     !if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -61,6 +64,7 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
+     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
@@ -80,7 +84,7 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
   enddo
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildchi_d
 
@@ -104,19 +108,22 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
-  idim0  = getdim(isect0)
+
   !
   numstates=state_list%size
   !
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call start_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress
   do izero=1,numstates
-     if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
+     !if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
+     idim0      =  getdim(isect0)
      state_e    =  es_return_energy(state_list,izero)
      state_cvec => es_return_cvector(state_list,izero)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
+     idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
+     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
@@ -136,7 +143,7 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(ed_verbose<2.AND.ED_MPI_ID==0)call stop_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildchi_c
 

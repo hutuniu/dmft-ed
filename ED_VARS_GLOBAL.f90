@@ -42,10 +42,12 @@ MODULE ED_VARS_GLOBAL
   !=========================================================  
   type(sparse_matrix)                         :: spH0
   integer,allocatable,dimension(:)            :: neigen_sector
+  logical                                     :: trim_state_list=.false.
 
   !Partition function
   !=========================================================
   real(8)                                     :: zeta_function
+
 
   !Impurity Green's function and Self-Energies: (Nspin,Nspin,Norb,Norb,:)
   !=========================================================
@@ -58,14 +60,15 @@ MODULE ED_VARS_GLOBAL
   !=========================================================
   real(8),dimension(:),allocatable            ::  ed_dens,ed_docc,ed_phisc
 
+
   !Local energies and generalized double occupancies
   !=========================================================
-  real(8)                            :: ed_Ekin
-  real(8)                            :: ed_Epot
-  real(8)                            :: ed_Eint
-  real(8)                            :: ed_Ehartree
-  real(8)                            :: ed_Eknot
-  real(8)                            :: ed_Dust,ed_Dund,ed_Dse,ed_Dph
+  real(8)                                     :: ed_Ekin
+  real(8)                                     :: ed_Epot
+  real(8)                                     :: ed_Eint
+  real(8)                                     :: ed_Ehartree
+  real(8)                                     :: ed_Eknot
+  real(8)                                     :: ed_Dust,ed_Dund,ed_Dse,ed_Dph
 
 
   !#ifdef _MPI

@@ -34,6 +34,7 @@ MODULE ED_INPUT_VARS
   integer                                     :: lanc_ngfiter        !Max number of iteration in resolvant tri-diagonalization
   integer                                     :: lanc_nstates_sector !Max number of required eigenvalues per sector
   integer                                     :: lanc_nstates_total  !Max number of states hold in the finite T calculation
+  integer                                     :: lanc_nstates_step   !Number of states added at each step to determine the optimal spectrum size at finite T
   integer                                     :: cg_Niter            !Max number of iteration in the fit
   real(8)                                     :: cg_Ftol             !Tolerance in the cg fit
   integer                                     :: cg_Weight           !CGfit mode 0=normal,1=1/n weight, 2=1/w weight
@@ -45,7 +46,7 @@ MODULE ED_INPUT_VARS
   logical                                     :: ed_twin             !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   character(len=1)                            :: ed_type             !flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)
   logical                                     :: ed_supercond        !flag to set ed symmetry type: F=normal (default), T=superc=superconductive
-  character(len=7)                            :: bath_type           !flag to set bath type: irreducible (1bath/imp), reducible(1bath)
+  character(len=7)                            :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
   character(len=100)                          :: ed_file_suffix      !suffix string attached to the output files.
   real(8)                                     :: nread               !fixed density. if 0.d0 fixed chemical potential calculation.
   real(8)                                     :: nerr                !fix density threshold. a loop over from 1.d-1 to required nerr is performed
@@ -109,6 +110,7 @@ contains
     call parse_input_variable(gs_threshold,"GS_THRESHOLD",INPUTunit,default=1.d-9,comment="Energy threshold for ground state degeneracy loop up")
     call parse_input_variable(lanc_nstates_sector,"LANC_NSTATES_SECTOR",INPUTunit,default=1,comment="Initial number of states per sector to be determined.")
     call parse_input_variable(lanc_nstates_total,"LANC_NSTATES_TOTAL",INPUTunit,default=1,comment="Initial number of total states to be determined.")
+    call parse_input_variable(lanc_nstates_step,"LANC_NSTATES_STEP",INPUTunit,default=2,comment="Number of states added to the spectrum at each step.")
     call parse_input_variable(lanc_niter,"LANC_NITER",INPUTunit,default=512,comment="Number of Lanczos iteration in spectrum determination.")
     call parse_input_variable(lanc_ngfiter,"LANC_NGFITER",INPUTunit,default=200,comment="Number of Lanczos iteration in GF determination. Number of momenta.")
     call parse_input_variable(lanc_tolerance,"LANC_TOLERANCE",INPUTunit,default=0.d0,comment="Tolerance for the Lanczos iterations as used in Arpack and plain lanczos.")
@@ -121,7 +123,7 @@ contains
     call parse_input_variable(cg_weight,"CG_WEIGHT",INPUTunit,default=0,comment="Conjugate-Gradient weight form: 0=1.0 ,1=1/n , 2=1/w.")
     call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")
     call parse_input_variable(ed_Supercond,"ED_SUPERCOND",INPUTunit,default=.false.,comment="Flag to set ED type: F=normal, T=superconductive")
-    call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: irreducible (1bath/imp), reducible(1bath)")
+    call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
     call parse_input_variable(ed_verbose,"ED_VERBOSE",INPUTunit,default=0,comment="Verbosity level: 0=all --> 5:almost nothing on the screen.")

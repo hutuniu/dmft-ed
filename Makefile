@@ -9,7 +9,7 @@ FPP=
 #EXE=ed_hm_2dsquare
 #EXE=ed_hm_2b_cubic
 #EXE=ed_hm_bethe_afm
-EXE=ed_hm_2bands_hyb_fcc3d
+#EXE=ed_hm_2bands_hyb_fcc3d
 #--> PERIODIC ANDERSON & P-D MODELS
 #EXE=ed_pam_1b
 #EXE=ed_pam_2b
@@ -19,7 +19,7 @@ EXE=ed_hm_2bands_hyb_fcc3d
 #EXE=ed_tddpam_bethe
 #--> B-H-Z MODELS
 #EXE=ed_2x2bhz
-#EXE=ed_bhz
+EXE=ed_bhz
 #EXE=ed_bhz_afm
 
 
