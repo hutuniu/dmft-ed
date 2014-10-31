@@ -78,7 +78,7 @@ contains
     !marks the ends of the cycle of the 1st DMFT loop.
     trim_state_list=.true.
   end subroutine chi2_fitgf_
-
+  
   subroutine chi2_fitgf__(fg,bath,ispin)
     complex(8),dimension(:,:,:,:)          :: fg
     real(8),dimension(:,:),intent(inout) :: bath
@@ -95,9 +95,17 @@ contains
        end if
        select case(bath_type)
        case default
-          call chi2_fitgf_irred_sc(fg,bath,ispin)
+          if(.not.ed_supercond) then
+             call chi2_fitgf_irred(fg(1,:,:,:),bath,ispin)
+          else
+             call chi2_fitgf_irred_sc(fg,bath,ispin)
+          end if
        case ('hybrid')
-          stop 'Error: Hybrid bath + SC is not implemented yet: ask the developer...'
+          if(.not.ed_supercond) then
+             call chi2_fitgf_hybrd(fg(1,:,:,:),bath,ispin)
+          else
+             stop 'Error: Hybrid bath + SC is not implemented yet: ask the developer...'
+          end if
        end select
     endif
 #ifdef _MPI

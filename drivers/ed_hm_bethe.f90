@@ -26,6 +26,7 @@ program lancED
   character(len=16)      :: finput
   integer                :: M
   real(8)                :: alpha,K
+  real(8),allocatable                :: Hk(:),wt(:)
   real(8),allocatable    :: Gtau(:)
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
@@ -61,7 +62,7 @@ program lancED
      !if(iloop>1)call broyden_mix(delta(1,1,:),delta_old(1,1,:),alpha,M,iloop-1)
      !Perform the SELF-CONSISTENCY by fitting the new bath
      call chi2_fitgf(delta,bath,ispin=1)
-
+     call ph_symmetrize_bath(bath)
      !Check convergence (if required change chemical potential)
      converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
      if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu,converged)
@@ -71,6 +72,10 @@ program lancED
   K = get_energy(1000)
   print*,K
   call get_ed_energy(1000)
+
+  allocate(wt(500),Hk(500))
+  call bethe_lattice(wt,Hk,500,1.d0)
+  call ed_kinetic_energy(impSmats(1,1,1,1,:),Hk,wt)
 
 contains
 

@@ -23,25 +23,25 @@ MODULE ED_BATH
      module procedure &
           delta_bath_irred_mats, & 
           delta_bath_hybrd_mats
-  end interface delta_bath_mats
+  end interface
 
   interface delta_bath_real
      module procedure &
           delta_bath_irred_real, &
           delta_bath_hybrd_real
-  end interface delta_bath_real
+  end interface
 
   interface fdelta_bath_mats
      module procedure &
           fdelta_bath_irred_mats, &
           fdelta_bath_hybrd_mats
-  end interface fdelta_bath_mats
+  end interface
 
   interface fdelta_bath_real
      module procedure &
           fdelta_bath_irred_real, &
           fdelta_bath_hybrd_real
-  end interface fdelta_bath_real
+  end interface
 
 
   public :: allocate_bath
@@ -56,6 +56,7 @@ MODULE ED_BATH
   public :: spin_symmetrize_bath
   public :: ph_symmetrize_bath
   public :: break_symmetry_bath
+  public :: enforce_normal_bath
   public :: delta_bath_mats
   public :: delta_bath_real
   public :: fdelta_bath_mats
@@ -547,6 +548,21 @@ contains
     call copy_bath(dmft_bath_,bath_)
     call deallocate_bath(dmft_bath_)
   end subroutine ph_symmetrize_bath
+
+  
+  !+- enforce a normal (i.e. non superconductive) bath -+!
+  subroutine enforce_normal_bath(bath_)
+    real(8),dimension(:,:) :: bath_
+    type(effective_bath)   :: dmft_bath_
+    integer                :: i
+    call allocate_bath(dmft_bath_)
+    call set_bath(bath_,dmft_bath_)
+    do i=1,Nbath
+       if(ed_supercond)dmft_bath_%d(:,:,i)=0.d0
+    enddo
+    call copy_bath(dmft_bath_,bath_)
+    call deallocate_bath(dmft_bath_)
+  end subroutine enforce_normal_bath
 
 
 

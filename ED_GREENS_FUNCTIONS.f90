@@ -61,31 +61,41 @@ contains
   !+------------------------------------------------------------------+
   subroutine buildgf_impurity()
     call allocate_grids
-    if(.not.allocated(GFpoles))allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
-    if(.not.allocated(GFweights))allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+    if(.not.allocated(impGmats))stop "build_gf_super: impGmats not allocated"
+    if(.not.allocated(impGreal))stop "build_gf_super: impGreal not allocated"
+    if(.not.allocated(impFmats))stop "build_gf_super: impFmats not allocated"
+    if(.not.allocated(impFreal))stop "build_gf_super: impFreal not allocated"
+    impGmats=zero
+    impGreal=zero
+    impFmats=zero
+    impFreal=zero
+    !
+    if(.not.allocated(impSmats)) stop "build_gf_super: impSmats not allocated"
+    if(.not.allocated(impSreal)) stop "build_gf_super: impSreal not allocated"
+    if(.not.allocated(impSAmats))stop "build_gf_super: impSAmats not allocated"
+    if(.not.allocated(impSAreal))stop "build_gf_super: impSAreal not allocated"    
+    impSmats = zero
+    impSreal = zero
+    impSAmats = zero
+    impSAreal = zero
+    !
+    if(.not.allocated(GFpoles))   allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+    if(.not.allocated(GFweights)) allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
     GFpoles=zero
     GFweights=zero
-    if(ed_supercond)then
-       if(.not.allocated(Gaux_mats))allocate(Gaux_mats(3,Lmats))
-       if(.not.allocated(Gaux_real))allocate(Gaux_real(3,Lreal))
-       Gaux_mats=zero
-       Gaux_real=zero
-    endif
     !
     if(.not.ed_supercond)then
        call build_gf_normal()
-       call print_gf_normal()
+       call get_sigma_print_gf_normal()
     else
        call build_gf_superc()
-       call print_gf_superc()
+       call get_sigma_print_gf_superc()
     end if
     !
     if(allocated(wm))deallocate(wm)
     if(allocated(vm))deallocate(vm)
     if(allocated(tau))deallocate(tau)
     if(allocated(wr))deallocate(wr)
-    if(allocated(Gaux_mats))deallocate(Gaux_mats)
-    if(allocated(Gaux_real))deallocate(Gaux_real)
     if(allocated(GFpoles))deallocate(GFpoles)
     if(allocated(GFweights))deallocate(GFweights)
   end subroutine buildgf_impurity
@@ -132,16 +142,13 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : Print normal Green's functions
   !+------------------------------------------------------------------+
-  subroutine print_gf_normal
+  subroutine get_sigma_print_gf_normal
     integer                                           :: i,j,ispin,isign,unit(7),iorb,jorb
     complex(8)                                        :: fg0
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real
     complex(8),dimension(Norb,Norb)                   :: invGimp,impG0
     character(len=20)                                 :: suffix
-    !
-    impSmats = zero
-    impSreal = zero
     !
     select case(bath_type)
     case default                !Diagonal in both spin and orbital
@@ -334,7 +341,7 @@ contains
       endif
     end subroutine close_units
 
-  end subroutine print_gf_normal
+  end subroutine get_sigma_print_gf_normal
 
 
 
@@ -342,7 +349,7 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : Print Superconducting Green's functions
   !+------------------------------------------------------------------+
-  subroutine print_gf_superc
+  subroutine get_sigma_print_gf_superc
     integer                                        :: i,j,ispin,unit(12),iorb,jorb
     complex(8)                                     :: iw
     complex(8),allocatable,dimension(:)            :: det
@@ -351,16 +358,11 @@ contains
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real,impF0real
     character(len=20)                              :: suffix
     !
-    impSmats = zero
-    impSreal = zero
-    impSAmats = zero
-    impSAreal = zero
-    !
     !Diagonal in both spin and orbital
     !this is ensured by the special *per impurity" bath structure
     !no intra-orbital hoopings
     !THIS IS SUPERCONDUCTING CASE
-    allocate(fg0(2,Lmats),fg(2,Lmats),sigma(2,Lmats),det(Lmats))
+    allocate(fg0(2,Lmats),fg(2,Lmats),det(Lmats))
     do ispin=1,Nspin
        do iorb=1,Norb
           det     =  abs(impGmats(ispin,ispin,iorb,iorb,:))**2 + (impFmats(ispin,ispin,iorb,iorb,:))**2
@@ -378,14 +380,14 @@ contains
           impF0mats(ispin,ispin,iorb,iorb,:) = fg0(2,:)/det
        enddo
     enddo
-    deallocate(fg0,fg,sigma,det)
+    deallocate(fg0,fg,det)
 
 
-    allocate(fg0(2,Lreal),fg(2,Lreal),sigma(2,Lreal),det(Lreal))
+    allocate(fg0(2,Lreal),fg(2,Lreal),det(Lreal))
     do ispin=1,Nspin
        do iorb=1,Norb
           do i=1,Lreal
-             iw=cmplx(wr(i),eps)
+             iw=dcmplx(wr(i),eps)
              !TESTS SHOWS THAT THIS VERSION GIVES THE SAME RESULTS AS THE UNCOMMENTED LINES
              ! det(i)  = impGreal(ispin,ispin,iorb,iorb,i)*conjg(impGreal(ispin,ispin,iorb,iorb,Lreal+1-i)) + &
              !      impFreal(ispin,ispin,iorb,iorb,i)*conjg(impFreal(ispin,ispin,iorb,iorb,Lreal+1-i))
@@ -407,7 +409,7 @@ contains
           enddo
        enddo
     enddo
-    deallocate(fg0,fg,sigma,det)
+    deallocate(fg0,fg,det)
 
     !
     if(ED_MPI_ID==0)then
@@ -518,7 +520,7 @@ contains
       endif
     end subroutine close_units
 
-  end subroutine print_gf_superc
+  end subroutine get_sigma_print_gf_superc
 
 
 

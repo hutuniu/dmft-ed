@@ -62,15 +62,16 @@ contains
     ! superconducting order parameter, etc..
     allocate(dens(Norb),dens_up(Norb),dens_dw(Norb))
     allocate(docc(Norb))
+    allocate(phisc(Norb))
     allocate(magz(Norb),sz2(Norb,Norb),n2(Norb,Norb))
-    if(ed_supercond) allocate(phisc(Norb))
     allocate(simp(Norb,Nspin),zimp(Norb,Nspin))
     !
     Egs     = state_list%emin
     dens    = 0.d0
     dens_up = 0.d0
     dens_dw = 0.d0
-    docc   = 0.d0
+    docc    = 0.d0
+    phisc   = 0.d0
     magz    = 0.d0
     sz2     = 0.d0
     n2      = 0.d0
@@ -140,7 +141,6 @@ contains
     !
     !SUPERCONDUCTING ORDER PARAMETER
     if(ed_supercond) then
-       phisc = 0.d0
        do ispin=1,Nspin
           do iorb=1,Norb
              numstates=state_list%size
@@ -226,17 +226,11 @@ contains
     do iorb=1,Norb
        ed_dens(iorb)=dens(iorb)
        ed_docc(iorb)=docc(iorb)
-       if(ed_supercond)ed_phisc(iorb)=phisc(iorb)
+       ed_phisc(iorb)=phisc(iorb)
     enddo
     !
-#ifdef _MPI
-    call MPI_BCAST(ed_dens,Norb,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
-    call MPI_BCAST(ed_docc,Norb,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
-    if(ed_supercond)call MPI_BCAST(ed_phisc,Norb,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
-    deallocate(dens,docc,dens_up,dens_dw,magz,sz2,n2)
-    deallocate(simp,zimp)
-    if(ed_supercond)deallocate(phisc)
+    deallocate(dens,docc,phisc,dens_up,dens_dw,magz,sz2,n2)
+    deallocate(simp,zimp)    
   end subroutine observables_impurity
 
 

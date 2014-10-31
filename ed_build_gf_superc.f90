@@ -1,3 +1,6 @@
+
+
+
 !+------------------------------------------------------------------+
 !PURPOSE  : Evaluate Green's functions using Lanczos algorithm
 !+------------------------------------------------------------------+
@@ -5,19 +8,11 @@ subroutine build_gf_superc()
   integer :: izero,iorb,jorb,ispin,i
   integer :: isect0,numstates
   real(8) :: norm0
-  logical :: verbose
-  verbose=.false.;if(ed_verbose<1)verbose=.true.
-  if(.not.allocated(impGmats))stop "build_gf_super: impGmats not allocated"
-  if(.not.allocated(impGreal))stop "build_gf_super: impGreal not allocated"
-  if(.not.allocated(impFmats))stop "build_gf_super: impFmats not allocated"
-  if(.not.allocated(impFreal))stop "build_gf_super: impFreal not allocated"
-  impGmats=zero
-  impGreal=zero
-  impFmats=zero
-  impFreal=zero
+  if(.not.allocated(Gaux_mats))allocate(Gaux_mats(3,Lmats))
+  if(.not.allocated(Gaux_real))allocate(Gaux_real(3,Lreal))
   Gaux_mats=zero
   Gaux_real=zero
-  write(LOGfile,"(A)")"Get impurity Greens functions:"
+  !
   do ispin=1,Nspin
      do iorb=1,Norb
         if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G&F_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
@@ -34,6 +29,7 @@ subroutine build_gf_superc()
      enddo
   enddo
   !
+  deallocate(Gaux_mats,Gaux_real)
 end subroutine build_gf_superc
 
 

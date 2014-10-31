@@ -6,6 +6,7 @@ FPP=
 #--> HUBBARD MODELS:
 #EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
+EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
 #EXE=ed_hm_2b_cubic
 #EXE=ed_hm_bethe_afm
@@ -24,7 +25,7 @@ EXE=ed_bhz
 
 
 DIR =drivers
-DIREXE=$(HOME)/.bin
+DIREXE=$(HOME_G)/.project_bin
 
 .SUFFIXES: .f90
 
