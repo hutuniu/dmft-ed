@@ -18,6 +18,9 @@ module ARPACK_LANCZOS
   public :: lanczos_parpack
 #endif
 
+
+  integer,allocatable :: seed_random(:)
+  integer             :: nrandom
 contains
 
 
@@ -111,7 +114,7 @@ contains
     workl  =0.d0
     workd  =0.d0
     v      =0.d0
-    select =0.d0
+    !select =0.d0
 
     !=========================================================================
     !  Specification of stopping rules and initial
@@ -155,7 +158,10 @@ contains
     iparam(3) = maxitr
     iparam(7) = mode1
 
-    call random_seed(put=[1234567])
+    call random_seed(size=nrandom)
+    allocate(seed_random(nrandom))
+    seed_random=1234567
+    call random_seed(put=seed_random)![1234567])
     call random_number(resid)
     resid=resid/sqrt(dot_product(resid,resid))
 
@@ -383,8 +389,11 @@ contains
     iparam(7) = mode1
 
 
-
-    call random_seed(put=[1234567])
+    call random_seed(size=nrandom)
+    allocate(seed_random(nrandom))
+    seed_random=1234567
+    call random_seed(put=seed_random)![1234567])
+    !call random_seed(put=[1234567])
     allocate(reV(size(resid)),imV(size(resid)))
     call random_number(reV)
     call random_number(imV)
@@ -598,7 +607,7 @@ contains
     workl  =0.d0
     workd  =0.d0
     v      =0.d0
-    select =0.d0
+    !select =0.d0
 
     !=========================================================================
     !  Specification of stopping rules and initial
@@ -628,7 +637,11 @@ contains
     ido    = 0
 
     allocate(vec(n))
-    call random_seed(put=[1234567])
+    !call random_seed(put=[1234567])
+    call random_seed(size=nrandom)
+    allocate(seed_random(nrandom))
+    seed_random=1234567
+    call random_seed(put=seed_random)![1234567]) 
     call random_number(vec)
     vec=vec/sqrt(dot_product(vec,vec))
     do i=ED_MPI_ID*mpiQ+1,(ED_MPI_ID+1)*mpiQ+mpiR
@@ -871,7 +884,11 @@ contains
     ido    = 0
     info   = 1
 
-    call random_seed(put=[1234567])
+    !call random_seed(put=[1234567])
+    call random_seed(size=nrandom)
+    allocate(seed_random(nrandom))
+    seed_random=1234567
+    call random_seed(put=seed_random)![1234567]) 
     allocate(reV(n),imV(n),vec(n))
     call random_number(reV)
     call random_number(imV)

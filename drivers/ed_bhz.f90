@@ -15,6 +15,7 @@
 program ed_bhz
   USE DMFT_ED
   USE SCIFOR
+  USE DMFT_TOOLS
 #ifdef _MPI
   USE MPI
 #endif
@@ -163,7 +164,7 @@ contains
     do i=1,Lmats
        iw = xi*wm(i)
        forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
-       zeta(:,:) = zeta(:,:) - so2j(impSmats(:,:,:,:,i))
+       zeta(:,:) = zeta(:,:) - so2j(impSmats(:,:,:,:,i),Nso)
        fg=zero
        if(lambda==0.d0)then
           do ik=1,Lk
@@ -175,7 +176,7 @@ contains
           gdelta=zero
           forall(iorb=1:Nso)fg(iorb,iorb)=one/fg(iorb,iorb)
           if(cg_scheme=='weiss')then
-             gdelta = fg + so2j(impSmats(:,:,:,:,i))
+             gdelta = fg + so2j(impSmats(:,:,:,:,i),Nso)
              forall(iorb=1:Nso)gdelta(iorb,iorb)=one/gdelta(iorb,iorb)
           else
              forall(iorb=1:Nso)gdelta(iorb,iorb) = zeta(iorb,iorb) - bhzHloc(iorb,iorb) - fg(iorb,iorb)
@@ -188,7 +189,7 @@ contains
           !Get Delta=\Delta or G_0
           call matrix_inverse(fg)
           if(cg_scheme=='weiss')then
-             gdelta = fg + so2j(impSmats(:,:,:,:,i))
+             gdelta = fg + so2j(impSmats(:,:,:,:,i),Nso)
              call matrix_inverse(gdelta)
           else
              gdelta = zeta(:,:) - bhzHloc - fg(:,:)
@@ -215,7 +216,7 @@ contains
     do i=1,Lreal
        iw=dcmplx(wr(i),eps)
        forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
-       zeta(:,:) = zeta(:,:) - so2j(impSreal(:,:,:,:,i))
+       zeta(:,:) = zeta(:,:) - so2j(impSreal(:,:,:,:,i),Nso)
        fg=zero
        do ik=1,Lk         
           fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
@@ -235,7 +236,7 @@ contains
     !Get Kinetic Energy too
     allocate(Smats(Nso,Nso,Lmats))
     do i=1,Lmats
-       Smats(:,:,i)=so2j(impSmats(:,:,:,:,i))
+       Smats(:,:,i)=so2j(impSmats(:,:,:,:,i),Nso)
     enddo
     call ed_kinetic_energy(Smats,Hk,dos_wt)
     deallocate(Smats)
@@ -363,7 +364,7 @@ contains
        ky = 0.d0
        Hk(:,:,ik)=hk_bhz(kx,ky)
        eig = Eigk(hk_bhz(kx,ky))
-       if(ed_mpi_id==0)write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
+       if(ed_mpi_id==0)write(unit,"(I3,16F25.12)")ik,(eig(i),i=1,Nso)
     enddo
     !From X=(pi,0) to M=(pi,pi): Nk steps
     do iy=1,Nk
@@ -372,7 +373,7 @@ contains
        ky = 0.d0 + pi*real(iy-1,8)/dble(Nk)
        Hk(:,:,ik)=hk_bhz(kx,ky)
        eig = Eigk(hk_bhz(kx,ky))
-       if(ed_mpi_id==0)write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
+       if(ed_mpi_id==0)write(unit,"(I3,16F25.12)")ik,(eig(i),i=1,Nso)
     enddo
     !From M=(pi,pi) to \Gamma=(0,0): Nk steps
     do ix=1,Nk
@@ -382,7 +383,7 @@ contains
        ky = pi - pi*real(iy-1,8)/dble(Nk)
        Hk(:,:,ik)=hk_bhz(kx,ky)
        eig = Eigk(hk_bhz(kx,ky))
-       if(ed_mpi_id==0)write(unit,"(I,16F25.12)")ik,(eig(i),i=1,Nso)
+       if(ed_mpi_id==0)write(unit,"(I3,16F25.12)")ik,(eig(i),i=1,Nso)
     enddo
     if(ed_mpi_id==0)close(unit)
   end subroutine build_hk_GXMG
@@ -429,7 +430,7 @@ contains
           iw=dcmplx(wr(i),eps)
           zeta=zero
           forall(iso=1:Nso)zeta(iso,iso)=iw+xmu
-          zeta(:,:) = zeta(:,:)-so2j(Sreal(:,:,:,:,i))
+          zeta(:,:) = zeta(:,:)-so2j(Sreal(:,:,:,:,i),Nso)
           do ik=1,Lk
              fgk = inverse_gk(zeta,Hk(:,:,ik))
              gfoo(:,:,:,:) = j2so(fgk(:,:))
@@ -495,7 +496,7 @@ contains
     ! do ik=1,Lk
     !    do i=1,Lmats
     !       forall(iorb=1:Nso)zeta(iorb,iorb)=xi*wm(i)+xmu
-    !       zeta(:,:)    = zeta(:,:) - (so2j(Smats(:,:,:,:,i)))
+    !       zeta(:,:)    = zeta(:,:) - (so2j(Smats(:,:,:,:,i),Nso))
     !       detGiw(ik,i) = one/( (zeta(1,1) - Hk(1,1,ik))*(zeta(2,2) - Hk(2,2,ik)) - Hk(1,2,ik)*Hk(2,1,ik))
     !       write(unit,*)wm(i),dimag(detGiw(ik,i)),dreal(detGiw(ik,i))
     !    enddo
@@ -520,7 +521,7 @@ contains
     do ik=1,Lk
        do i=1,Lreal
           forall(iorb=1:Nso)zeta(iorb,iorb)=wr(i)+xmu
-          zeta(:,:) = zeta(:,:) - dreal(so2j(Sreal(:,:,:,:,i)))
+          zeta(:,:) = zeta(:,:) - dreal(so2j(Sreal(:,:,:,:,i),Nso))
           Den(i) = dreal((zeta(1,1) - Hk(1,1,ik))*(zeta(2,2) - Hk(2,2,ik))) - Hk(1,2,ik)*Hk(2,1,ik)
        enddo
        Xcsign(0)=0.d0
@@ -540,10 +541,10 @@ contains
        call init_finter(finter_func,wr,Den,3)
        do int=1,Ninterval
           Mpoles(ik,int) = fzero_brentq(det_poles,Xcsign(int-1),Xcsign(int))
-          Mweight(ik,int)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1)))
+          Mweight(ik,int)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1),Nso))
        enddo
        ipoles(ik) = fzero_brentq(det_poles,0.d0,wr(Lreal))
-       iweight(ik)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1)))
+       iweight(ik)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1),Nso))
        call delete_finter(finter_func)
     enddo
     call splot("BHZpoles.ed",(/(ik-1,ik=1,Lk)/),ipoles(:),iweight(:))
@@ -571,7 +572,7 @@ contains
           iy=ik2iy(ik)
           do i=1,Lreal
              forall(iorb=1:Nso)zeta(iorb,iorb)=wr(i)+xmu
-             zeta(:,:) = zeta(:,:) - dreal(so2j(Sreal(:,:,:,:,i)))
+             zeta(:,:) = zeta(:,:) - dreal(so2j(Sreal(:,:,:,:,i),Nso))
              Den(i) = dreal((zeta(1,1) - Hk(1,1,ik))*(zeta(2,2) - Hk(2,2,ik))) - Hk(1,2,ik)*Hk(2,1,ik)
           enddo
           !
@@ -604,8 +605,8 @@ contains
   end subroutine get_poles
 
   function det_poles(w) result(det)
-    real(8) :: w
-    real(8) :: det
+    real(8),intent(in) :: w
+    real(8)            :: det
     det = finter(finter_func,w)
   end function det_poles
 
@@ -652,14 +653,14 @@ contains
     do i=1,Lreal
        iw=dcmplx(wr(i),eps)
        forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
-       zeta(:,:) = zeta(:,:) - so2j(Sreal(:,:,:,:,i))
+       zeta(:,:) = zeta(:,:) - so2j(Sreal(:,:,:,:,i),Nso)
        fg=zero
        do ik=1,Lk         
           fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
        enddo
        call matrix_inverse(fg)
        if(cg_scheme=='weiss')then
-          gdelta = fg + so2j(Sreal(:,:,:,:,i))
+          gdelta = fg + so2j(Sreal(:,:,:,:,i),Nso)
           call matrix_inverse(gdelta)
        else
           gdelta = zeta(:,:) - bhzHloc - fg(:,:)
@@ -839,10 +840,10 @@ contains
   end function so2j_index
 
 
-  function so2j(fg) result(g)
+  function so2j(fg,Nso) result(g)
     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: fg
-    complex(8),dimension(Nso,Nso)         :: g
-    integer                                     :: i,j,iorb,jorb,ispin,jspin
+    complex(8),dimension(Nso,Nso)               :: g
+    integer                                     :: Nso,i,j,iorb,jorb,ispin,jspin
     do ispin=1,Nspin
        do jspin=1,Nspin
           do iorb=1,Norb
@@ -857,7 +858,7 @@ contains
   end function so2j
 
   function j2so(fg) result(g)
-    complex(8),dimension(Nso,Nso)         :: fg
+    complex(8),dimension(Nso,Nso)               :: fg
     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: g
     integer                                     :: i,j,iorb,jorb,ispin,jspin
     do ispin=1,Nspin
@@ -873,41 +874,6 @@ contains
     enddo
   end function j2so
 
-
-
-  !<DEBUG
-  ! subroutine checkZ2()
-  !   integer                                     :: i,j,ik,iorb,ispin
-  !   complex(8),dimension(:,:,:,:,:),allocatable :: Smats
-  !   complex(8),dimension(:,:,:,:),allocatable   :: ReSmat
-  !   complex(8),dimension(:,:,:),allocatable     :: Hktilde
-  !   real(8),dimension(:,:),allocatable          :: Ktrim,Ev
-  !   print*,"Get \tilde{H}(k)=H(k)+Sigma(w=0)"
-  !   allocate(Smats(Nspin,Nspin,Norb,Norb,Lreal))
-  !   !call read_sigma(Smats)
-  !   allocate(ReSmat(Nspin,Nspin,Norb,Norb))
-  !   allocate(Hktilde(Nso,Nso,4))
-  !   allocate(Ev(Nso,4))
-  !   allocate(Ktrim(2,4))
-  !   ReSmat(:,:,:,:) = Smats(:,:,:,:,1)
-  !   Ktrim(:,1)=[0.d0,0.d0]
-  !   Ktrim(:,2)=[pi,0.d0]
-  !   Ktrim(:,3)=[0.d0,pi]
-  !   Ktrim(:,4)=[pi,pi]
-  !   do i=1,4
-  !      Hktilde(:,:,i) = hk_bhz(Ktrim(1,i),Ktrim(2,i))!+so2j(ReSmat)
-  !      call matrix_diagonalize(Hktilde(:,:,i),Ev(:,i))
-  !   enddo
-  !   print*,""
-  !   !Ev(:,1)=Ev(:,1)/(mh-2.d0)
-  !   !Ev(:,2:3)=Ev(:,2:3)/mh
-  !   !Ev(:,4)=Ev(:,4)/(mh+2.d0)
-  !   do i=1,4
-  !      write(*,"(I,5F20.12)")i,Ev(:,i),product(Ev(:,i))
-  !   enddo
-  !   return
-  ! end subroutine checkZ2
-  !>DEBUG
 
 end program ed_bhz
 

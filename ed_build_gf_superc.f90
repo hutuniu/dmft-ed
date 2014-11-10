@@ -1,6 +1,3 @@
-
-
-
 !+------------------------------------------------------------------+
 !PURPOSE  : Evaluate Green's functions using Lanczos algorithm
 !+------------------------------------------------------------------+
@@ -8,6 +5,8 @@ subroutine build_gf_superc()
   integer :: izero,iorb,jorb,ispin,i
   integer :: isect0,numstates
   real(8) :: norm0
+  logical :: verbose
+  verbose=.false.;if(ed_verbose<1)verbose=.true.
   if(.not.allocated(Gaux_mats))allocate(Gaux_mats(3,Lmats))
   if(.not.allocated(Gaux_real))allocate(Gaux_real(3,Lreal))
   Gaux_mats=zero

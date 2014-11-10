@@ -135,7 +135,7 @@ contains
     !
     if(ED_MPI_ID==0)call save_input_file(INPUTunit)
     !
-    call version(revision)
+    call sf_version(revision)
   end subroutine ed_read_input
 
 

@@ -201,7 +201,7 @@ contains
        !nloop=(i-1)*niter                !increase the max number of dmft loop allowed so to do threshold loop
        !write(LOGfile,"(A,I10)")"Increased Nloop to:",nloop
     endif
-    if(Nspin>1.AND.ed_twin==.true.)write(LOGfile,"(A)")"WARNING: using twin_sector with Nspin>1"
+    if(Nspin>1.AND.ed_twin.eqv..true.)write(LOGfile,"(A)")"WARNING: using twin_sector with Nspin>1"
 
     !allocate functions
     allocate(impSmats(Nspin,Nspin,Norb,Norb,Lmats))

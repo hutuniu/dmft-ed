@@ -1,12 +1,12 @@
 #COMPILER (PARALLEL)
-FC=mpif90
+FC=gfortran
 #PRECOMPILATION FLAG (leave blank for serial code)
 FPP=
 
 #--> HUBBARD MODELS:
-#EXE=ed_hm_bethe
+EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
-EXE=ed_ahm_square
+#EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
 #EXE=ed_hm_2b_cubic
 #EXE=ed_hm_bethe_afm
@@ -20,12 +20,12 @@ EXE=ed_ahm_square
 #EXE=ed_tddpam_bethe
 #--> B-H-Z MODELS
 #EXE=ed_2x2bhz
-EXE=ed_bhz
+#EXE=ed_bhz
 #EXE=ed_bhz_afm
 
 
 DIR =drivers
-DIREXE=$(HOME_G)/.project_bin
+DIREXE=$(HOME)/.bin
 
 .SUFFIXES: .f90
 
@@ -35,12 +35,13 @@ VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 
 OBJS= MATRIX_SPARSE.o ED_BATH_TYPE.o ED_VARS_GLOBAL.o ED_INPUT_VARS.o ARPACK_LANCZOS.o PLAIN_LANCZOS.o ED_AUX_FUNX.o ED_EIGENSPACE.o ED_BATH.o ED_MATVEC.o ED_HAMILTONIAN.o ED_GREENS_FUNCTIONS.o ED_OBSERVABLES.o ED_ENERGY.o ED_CHI2FIT.o ED_DIAG.o ED_MAIN.o DMFT_ED.o
 
-MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
+#MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
 
-FFLAG +=-fpp -D_$(FPP)
+INCARGS=-I/opt/scifor/gnu/include -I/opt/dmft_tools/gnu/include
+FFLAG +=-ffree-line-length-none -cpp -D_$(FPP) $(INCARGS)
 
-ARGS=-lscifor $(MKLARGS) -lminpack -larpack -lparpack 
-
+#ARGS=-ldmftt -lscifor $(MKLARGS) -lminpack -larpack -lparpack 
+ARGS= -ldmftt -lscifor -lfftpack -llapack -lblas -lminpack -larpack -lparpack
 
 all:compile
 
@@ -58,7 +59,7 @@ compile: version $(OBJS)
 
 
 completion:
-	sf_lib_completion.sh $(DIR)/$(EXE).f90
+	src_completion.sh $(DIR)/$(EXE).f90
 	@echo "run: . .bash_completion.d/$(EXE) to add completion for $(EXE) in this shell"
 
 clean: 

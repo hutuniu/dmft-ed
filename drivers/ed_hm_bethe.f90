@@ -4,17 +4,11 @@
 !AUTHORS  : A. Amaricci
 !###################################################################
 program lancED
+  !ED IMPURITY SOLVER
   USE DMFT_ED
-  USE CONSTANTS
-  USE FUNCTIONS
-  USE IOTOOLS
-  USE TOOLS
-  USE MATRIX
-  USE ERROR
-  USE ARRAYS
-  USE FFTGF
-  USE PARSE_INPUT
-  !USE MIXING
+  !ACCESSORY ROUTINES:
+  USE DMFT_TOOLS
+  USE SCIFOR
   implicit none
   integer                :: iloop,Nb(2)
   logical                :: converged
@@ -200,7 +194,7 @@ contains
   !>DEBUG
 
 
-end program
+end program lancED
 
 
 

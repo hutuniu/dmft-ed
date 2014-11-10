@@ -144,7 +144,7 @@ contains        !some routine to perform simple operation on the lists
           call es_insert_state_d(espace,e,vec,sector,twin_)
        else
           if(e < es_return_energy(espace))then
-             if(present(verbose).AND.(verbose==.true.))print*,"found a new state:"
+             if(present(verbose).AND.(verbose.eqv..true.))print*,"found a new state:"
              call es_pop_state(espace)
              call es_insert_state_d(espace,e,vec,sector,twin_)
           endif
@@ -169,7 +169,7 @@ contains        !some routine to perform simple operation on the lists
           call es_insert_state_c(espace,e,cvec,sector,twin_)
        else
           if(e < es_return_energy(espace))then
-             if(present(verbose).AND.(verbose==.true.))print*,"found a new state:"
+             if(present(verbose).AND.(verbose.eqv..true.))print*,"found a new state:"
              call es_pop_state(espace)
              call es_insert_state_c(espace,e,cvec,sector,twin_)
           endif
