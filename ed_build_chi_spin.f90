@@ -5,11 +5,6 @@ subroutine build_chi_spin()
   integer :: iorb,jorb,ispin
   logical :: verbose
   verbose=.false.;if(ed_verbose<1)verbose=.true.
-  ! call allocate_grids
-  ! allocate(Chitau(Norb,0:Ltau),Chiw(Norb,Lreal),Chiiw(Norb,0:Lmats))
-  ! Chitau=0.d0
-  ! Chiw=zero
-  ! Chiiw=zero
   write(LOGfile,"(A)")"Get impurity Chi:"
   do iorb=1,Norb
      if(ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))
@@ -20,17 +15,24 @@ subroutine build_chi_spin()
         call lanc_ed_buildchi_c(iorb,verbose)
      end select
   enddo
+  select case(ed_type)
+  case default
+     call lanc_ed_buildchi_tot_d(verbose)
+  case ('c')
+     call lanc_ed_buildchi_tot_c(verbose)
+  end select
   Chitau = Chitau/zeta_function
   Chiw   = Chiw/zeta_function
   Chiiw  = Chiiw/zeta_function
-  ! call print_imp_chi()
-  ! deallocate(Chitau,Chiw,Chiiw)
-  ! deallocate(wm,wr,tau,vm)
+
 end subroutine build_chi_spin
 
 
+
+
 !+------------------------------------------------------------------+
-!PURPOSE  : 
+!PURPOSE  : Evaluate the Spin susceptibility \Chi_spin for a 
+! single orbital: \chi = <S_a(\tau)S_a(0)>
 !+------------------------------------------------------------------+
 subroutine lanc_ed_buildchi_d(iorb,iverbose)
   integer                          :: iorb,isite,isect0,izero
@@ -54,9 +56,8 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
   !
   numstates=state_list%size
   !
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     !if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -70,8 +71,8 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
      do m=1,idim0                     !loop over |gs> components m
         i=HImap(m)
         call bdecomp(i,ib)
-        sgn = real(ib(iorb),8)-real(ib(iorb+Ns),8)
-        vvinit(m) = sgn*state_vec(m)   !build the cdg_up|gs> state
+        sgn = dble(ib(iorb))-dble(ib(iorb+Ns))
+        vvinit(m) = 0.5d0*sgn*state_vec(m)   !build the cdg_up|gs> state
      enddo
      deallocate(HImap)
      norm0=sqrt(dot_product(vvinit,vvinit))
@@ -84,10 +85,9 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
   enddo
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildchi_d
-
 
 subroutine lanc_ed_buildchi_c(iorb,iverbose)
   integer                          :: iorb,isite,isect0,izero
@@ -108,13 +108,11 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
-
   !
   numstates=state_list%size
   !
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     !if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      idim0      =  getdim(isect0)
      state_e    =  es_return_energy(state_list,izero)
@@ -130,7 +128,7 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = dble(ib(iorb))-dble(ib(iorb+Ns))
-        vvinit(m) = sgn*state_cvec(m)   !build the cdg_up|gs> state
+        vvinit(m) = 0.5d0*sgn*state_cvec(m)   !build the cdg_up|gs> state
      enddo
      deallocate(HImap)
      norm0=sqrt(dot_product(vvinit,vvinit))
@@ -143,9 +141,129 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildchi_c
+
+
+
+
+
+
+!+------------------------------------------------------------------+
+!PURPOSE  : Evaluate the total Spin susceptibility \Chi_spin for a 
+! single orbital: \chi = \sum_a <S_a(\tau)S_a(0)>
+!+------------------------------------------------------------------+
+subroutine lanc_ed_buildchi_tot_d(iverbose)
+  integer                          :: iorb,isite,isect0,izero
+  integer                          :: numstates
+  integer                          :: nlanc,idim0
+  integer                          :: iup0,idw0
+  integer                          :: ib(Ntot)
+  integer                          :: m,i,j,r
+  real(8)                          :: norm0,sgn
+  real(8),allocatable              :: alfa_(:),beta_(:)
+  real(8),allocatable              :: vvinit(:)
+  integer                          :: Nitermax
+  logical,optional                 :: iverbose
+  logical                          :: iverbose_
+  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  !
+  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
+  !
+  Nitermax=lanc_nGFiter
+  allocate(alfa_(Nitermax),beta_(Nitermax))
+  !
+  numstates=state_list%size
+  !
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
+  do izero=1,numstates
+     isect0     =  es_return_sector(state_list,izero)
+     state_e    =  es_return_energy(state_list,izero)
+     state_vec  => es_return_vector(state_list,izero)
+     norm0=sqrt(dot_product(state_vec,state_vec))
+     if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
+     idim0  = getdim(isect0)
+     allocate(HImap(idim0),vvinit(idim0))
+     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
+     call build_sector(isect0,HImap)
+     vvinit=0.d0
+     do m=1,idim0  
+        i=HImap(m)
+        call bdecomp(i,ib)
+        sgn = sum(dble(ib(1:Norb)))-sum(dble(ib(Ns+1:Ns+Norb)))
+        vvinit(m) = 0.5d0*sgn*state_vec(m) 
+     enddo
+     deallocate(HImap)
+     norm0=sqrt(dot_product(vvinit,vvinit))
+     vvinit=vvinit/norm0
+     alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
+     call ed_buildH_d(isect0)
+     call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
+     call add_to_lanczos_chi(norm0,state_e,nitermax,alfa_,beta_,Norb+1)
+     deallocate(vvinit)
+     if(spH0%status)call sp_delete_matrix(spH0)
+     nullify(state_vec)
+  enddo
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+  deallocate(alfa_,beta_)
+end subroutine lanc_ed_buildchi_tot_d
+
+subroutine lanc_ed_buildchi_tot_c(iverbose)
+  integer                          :: iorb,isite,isect0,izero
+  integer                          :: numstates
+  integer                          :: nlanc,idim0
+  integer                          :: iup0,idw0
+  integer                          :: ib(Ntot)
+  integer                          :: m,i,j,r
+  real(8)                          :: norm0,sgn
+  real(8),allocatable              :: alfa_(:),beta_(:)
+  complex(8),allocatable           :: vvinit(:)
+  integer                          :: Nitermax
+  logical,optional                 :: iverbose
+  logical                          :: iverbose_
+  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  !
+  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
+  !
+  Nitermax=lanc_nGFiter
+  allocate(alfa_(Nitermax),beta_(Nitermax))
+  !
+  numstates=state_list%size
+  !
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
+  do izero=1,numstates
+     isect0     =  es_return_sector(state_list,izero)
+     idim0      =  getdim(isect0)
+     state_e    =  es_return_energy(state_list,izero)
+     state_cvec => es_return_cvector(state_list,izero)
+     norm0=sqrt(dot_product(state_vec,state_vec))
+     if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
+     idim0  = getdim(isect0)
+     allocate(HImap(idim0),vvinit(idim0))
+     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
+     call build_sector(isect0,HImap)
+     vvinit=0.d0
+     do m=1,idim0                     !loop over |gs> components m
+        i=HImap(m)
+        call bdecomp(i,ib)
+        sgn = sum(dble(ib(1:Norb)))-sum(dble(ib(Ns+1:Ns+Norb)))
+        vvinit(m) = 0.5d0*sgn*state_cvec(m) 
+     enddo
+     deallocate(HImap)
+     norm0=sqrt(dot_product(vvinit,vvinit))
+     vvinit=vvinit/norm0
+     alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
+     call ed_buildH_c(isect0)
+     call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_cc)
+     call add_to_lanczos_chi(norm0,state_e,nitermax,alfa_,beta_,Norb+1)
+     deallocate(vvinit)
+     if(spH0%status)call sp_delete_matrix(spH0)
+     nullify(state_cvec)
+  enddo
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+  deallocate(alfa_,beta_)
+end subroutine lanc_ed_buildchi_tot_c
 
 
 
@@ -186,7 +304,7 @@ subroutine add_to_lanczos_chi(vnorm,Ei,nlanc,alanc,blanc,iorb)
         chiw(iorb,i)=chiw(iorb,i) + peso*(exp(-beta*de)-1.d0)/(iw-de)
      enddo
      !
-     do i=0,Ltau 
+     do i=0,Ltau
         chitau(iorb,i)=chitau(iorb,i) + peso*exp(-tau(i)*de)
      enddo
   enddo

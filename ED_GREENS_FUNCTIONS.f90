@@ -112,9 +112,9 @@ contains
   !+------------------------------------------------------------------+
   subroutine buildchi_impurity()
     call allocate_grids()
-    if(.not.allocated(Chitau))allocate(Chitau(Norb,0:Ltau))
-    if(.not.allocated(Chiw))  allocate(Chiw(Norb,Lreal))
-    if(.not.allocated(Chiiw)) allocate(Chiiw(Norb,0:Lmats))
+    if(.not.allocated(Chitau))allocate(Chitau(Norb+1,0:Ltau))
+    if(.not.allocated(Chiw))  allocate(Chiw(Norb+1,Lreal))
+    if(.not.allocated(Chiiw)) allocate(Chiiw(Norb+1,0:Lmats))
     Chitau=zero
     Chiw=zero
     Chiiw=zero

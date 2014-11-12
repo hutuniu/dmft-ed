@@ -5,7 +5,7 @@
 module ED_DIAG
   USE CONSTANTS
   USE MATRIX, only: matrix_diagonalize
-  USE TIMER
+  USE TIMER,  only: start_timer,stop_timer,eta
   USE IOTOOLS, only:reg,free_unit
   USE STATISTICS
   !
@@ -59,7 +59,7 @@ contains
     state_list=es_init_espace()
     oldzero=1000.d0
     numgs=0
-    if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress(LOGfile)
+    if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer()
     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
     iter=0
     sector: do isector=1,Nsect
@@ -78,7 +78,7 @@ contains
                    write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
                 endif
              else
-                call progress(iter,count(twin_mask))
+                call eta(iter,count(twin_mask),LOGfile)
              endif
           endif
        endif
@@ -133,7 +133,7 @@ contains
        if(allocated(eig_basis))deallocate(eig_basis)
        !
     enddo sector
-    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
+    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   end subroutine ed_diag_d
 
 
@@ -157,7 +157,7 @@ contains
     state_list=es_init_espace()
     oldzero=1000.d0
     numgs=0
-    if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress(LOGfile)
+    if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer()
     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
     iter=0
     sector: do isector=1,Nsect
@@ -176,7 +176,7 @@ contains
                    write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
                 endif
              else
-                call progress(iter,count(twin_mask))
+                call eta(iter,count(twin_mask),LOGfile)
              endif
           endif
        endif
@@ -231,7 +231,7 @@ contains
        if(allocated(eig_basis))deallocate(eig_basis)
        !
     enddo sector
-    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
+    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   end subroutine ed_diag_c
 
 

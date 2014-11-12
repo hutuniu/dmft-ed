@@ -64,9 +64,8 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
   !
   numstates=state_list%size
   !   
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     !if(ed_verbose<1.AND.ED_MPI_ID==0.AND.finiteT)call progress(izero,numstates)
      isect0     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -286,7 +285,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
      deallocate(HImap)
      !
   enddo
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_progress
+  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildgf_sc_d
 

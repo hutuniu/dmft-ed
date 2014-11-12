@@ -7,19 +7,19 @@ module ED_EIGENSPACE
   type sparse_estate
      integer                         :: sector        !index of the sector
      real(8)                         :: e             !energy of the eigen-state
-     real(8),dimension(:),pointer    :: vec           !double precision eigen-vector
-     complex(8),dimension(:),pointer :: cvec          !double complex eigen-vector
+     real(8),dimension(:),pointer    :: vec=>null()   !double precision eigen-vector
+     complex(8),dimension(:),pointer :: cvec=>null()  !double complex eigen-vector
      logical                         :: isreal=.true. !real*8 flag
      logical                         :: itwin=.false. !twin sector label
-     type(sparse_estate),pointer     :: twin=>null()   !link to twin box 
-     type(sparse_estate),pointer     :: next          !link to next box (chain)
+     type(sparse_estate),pointer     :: twin=>null()  !link to twin box 
+     type(sparse_estate),pointer     :: next=>null()  !link to next box (chain)
   end type sparse_estate
 
   type sparse_espace
      integer                     :: size
      real(8)                     :: emax,emin
      logical                     :: status=.false.
-     type(sparse_estate),pointer :: root !head/root of the list\== list itself
+     type(sparse_estate),pointer :: root=>null()       !head/root of the list\== list itself
   end type sparse_espace
 
 
@@ -106,7 +106,7 @@ contains        !some routine to perform simple operation on the lists
        p => space%root
        c => p%next
        if(.not.associated(c))exit  !empty list
-       p%next => c%next !
+       p%next => c%next            !
        c%next=>null()
        if(associated(c%vec))deallocate(c%vec)
        if(associated(c%cvec))deallocate(c%cvec)

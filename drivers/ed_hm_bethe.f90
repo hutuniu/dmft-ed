@@ -56,7 +56,7 @@ program lancED
      !if(iloop>1)call broyden_mix(delta(1,1,:),delta_old(1,1,:),alpha,M,iloop-1)
      !Perform the SELF-CONSISTENCY by fitting the new bath
      call chi2_fitgf(delta,bath,ispin=1)
-     call ph_symmetrize_bath(bath)
+     !call ph_symmetrize_bath(bath)
      !Check convergence (if required change chemical potential)
      converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
      if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu,converged)

@@ -21,6 +21,7 @@ module ARPACK_LANCZOS
 
   integer,allocatable :: seed_random(:)
   integer             :: nrandom
+
 contains
 
 
@@ -159,6 +160,7 @@ contains
     iparam(7) = mode1
 
     call random_seed(size=nrandom)
+    if(allocated(seed_random))deallocate(seed_random)
     allocate(seed_random(nrandom))
     seed_random=1234567
     call random_seed(put=seed_random)![1234567])
@@ -390,6 +392,7 @@ contains
 
 
     call random_seed(size=nrandom)
+    if(allocated(seed_random))deallocate(seed_random)
     allocate(seed_random(nrandom))
     seed_random=1234567
     call random_seed(put=seed_random)![1234567])
@@ -639,6 +642,7 @@ contains
     allocate(vec(n))
     !call random_seed(put=[1234567])
     call random_seed(size=nrandom)
+    if(allocated(seed_random))deallocate(seed_random)
     allocate(seed_random(nrandom))
     seed_random=1234567
     call random_seed(put=seed_random)![1234567]) 
@@ -886,6 +890,7 @@ contains
 
     !call random_seed(put=[1234567])
     call random_seed(size=nrandom)
+    if(allocated(seed_random))deallocate(seed_random)
     allocate(seed_random(nrandom))
     seed_random=1234567
     call random_seed(put=seed_random)![1234567]) 
