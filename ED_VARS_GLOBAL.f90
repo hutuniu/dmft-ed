@@ -58,7 +58,10 @@ MODULE ED_VARS_GLOBAL
 
   !Density and double occupancy
   !=========================================================
-  real(8),dimension(:),allocatable            ::  ed_dens,ed_docc,ed_phisc
+  real(8),dimension(:),allocatable            ::  ed_dens
+  real(8),dimension(:),allocatable            ::  ed_dens_up,ed_dens_dw
+  real(8),dimension(:),allocatable            ::  ed_docc
+  real(8),dimension(:),allocatable            ::  ed_phisc
 
 
   !Local energies and generalized double occupancies

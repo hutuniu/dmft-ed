@@ -7,11 +7,11 @@
 !AUTHORS  : Adriano Amaricci
 !###################################################################
 MODULE ED_GREENS_FUNCTIONS
-  USE CONSTANTS, only:one,xi,zero,pi
-  USE TIMER  
-  USE IOTOOLS, only: free_unit,reg,free_units,txtfy
-  USE ARRAYS,  only: arange,linspace
-  USE MATRIX,  only: matrix_inverse
+  USE SF_CONSTANTS, only:one,xi,zero,pi
+  USE SF_TIMER  
+  USE SF_IOTOOLS, only: free_unit,reg,free_units,txtfy
+  USE SF_ARRAYS,  only: arange,linspace
+  USE SF_LINALG,  only: matrix_inverse
   USE PLAIN_LANCZOS
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
@@ -537,7 +537,7 @@ contains
   subroutine print_chi_spin
     integer                               :: i,j,iorb
     integer                               :: unit(3)
-    if(ed_verbose<3.AND.ED_MPI_ID==0)then
+    if(ED_MPI_ID==0)then
        do iorb=1,Norb
           unit(1)=free_unit()
           open(unit(1),file="Chi_orb"//reg(txtfy(iorb))//"_tau"//reg(ed_file_suffix)//".ed")
@@ -545,7 +545,7 @@ contains
           open(unit(2),file="Chi_orb"//reg(txtfy(iorb))//"_realw"//reg(ed_file_suffix)//".ed")
           unit(3)=free_unit()
           open(unit(3),file="Chi_orb"//reg(txtfy(iorb))//"_iw"//reg(ed_file_suffix)//".ed")
-          do i=0,Ltau/2
+          do i=0,Ltau
              write(unit(1),*)tau(i),chitau(iorb,i)
           enddo
           do i=1,Lreal
@@ -558,6 +558,27 @@ contains
           close(unit(2))
           close(unit(3))
        enddo
+       if(Norb>1)then
+          iorb=Norb+1
+          unit(1)=free_unit()
+          open(unit(1),file="Chi_tot_tau"//reg(ed_file_suffix)//".ed")
+          unit(2)=free_unit()
+          open(unit(2),file="Chi_tot_realw"//reg(ed_file_suffix)//".ed")
+          unit(3)=free_unit()
+          open(unit(3),file="Chi_tot_iv"//reg(ed_file_suffix)//".ed")
+          do i=0,Ltau
+             write(unit(1),*)tau(i),chitau(iorb,i)
+          enddo
+          do i=1,Lreal
+             if(wr(i)>=0.d0)write(unit(2),*)wr(i),dimag(chiw(iorb,i)),dreal(chiw(iorb,i))
+          enddo
+          do i=0,Lmats
+             write(unit(3),*)vm(i),dimag(chiiw(iorb,i)),dreal(chiiw(iorb,i))
+          enddo
+          close(unit(1))
+          close(unit(2))
+          close(unit(3))
+       endif
     endif
   end subroutine print_chi_spin
 

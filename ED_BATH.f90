@@ -11,8 +11,8 @@
 ! N = Nspin*(Norb+1)*Nbath
 !########################################################################
 MODULE ED_BATH
-  USE CONSTANTS, only: zero
-  USE IOTOOLS, only:free_unit,reg,file_length,txtfy
+  USE SF_CONSTANTS, only: zero
+  USE SF_IOTOOLS, only:free_unit,reg,file_length,txtfy
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   implicit none
@@ -23,25 +23,25 @@ MODULE ED_BATH
      module procedure &
           delta_bath_irred_mats, & 
           delta_bath_hybrd_mats
-  end interface
+  end interface delta_bath_mats
 
   interface delta_bath_real
      module procedure &
           delta_bath_irred_real, &
           delta_bath_hybrd_real
-  end interface
+  end interface delta_bath_real
 
   interface fdelta_bath_mats
      module procedure &
           fdelta_bath_irred_mats, &
           fdelta_bath_hybrd_mats
-  end interface
+  end interface fdelta_bath_mats
 
   interface fdelta_bath_real
      module procedure &
           fdelta_bath_irred_real, &
           fdelta_bath_hybrd_real
-  end interface
+  end interface fdelta_bath_real
 
 
   public :: allocate_bath
@@ -549,7 +549,7 @@ contains
     call deallocate_bath(dmft_bath_)
   end subroutine ph_symmetrize_bath
 
-  
+
   !+- enforce a normal (i.e. non superconductive) bath -+!
   subroutine enforce_normal_bath(bath_)
     real(8),dimension(:,:) :: bath_

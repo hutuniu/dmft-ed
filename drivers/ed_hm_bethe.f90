@@ -14,30 +14,31 @@ program lancED
   logical                :: converged
   real(8)                :: wband,ts
   !Bath:
-  real(8),allocatable    :: Bath(:,:),Bath_old(:,:)
+  real(8),allocatable    :: Bath(:,:),Bath_(:,:)
   !The local hybridization function:
-  complex(8),allocatable :: Delta(:,:,:),Delta_Old(:,:,:)
+  complex(8),allocatable :: Delta(:,:,:)
   character(len=16)      :: finput
   integer                :: M
-  real(8)                :: alpha,K
-  real(8),allocatable                :: Hk(:),wt(:)
+  real(8)                :: alpha,K,wmixing
+  real(8),allocatable    :: Hk(:),wt(:)
   real(8),allocatable    :: Gtau(:)
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
   call parse_input_variable(wband,"wband",finput,default=1.d0)
-  call parse_input_variable(M,"M",finput,default=0)
-  call parse_input_variable(alpha,"ALPHA",finput,default=1.d0)
+  call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
+  ! call parse_input_variable(M,"M",finput,default=0)
+  ! call parse_input_variable(alpha,"ALPHA",finput,default=1.d0)
   !
   call ed_read_input(trim(finput))
   !Hloc=zero
 
   !Allocate Weiss Field:
   allocate(delta(Norb,Norb,Lmats))
-  allocate(delta_old(Norb,Norb,Lmats))
 
   !setup solver
   Nb=get_bath_size()
   allocate(bath(Nb(1),Nb(2)))
+  allocate(bath_(Nb(1),Nb(2)))
   call init_ed_solver(bath)
 
   !DMFT loop
@@ -50,13 +51,15 @@ program lancED
      call ed_solver(bath) 
 
      !Get the Weiss field/Delta function to be fitted (user defined)
-     delta_old=delta
      call get_delta_bethe()
 
-     !if(iloop>1)call broyden_mix(delta(1,1,:),delta_old(1,1,:),alpha,M,iloop-1)
      !Perform the SELF-CONSISTENCY by fitting the new bath
      call chi2_fitgf(delta,bath,ispin=1)
-     !call ph_symmetrize_bath(bath)
+
+     !MIXING:
+     if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
+     Bath_=Bath
+
      !Check convergence (if required change chemical potential)
      converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
      if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu,converged)
@@ -78,14 +81,15 @@ contains
   subroutine get_delta_bethe
     integer                     :: i,j,iorb
     complex(8)                  :: iw,zita,g0loc
-    complex(8),dimension(Lmats) :: gloc,sigma
+    complex(8),dimension(Lmats) :: gloc,sigma,Tiw
     complex(8),dimension(Lreal) :: grloc
     real(8)                     :: wm(Lmats),wr(Lreal),tau(0:Lmats),C0,C1,n0
-    real(8),dimension(0:Lmats)  :: sigt,gtau
+    real(8),dimension(0:Lmats)  :: sigt,gtau,Ttau
+    real(8),dimension(3)  :: Scoeff
 
-    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
-    tau(0:) = linspace(0.d0,beta,Lmats+1)
+
     do iorb=1,Norb
        do i=1,Lmats
           iw = xi*wm(i)
@@ -108,16 +112,25 @@ contains
        call splot("DOS"//reg(txtfy(iorb))//".ed",wr,-dimag(grloc)/pi)
        call splot("Delta_"//reg(txtfy(iorb))//"_iw.ed",wm,delta(iorb,iorb,:))
 
-       ! n0=ed_dens(1)/2.d0
-       ! C0=Uloc(1)*(n0-0.5d0)
-       ! C1=Uloc(1)**2*n0*(1.d0-n0)
-       ! print*,n0,C0,C1
-       ! sigma = impSmats(1,1,iorb,iorb,:)  - C1/(xi*wm) - C0
-       ! call fftgf_iw2tau(sigma,sigt(0:),beta,notail=.true.)
-       ! sigt=sigt-C1*0.5d0
-       ! call splot("Sigma_"//reg(txtfy(iorb))//"_tau.ed",tau,sigt)
-       ! call fftgf_tau2iw(sigt(0:),sigma,beta)
-       ! call splot("Sigma_"//reg(txtfy(iorb))//"_iw.ed",wm,sigma)
+
+       tau(0:) = linspace(0.d0,beta,Lmats+1)
+
+       C0=Uloc(1)*(ed_dens_up(1)-0.5d0)
+       C1=Uloc(1)**2*ed_dens_up(1)*(1.d0-ed_dens_dw(1))
+       Tiw=dcmplx(C0,-C1/wm)
+       call splot("Tail_"//reg(txtfy(iorb))//"_iw.ed",wm,Tiw)
+
+       Ttau = -C1/2.d0
+       Sigma = impSmats(1,1,iorb,iorb,:)  - Tiw
+       call fftgf_iw2tau(Sigma,Sigt(0:),beta,notail=.true.)
+       Sigt=Sigt + Ttau
+       call splot("Sigma_"//reg(txtfy(iorb))//"_tau.ed",tau,sigt)
+
+       Sigt=Sigt !+ Ttau
+       call fftgf_tau2iw(sigt(0:),sigma,beta)
+       Sigma=Sigma !+ Tiw
+       call splot("Sigma_"//reg(txtfy(iorb))//"_iw.ed",wm,sigma)
+
 
        call fftgf_iw2tau(gloc,gtau(0:),beta)
        call splot("Gloc_tau.ed",tau(0:),gtau(0:))
@@ -126,6 +139,9 @@ contains
 
   end subroutine get_delta_bethe
   !+----------------------------------------+
+
+
+
 
 
 

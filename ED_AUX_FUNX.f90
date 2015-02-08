@@ -3,8 +3,8 @@
 !AUTHORS  : Adriano Amaricci
 !########################################################################
 MODULE ED_AUX_FUNX
-  USE TIMER
-  USE IOTOOLS, only:free_unit,reg
+  USE SF_TIMER
+  USE SF_IOTOOLS, only:free_unit,reg
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   implicit none
@@ -12,25 +12,25 @@ MODULE ED_AUX_FUNX
 
   interface print_state_vector
      module procedure print_state_vector_ivec,print_state_vector_int
-  end interface
+  end interface print_state_vector
 
   interface set_Hloc
-     module procedure set_Hloc_1,set_Hloc_2
-  end interface
+     module procedure set_Hloc_1,set_Hloc_2,set_Hloc_3d,set_Hloc_3c
+  end interface set_Hloc
 
   interface get_Hloc
      module procedure get_Hloc_1,get_Hloc_2
-  end interface
+  end interface get_Hloc
 
   interface get_sigma
      module procedure get_sigma_1,get_sigma_2,get_sigma_1_,get_sigma_2_
-  end interface
-  
+  end interface get_sigma
+
   interface set_sigma
      module procedure set_sigma_1,set_sigma_2,set_sigma_1_,set_sigma_2_
-  end interface
-  
-  
+  end interface set_sigma
+
+
   public :: print_Hloc
   public :: set_Hloc
   public :: get_Hloc  
@@ -216,7 +216,7 @@ contains
 
 
     !allocate observables
-    allocate(ed_dens(Norb),ed_docc(Norb),ed_phisc(Norb))
+    allocate(ed_dens(Norb),ed_docc(Norb),ed_phisc(Norb),ed_dens_up(Norb),ed_dens_dw(Norb))
 
   end subroutine init_ed_structure
 
@@ -283,7 +283,20 @@ contains
     write(LOGfile,*)"Updated impHloc:"
     call print_Hloc(impHloc)
   end subroutine set_Hloc_2
-
+  !
+  subroutine set_Hloc_3d(hloc)
+    real(8) :: hloc
+    impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = hloc
+    write(LOGfile,*)"Updated impHloc:"
+    call print_Hloc(impHloc)
+  end subroutine set_Hloc_3d
+  !
+  subroutine set_Hloc_3c(hloc)
+    complex(8) :: hloc
+    impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = hloc
+    write(LOGfile,*)"Updated impHloc:"
+    call print_Hloc(impHloc)
+  end subroutine set_Hloc_3c
 
 
 
@@ -403,9 +416,9 @@ contains
     if(size(sigma,1)/=Norb.OR.size(sigma,2)/=Norb)stop "get_impSigma error: wrong Norb dimensions of Sigma"
     if(size(sigma,3)/=Lmats.OR.size(sigma,3)/=Lreal) stop "get_impSigma error: wrong Lfreq dimensions of Sigma"
     if(size(sigma,3)==Lmats) then
-        sigma(1:Norb,1:Norb,1:Lmats)=impSmats(ispin,ispin,1:Norb,1:Norb,1:Lmats) 
+       sigma(1:Norb,1:Norb,1:Lmats)=impSmats(ispin,ispin,1:Norb,1:Norb,1:Lmats) 
     else
-        sigma(1:Norb,1:Norb,1:Lreal)=impSreal(ispin,ispin,1:Norb,1:Norb,1:Lreal) 
+       sigma(1:Norb,1:Norb,1:Lreal)=impSreal(ispin,ispin,1:Norb,1:Norb,1:Lreal) 
     end if
     write(LOGfile,*)"Updated impSigma"
   end subroutine get_sigma_1
@@ -440,7 +453,7 @@ contains
     end if
     !
     if(size(sigmaA,3)==Lmats) then
-        sigmaA(1:Norb,1:Norb,1:Lmats)=impSAmats(ispin,ispin,1:Norb,1:Norb,1:Lmats) 
+       sigmaA(1:Norb,1:Norb,1:Lmats)=impSAmats(ispin,ispin,1:Norb,1:Norb,1:Lmats) 
     else
        sigmaA(1:Norb,1:Norb,1:Lreal)=impSAreal(ispin,ispin,1:Norb,1:Norb,1:Lreal) 
     end if
@@ -463,9 +476,9 @@ contains
     end if
     !
     if(size(sigmaA,5)==Lmats) then
-        sigmaA(1:Nspin,1:Nspin,1:Norb,1:Norb,1:Lmats)=impSAmats(1:Nspin,1:Nspin,1:Norb,1:Norb,1:Lmats) 
+       sigmaA(1:Nspin,1:Nspin,1:Norb,1:Norb,1:Lmats)=impSAmats(1:Nspin,1:Nspin,1:Norb,1:Norb,1:Lmats) 
     else
-        sigmaA(1:Nspin,1:Nspin,1:Norb,1:Norb,1:Lreal)=impSAreal(1:Nspin,1:Nspin,1:Norb,1:Norb,1:Lreal) 
+       sigmaA(1:Nspin,1:Nspin,1:Norb,1:Norb,1:Lreal)=impSAreal(1:Nspin,1:Nspin,1:Norb,1:Norb,1:Lreal) 
     end if
     write(LOGfile,*)"Updated impSigma"
   end subroutine get_sigma_2_
@@ -578,7 +591,7 @@ contains
        neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
     enddo
     twin_mask=.true.
-    !<TODO
+    !<TODO 
     !build the twin sector statements in the Superconducting channel.
     !>TODO
     if(ED_MPI_ID==0)call stop_timer

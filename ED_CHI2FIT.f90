@@ -18,10 +18,10 @@
 !
 !########################################################################
 MODULE ED_CHI2FIT
-  USE CONSTANTS
-  USE OPTIMIZE, only:fmin_cg,fmin_cgplus,fmin_cgminimize
-  USE MATRIX,   only:matrix_inverse
-  USE IOTOOLS,  only:reg,free_unit,txtfy
+  USE SF_CONSTANTS
+  USE SF_OPTIMIZE, only:fmin_cg,fmin_cgplus,fmin_cgminimize
+  USE SF_LINALG,   only:matrix_inverse
+  USE SF_IOTOOLS,  only:reg,free_unit,txtfy
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_BATH
@@ -78,7 +78,7 @@ contains
     !marks the ends of the cycle of the 1st DMFT loop.
     trim_state_list=.true.
   end subroutine chi2_fitgf_
-  
+
   subroutine chi2_fitgf__(fg,bath,ispin)
     complex(8),dimension(:,:,:,:)          :: fg
     real(8),dimension(:,:),intent(inout) :: bath
@@ -965,4 +965,4 @@ contains
 
 
 
-   end MODULE ED_CHI2FIT
+end MODULE ED_CHI2FIT

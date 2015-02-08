@@ -2,9 +2,9 @@
 !PURPOSE  : Obtain some physical quantities and print them out
 !########################################################################
 MODULE ED_OBSERVABLES
-  USE CONSTANTS, only:zero,pi,xi
-  USE IOTOOLS, only:free_unit,reg,txtfy
-  USE ARRAYS, only: arange
+  USE SF_CONSTANTS, only:zero,pi,xi
+  USE SF_IOTOOLS, only:free_unit,reg,txtfy
+  USE SF_ARRAYS, only: arange
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
@@ -212,7 +212,7 @@ contains
        call write_observables()
        write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(ed_file_suffix)//"=",(dens(iorb),iorb=1,Norb),sum(dens)
        if(ed_supercond)then
-          write(LOGfile,"(A,20f18.12,A)")    "phi "//reg(ed_file_suffix)//"=",(phisc(iorb),iorb=1,Norb),(uloc(iorb)*phisc(iorb),iorb=1,Norb)
+          write(LOGfile,"(A,20f18.12,A)")    "phi "//reg(ed_file_suffix)//"=",(phisc(iorb),iorb=1,Norb),(abs(uloc(iorb))*phisc(iorb),iorb=1,Norb)
        else
           write(LOGfile,"(A,10f18.12,A)")    "docc"//reg(ed_file_suffix)//"=",(docc(iorb),iorb=1,Norb)       
        endif
@@ -224,9 +224,11 @@ contains
     endif
     !
     do iorb=1,Norb
-       ed_dens(iorb)=dens(iorb)
-       ed_docc(iorb)=docc(iorb)
-       ed_phisc(iorb)=phisc(iorb)
+       ed_dens_up(iorb)=dens_up(iorb)
+       ed_dens_dw(iorb)=dens_dw(iorb)
+       ed_dens(iorb)   =dens(iorb)
+       ed_docc(iorb)   =docc(iorb)
+       ed_phisc(iorb)  =phisc(iorb)
     enddo
     !
     deallocate(dens,docc,phisc,dens_up,dens_dw,magz,sz2,n2)

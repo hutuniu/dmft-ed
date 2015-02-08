@@ -2,10 +2,10 @@
 !PURPOSE  : Obtain some physical quantities and print them out
 !########################################################################
 MODULE ED_ENERGY
-  USE CONSTANTS, only:zero,pi,xi
-  USE IOTOOLS, only:free_unit,reg,txtfy
-  USE ARRAYS, only: arange
-  USE MATRIX, only: matrix_inverse
+  USE SF_CONSTANTS, only:zero,pi,xi
+  USE SF_IOTOOLS, only:free_unit,reg,txtfy
+  USE SF_ARRAYS, only: arange
+  USE SF_LINALG, only: matrix_inverse
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
@@ -17,7 +17,7 @@ MODULE ED_ENERGY
   !
   interface kinetic_energy_impurity
      module procedure kinetic_energy_impurity_normal,kinetic_energy_impurity_superc
-  end interface
+  end interface kinetic_energy_impurity
   !
   public  :: local_energy_impurity
   public  :: kinetic_energy_impurity
@@ -260,7 +260,7 @@ contains
     H0=0d0
     Zk=0d0 ; forall(i=1:No)Zk(i,i)=1d0
     do ik=1,Lk
-       Ak= Hk(:,:,ik)
+       ! Ak= Hk(:,:,ik)
        Bk=-Hk(:,:,ik)-Sigma_HF(:,:)
        do i=1,Liw
           Gk = (xi*wm(i)+xmu)*Zk(:,:) - Hk(:,:,ik) - Sigma(:,:,i)
@@ -271,7 +271,7 @@ contains
              Gk = 1d0/Gk
           end select
           Tk = Zk(:,:)/(xi*wm(i)) - Bk(:,:)/(xi*wm(i))**2
-          Ck = matmul(Ak,Gk - Tk)
+          Ck = matmul(Hk(:,:,ik),Gk - Tk)!matmul(Ak,Gk - Tk)
           H0 = H0 + Wtk(ik)*trace_matrix(Ck,No)
        enddo
     enddo

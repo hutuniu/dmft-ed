@@ -1,12 +1,9 @@
-#COMPILER (PARALLEL)
-FC=gfortran
-#PRECOMPILATION FLAG (leave blank for serial code)
-FPP=
+include make.inc
 
 #--> HUBBARD MODELS:
 #EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
-#EXE=ed_ahm_square
+EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
 #EXE=ed_hm_2b_cubic
 #EXE=ed_hm_bethe_afm
@@ -20,14 +17,14 @@ FPP=
 #EXE=ed_tddpam_bethe
 #--> B-H-Z MODELS
 #EXE=ed_2x2bhz
-EXE=ed_bhz
+#EXE=ed_bhz
 #EXE=ed_bhz_afm
 
 
 DIR =drivers
 DIREXE=$(HOME)/.bin
 
-.SUFFIXES: .f90
+
 
 #REVISION SOFTWARE GIT:
 BRANCH=$(shell git rev-parse --abbrev-ref HEAD)
@@ -35,22 +32,6 @@ VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 
 OBJS= MATRIX_SPARSE.o ED_BATH_TYPE.o ED_VARS_GLOBAL.o ED_INPUT_VARS.o ARPACK_LANCZOS.o PLAIN_LANCZOS.o ED_AUX_FUNX.o ED_EIGENSPACE.o ED_BATH.o ED_MATVEC.o ED_HAMILTONIAN.o ED_GREENS_FUNCTIONS.o ED_OBSERVABLES.o ED_ENERGY.o ED_CHI2FIT.o ED_DIAG.o ED_MAIN.o DMFT_ED.o
 
-#Intel IFORT version:
-#uncomment if you link against MKL
-#MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
-#INCARGS=
-#FFLAG +=-fpp -D_$(FPP) $(INCARGS)
-
-
-
-# #GNU Fortran version:
-INCARGS=-I/opt/scifor/gnu/include -I/opt/dmft_tools/gnu/include
-FFLAG +=-ffree-line-length-none -cpp -D_$(FPP) $(INCARGS)
-
-
-#CHOOSE LINKING OPTIONS:
-#ARGS=-ldmftt -lscifor $(MKLARGS) -lminpack -larpack -lparpack 
-ARGS= -ldmftt -lscifor -lfftpack -llapack -lblas -lminpack -larpack -lparpack
 
 all:compile
 

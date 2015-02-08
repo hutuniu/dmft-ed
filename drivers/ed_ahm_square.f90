@@ -4,17 +4,19 @@
 !###################################################################
 program lancED
   USE DMFT_ED
-  USE CONSTANTS
-  USE IOTOOLS
-  USE FUNCTIONS
-  USE TOOLS
-  USE INTEGRATE
-  USE TIMER
-  USE MATRIX
-  USE ERROR
-  USE ARRAYS
-  USE SQUARE_LATTICE
-  USE FFTGF
+  ! USE CONSTANTS
+  ! USE IOTOOLS
+  ! USE FUNCTIONS
+  ! USE TOOLS
+  ! USE INTEGRATE
+  ! USE TIMER
+  ! USE MATRIX
+  ! USE ERROR
+  ! USE ARRAYS
+  ! USE SQUARE_LATTICE
+  ! USE FFTGF
+  USE SCIFOR
+  USE DMFT_TOOLS
   implicit none
   integer                :: iloop,Nb(2),Lk,Nx
   logical                :: converged
@@ -25,17 +27,17 @@ program lancED
   complex(8),allocatable :: Delta(:,:,:,:)
   character(len=16)      :: finput,fhloc
   logical :: phsym,normal_bath
-  real(8),allocatable    :: Hk(:),wt(:),epsik(:)
+  real(8),allocatable    :: Hk(:),wt(:),kxgrid(:),kygrid(:)
 
-  call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
+  call parse_cmd_variable(finput,"FINPUT",default='inputED.conf')
   call parse_input_variable(wmixing,"wmixing",finput,default=1.d0,comment="Mixing bath parameter")
-  call parse_input_variable(ts,"TS",finput,default=1.d0,comment="hopping parameter")
+  call parse_input_variable(ts,"TS",finput,default=0.5d0,comment="hopping parameter")
   call parse_input_variable(Nx,"Nx",finput,default=10,comment="Number of kx point for 2d BZ integration")
   call parse_input_variable(phsym,"phsym",finput,default=.false.,comment="Flag to enforce p-h symmetry of the bath.")
   call parse_input_variable(normal_bath,"normal",finput,default=.false.,comment="Flag to enforce no symmetry braking in the bath.")
   !
   call ed_read_input(trim(finput))
-  
+
   !Allocate Weiss Field:
   allocate(delta(2,Norb,Norb,Lmats))
 
@@ -44,12 +46,19 @@ program lancED
   allocate(bath(Nb(1),Nb(2)))
   allocate(bathold(Nb(1),Nb(2)))
   call init_ed_solver(bath)
-  
-  Lk = square_lattice_dimension(Nx)
-  allocate(epsik(Lk),wt(Lk))
-  wt = square_lattice_structure(Lk,Nx)
-  epsik = square_lattice_dispersion_array(Lk,ts)
-  
+
+
+  Lk = Nx*Nx
+  allocate(Hk(Lk),Wt(Lk))
+  allocate(kxgrid(Nx),kygrid(Nx))
+  write(*,*) "Using Nk_total="//txtfy(Lk)
+  kxgrid = kgrid(Nx)
+  kygrid = kgrid(Nx)
+  Hk     = build_hk_model(Lk,hk_model,kxgrid,kygrid,[0d0])
+  Wt     = 1d0/Lk
+  call write_hk_w90("Hk2d.dat",1,2,1,dcmplx(Hk,0d0),kxgrid,kygrid,[0d0])
+  call get_free_dos(Hk,Wt)
+
   !DMFT loop
   iloop=0;converged=.false.
   do while(.not.converged.AND.iloop<nloop)
@@ -58,7 +67,7 @@ program lancED
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solver(bath) 
-     
+
      !Get the Weiss field/Delta function to be fitted (user defined)
      call get_delta
 
@@ -79,9 +88,25 @@ program lancED
   !call get_sc_optical_conductivity
   !call get_sc_internal_energy(Lmats)
 
-  call  ed_kinetic_energy_sc(impSmats(1,1,1,1,:),impSAmats(1,1,1,1,:),epsik,wt)
+  call  ed_kinetic_energy_sc(impSmats(1,1,1,1,:),impSAmats(1,1,1,1,:),Hk,wt)
 
 contains
+
+
+  !-------------------------------------------------------------------------------------------
+  !PURPOSE:  Hk model for the 2d square lattice
+  !-------------------------------------------------------------------------------------------
+  function hk_model(kpoint) result(hk)
+    real(8),dimension(:) :: kpoint
+    integer              :: N
+    real(8)              :: kx,ky
+    complex(8)           :: hk
+    kx=kpoint(1)
+    ky=kpoint(2)
+    Hk = -one*2d0*ts*(cos(kx)+cos(ky))
+  end function hk_model
+
+
 
   !+----------------------------------------+
   subroutine get_delta
@@ -102,8 +127,8 @@ contains
        zita    = iw + xmu - Hloc(1,1) - impSmats(1,1,1,1,i) 
        gloc(:,i)=zero
        do ik=1,Lk
-          cdet = abs(zita-epsik(ik))**2 + impSAmats(1,1,1,1,i)**2
-          gloc(1,i)=gloc(1,i) + wt(ik)*(conjg(zita)-epsik(ik))/cdet
+          cdet = abs(zita-Hk(ik))**2 + impSAmats(1,1,1,1,i)**2
+          gloc(1,i)=gloc(1,i) + wt(ik)*(conjg(zita)-Hk(ik))/cdet
           gloc(2,i)=gloc(2,i) - wt(ik)*impSAmats(1,1,1,1,i)/cdet
        enddo
        if(cg_scheme=='weiss')then
@@ -128,8 +153,8 @@ contains
        zita2 = conjg(zeta(Lreal+1-i))
        grloc(:,i) = zero
        do ik=1,Lk
-          cdet = (zita1-epsik(ik))*(zita2-epsik(ik)) + impSAreal(1,1,1,1,i)*impSAreal(1,1,1,1,i)
-          grloc(1,i) = grloc(1,i) + wt(ik)*(zita2-epsik(ik))/cdet
+          cdet = (zita1-Hk(ik))*(zita2-Hk(ik)) + impSAreal(1,1,1,1,i)*impSAreal(1,1,1,1,i)
+          grloc(1,i) = grloc(1,i) + wt(ik)*(zita2-Hk(ik))/cdet
           grloc(2,i) = grloc(2,i) + wt(ik)*impSAreal(1,1,1,1,i)/cdet
        enddo
     enddo
@@ -288,21 +313,21 @@ contains
   !      kin    = kin    + wt(ik)*n_k(ik)*epsik(ik)
   !      Ds=Ds + 8.d0/beta* wt(ik)*vertex*Dssum
   !   enddo
-    
+
   !   kinsim=0.d0
   !   kinsim = sum(fg(1,:)*fg(1,:)+conjg(fg(1,:)*fg(1,:))-2.d0*fg(2,:)*fg(2,:))*2.d0*ts**2/beta
-    
+
   !   Epot=zero
   !   Epot = sum(fg(1,:)*sigma(1,:) + fg(2,:)*sigma(2,:))/beta*2.d0
-    
+
   !   docc = 0.5d0*n**2
   !   if(u > 0.01d0)docc=-Epot/u + n - 0.25d0
-    
+
   !   Eint=kin+Epot
-    
+
   !   Ds=zero
   !   Ds = sum(fg(2,:)*fg(2,:))/beta*2.d0
-    
+
   !   write(*,*)"Asymptotic Self-Energies",Sigma_infty, S_infty
   !   write(*,*)"n,delta",n,delta
   !   write(*,*)"Dn% ,Ddelta%",(n-0.5d0*checkdens)/n,(delta + u*checkP)/delta ! u is positive
@@ -331,7 +356,7 @@ contains
   !   close(300)
   !   return 
   ! end subroutine get_sc_internal_energy
-  
+
   ! elemental function istep(x) result(out)
   !   real(8),intent(in) :: x
   !   real(8)            :: out

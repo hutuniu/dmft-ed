@@ -562,7 +562,7 @@ contains
 
 
 
-    if(.true.)then
+    if(.false.)then
        call build_hk
        allocate(Ipoles3d(Nk,Nk))
        allocate(Mpoles3d(Nk,Nk,Linterval))

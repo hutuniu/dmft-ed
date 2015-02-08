@@ -3,11 +3,11 @@
 !|{ImpUP1,...,ImpUPN},BathUP>|{ImpDW1,...,ImpDWN},BathDW>
 !########################################################################
 module ED_DIAG
-  USE CONSTANTS
-  USE MATRIX, only: matrix_diagonalize
-  USE TIMER,  only: start_timer,stop_timer,eta
-  USE IOTOOLS, only:reg,free_unit
-  USE STATISTICS
+  USE SF_CONSTANTS
+  USE SF_LINALG, only: matrix_diagonalize
+  USE SF_TIMER,  only: start_timer,stop_timer,eta
+  USE SF_IOTOOLS, only:reg,free_unit
+  USE SF_STAT
   !
   USE ARPACK_LANCZOS
   USE ED_INPUT_VARS
@@ -66,20 +66,18 @@ contains
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        if(ED_MPI_ID==0)then
-          if(ed_verbose<2)then
-             if(ed_verbose<1)then
-                dim      = getdim(isector)
-                if(.not.ed_supercond)then
-                   nup0  = getnup(isector)
-                   ndw0  = getndw(isector)
-                   write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
-                else
-                   sz0   = getsz(isector)
-                   write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
-                endif
+          if(ed_verbose<0)then
+             dim      = getdim(isector)
+             if(.not.ed_supercond)then
+                nup0  = getnup(isector)
+                ndw0  = getndw(isector)
+                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
              else
-                call eta(iter,count(twin_mask),LOGfile)
+                sz0   = getsz(isector)
+                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
              endif
+          elseif(ed_verbose<2)then
+             call eta(iter,count(twin_mask),LOGfile)
           endif
        endif
        Tflag    = twin_mask(isector).AND.ed_twin.AND.(getnup(isector)/=getndw(isector))
@@ -164,20 +162,18 @@ contains
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        if(ED_MPI_ID==0)then
-          if(ed_verbose<2)then
-             if(ed_verbose<1)then
-                dim      = getdim(isector)
-                if(.not.ed_supercond)then
-                   nup0  = getnup(isector)
-                   ndw0  = getndw(isector)
-                   write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
-                else
-                   sz0   = getsz(isector)
-                   write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
-                endif
+          if(ed_verbose<0)then
+             dim      = getdim(isector)
+             if(.not.ed_supercond)then
+                nup0  = getnup(isector)
+                ndw0  = getndw(isector)
+                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
              else
-                call eta(iter,count(twin_mask),LOGfile)
+                sz0   = getsz(isector)
+                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
              endif
+          elseif(ed_verbose<2)then
+             call eta(iter,count(twin_mask),LOGfile)
           endif
        endif
        Tflag    = twin_mask(isector).AND.ed_twin.AND.(getnup(isector)/=getndw(isector))

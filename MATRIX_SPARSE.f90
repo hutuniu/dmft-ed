@@ -4,7 +4,7 @@
 !!but we still miss some elementary action such as +update_value, +check_value_exist, +delete_value
 !!that I am not gonna use in ED code (for which this module is developed).
 MODULE MATRIX_SPARSE
-  USE CONSTANTS, only:zero
+  USE SF_CONSTANTS, only:zero
 #ifdef _MPI
   USE MPI
 #endif

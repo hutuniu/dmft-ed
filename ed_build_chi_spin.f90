@@ -7,7 +7,6 @@ subroutine build_chi_spin()
   verbose=.false.;if(ed_verbose<1)verbose=.true.
   write(LOGfile,"(A)")"Get impurity Chi:"
   do iorb=1,Norb
-     if(ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))
      select case(ed_type)
      case default
         call lanc_ed_buildchi_d(iorb,verbose)
@@ -50,6 +49,7 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
   !
   iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
+  if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))//":"
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -303,9 +303,8 @@ subroutine add_to_lanczos_chi(vnorm,Ei,nlanc,alanc,blanc,iorb)
         iw=dcmplx(wr(i),eps)
         chiw(iorb,i)=chiw(iorb,i) + peso*(exp(-beta*de)-1.d0)/(iw-de)
      enddo
-     !
      do i=0,Ltau
-        chitau(iorb,i)=chitau(iorb,i) + peso*exp(-tau(i)*de)
+        chitau(iorb,i)=chitau(iorb,i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
      enddo
   enddo
 end subroutine add_to_lanczos_chi

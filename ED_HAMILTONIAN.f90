@@ -4,7 +4,7 @@
 ! |1,2;3...Ns>_UP * |Ns+1,Ns+2;Ns+3,...,2*Ns>_DOWN
 !########################################################################
 MODULE ED_HAMILTONIAN
-  USE CONSTANTS,only:zero
+  USE SF_CONSTANTS,only:zero
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_BATH
