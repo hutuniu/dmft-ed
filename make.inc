@@ -1,5 +1,5 @@
 #COMPILER (PARALLEL)
-FC=gfortran
+FC=mpif90
 PLAT=gnu
 #PRECOMPILATION FLAG (leave blank for serial code)
 FPP=

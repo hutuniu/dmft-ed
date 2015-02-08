@@ -1,9 +1,10 @@
-MODULE ED_VARS_GLOBAL  
+MODULE ED_VARS_GLOBAL
+  USE SF_CONSTANTS
   USE ED_BATH_TYPE
   USE MATRIX_SPARSE
-#ifdef _MPI
+  !#ifdef _MPI
   USE MPI
-#endif
+  !#endif
   implicit none
 
   !SIZE OF THE PROBLEM
@@ -17,6 +18,10 @@ MODULE ED_VARS_GLOBAL
   integer                                     :: Nsect
   integer                                     :: Nbo
 
+
+  !Lattice size:
+  !=========================================================
+  integer                                     :: Nlat
 
   !local part of the Hamiltonian
   !=========================================================
@@ -80,6 +85,25 @@ MODULE ED_VARS_GLOBAL
   integer                                     :: ED_MPI_ID=0
   integer                                     :: ED_MPI_SIZE=1
   integer                                     :: ED_MPI_ERR
-  !#endif  
+  !#endif
+
+
+
+  !Symmetry operations
+  !=========================================================
+  integer                                 :: Nsymm,Nindep
+  integer,allocatable,dimension(:)        :: indep_list
+  integer,dimension(:),allocatable        :: map_lat2ind
+  integer,dimension(:,:),allocatable      :: map_ind2lat
+
+
+  !OBSOLETE (to be removed associated to build_tight_binding_2dsquare)
+  !Large matrices for Lattice Hamiltonian/GF
+  !=========================================================
+  integer,dimension(:),allocatable        :: icol,irow
+  integer,dimension(:,:),allocatable      :: ij2site
+  real(8),dimension(:,:),allocatable      :: H0
+  complex(8),dimension(:,:,:),allocatable :: Hk,Hk_
+
 
 END MODULE ED_VARS_GLOBAL

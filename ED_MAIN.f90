@@ -12,23 +12,9 @@ module ED_MAIN
   implicit none
   private
 
-  interface ed_kinetic_energy
-     module procedure &
-          ed_kinetic_energy_d1,ed_kinetic_energy_d1_,&
-          ed_kinetic_energy_dm,ed_kinetic_energy_dm_,&
-          ed_kinetic_energy_c1,ed_kinetic_energy_c1_,&
-          ed_kinetic_energy_cm,ed_kinetic_energy_cm_
-  end interface
-
-  interface ed_kinetic_energy_sc
-     module procedure &
-          ed_kinetic_energy_d1_sc,ed_kinetic_energy_d1_sc_
-  end interface
 
   public :: init_ed_solver
   public :: ed_solver
-  public :: ed_kinetic_energy
-  public :: ed_kinetic_energy_sc
   
 
 contains
@@ -99,120 +85,6 @@ contains
 
 
 
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : 
-  !+------------------------------------------------------------------+
-  subroutine ed_kinetic_energy_d1(Sigma,Hk)
-    complex(8),dimension(:)               :: Sigma
-    real(8),dimension(:)                  :: Hk
-    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Hk))    :: Hk_
-    real(8),dimension(size(Hk))           :: Wtk_
-    Wtk_          = 1d0/dble(size(Hk))
-    Sigma_(1,1,:) = Sigma
-    Hk_(1,1,:)    = Hk
-    call kinetic_energy_impurity(Hk_,Wtk_,Sigma_)
-  end subroutine ed_kinetic_energy_d1
-  !
-  subroutine ed_kinetic_energy_dm(Sigma,Hk)
-    complex(8),dimension(:,:,:)   :: Sigma
-    real(8),dimension(:,:,:)      :: Hk
-    real(8),dimension(size(Hk,3)) :: Wtk_
-    Wtk_          = 1d0/dble(size(Hk))
-    call kinetic_energy_impurity(dcmplx(1d0,0d0)*Hk,Wtk_,Sigma)
-  end subroutine ed_kinetic_energy_dm
-  !
-  subroutine ed_kinetic_energy_d1_(Sigma,Hk,Wtk)
-    complex(8),dimension(:)               :: Sigma
-    real(8),dimension(:)                  :: Hk
-    real(8),dimension(:)                  :: Wtk
-    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Hk))    :: Hk_
-    Sigma_(1,1,:) = Sigma
-    Hk_(1,1,:)    = Hk
-    call kinetic_energy_impurity(Hk_,Wtk,Sigma_)
-  end subroutine ed_kinetic_energy_d1_
-  !
-  subroutine ed_kinetic_energy_dm_(Sigma,Hk,Wtk)
-    complex(8),dimension(:,:,:) :: Sigma
-    real(8),dimension(:,:,:)    :: Hk
-    real(8),dimension(:)        :: Wtk
-    call kinetic_energy_impurity(dcmplx(1d0,0d0)*Hk,Wtk,Sigma)
-  end subroutine ed_kinetic_energy_dm_
-  !
-  subroutine ed_kinetic_energy_c1(Sigma,Hk)
-    complex(8),dimension(:)               :: Sigma
-    complex(8),dimension(:)               :: Hk
-    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Hk))    :: Hk_
-    real(8),dimension(size(Hk))           :: Wtk_
-    Wtk_          = 1d0/dble(size(Hk))
-    Sigma_(1,1,:) = Sigma
-    Hk_(1,1,:)    = Hk
-    call kinetic_energy_impurity(Hk_,Wtk_,Sigma_)
-  end subroutine ed_kinetic_energy_c1
-  !
-  subroutine ed_kinetic_energy_cm(Sigma,Hk)
-    complex(8),dimension(:,:,:)   :: Sigma
-    complex(8),dimension(:,:,:)   :: Hk
-    real(8),dimension(size(Hk,3)) :: Wtk_
-    Wtk_          = 1d0/dble(size(Hk))
-    call kinetic_energy_impurity(Hk,Wtk_,Sigma)
-  end subroutine ed_kinetic_energy_cm
-  !
-  subroutine ed_kinetic_energy_c1_(Sigma,Hk,Wtk)
-    complex(8),dimension(:)               :: Sigma
-    complex(8),dimension(:)               :: Hk
-    real(8),dimension(:)                  :: Wtk
-    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Hk))    :: Hk_
-    Sigma_(1,1,:) = Sigma
-    Hk_(1,1,:)    = Hk
-    call kinetic_energy_impurity(Hk_,Wtk,Sigma_)
-  end subroutine ed_kinetic_energy_c1_
-  !
-  subroutine ed_kinetic_energy_cm_(Sigma,Hk,Wtk)
-    complex(8),dimension(:,:,:) :: Sigma
-    complex(8),dimension(:,:,:) :: Hk
-    real(8),dimension(:)        :: Wtk
-    call kinetic_energy_impurity(Hk,Wtk,Sigma)
-  end subroutine ed_kinetic_energy_cm_
-
-
-
-  subroutine ed_kinetic_energy_d1_sc(Sigma,SigmaA,Hk)
-    complex(8),dimension(:)                :: Sigma,SigmaA
-    real(8),dimension(:)                     :: Hk
-    complex(8),dimension(1,1,size(Sigma))    :: Sigma_
-    complex(8),dimension(1,1,size(SigmaA)) :: SigmaA_
-    complex(8),dimension(1,1,size(Hk))     :: Hk_
-    real(8),dimension(size(Hk))            :: Wtk_
-    if(size(Sigma)/=size(SigmaA)) stop "ed_kinetic_energy_sc: Normal and Anomalous self-energies have different size!"
-    Wtk_           = 1d0/dble(size(Hk))
-    Sigma_(1,1,:)  = Sigma(:)
-    SigmaA_(1,1,:) = SigmaA(:)
-    Hk_(1,1,:)     = Hk
-    call kinetic_energy_impurity(Hk_,Wtk_,Sigma_,SigmaA_)
-  end subroutine ed_kinetic_energy_d1_sc
-
-
-  subroutine ed_kinetic_energy_d1_sc_(Sigma,SigmaA,Hk,Wtk)
-    complex(8),dimension(:)                  :: Sigma,SigmaA
-    real(8),dimension(:)                     :: Hk
-    real(8),dimension(:)                     :: Wtk
-    complex(8),dimension(1,1,size(Sigma))  :: Sigma_
-    complex(8),dimension(1,1,size(SigmaA))  :: SigmaA_
-    complex(8),dimension(1,1,size(Hk))       :: Hk_
-    real(8),dimension(size(Hk))              :: Wtk_
-    if(size(Sigma)/=size(SigmaA)) stop "ed_kinetic_energy_sc: Normal and Anomalous self-energies have different size!"
-    Sigma_(1,1,:)  = Sigma(:)
-    SigmaA_(1,1,:) = SigmaA(:)
-    Hk_(1,1,:)     = Hk
-    call kinetic_energy_impurity(Hk_,Wtk,Sigma_,SigmaA_)
-  end subroutine ed_kinetic_energy_d1_sc_
 
 
 
