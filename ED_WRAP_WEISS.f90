@@ -1,36 +1,29 @@
-!###############################################################
-! PROGRAM  : RDMFT_FUNX
-! PURPOSE  : Compute Local GFunction for generel real-space scheme
-!###############################################################
 module ED_WRAP_WEISS
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE SF_ARRAYS,    only: arange
   USE SF_TIMER
-  USE SF_IOTOOLS,   only:reg,sread,free_unit
   USE SF_LINALG,    only:matrix_inverse,matrix_inverse_sym,matrix_diagonalize,matrix_inverse_gj
   implicit none
   private
 
 
-  interface ed_get_weiss_normal
-     module procedure ed_get_weiss_field_normal_eloc,ed_get_weiss_field_normal_hloc
-  end interface ed_get_weiss_normal
-
-  interface ed_get_weiss_superc
-     module procedure ed_get_weiss_field_superc_eloc,ed_get_weiss_field_superc_hloc
-  end interface ed_get_weiss_superc
-  public :: ed_get_weiss_normal
-  public :: ed_get_weiss_superc
-
-
-
-  !OBSOLETE:
-  interface rdmft_get_weiss_field
-     module procedure rdmft_get_weiss_field_normal,rdmft_get_weiss_field_superc
-  end interface rdmft_get_weiss_field
-  public :: rdmft_get_weiss_field
-  public :: rdmft_get_weiss_field_mb
+  interface ed_get_weiss_lattice
+     module procedure &
+          ed_get_weiss_field_normal_eloc,   &
+          ed_get_weiss_field_normal_eloc_1b,&
+          ed_get_weiss_field_normal_eloc_mb,&
+          ed_get_weiss_field_normal_hloc,   &
+          ed_get_weiss_field_normal_hloc_1b,&
+          ed_get_weiss_field_normal_hloc_mb,&
+          ed_get_weiss_field_superc_eloc,   &
+          ed_get_weiss_field_superc_eloc_1b,&
+          ed_get_weiss_field_superc_eloc_mb,&
+          ed_get_weiss_field_superc_hloc,   &
+          ed_get_weiss_field_superc_hloc_1b,&
+          ed_get_weiss_field_superc_hloc_mb
+  end interface ed_get_weiss_lattice
+  public :: ed_get_weiss_lattice
 
 
   real(8),dimension(:),allocatable        :: wm
@@ -43,6 +36,49 @@ contains
   ! self-consistency equations and given G_loc and Sigma.
   ! NORMAL PHASE
   !-------------------------------------------------------------------------------------------
+  subroutine ed_get_weiss_field_normal_eloc_1b(Gloc,Smats,Weiss,Eloc)
+    complex(8)                                  :: Gloc(Nlat,Lmats)
+    complex(8)                                  :: Smats(Nlat,Lmats)
+    complex(8)                                  :: Weiss(Nlat,Lmats)
+    !
+    complex(8)                                  :: Gloc_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    !
+    real(8),optional                            :: Eloc(Nlat*Norb*Nspin)
+    real(8)                                     :: Eloc_(Nlat*Norb*Nspin)
+    if(Norb>1)stop "ed_get_weiss_field_normal_eloc_1b error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop "ed_get_weiss_field_normal_eloc_1b error: Nspin > 1 in 1-band routine" 
+    Gloc_(:,1,1,1,1,:) = Gloc(:,:)
+    Smats_(:,1,1,1,1,:) = Smats(:,:)
+    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
+    call ed_get_weiss_field_normal_eloc(Gloc_,Smats_,Weiss_,Eloc_)
+    Gloc(:,:) = Gloc_(:,1,1,1,1,:)
+    Smats(:,:) = Smats_(:,1,1,1,1,:)
+    Weiss(:,:) = Weiss_(:,1,1,1,1,:)
+  end subroutine ed_get_weiss_field_normal_eloc_1b
+
+  subroutine ed_get_weiss_field_normal_eloc_mb(Gloc,Smats,Weiss,Eloc)
+    complex(8)                                  :: Gloc(Nlat,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(Nlat,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(Nlat,Norb,Norb,Lmats)
+    !
+    complex(8)                                  :: Gloc_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    !
+    real(8),optional                            :: Eloc(Nlat*Norb*Nspin)
+    real(8)                                     :: Eloc_(Nlat*Norb*Nspin)
+    if(Nspin>1)stop "ed_get_weiss_field_normal_eloc_1m error: Nspin > 1 in M-band routine" 
+    Gloc_(:,1,1,:,:,:) = Gloc(:,:,:,:)
+    Smats_(:,1,1,:,:,:) = Smats(:,:,:,:)
+    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
+    call ed_get_weiss_field_normal_eloc(Gloc_,Smats_,Weiss_,Eloc_)
+    Gloc(:,:,:,:) = Gloc_(:,1,1,:,:,:)
+    Smats(:,:,:,:) = Smats_(:,1,1,:,:,:)
+    Weiss(:,:,:,:) = Weiss_(:,1,1,:,:,:)
+  end subroutine ed_get_weiss_field_normal_eloc_mb
+
   subroutine ed_get_weiss_field_normal_eloc(Gloc,Smats,Weiss,Eloc)
     complex(8)                                  :: Gloc(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                                  :: Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
@@ -122,8 +158,50 @@ contains
           enddo
        enddo
     end do mpi_site_loop
+#ifdef _MPI_INEQ
     call MPI_ALLREDUCE(Weiss_tmp,Weiss,size(Weiss),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+    Weiss = Weiss_tmp
+#endif
   end subroutine ed_get_weiss_field_normal_eloc
+
+
+  subroutine ed_get_weiss_field_normal_hloc_1b(Gloc,Smats,Weiss,Hloc)
+    complex(8)                                  :: Gloc(Nlat,Lmats)
+    complex(8)                                  :: Smats(Nlat,Lmats)
+    complex(8)                                  :: Weiss(Nlat,Lmats)
+    !
+    complex(8)                                  :: Gloc_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Hloc(Nlat,Nspin,Nspin,Norb,Norb)
+    if(Norb>1)stop "ed_get_weiss_field_normal_hloc_1b error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop "ed_get_weiss_field_normal_hloc_1b error: Nspin > 1 in 1-band routine" 
+    Gloc_(:,1,1,1,1,:) = Gloc(:,:)
+    Smats_(:,1,1,1,1,:) = Smats(:,:)
+    call ed_get_weiss_field_normal_hloc(Gloc_,Smats_,Weiss_,Hloc)
+    Gloc(:,:) = Gloc_(:,1,1,1,1,:)
+    Smats(:,:) = Smats_(:,1,1,1,1,:)
+    Weiss(:,:) = Weiss_(:,1,1,1,1,:)
+  end subroutine ed_get_weiss_field_normal_hloc_1b
+
+  subroutine ed_get_weiss_field_normal_hloc_mb(Gloc,Smats,Weiss,Hloc)
+    complex(8)                                  :: Gloc(Nlat,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(Nlat,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(Nlat,Norb,Norb,Lmats)
+    !
+    complex(8)                                  :: Gloc_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Hloc(Nlat,Nspin,Nspin,Norb,Norb)
+    if(Nspin>1)stop "ed_get_weiss_field_normal_hloc_mb error: Nspin > 1 in 1-band routine" 
+    Gloc_(:,1,1,:,:,:) = Gloc(:,:,:,:)
+    Smats_(:,1,1,:,:,:) = Smats(:,:,:,:)
+    call ed_get_weiss_field_normal_hloc(Gloc_,Smats_,Weiss_,Hloc)
+    Gloc(:,:,:,:) = Gloc_(:,1,1,:,:,:)
+    Smats(:,:,:,:) = Smats_(:,1,1,:,:,:)
+    Weiss(:,:,:,:) = Weiss_(:,1,1,:,:,:)
+  end subroutine ed_get_weiss_field_normal_hloc_mb
 
   subroutine ed_get_weiss_field_normal_hloc(Gloc,Smats,Weiss,Hloc)
     complex(8)                                  :: Gloc(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
@@ -201,7 +279,11 @@ contains
           enddo
        enddo
     end do mpi_site_loop
+#ifdef _MPI_INEQ
     call MPI_ALLREDUCE(Weiss_tmp,Weiss,size(Weiss),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+    Weiss = Weiss_tmp
+#endif
   end subroutine ed_get_weiss_field_normal_hloc
 
 
@@ -211,6 +293,49 @@ contains
   ! self-consistency equations and given G_loc and Sigma.
   ! SUPERCONDUCTING PHASE
   !-------------------------------------------------------------------------------------------
+  subroutine ed_get_weiss_field_superc_eloc_1b(Gloc,Smats,Weiss,Eloc)
+    complex(8)                                  :: Gloc(2,Nlat,Lmats)
+    complex(8)                                  :: Smats(2,Nlat,Lmats)
+    complex(8)                                  :: Weiss(2,Nlat,Lmats)
+    !
+    complex(8)                                  :: Gloc_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    !
+    real(8),optional                            :: Eloc(Nlat*Norb*Nspin)
+    real(8)                                     :: Eloc_(Nlat*Norb*Nspin)
+    if(Norb>1)stop "ed_get_weiss_field_superc_eloc_1b error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop "ed_get_weiss_field_superc_eloc_1b error: Nspin > 1 in 1-band routine" 
+    Gloc_(:,:,1,1,1,1,:) = Gloc(:,:,:)
+    Smats_(:,:,1,1,1,1,:) = Smats(:,:,:)
+    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
+    call ed_get_weiss_field_superc_eloc(Gloc_,Smats_,Weiss_,Eloc_)
+    Gloc(:,:,:) = Gloc_(:,:,1,1,1,1,:)
+    Smats(:,:,:) = Smats_(:,:,1,1,1,1,:)
+    Weiss(:,:,:) = Weiss_(:,:,1,1,1,1,:)
+  end subroutine ed_get_weiss_field_superc_eloc_1b
+
+  subroutine ed_get_weiss_field_superc_eloc_mb(Gloc,Smats,Weiss,Eloc)
+    complex(8)                                  :: Gloc(2,Nlat,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(2,Nlat,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(2,Nlat,Norb,Norb,Lmats)
+    !
+    complex(8)                                  :: Gloc_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    !
+    real(8),optional                            :: Eloc(Nlat*Norb*Nspin)
+    real(8)                                     :: Eloc_(Nlat*Norb*Nspin)
+    if(Nspin>1)stop "ed_get_weiss_field_superc_eloc_Mb error: Nspin > 1 in M-band routine" 
+    Gloc_(:,:,1,1,:,:,:) = Gloc(:,:,:,:,:)
+    Smats_(:,:,1,1,:,:,:) = Smats(:,:,:,:,:)
+    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
+    call ed_get_weiss_field_superc_eloc(Gloc_,Smats_,Weiss_,Eloc_)
+    Gloc(:,:,:,:,:) = Gloc_(:,:,1,1,:,:,:)
+    Smats(:,:,:,:,:) = Smats_(:,:,1,1,:,:,:)
+    Weiss(:,:,:,:,:) = Weiss_(:,:,1,1,:,:,:)
+  end subroutine ed_get_weiss_field_superc_eloc_mb
+
   subroutine ed_get_weiss_field_superc_eloc(Gloc,Smats,Weiss,Eloc)
     complex(8)                                  :: Gloc(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                                  :: Smats(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
@@ -305,10 +430,52 @@ contains
           enddo
        enddo
     end do mpi_site_loop
+#ifdef _MPI_INEQ
     call MPI_ALLREDUCE(Weiss_tmp,Weiss,size(Weiss),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+    Weiss = Weiss_tmp
+#endif
   end subroutine ed_get_weiss_field_superc_eloc
 
 
+  subroutine ed_get_weiss_field_superc_hloc_1b(Gloc,Smats,Weiss,Hloc)
+    complex(8)                                  :: Gloc(2,Nlat,Lmats)
+    complex(8)                                  :: Smats(2,Nlat,Lmats)
+    complex(8)                                  :: Weiss(2,Nlat,Lmats)
+    !
+    complex(8)                                  :: Gloc_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    !
+    complex(8)                                  :: Hloc(Nlat,Nspin,Nspin,Norb,Norb)
+    if(Norb>1)stop "ed_get_weiss_field_superc_hloc_1b error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop "ed_get_weiss_field_superc_hloc_1b error: Nspin > 1 in 1-band routine" 
+    Gloc_(:,:,1,1,1,1,:) = Gloc(:,:,:)
+    Smats_(:,:,1,1,1,1,:) = Smats(:,:,:)
+    call ed_get_weiss_field_superc_hloc(Gloc_,Smats_,Weiss_,Hloc)
+    Gloc(:,:,:) = Gloc_(:,:,1,1,1,1,:)
+    Smats(:,:,:) = Smats_(:,:,1,1,1,1,:)
+    Weiss(:,:,:) = Weiss_(:,:,1,1,1,1,:)
+  end subroutine ed_get_weiss_field_superc_hloc_1b
+
+  subroutine ed_get_weiss_field_superc_hloc_mb(Gloc,Smats,Weiss,Hloc)
+    complex(8)                                  :: Gloc(2,Nlat,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(2,Nlat,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(2,Nlat,Norb,Norb,Lmats)
+    !
+    complex(8)                                  :: Gloc_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    !
+    complex(8)                                  :: Hloc(Nlat,Nspin,Nspin,Norb,Norb)
+    if(Nspin>1)stop "ed_get_weiss_field_superc_hloc_mb error: Nspin > 1 in M-band routine" 
+    Gloc_(:,:,1,1,:,:,:) = Gloc(:,:,:,:,:)
+    Smats_(:,:,1,1,:,:,:) = Smats(:,:,:,:,:)
+    call ed_get_weiss_field_superc_hloc(Gloc_,Smats_,Weiss_,Hloc)
+    Gloc(:,:,:,:,:) = Gloc_(:,:,1,1,:,:,:)
+    Smats(:,:,:,:,:) = Smats_(:,:,1,1,:,:,:)
+    Weiss(:,:,:,:,:) = Weiss_(:,:,1,1,:,:,:)
+  end subroutine ed_get_weiss_field_superc_hloc_mb
 
   subroutine ed_get_weiss_field_superc_hloc(Gloc,Smats,Weiss,Hloc)
     complex(8)                                  :: Gloc(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
@@ -401,195 +568,12 @@ contains
           enddo
        enddo
     end do mpi_site_loop
+#ifdef _MPI_INEQ
     call MPI_ALLREDUCE(Weiss_tmp,Weiss,size(Weiss),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+    Weiss = Weiss_tmp
+#endif
   end subroutine ed_get_weiss_field_superc_hloc
-
-
-
-
-
-
-
-
-
-
-
-  !###################################################################################################
-  !###################################################################################################
-  !               POSSIBLY OBSOLETE ROUTINES NOW SUPERSEDED BY TOP ROUTINE HERE
-  !               GETTING G0 FOR ANY Norb*Nspin*Nlat*Nk NORMAL GREEN'S FUNCTION
-  !                (these routines are left temporarily for back-compatibility)
-  !                                     ( to be removed)
-  !###################################################################################################
-  !###################################################################################################
-  subroutine rdmft_get_weiss_field_normal(Nsites,Gmats,Smats,Delta,Eloc)
-    integer                  :: Nsites
-    complex(8),intent(inout) :: Delta(Nsites,Lmats)
-    complex(8),intent(in)    :: Gmats(Nsites,Lmats)
-    complex(8),intent(in)    :: Smats(Nsites,Lmats)    
-    real(8),optional      :: Eloc(Nsites)
-    !
-    complex(8)               :: Delta_tmp(Nsites,Lmats)
-    complex(8),allocatable   :: Hloc(:,:,:,:)
-    integer                  :: ilat,i
-    if(allocated(wm))deallocate(wm)
-    allocate(wm(Lmats))
-    wm = pi/beta*(2*arange(1,Lmats)-1)
-    Delta=zero
-    Delta_tmp=zero
-    allocate(Hloc(1,1,1,1))
-    do ilat=1+mpiID,Nsites,mpiSIZE
-       ! set Hloc
-       Hloc(1,1,1,1)=zero
-       if(present(eloc))Hloc(1,1,1,1)=eloc(ilat)
-       do i=1,Lmats
-          if(cg_scheme=='weiss')then
-             Delta_tmp(ilat,i)  =   one/(one/Gmats(ilat,i) + Smats(ilat,i))
-          else
-             ! same as for the weiss case
-             Delta_tmp(ilat,i) = xi*wm(i) + xmu - Hloc(1,1,1,1) - Smats(ilat,i) - one/Gmats(ilat,i)
-          endif
-       end do
-    end do
-    deallocate(Hloc)
-    call MPI_ALLREDUCE(Delta_tmp(:,1:Lmats),Delta,Nsites*Lmats,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
-  end subroutine rdmft_get_weiss_field_normal
-
-  subroutine rdmft_get_weiss_field_superc(Nsites,Gmats,Smats,Delta,Eloc)
-    integer                  :: Nsites
-    real(8),optional         :: eloc(Nsites)
-    complex(8),intent(inout) :: Delta(2,Nsites,Lmats)
-    complex(8),intent(inout) :: Gmats(2,Nsites,Lmats)
-    complex(8),intent(inout) :: Smats(2,Nsites,Lmats)
-    complex(8)               :: Delta_tmp(2,Nsites,Lmats)
-    complex(8)               :: calG(2,Lmats),cdet
-    integer                  :: ilat,i
-    complex(8),allocatable   :: Hloc(:,:,:,:)
-    if(allocated(wm))deallocate(wm)
-    allocate(wm(Lmats))
-    wm = pi/beta*(2*arange(1,Lmats)-1)
-    Delta=zero
-    Delta_tmp=zero
-    allocate(Hloc(1,1,1,1))
-    !+- GET INDEPENDENT SITES HYBRIDIZATION FUNCTION AND FIT THE BATHS -+!
-    do ilat=1+mpiID,Nsites,mpiSIZE
-       Hloc(1,1,1,1)=zero
-       if(present(eloc))Hloc(1,1,1,1)=eloc(ilat)
-       do i=1,Lmats
-          if(cg_scheme=='weiss')then
-             cdet                = abs(Gmats(1,ilat,i))**2 + (Gmats(2,ilat,i))**2
-             calG(1,i)           = conjg(Gmats(1,ilat,i))/cdet + Smats(1,ilat,i)
-             calG(2,i)           =  Gmats(2,ilat,i)/cdet + Smats(2,ilat,i) 
-             cdet                =  abs(calG(1,i))**2 + (calG(2,i))**2
-             Delta_tmp(1,ilat,i) =  conjg(calG(1,i))/cdet
-             Delta_tmp(2,ilat,i) =  calG(2,i)/cdet
-          else
-             cdet                = abs(Gmats(1,ilat,i))**2 + (Gmats(2,ilat,i))**2
-             Delta_tmp(1,ilat,i) = xi*wm(i) + xmu - Hloc(1,1,1,1) - Smats(1,ilat,i) - conjg(Gmats(1,ilat,i))/cdet 
-             Delta_tmp(2,ilat,i) = -(Gmats(2,ilat,i)/cdet + Smats(2,ilat,i))
-          endif
-       end do
-    end do
-    deallocate(Hloc)
-    call MPI_ALLREDUCE(Delta_tmp,Delta,2*Nsites*Lmats,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
-  end subroutine rdmft_get_weiss_field_superc
-
-  subroutine rdmft_get_weiss_field_mb(Nsites,Gmats,Smats,Delta,Hloc)
-    ! inputs
-    integer                  :: Nsites
-    complex(8),intent(inout) :: Delta(Nsites,Nspin,Nspin,Norb,Norb,Lmats)     ! [Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-    complex(8),intent(in)    :: Gmats(Nsites,Nspin,Nspin,Norb,Norb,Lmats)     ! [Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-    complex(8),intent(in)    :: Smats(Nsites,Nspin,Nspin,Norb,Norb,Lmats) ! [Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-    complex(8)               :: Hloc(Nsites,Nspin,Nspin,Norb,Norb)  ! [Nlat][Nspin][Nspin][Norb][Norb]
-    ! auxiliary vars
-    complex(8)               :: Delta_tmp(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)               :: Gloc_tmp(Norb,Norb)
-    real(8),allocatable      :: Id(:,:)    
-    integer                  :: ilat,i,iorb,ispin,jorb
-    logical                  :: check
-    if(allocated(wm))deallocate(wm)
-    allocate(wm(Lmats))
-    wm = pi/beta*(2*arange(1,Lmats)-1)
-    !
-    allocate(Id(Norb,Norb))
-    !
-    Id=0.d0
-    do iorb=1,Norb
-       Id(iorb,iorb)=1.d0
-    end do
-    check=.true.
-    !
-    Delta=zero
-    Delta_tmp=zero
-    do ilat=1+mpiID,Nsites,mpiSIZE
-       do i=1,Lmats
-          if(cg_scheme=='weiss')then
-             ! (ONLY DIAGONAL SPIN CALCULATIONS!!!!!)
-             do ispin=1,Nspin
-                if(Norb.gt.1) then
-                   ! select case(bath_type)
-                   ! case default
-                   !    do iorb=1,Norb
-                   !       Delta_tmp(ilat,ispin,ispin,iorb,iorb,i) = one/Gmats(ilat,ispin,ispin,iorb,iorb,i) + Smats(ilat,ispin,ispin,iorb,iorb,i)
-                   !       Delta_tmp(ilat,ispin,ispin,iorb,iorb,i) = one/Delta_tmp(ilat,ispin,ispin,iorb,iorb,i)                         
-                   !    end do
-                   ! case ('hybrid')
-                   !    call matrix_inverse(Gmats(ilat,ispin,ispin,:,:,i)) 
-                   !    Delta_tmp(ilat,ispin,ispin,:,:,i) = Gmats(ilat,ispin,ispin,:,:,i) + Smats(ilat,ispin,ispin,:,:,i)
-                   !    call matrix_inverse(Delta_tmp(ilat,ispin,ispin,:,:,i))
-                   ! end select 
-                   Gloc_tmp(:,:)=Gmats(ilat,ispin,ispin,:,:,i)
-                   call matrix_inverse(Gloc_tmp)
-                   Delta_tmp(ilat,ispin,ispin,:,:,i) =  Gloc_tmp + Smats(ilat,ispin,ispin,:,:,i)                    
-                   call  matrix_inverse(Delta_tmp(ilat,ispin,ispin,:,:,i))
-                else 
-                   Delta_tmp(ilat,ispin,ispin,1,1,i) = one/Gmats(ilat,ispin,ispin,1,1,i) +  Smats(ilat,ispin,ispin,1,1,i)                    
-                   Delta_tmp(ilat,ispin,ispin,1,1,i) =    one/Delta_tmp(ilat,ispin,ispin,1,1,i) 
-                end if
-             end do
-          else 
-             do ispin=1,Nspin 
-                if(Norb.gt.1) then
-                   ! select case(bath_type)
-                   ! case default
-                   !    do iorb=1,Norb
-                   !       Delta_tmp(ilat,ispin,ispin,iorb,iorb,i) = Id(iorb,iorb)*(xi*wm(i) + xmu) - Hloc(ilat,ispin,ispin,iorb,iorb) &
-                   !            - Smats(ilat,ispin,ispin,iorb,iorb,i) - one/Gmats(ilat,ispin,ispin,iorb,iorb,i)
-                   !    end do
-                   ! case ('hybrid')
-                   !    call matrix_inverse(Gmats(ilat,ispin,ispin,:,:,i)) 
-                   !    Delta_tmp(ilat,ispin,ispin,:,:,i) = Id(:,:)*(xi*wm(i) + xmu) - Hloc(ilat,ispin,ispin,:,:) &
-                   !         - Smats(ilat,ispin,ispin,:,:,i) - Gmats(ilat,ispin,ispin,:,:,i)                   
-                   ! end select
-                   Gloc_tmp(:,:)=Gmats(ilat,ispin,ispin,:,:,i)
-                   call matrix_inverse(Gloc_tmp)
-                   Delta_tmp(ilat,ispin,ispin,:,:,i) = Id(:,:)*(xi*wm(i) + xmu) - Hloc(ilat,ispin,ispin,:,:) &
-                        - Smats(ilat,ispin,ispin,:,:,i) - GLoc_tmp
-                else
-                   Delta_tmp(ilat,ispin,ispin,1,1,i) = Id(1,1)*(xi*wm(i) + xmu) - Hloc(ilat,ispin,ispin,1,1) &
-                        - Smats(ilat,ispin,ispin,1,1,i) - one/Gmats(ilat,ispin,ispin,1,1,i)
-                end if
-             end do
-          endif
-       end do
-    end do
-
-    call MPI_ALLREDUCE(Delta_tmp(:,1:Nspin,1:Nspin,1:Norb,1:Norb,1:Lmats),Delta,Nsites*Lmats*Nspin*Nspin*Norb*Norb, &
-         MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
-
-  end subroutine rdmft_get_weiss_field_mb
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 end module ED_WRAP_WEISS

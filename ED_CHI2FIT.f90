@@ -1,7 +1,5 @@
 !########################################################################
 !PURPOSE  : Perform the \Chi^2 fit procedure on the Delta function
-!STRUCTURE: 
-!
 ! chi2fit_interface
 !
 ! fit_irred
@@ -15,7 +13,6 @@
 ! fit_hybrd
 !  + chi2_anderson/functions
 !  + chi2_weiss/functions
-!
 !########################################################################
 MODULE ED_CHI2FIT
   USE SF_CONSTANTS
@@ -29,11 +26,11 @@ MODULE ED_CHI2FIT
   implicit none
   private
 
-  interface chi2_fitgf
+  interface ed_chi2_fitgf
      module procedure chi2_fitgf_,chi2_fitgf__
-  end interface chi2_fitgf
+  end interface ed_chi2_fitgf
 
-  public :: chi2_fitgf
+  public :: ed_chi2_fitgf
 
   integer                               :: Ldelta
   complex(8),dimension(:,:),allocatable :: Fdelta

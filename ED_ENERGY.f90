@@ -5,6 +5,7 @@ MODULE ED_ENERGY
   USE SF_CONSTANTS, only:zero,pi,xi
   USE SF_IOTOOLS, only:free_unit,reg,txtfy
   USE SF_ARRAYS, only: arange
+  USE SF_TIMER
   USE SF_LINALG, only: matrix_inverse
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
@@ -14,30 +15,19 @@ MODULE ED_ENERGY
   USE ED_MATVEC
   implicit none
   private
-  !
-  interface kinetic_energy_impurity
-     module procedure kinetic_energy_impurity_normal,kinetic_energy_impurity_superc
-  end interface kinetic_energy_impurity
-  !
-  public  :: local_energy_impurity
-  public  :: kinetic_energy_impurity
 
 
   interface ed_kinetic_energy
-     module procedure &
-          ed_kinetic_energy_d1,ed_kinetic_energy_d1_,&
-          ed_kinetic_energy_dm,ed_kinetic_energy_dm_,&
-          ed_kinetic_energy_c1,ed_kinetic_energy_c1_,&
-          ed_kinetic_energy_cm,ed_kinetic_energy_cm_
+     module procedure kinetic_energy_impurity_normal
+     module procedure kinetic_energy_impurity_normal_1B
+     module procedure kinetic_energy_impurity_normal_MB
+     module procedure kinetic_energy_impurity_superc
+     module procedure kinetic_energy_impurity_superc_1B
+     module procedure kinetic_energy_impurity_superc_MB
   end interface ed_kinetic_energy
 
-  interface ed_kinetic_energy_sc
-     module procedure &
-          ed_kinetic_energy_d1_sc,ed_kinetic_energy_d1_sc_
-  end interface ed_kinetic_energy_sc
-  public :: ed_kinetic_energy
-  public :: ed_kinetic_energy_sc
-
+  public  :: ed_kinetic_energy     !PUBLIC in DMFT
+  public  :: local_energy_impurity !INTERNAL in DMFT
 
 contains 
 
@@ -125,7 +115,10 @@ contains
           !
           !DENSITY-DENSITY INTERACTION: SAME ORBITAL, OPPOSITE SPINS
           !Euloc=\sum=i U_i*(n_u*n_d)_i
-          ed_Epot = ed_Epot + dot_product(uloc,nup*ndw)*gs_weight
+          !ed_Epot = ed_Epot + dot_product(uloc,nup*ndw)*gs_weight
+          do iorb=1,Norb
+             ed_Epot = ed_Epot + Uloc(iorb)*nup(iorb)*ndw(iorb)*gs_weight
+          enddo
           ! if(.not.ed_supercond) then
           !    ed_Epot = ed_Epot + dot_product(uloc,nup*ndw)*gs_weight
           ! else
@@ -206,7 +199,10 @@ contains
           !
           !HARTREE-TERMS CONTRIBUTION:
           if(hfmode)then
-             ed_Ehartree=ed_Ehartree - 0.5d0*dot_product(uloc,nup+ndw)*gs_weight + 0.25d0*sum(uloc)*gs_weight
+             !ed_Ehartree=ed_Ehartree - 0.5d0*dot_product(uloc,nup+ndw)*gs_weight + 0.25d0*sum(uloc)*gs_weight
+             do iorb=1,Norb
+                ed_Ehartree=ed_Ehartree - 0.5d0*uloc(iorb)*(nup(iorb)+ndw(iorb))*gs_weight + 0.25d0*uloc(iorb)*gs_weight
+             enddo
              if(Norb>1)then
                 do iorb=1,Norb
                    do jorb=iorb+1,Norb
@@ -243,88 +239,144 @@ contains
 
 
 
+
+  !-------------------------------------------------------------------------------------------
+  !PURPOSE:  comment
+  !-------------------------------------------------------------------------------------------
+  subroutine kinetic_energy_impurity_normal_1B(Hk,Wtk,Sigma)
+    complex(8),dimension(:)               :: Sigma
+    complex(8),dimension(:)               :: Hk
+    real(8),dimension(size(Hk))           :: Wtk
+    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
+    complex(8),dimension(1,1,size(Hk))    :: Hk_
+    Sigma_(1,1,:) = Sigma
+    Hk_(1,1,:)    = Hk
+    call kinetic_energy_impurity_normal(Hk_,Wtk,Sigma_)
+  end subroutine kinetic_energy_impurity_normal_1B
+  !
+  subroutine kinetic_energy_impurity_normal_MB(Hk,Wtk,Sigma)
+    complex(8),dimension(:,:,:)                               :: Hk
+    real(8),dimension(size(Hk,3))                             :: Wtk
+    complex(8),dimension(:,:,:,:,:)                           :: Sigma
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Sigma,5)) :: Sigma_
+    integer                                                   :: iorb,jorb,ispin,jspin,io,jo
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                Sigma_(io,jo,:) = Sigma(ispin,jspin,iorb,jorb,:)
+             enddo
+          enddo
+       enddo
+    enddo
+    call kinetic_energy_impurity_normal(Hk,Wtk,Sigma_)
+  end subroutine kinetic_energy_impurity_normal_MB
+  !
   subroutine kinetic_energy_impurity_normal(Hk,Wtk,Sigma)
-    integer                                  :: Lk,No,Liw
-    integer                                  :: i,ik,iorb
+    integer                                  :: Lk,Nso,Liw
+    integer                                  :: i,j,ik,iorb
     complex(8),dimension(:,:,:)              :: Hk
     complex(8),dimension(:,:,:)              :: Sigma
-    real(8),dimension(:)                     :: Wtk
+    real(8),dimension(size(Hk,3))            :: Wtk
     !
     real(8),dimension(:,:),allocatable       :: Sigma_HF
     real(8),dimension(:),allocatable         :: wm
-    complex(8),dimension(:,:),allocatable    :: Ak,Bk
-    complex(8),dimension(:,:),allocatable    :: Ck,Zk
+    complex(8),dimension(:,:),allocatable    :: Ak,Bk,Ck,Zk,Dk,Hloc
     complex(8),dimension(:,:),allocatable    :: Zeta,Gk,Tk
-    real(8)                                  :: Tail0,Tail1,spin_degeneracy
+    real(8)                                  :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
     !
-    real(8)                                  :: H0
+    real(8)                                  :: H0,Hl,ed_Ekin,ed_Eloc
     !
-    No = size(Hk,1)
+    Nso = size(Hk,1)
     Lk = size(Hk,3)
     Liw= size(Sigma,3)
-    if(No/=size(Hk,2))stop "get_kinetic_energy: size(Hk,1)!=size(Hk,2) [Norb_total]"
-    if(No/=size(Sigma,1).OR.No/=size(Sigma,2))stop "get_kinetic_energy: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
-    if(Lk/=size(Wtk))stop "get_kinetic_energy: size(Wtk)!=size(Hk,3) [L_k]"
+    if(Nso/=size(Hk,2))stop "kinetic_energy_impurity_normal error: size(Hk,1)!=size(Hk,2) [Norb_total]"
+    if(Nso/=size(Sigma,1).OR.Nso/=size(Sigma,2))stop "kinetic_energy_impurity_normal error: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
     !
     allocate(wm(Liw))
-    allocate(Sigma_HF(No,No))
-    allocate(Ak(No,No),Bk(No,No),Ck(No,No),Zk(No,No),Zeta(No,No),Gk(No,No),Tk(No,No))
+    allocate(Sigma_HF(Nso,Nso))
+    allocate(Ak(Nso,Nso),Bk(Nso,Nso),Ck(Nso,Nso),Dk(Nso,Nso),Hloc(Nso,Nso),Zk(Nso,Nso),Zeta(Nso,Nso),Gk(Nso,Nso),Tk(Nso,Nso))
     !
     wm = pi/beta*dble(2*arange(1,Liw)-1)
     !
     Sigma_HF = dreal(Sigma(:,:,Liw))
     !
+    Hloc = sum(Hk(:,:,:),dim=3)/Lk
+    where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
+    if(ED_MPI_ID==0)then
+       do i=1,Nso
+          write(LOGfile,"(90F21.12)")(dreal(Hloc(i,j)),j=1,Nso)
+       enddo
+       write(LOGfile,*)""
+       do i=1,Nso
+          write(LOGfile,"(90F21.12)")(dimag(Hloc(i,j)),j=1,Nso)
+       enddo
+    endif
+    !
+    if(ED_MPI_ID==0)call start_timer()
     H0=0d0
-    Zk=0d0 ; forall(i=1:No)Zk(i,i)=1d0
+    Hl=0d0
+    Zk=0d0 ; forall(i=1:Nso)Zk(i,i)=1d0
     do ik=1,Lk
-       ! Ak= Hk(:,:,ik)
-       Bk=-Hk(:,:,ik)-Sigma_HF(:,:)
+       Ak = Hk(:,:,ik) - Hloc(:,:)
+       Bk =-Hk(:,:,ik) - Sigma_HF(:,:)
        do i=1,Liw
           Gk = (xi*wm(i)+xmu)*Zk(:,:) - Hk(:,:,ik) - Sigma(:,:,i)
-          select case(No)
+          select case(Nso)
           case default
              call matrix_inverse(Gk)
           case(1)
              Gk = 1d0/Gk
           end select
           Tk = Zk(:,:)/(xi*wm(i)) - Bk(:,:)/(xi*wm(i))**2
-          Ck = matmul(Hk(:,:,ik),Gk - Tk)!matmul(Ak,Gk - Tk)
-          H0 = H0 + Wtk(ik)*trace_matrix(Ck,No)
+          Ck = matmul(Ak  ,Gk - Tk)
+          Dk = matmul(Hloc,Gk - Tk)
+          H0 = H0 + Wtk(ik)*trace_matrix(Ck,Nso)
+          Hl = Hl + Wtk(ik)*trace_matrix(Dk,Nso)
        enddo
+       if(ED_MPI_ID==0)call eta(ik,Lk)
     enddo
+    if(ED_MPI_ID==0)call stop_timer()
     spin_degeneracy=3.d0-Nspin !2 if Nspin=1, 1 if Nspin=2
     H0=H0/beta*2.d0*spin_degeneracy
+    Hl=Hl/beta*2.d0*spin_degeneracy
     !
+    ! Tail0=0d0
+    ! Tail1=0d0
+    ! do ik=1,Lk
+    !    Ak= Hk(:,:,ik)
+    !    Bk=-Hk(:,:,ik)-Sigma_HF(:,:)
+    !    Ck= matmul(Ak,Bk)
+    !    Tail0 = Tail0 + 0.5d0*Wtk(ik)*trace_matrix(Ak,Nso)
+    !    Tail1 = Tail1 + 0.25d0*Wtk(ik)*trace_matrix(Ck,Nso)
+    ! enddo
+    ! Tail0=spin_degeneracy*Tail0
+    ! Tail1=spin_degeneracy*Tail1*beta
+    ! ed_Ekin=H0+Tail0+Tail1
     Tail0=0d0
     Tail1=0d0
+    Lail0=0d0
+    Lail1=0d0
     do ik=1,Lk
-       Ak= Hk(:,:,ik)
-       Bk=-Hk(:,:,ik)-Sigma_HF(:,:)
-       Ck= matmul(Ak,Bk)
-       Tail0 = Tail0 + 0.5d0*Wtk(ik)*trace_matrix(Ak,No)
-       Tail1 = Tail1 + 0.25d0*Wtk(ik)*trace_matrix(Ck,No)
+       Ak    = Hk(:,:,ik) - Hloc(:,:)
+       Ck= matmul(Ak,(-Hk(:,:,ik)-Sigma_HF(:,:)))
+       Dk= matmul(Hloc,(-Hk(:,:,ik)-Sigma_HF(:,:)))
+       Tail0 = Tail0 + 0.5d0*Wtk(ik)*trace_matrix(Ak,Nso)
+       Tail1 = Tail1 + 0.25d0*Wtk(ik)*trace_matrix(Ck,Nso)
+       Lail0 = Lail0 + 0.5d0*Wtk(ik)*trace_matrix(Hloc(:,:),Nso)
+       Lail1 = Lail1 + 0.25d0*Wtk(ik)*trace_matrix(Dk,Nso)
     enddo
     Tail0=spin_degeneracy*Tail0
     Tail1=spin_degeneracy*Tail1*beta
+    Lail0=spin_degeneracy*Lail0
+    Lail1=spin_degeneracy*Lail1*beta
     ed_Ekin=H0+Tail0+Tail1
-    deallocate(wm,Sigma_HF,Ak,Bk,Ck,Zk,Zeta,Gk,Tk)
-
-    call write_energy_info(ed_Ekin)
-    call write_energy(ed_Ekin)
-
-  contains
-
-    function trace_matrix(M,dim) result(tr)
-      integer                       :: dim
-      complex(8),dimension(dim,dim) :: M
-      complex(8) :: tr
-      integer                       :: i
-      tr=dcmplx(0d0,0d0)
-      do i=1,dim
-         tr=tr+M(i,i)
-      enddo
-    end function trace_matrix
-
+    ed_Eloc=Hl+Lail0+Lail1
+    deallocate(wm,Sigma_HF,Ak,Bk,Ck,Dk,Hloc,Zk,Zeta,Gk,Tk)
+    call write_kinetic_info()
+    call write_kinetic([ed_Ekin,ed_Eloc])
   end subroutine kinetic_energy_impurity_normal
 
 
@@ -333,50 +385,104 @@ contains
 
 
 
+
+
+  !-------------------------------------------------------------------------------------------
+  !PURPOSE:  comment
+  !-------------------------------------------------------------------------------------------
+  subroutine kinetic_energy_impurity_superc_1B(Hk,Wtk,Sigma,Self)
+    real(8),dimension(:)                     :: Hk
+    real(8),dimension(size(Hk))              :: Wtk
+    complex(8),dimension(:)                  :: Sigma,Self
+    complex(8),dimension(1,1,size(Sigma))    :: Sigma_
+    complex(8),dimension(1,1,size(Self))     :: Self_
+    complex(8),dimension(1,1,size(Hk))       :: Hk_
+    real(8),dimension(size(Hk))              :: Wtk_
+    if(size(Sigma)/=size(Self)) stop "ed_kinetic_energy_sc: Normal and Anomalous self-energies have different size!"
+    Sigma_(1,1,:)  = Sigma(:)
+    Self_(1,1,:)   = Self(:)
+    Hk_(1,1,:)     = Hk
+    call kinetic_energy_impurity_superc(Hk_,Wtk,Sigma_,Self_)
+  end subroutine kinetic_energy_impurity_superc_1B
+
+  subroutine kinetic_energy_impurity_superc_MB(Hk,Wtk,Sigma,Self)
+    complex(8),dimension(:,:,:)                               :: Hk
+    real(8),dimension(size(Hk,3))                             :: Wtk
+    complex(8),dimension(:,:,:,:,:)                           :: Sigma
+    complex(8),dimension(:,:,:,:,:)                           :: Self
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Sigma,5)) :: Sigma_
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Self,5))  :: Self_
+    integer                                                   :: iorb,jorb,ispin,jspin,io,jo
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                Sigma_(io,jo,:) = Sigma(ispin,jspin,iorb,jorb,:)
+                Self_(io,jo,:)  = Self(ispin,jspin,iorb,jorb,:)
+             enddo
+          enddo
+       enddo
+    enddo
+    call kinetic_energy_impurity_superc(Hk,Wtk,Sigma_,Self_)
+  end subroutine kinetic_energy_impurity_superc_MB
+
   subroutine kinetic_energy_impurity_superc(Hk,Wtk,Sigma,SigmaA)
-    integer                                  :: Lk,No,Liw
-    integer                                  :: i,ik,iorb,jorb,inambu,jnambu,n,m
+    integer                                  :: Lk,Nso,Liw
+    integer                                  :: i,j,ik,iorb,jorb,inambu,jnambu,n,m
     complex(8),dimension(:,:,:)              :: Hk
     complex(8),dimension(:,:,:)              :: Sigma,SigmaA
-    real(8),dimension(:)                     :: Wtk
+    real(8),dimension(size(Hk,3))            :: Wtk
     !
     real(8),dimension(:,:),allocatable       :: Sigma_HF,SigmaA_HF
     real(8),dimension(:),allocatable         :: wm
-    complex(8),dimension(:,:),allocatable    :: Ak,Bk
-    complex(8),dimension(:,:),allocatable    :: Ck,Zk
+    complex(8),dimension(:,:),allocatable    :: Ak,Bk,Ck,Dk,Zk,Hloc
     complex(8),dimension(:,:),allocatable    :: Zeta,Gk,Tk,Gk_Nambu
     complex(8),dimension(2,2)                :: Gk_Nambu_ij
     !
-    real(8)                                  :: Tail0,Tail1,spin_degeneracy
+    real(8)                                  :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
     !
-    real(8)                                  :: H0
+    real(8)                                  :: H0,Hl,ed_Ekin,ed_Eloc
     !
-    No = size(Hk,1)
+    Nso = size(Hk,1)
     Lk = size(Hk,3)
     Liw= size(Sigma,3)
-    if(No/=size(Hk,2))stop "get_kinetic_energy: size(Hk,1)!=size(Hk,2) [Norb_total]"
-    if(No/=size(Sigma,1).OR.No/=size(Sigma,2))stop "get_kinetic_energy: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
-    if(No/=size(SigmaA,1).OR.No/=size(SigmaA,2))stop "get_kinetic_energy: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
-    if(Lk/=size(Wtk))stop "get_kinetic_energy: size(Wtk)!=size(Hk,3) [L_k]"
+    if(Nso/=size(Hk,2))stop "kinetic_energy_impurity_superc error: size(Hk,1)!=size(Hk,2) [Nsorb_total]"
+    if(Nso/=size(Sigma,1).OR.Nso/=size(Sigma,2))stop "kinetic_energy_impurity_superc error: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
+    if(Nso/=size(SigmaA,1).OR.Nso/=size(SigmaA,2))stop "kinetic_energy_impurity_superc error: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
+    if(Lk/=size(Wtk))stop "kinetic_energy_impurity_superc error: size(Wtk)!=size(Hk,3) [L_k]"
     !
     allocate(wm(Liw))
-    allocate(Sigma_HF(No,No),SigmaA_HF(No,No))
-    allocate(Ak(No,No),Bk(No,No),Ck(No,No),Zk(No,No),Zeta(No,No),Gk(No,No),Tk(No,No))
-    allocate(Gk_Nambu(2*No,2*No))
+    allocate(Sigma_HF(Nso,Nso),SigmaA_HF(Nso,Nso))
+    allocate(Ak(Nso,Nso),Bk(Nso,Nso),Ck(Nso,Nso),Dk(Nso,Nso),Zk(Nso,Nso),Hloc(Nso,Nso),Zeta(Nso,Nso),Gk(Nso,Nso),Tk(Nso,Nso))
+    allocate(Gk_Nambu(2*Nso,2*Nso))
     !
     wm = pi/beta*dble(2*arange(1,Liw)-1)
     !
     Sigma_HF = dreal(Sigma(:,:,Liw))
     !
+    Hloc = sum(Hk(:,:,:),dim=3)/Lk
+    where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
+    if(ED_MPI_ID==0)then
+       do i=1,Nso
+          write(LOGfile,"(90F21.12)")(dreal(Hloc(i,j)),j=1,Nso)
+       enddo
+       write(LOGfile,*)""
+       do i=1,Nso
+          write(LOGfile,"(90F21.12)")(dimag(Hloc(i,j)),j=1,Nso)
+       enddo
+    endif
+    !
     H0=0d0
-    Zk=0d0 ; forall(i=1:No)Zk(i,i)=1d0
+    Zk=0d0 ; forall(i=1:Nso)Zk(i,i)=1d0
     do ik=1,Lk
-       Ak= Hk(:,:,ik)
+       Ak= Hk(:,:,ik)-Hloc
        Bk=-Hk(:,:,ik)-Sigma_HF(:,:)
        do i=1,Liw
           Gk=zero          
-          do iorb=1,No
-             do jorb=1,No
+          do iorb=1,Nso
+             do jorb=1,Nso
                 Gk_Nambu_ij=zero
                 Gk_Nambu_ij(1,1) =  -Hk(iorb,jorb,ik)-Sigma(iorb,jorb,i)
                 Gk_Nambu_ij(1,2) = -SigmaA(iorb,jorb,i)
@@ -388,8 +494,8 @@ contains
                 end if
                 do inambu=1,2
                    do jnambu=1,2
-                      m=(inambu-1)*No + iorb
-                      n=(jnambu-1)*No + jorb
+                      m=(inambu-1)*Nso + iorb
+                      n=(jnambu-1)*Nso + jorb
                       Gk_nambu(m,n)=Gk_nambu_ij(inambu,jnambu)
                    enddo
                 enddo
@@ -400,223 +506,139 @@ contains
           !
           inambu=1
           jnambu=1
-          do iorb=1,No
-             do jorb=1,No
-                m=(inambu-1)*No + iorb
-                n=(jnambu-1)*No + jorb
+          do iorb=1,Nso
+             do jorb=1,Nso
+                m=(inambu-1)*Nso + iorb
+                n=(jnambu-1)*Nso + jorb
                 Gk(iorb,jorb) =  Gk_Nambu(m,n)
              enddo
           enddo
-          !
           Tk = Zk(:,:)/(xi*wm(i)) - Bk(:,:)/(xi*wm(i))**2
           Ck = matmul(Ak,Gk - Tk)
-          !
-          do iorb=1,Norb
-             H0 = H0 + Wtk(ik)*Ck(iorb,iorb)
-          enddo
+          Dk = matmul(Hloc,Gk - Tk)
+          H0 = H0 + Wtk(ik)*trace_matrix(Ck,Nso)
+          Hl = Hl + Wtk(ik)*trace_matrix(Dk,Nso)
        enddo
     enddo
     spin_degeneracy=3.d0-Nspin !2 if Nspin=1, 1 if Nspin=2
     H0=H0/beta*2.d0*spin_degeneracy
+    Hl=Hl/beta*2.d0*spin_degeneracy          
     !
+    ! Tail0=0d0
+    ! Tail1=0d0
+    ! do ik=1,Lk
+    !    Ak= Hk(:,:,ik)
+    !    Bk=-Hk(:,:,ik)-Sigma_HF(:,:)
+    !    Ck= matmul(Ak,Bk)
+    !    do iorb=1,Nso
+    !       Tail0 = Tail0 + 0.5d0*Wtk(ik)*Ak(iorb,iorb)!trace_matrix(Ak,Nso)
+    !       Tail1 = Tail1 + 0.25d0*Wtk(ik)*Ck(iorb,iorb)!trace_matrix(Ck,Nso)
+    !    end do
+    ! enddo
+    ! Tail0=spin_degeneracy*Tail0
+    ! Tail1=spin_degeneracy*Tail1*beta
+    ! ed_Ekin=H0+Tail0+Tail1
+    ! deallocate(wm,Sigma_HF,Ak,Bk,Ck,Zk,Zeta,Gk,Tk)
+    ! call write_kinetic_info(ed_Ekin)
+    ! call write_kinetic(ed_Ekin)
     Tail0=0d0
     Tail1=0d0
+    Lail0=0d0
+    Lail1=0d0
     do ik=1,Lk
-       Ak= Hk(:,:,ik)
-       Bk=-Hk(:,:,ik)-Sigma_HF(:,:)
-       Ck= matmul(Ak,Bk)
-       do iorb=1,No
-          Tail0 = Tail0 + 0.5d0*Wtk(ik)*Ak(iorb,iorb)!trace_matrix(Ak,No)
-          Tail1 = Tail1 + 0.25d0*Wtk(ik)*Ck(iorb,iorb)!trace_matrix(Ck,No)
-       end do
+       Ak    = Hk(:,:,ik) - Hloc(:,:)
+       Ck= matmul(Ak,(-Hk(:,:,ik)-Sigma_HF(:,:)))
+       Dk= matmul(Hloc,(-Hk(:,:,ik)-Sigma_HF(:,:)))
+       Tail0 = Tail0 + 0.5d0*Wtk(ik)*trace_matrix(Ak,Nso)
+       Tail1 = Tail1 + 0.25d0*Wtk(ik)*trace_matrix(Ck,Nso)
+       Lail0 = Lail0 + 0.5d0*Wtk(ik)*trace_matrix(Hloc,Nso)
+       Lail1 = Lail1 + 0.25d0*Wtk(ik)*trace_matrix(Dk,Nso)
     enddo
     Tail0=spin_degeneracy*Tail0
     Tail1=spin_degeneracy*Tail1*beta
+    Lail0=spin_degeneracy*Lail0
+    Lail1=spin_degeneracy*Lail1*beta
     ed_Ekin=H0+Tail0+Tail1
-    deallocate(wm,Sigma_HF,Ak,Bk,Ck,Zk,Zeta,Gk,Tk)
-
-    call write_energy_info(ed_Ekin)
-    call write_energy(ed_Ekin)
-
-
+    ed_Eloc=Hl+Lail0+Lail1
+    deallocate(wm,Sigma_HF,Ak,Bk,Ck,Dk,Hloc,Zk,Zeta,Gk,Tk)
+    call write_kinetic_info()
+    call write_kinetic([ed_Ekin,ed_Eloc])
   end subroutine kinetic_energy_impurity_superc
+
+
+
+
+
+
 
 
 
   !####################################################################
   !                    COMPUTATIONAL ROUTINES
   !####################################################################
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : 
-  !+------------------------------------------------------------------+
-  subroutine ed_kinetic_energy_d1(Sigma,Hk)
-    complex(8),dimension(:)               :: Sigma
-    real(8),dimension(:)                  :: Hk
-    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Hk))    :: Hk_
-    real(8),dimension(size(Hk))           :: Wtk_
-    Wtk_          = 1d0/dble(size(Hk))
-    Sigma_(1,1,:) = Sigma
-    Hk_(1,1,:)    = Hk
-    call kinetic_energy_impurity(Hk_,Wtk_,Sigma_)
-  end subroutine ed_kinetic_energy_d1
-  !
-  subroutine ed_kinetic_energy_dm(Sigma,Hk)
-    complex(8),dimension(:,:,:)   :: Sigma
-    real(8),dimension(:,:,:)      :: Hk
-    real(8),dimension(size(Hk,3)) :: Wtk_
-    Wtk_          = 1d0/dble(size(Hk))
-    call kinetic_energy_impurity(dcmplx(1d0,0d0)*Hk,Wtk_,Sigma)
-  end subroutine ed_kinetic_energy_dm
-  !
-  subroutine ed_kinetic_energy_d1_(Sigma,Hk,Wtk)
-    complex(8),dimension(:)               :: Sigma
-    real(8),dimension(:)                  :: Hk
-    real(8),dimension(:)                  :: Wtk
-    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Hk))    :: Hk_
-    Sigma_(1,1,:) = Sigma
-    Hk_(1,1,:)    = Hk
-    call kinetic_energy_impurity(Hk_,Wtk,Sigma_)
-  end subroutine ed_kinetic_energy_d1_
-  !
-  subroutine ed_kinetic_energy_dm_(Sigma,Hk,Wtk)
-    complex(8),dimension(:,:,:) :: Sigma
-    real(8),dimension(:,:,:)    :: Hk
-    real(8),dimension(:)        :: Wtk
-    call kinetic_energy_impurity(dcmplx(1d0,0d0)*Hk,Wtk,Sigma)
-  end subroutine ed_kinetic_energy_dm_
-  !
-  subroutine ed_kinetic_energy_c1(Sigma,Hk)
-    complex(8),dimension(:)               :: Sigma
-    complex(8),dimension(:)               :: Hk
-    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Hk))    :: Hk_
-    real(8),dimension(size(Hk))           :: Wtk_
-    Wtk_          = 1d0/dble(size(Hk))
-    Sigma_(1,1,:) = Sigma
-    Hk_(1,1,:)    = Hk
-    call kinetic_energy_impurity(Hk_,Wtk_,Sigma_)
-  end subroutine ed_kinetic_energy_c1
-  !
-  subroutine ed_kinetic_energy_cm(Sigma,Hk)
-    complex(8),dimension(:,:,:)   :: Sigma
-    complex(8),dimension(:,:,:)   :: Hk
-    real(8),dimension(size(Hk,3)) :: Wtk_
-    Wtk_          = 1d0/dble(size(Hk))
-    call kinetic_energy_impurity(Hk,Wtk_,Sigma)
-  end subroutine ed_kinetic_energy_cm
-  !
-  subroutine ed_kinetic_energy_c1_(Sigma,Hk,Wtk)
-    complex(8),dimension(:)               :: Sigma
-    complex(8),dimension(:)               :: Hk
-    real(8),dimension(:)                  :: Wtk
-    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Hk))    :: Hk_
-    Sigma_(1,1,:) = Sigma
-    Hk_(1,1,:)    = Hk
-    call kinetic_energy_impurity(Hk_,Wtk,Sigma_)
-  end subroutine ed_kinetic_energy_c1_
-  !
-  subroutine ed_kinetic_energy_cm_(Sigma,Hk,Wtk)
-    complex(8),dimension(:,:,:) :: Sigma
-    complex(8),dimension(:,:,:) :: Hk
-    real(8),dimension(:)        :: Wtk
-    call kinetic_energy_impurity(Hk,Wtk,Sigma)
-  end subroutine ed_kinetic_energy_cm_
-
-
-
-  subroutine ed_kinetic_energy_d1_sc(Sigma,SigmaA,Hk)
-    complex(8),dimension(:)                :: Sigma,SigmaA
-    real(8),dimension(:)                     :: Hk
-    complex(8),dimension(1,1,size(Sigma))    :: Sigma_
-    complex(8),dimension(1,1,size(SigmaA)) :: SigmaA_
-    complex(8),dimension(1,1,size(Hk))     :: Hk_
-    real(8),dimension(size(Hk))            :: Wtk_
-    if(size(Sigma)/=size(SigmaA)) stop "ed_kinetic_energy_sc: Normal and Anomalous self-energies have different size!"
-    Wtk_           = 1d0/dble(size(Hk))
-    Sigma_(1,1,:)  = Sigma(:)
-    SigmaA_(1,1,:) = SigmaA(:)
-    Hk_(1,1,:)     = Hk
-    call kinetic_energy_impurity(Hk_,Wtk_,Sigma_,SigmaA_)
-  end subroutine ed_kinetic_energy_d1_sc
-
-
-  subroutine ed_kinetic_energy_d1_sc_(Sigma,SigmaA,Hk,Wtk)
-    complex(8),dimension(:)                  :: Sigma,SigmaA
-    real(8),dimension(:)                     :: Hk
-    real(8),dimension(:)                     :: Wtk
-    complex(8),dimension(1,1,size(Sigma))  :: Sigma_
-    complex(8),dimension(1,1,size(SigmaA))  :: SigmaA_
-    complex(8),dimension(1,1,size(Hk))       :: Hk_
-    real(8),dimension(size(Hk))              :: Wtk_
-    if(size(Sigma)/=size(SigmaA)) stop "ed_kinetic_energy_sc: Normal and Anomalous self-energies have different size!"
-    Sigma_(1,1,:)  = Sigma(:)
-    SigmaA_(1,1,:) = SigmaA(:)
-    Hk_(1,1,:)     = Hk
-    call kinetic_energy_impurity(Hk_,Wtk,Sigma_,SigmaA_)
-  end subroutine ed_kinetic_energy_d1_sc_
-
-
-
+  function trace_matrix(M,dim) result(tr)
+    integer                       :: dim
+    complex(8),dimension(dim,dim) :: M
+    complex(8) :: tr
+    integer                       :: i
+    tr=dcmplx(0d0,0d0)
+    do i=1,dim
+       tr=tr+M(i,i)
+    enddo
+  end function trace_matrix
 
 
   !+-------------------------------------------------------------------+
   !PURPOSE  : write legend, i.e. info about columns 
   !+-------------------------------------------------------------------+
-  subroutine write_energy_info(Ekin)
-    real(8),optional :: Ekin
-    integer          :: unit,iorb,jorb,ispin
+  subroutine write_energy_info()
+    integer :: unit,iorb,jorb,ispin
     unit = free_unit()
     open(unit,file="energy_info.ed")
-    if(present(Ekin))then
-       write(unit,"(A1,90(A14,1X))")"#",&
-            reg(txtfy(1))//"<K>",&
-            reg(txtfy(2))//"<Hi>",&
-            reg(txtfy(3))//"<H>",&
-            reg(txtfy(4))//"<V>=<Hi-Ehf>",&
-            reg(txtfy(5))//"<E0>",&
-            reg(txtfy(6))//"<Ehf>",&
-            reg(txtfy(7))//"<Dst>",&
-            reg(txtfy(8))//"<Dnd>",&
-            reg(txtfy(9))//"<Dse>",&
-            reg(txtfy(10))//"<Dph>"
-    else
-       write(unit,"(A1,90(A14,1X))")"#",&
-            reg(txtfy(1))//"<Hi>",&
-            reg(txtfy(2))//"<V>=<Hi-Ehf>",&
-            reg(txtfy(3))//"<E0>",&
-            reg(txtfy(4))//"<Ehf>",&
-            reg(txtfy(5))//"<Dst>",&
-            reg(txtfy(6))//"<Dnd>",&
-            reg(txtfy(7))//"<Dse>",&
-            reg(txtfy(8))//"<Dph>"
-    endif
+    write(unit,"(A1,90(A14,1X))")"#",&
+         reg(txtfy(1))//"<Hi>",&
+         reg(txtfy(2))//"<V>=<Hi-Ehf>",&
+         reg(txtfy(3))//"<Eloc>",&
+         reg(txtfy(4))//"<Ehf>",&
+         reg(txtfy(5))//"<Dst>",&
+         reg(txtfy(6))//"<Dnd>",&
+         reg(txtfy(7))//"<Dse>",&
+         reg(txtfy(8))//"<Dph>"
     close(unit)
   end subroutine write_energy_info
+
+  subroutine write_kinetic_info()
+    real(8) :: Ekin
+    integer :: unit,iorb,jorb,ispin
+    unit = free_unit()
+    open(unit,file="kinetic_info.ed")
+    write(unit,"(A1,90(A14,1X))")"#",reg(txtfy(1))//"<K>",reg(txtfy(2))//"<Eloc>"
+    close(unit)
+  end subroutine write_kinetic_info
 
 
 
   !+-------------------------------------------------------------------+
   !PURPOSE  : Write energies to file
   !+-------------------------------------------------------------------+
-  subroutine write_energy(Ekin)
-    real(8),optional :: Ekin
-    integer          :: unit
-    integer          :: iorb,jorb,ispin
-    if(present(Ekin))then
-       unit = free_unit()
-       open(unit,file="energy_last"//reg(ed_file_suffix)//".ed")
-       write(unit,"(90F15.9)")ed_Ekin,ed_Epot,ed_Ekin+ed_Epot+ed_Eknot,ed_Epot-ed_Ehartree,ed_Eknot,ed_Ehartree,ed_Dust,ed_Dund,ed_Dse,ed_Dph
-       close(unit)
-    else
-       unit = free_unit()
-       open(unit,file="energy_last"//reg(ed_file_suffix)//".ed")
-       write(unit,"(90F15.9)")ed_Epot,ed_Epot-ed_Ehartree,ed_Eknot,ed_Ehartree,ed_Dust,ed_Dund,ed_Dse,ed_Dph
-       close(unit)
-    endif
+  subroutine write_energy()
+    integer :: unit
+    integer :: iorb,jorb,ispin
+    unit = free_unit()
+    open(unit,file="energy_last"//reg(ed_file_suffix)//".ed")
+    write(unit,"(90F15.9)")ed_Epot,ed_Epot-ed_Ehartree,ed_Eknot,ed_Ehartree,ed_Dust,ed_Dund,ed_Dse,ed_Dph
+    close(unit)
   end subroutine write_energy
+
+  subroutine write_kinetic(Ekin)
+    real(8) :: Ekin(2)
+    integer :: unit
+    integer :: iorb,jorb,ispin
+    unit = free_unit()
+    open(unit,file="kinetic_last"//reg(ed_file_suffix)//".ed")
+    write(unit,"(90F15.9)")Ekin(1),Ekin(2)
+    close(unit)
+  end subroutine write_kinetic
+
 
 end MODULE ED_ENERGY

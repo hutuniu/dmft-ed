@@ -1,7 +1,8 @@
 !                    MODEL Hamiltonian is:
 !
-! |     h^{2x2}(k)             &          hso^{2x2}(k)        |
-! |     [hso^{2x2}]*(k)        &         [h^{2x2}]*(-k)       |
+! |     h^{2x2}(k)              &         hso^{2x2}(k)        |
+! |      [hso^{2x2}]*(k)        &        [h^{2x2}]*(-k)       |
+!
 !
 ! h^{2x2}(k):=
 !
@@ -26,15 +27,13 @@ program ed_bhz
   real(8),allocatable    :: Bath(:,:),Bath_(:,:)
   !The local hybridization function:
   complex(8),allocatable :: Delta(:,:,:,:,:)
-  complex(8),allocatable :: Smats(:,:,:,:,:),Sreal(:,:,:,:,:)
-  complex(8),allocatable :: Gmats(:,:,:,:,:),Greal(:,:,:,:,:)
-  !hamiltonian input:
+  !Hamiltonian input:
   complex(8),allocatable :: Hk(:,:,:),bhzHloc(:,:)
-  real(8),allocatable    :: Wtk(:)
+  real(8),allocatable    :: dos_wt(:)
   real(8),allocatable    :: kxgrid(:),kygrid(:)
   integer,allocatable    :: ik2ix(:),ik2iy(:)
   !variables for the model:
-  integer                :: Nk,Nkpath
+  integer                :: Nk
   real(8)                :: mh,lambda,wmixing,akrange
   character(len=16)      :: finput
   character(len=32)      :: hkfile
@@ -57,7 +56,6 @@ program ed_bhz
   call parse_input_variable(getpoles,"GETPOLES",finput,default=.false.)
   call parse_input_variable(akrange,"AKRANGE",finput,default=10.d0)
   call parse_input_variable(nk,"NK",finput,default=100)
-  call parse_input_variable(nkpath,"NKPATH",finput,default=500)
   call parse_input_variable(mh,"MH",finput,default=0.d0)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.75d0)
   call parse_input_variable(spinsym,"SPINSYM",finput,default=.true.)
@@ -70,10 +68,6 @@ program ed_bhz
 
   !Allocate Weiss Field:
   allocate(delta(Nspin,Nspin,Norb,Norb,Lmats))
-  allocate(Smats(Nspin,Nspin,Norb,Norb,Lmats))
-  allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
-  allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
-  allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
 
   !OPTIONAL CHANNELS:
   if(getak)then
@@ -108,15 +102,10 @@ program ed_bhz
      if(ED_MPI_ID==0)call start_loop(iloop,nloop,"DMFT-loop")
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
-     call ed_solve(bath)
-     call ed_get_sigma_matsubara(Smats)
-     call ed_get_sigma_real(Sreal)
+     call ed_solve(bath) 
 
-     call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
-     call ed_get_weiss(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=1)
-     ! !Get the Weiss field/Delta function to be fitted (user defined)
-     ! call get_delta
-
+     !Get the Weiss field/Delta function to be fitted (user defined)
+     call get_delta
      !Fit the new bath, starting from the old bath + the supplied delta
      call ed_chi2_fitgf(delta(1,1,:,:,:),bath,ispin=1)
      if(.not.spinsym)then
@@ -136,118 +125,11 @@ program ed_bhz
      if(ED_MPI_ID==0)call end_loop
   enddo
 
-  call ed_kinetic_energy(Hk,Wtk,Smats)
-
 
 #ifdef _MPI
   call MPI_FINALIZE(ED_MPI_ERR)
 #endif
 contains
-
-
-
-  !---------------------------------------------------------------------
-  !PURPOSE: GET BHZ HAMILTONIAN (from the NonInteracting code)
-  !---------------------------------------------------------------------
-  subroutine build_hk(file)
-    character(len=*),optional           :: file
-    integer                             :: i,j,ik=0
-    integer                             :: ix,iy
-    real(8)                             :: kx,ky    
-    integer                             :: iorb,jorb
-    integer                             :: isporb,jsporb
-    integer                             :: ispin,jspin
-    real(8)                             :: foo
-    integer                             :: unit
-    complex(8),dimension(Nso,Nso,Lmats) :: Gmats
-    complex(8),dimension(Nso,Nso,Lreal) :: Greal
-    real(8)                             :: wm(Lmats),wr(Lreal),dw,n0(Nso)
-    if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for BHZ:"
-    Lk=Nk**2
-    if(ED_MPI_ID==0)write(*,*)"# of k-points     :",Lk
-    if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
-    if(allocated(Hk))deallocate(Hk)
-    allocate(Hk(Nso,Nso,Lk))
-    allocate(wtk(Lk))
-    allocate(kxgrid(Nk),kygrid(Nk))
-    kxgrid = kgrid(Nk)
-    kygrid = kgrid(Nk)
-    Hk     = build_hk_model(hk_bhz,Nso,kxgrid,kygrid,[0d0])
-    wtk = 1d0/Lk
-    if(ED_MPI_ID==0.AND.present(file))then
-       call write_hk_w90(file,Nso,&
-            Nd=Norb,&
-            Np=1,   &
-            Nineq=1,&
-            hk=Hk,  &
-            kxgrid=kxgrid,&
-            kygrid=kxgrid,&
-            kzgrid=[0d0])
-    endif
-    allocate(bhzHloc(Nso,Nso))
-    bhzHloc = sum(Hk(:,:,:),dim=3)/Lk
-    where(abs(dreal(bhzHloc))<1.d-9)bhzHloc=0d0
-    if(ED_MPI_ID==0)call write_Hloc(bhzHloc)
-    !Build the local GF:
-    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
-    wr = linspace(wini,wfin,Lreal,mesh=dw)
-    do ik=1,Lk
-       do i=1,Lmats
-          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+xmu,Hk(:,:,ik))/Lk
-       enddo
-       do i=1,Lreal
-          Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/Lk
-       enddo
-    enddo
-    do iorb=1,Nso
-       call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_iw.ed",wm,Gmats(iorb,iorb,:))
-       call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_realw.ed",wr,&
-            -dimag(Greal(iorb,iorb,:))/pi,dreal(Greal(iorb,iorb,:)))
-       n0(iorb) = fft_get_density(Gmats(iorb,iorb,:),beta)
-    enddo
-    !
-  end subroutine build_hk
-
-
-
-
-  !---------------------------------------------------------------------
-  !PURPOSE: GET THE BHZ HAMILTONIAN ALONG THE Gamma-X-M-Gamma path
-  !---------------------------------------------------------------------
-  subroutine build_hk_GXMG()
-    integer                            :: i,j
-    integer                            :: Npts
-    real(8),dimension(:,:),allocatable :: kpath
-    !This routine build the H(k) along the GXMG path in BZ,
-    !Hk(k) is constructed along this path.
-    if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-    Npts = 4
-    Lk=(Npts-1)*Nkpath
-    if(allocated(Hk))deallocate(Hk)
-    if(allocated(wtk))deallocate(wtk)
-    if(allocated(kxgrid))deallocate(kxgrid)
-    if(allocated(kygrid))deallocate(kygrid)
-    allocate(Hk(Nso,Nso,Lk))
-    allocate(wtk(Lk))
-    allocate(kxgrid(Lk))
-    allocate(kygrid(Lk))
-    allocate(kpath(Npts,2))
-    kpath(1,:)=kpoint_Gamma
-    kpath(2,:)=kpoint_M1
-    kpath(3,:)=kpoint_X1
-    kpath(4,:)=kpoint_Gamma
-    kxgrid = kgrid_from_path(kpath,Npts,Nkpath,1)
-    kygrid = kgrid_from_path(kpath,Npts,Nkpath,2)
-    Hk     = build_hk_model(hk_bhz,Nso,kxgrid,kygrid,[0d0])
-    wtk = 1d0/Lk
-    if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_bhz,Nso,kpath,Lk,&
-         colors_name=[character(len=20) :: 'red','blue','red','blue'],&
-         points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-         file="Eigenband.nint")
-  end subroutine build_hk_GXMG
-
-
-
 
 
 
@@ -281,7 +163,7 @@ contains
        if(lambda==0.d0)then
           do ik=1,Lk
              forall(iorb=1:Nso)&
-                  fg(iorb,iorb) = fg(iorb,iorb) + Wtk(ik)/(zeta(iorb,iorb)-Hk(iorb,iorb,ik))
+                  fg(iorb,iorb) = fg(iorb,iorb) + dos_wt(ik)/(zeta(iorb,iorb)-Hk(iorb,iorb,ik))
           enddo
           gloc(:,:,:,:,i) = j2so(fg)
           !Get Delta=\Delta or G_0
@@ -295,7 +177,7 @@ contains
           endif
        else
           do ik=1,Lk
-             fg = fg + inverse_gk(zeta,Hk(:,:,ik))*Wtk(ik)
+             fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
           enddo
           gloc(:,:,:,:,i) = j2so(fg)
           !Get Delta=\Delta or G_0
@@ -331,7 +213,7 @@ contains
        zeta(:,:) = zeta(:,:) - so2j(impSreal(:,:,:,:,i),Nso)
        fg=zero
        do ik=1,Lk         
-          fg = fg + inverse_gk(zeta,Hk(:,:,ik))*wtk(ik)
+          fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
        enddo
        gloc(:,:,:,:,i) = j2so(fg)
     enddo
@@ -344,14 +226,161 @@ contains
        enddo
     endif
     deallocate(gloc)
+
     !Get Kinetic Energy too
     allocate(Smats(Nso,Nso,Lmats))
     do i=1,Lmats
        Smats(:,:,i)=so2j(impSmats(:,:,:,:,i),Nso)
     enddo
-    call ed_kinetic_energy(Hk,wtk,Smats)
+    call ed_kinetic_energy(Hk,dos_wt,Smats)
     deallocate(Smats)
+
   end subroutine get_delta
+
+
+
+
+
+
+  !---------------------------------------------------------------------
+  !PURPOSE: GET BHZ HAMILTONIAN (from the NonInteracting code)
+  !---------------------------------------------------------------------
+  subroutine build_hk(file)
+    character(len=*),optional           :: file
+    integer                             :: i,j,ik=0
+    integer                             :: ix,iy
+    real(8)                             :: kx,ky    
+    integer                             :: iorb,jorb
+    integer                             :: isporb,jsporb
+    integer                             :: ispin,jspin
+    real(8)                             :: foo
+    integer                             :: unit
+    complex(8),dimension(Lmats,Nso,Nso) :: fg
+    complex(8),dimension(Lreal,Nso,Nso) :: fgr
+    real(8)                             :: wm(Lmats),wr(Lreal),dw,n0(Nso)
+
+    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr = linspace(wini,wfin,Lreal,mesh=dw)
+    if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for BHZ:"
+    Lk=Nk**2
+    if(allocated(Hk))deallocate(Hk)
+    allocate(Hk(Nso,Nso,Lk))
+    allocate(kxgrid(Nk),kygrid(Nk),ik2ix(Lk),ik2iy(Lk))
+    if(ED_MPI_ID==0.AND.present(file))then
+       unit=free_unit()
+       open(unit,file=file)
+       fg=zero
+       fgr=zero
+    endif
+    do ix=1,Nk
+       kx = -pi + 2.d0*pi*dble(ix-1)/dble(Nk)
+       kxgrid(ix)=kx
+       do iy=1,Nk
+          ky = -pi + 2.d0*pi*dble(iy-1)/dble(Nk)
+          kygrid(iy)=ky
+          ik=ik+1
+          ik2ix(ik)=ix
+          ik2iy(ik)=iy
+          Hk(:,:,ik) = hk_bhz(kx,ky)
+          if(ED_MPI_ID==0.AND.present(file))then
+             write(unit,"(3(F10.7,1x))")kx,ky,pi
+             do i=1,Nso
+                write(unit,"(100(2F10.7,1x))")(Hk(i,j,ik),j=1,Nso)
+             enddo
+             do i=1,Lreal
+                fgr(i,:,:)=fgr(i,:,:) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/dble(Lk)
+             enddo
+             do i=1,Lmats
+                fg(i,:,:) =fg(i,:,:)  + inverse_g0k(xi*wm(i)+xmu,Hk(:,:,ik))/dble(Lk)
+             enddo
+          endif
+       enddo
+    enddo
+    if(ED_MPI_ID==0.AND.present(file))write(unit,*)""
+    allocate(dos_wt(Lk))
+    dos_wt=1.d0/dble(Lk)
+    do i=1,Nso
+       n0(i) = -2.d0*sum(dimag(fgr(:,i,i))*fermi(wr(:),beta))*dw/pi
+    enddo
+    if(ED_MPI_ID==0.AND.present(file))then
+       write(unit,"(24F20.12)")mh,lambda,xmu,(n0(i),i=1,Nso),sum(n0)
+       write(LOGfile,"(24F20.12)")mh,lambda,xmu,(n0(i),i=1,Nso),sum(n0)
+       open(10,file="U0_DOS.ed")
+       do i=1,Lreal
+          write(10,"(100(F25.12))") wr(i),(-dimag(fgr(i,iorb,iorb))/pi,iorb=1,Nso)
+       enddo
+       close(10)
+       open(11,file="U0_Gloc_iw.ed")
+       do i=1,Lmats
+          write(11,"(20(2F20.12))") wm(i),(fg(i,iorb,iorb),iorb=1,Nso)
+       enddo
+       close(11)
+    endif
+    allocate(bhzHloc(Nso,Nso))
+    bhzHloc = sum(Hk(:,:,:),dim=3)/dble(Lk)
+    where(abs(dreal(bhzHloc))<1.d-9)bhzHloc=0.d0
+    !
+    if(ED_MPI_ID==0)write(*,*)"# of k-points     :",Lk
+    if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
+  end subroutine build_hk
+
+
+  !---------------------------------------------------------------------
+  !PURPOSE: GET THE BHZ HAMILTONIAN ALONG THE Gamma-X-M-Gamma path
+  !---------------------------------------------------------------------
+  subroutine build_hk_GXMG()
+    integer                                     :: i,j,ik=0
+    integer                                     :: ix,iy
+    integer                                     :: iorb,jorb
+    integer                                     :: isporb,jsporb
+    integer                                     :: ispin,jspin
+    integer                                     :: iso,unit
+    real(8)                                     :: foo
+    real(8)                                     :: kx,ky    
+    complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta,fgk
+    complex(8),dimension(:,:,:,:,:),allocatable :: gloc,Sreal,Smats
+    complex(8),dimension(:,:,:,:),allocatable   :: gk,gfoo,ReSmat
+    complex(8),dimension(:,:,:),allocatable     :: Hktilde
+    real(8)                                     :: eig(Nso)
+    !This routine build the H(k) along the GXMG path in BZ,
+    !Hk(k) is used in get_delta with getak=T
+    if(ed_mpi_id==0)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
+    unit=free_unit() 
+    if(ed_mpi_id==0)open(unit,file="Eigenbands.dat")
+    Lk=3*Nk
+    ik = 0
+    if(allocated(Hk))deallocate(Hk)
+    allocate(Hk(Nso,Nso,Lk))
+    !From \Gamma=(0,0) to X=(pi,0): Nk steps
+    do ix=1,Nk
+       ik=ik+1
+       kx = 0.d0 + pi*real(ix-1,8)/dble(Nk)
+       ky = 0.d0
+       Hk(:,:,ik)=hk_bhz(kx,ky)
+       eig = Eigk(hk_bhz(kx,ky))
+       if(ed_mpi_id==0)write(unit,"(I3,16F25.12)")ik,(eig(i),i=1,Nso)
+    enddo
+    !From X=(pi,0) to M=(pi,pi): Nk steps
+    do iy=1,Nk
+       ik=ik+1
+       kx = pi
+       ky = 0.d0 + pi*real(iy-1,8)/dble(Nk)
+       Hk(:,:,ik)=hk_bhz(kx,ky)
+       eig = Eigk(hk_bhz(kx,ky))
+       if(ed_mpi_id==0)write(unit,"(I3,16F25.12)")ik,(eig(i),i=1,Nso)
+    enddo
+    !From M=(pi,pi) to \Gamma=(0,0): Nk steps
+    do ix=1,Nk
+       ik=ik+1
+       iy=ix
+       kx = pi - pi*real(ix-1,8)/dble(Nk)
+       ky = pi - pi*real(iy-1,8)/dble(Nk)
+       Hk(:,:,ik)=hk_bhz(kx,ky)
+       eig = Eigk(hk_bhz(kx,ky))
+       if(ed_mpi_id==0)write(unit,"(I3,16F25.12)")ik,(eig(i),i=1,Nso)
+    enddo
+    if(ed_mpi_id==0)close(unit)
+  end subroutine build_hk_GXMG
 
 
 
@@ -374,7 +403,7 @@ contains
     complex(8),dimension(:,:,:,:),allocatable   :: gk,gfoo,ReSmat
     complex(8),dimension(:,:,:),allocatable     :: Hktilde
     complex(8)                                  :: iw
-    real(8)                                     :: wm(Lmats),wr(Lreal)
+    real(8)                                     :: wm(Lmats),wr(Lreal),eig(Nso)
     real(8),dimension(:,:),allocatable          :: Ktrim,Ev
     character(len=20)                           :: suffix
     if(ED_MPI_ID==0)then
@@ -467,6 +496,7 @@ contains
     !    enddo
     !    write(unit,*)""
     ! enddo
+
     Linterval = 150 !Maximum number of allowed intervals to look for zeros&poles
     !
     allocate(Xcsign(0:Linterval))
@@ -523,7 +553,9 @@ contains
        endif
     enddo
     close(unit)
-    !
+
+
+
     if(.false.)then
        call build_hk
        allocate(Ipoles3d(Nk,Nk))
@@ -574,10 +606,10 @@ contains
 
   function get_weight(hk) result(wt)
     complex(8),dimension(4,4) :: hk,foo
-    real(8),dimension(4)      :: eigv
+    real(8),dimension(4)      :: eig
     real(8) :: wt
     foo = hk
-    call matrix_diagonalize(foo,eigv)
+    call matrix_diagonalize(foo,eig)
     wt = sum(foo(:,1))
   end function Get_Weight
 
@@ -618,7 +650,7 @@ contains
        zeta(:,:) = zeta(:,:) - so2j(Sreal(:,:,:,:,i),Nso)
        fg=zero
        do ik=1,Lk         
-          fg = fg + inverse_gk(zeta,Hk(:,:,ik))*wtk(ik)
+          fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
        enddo
        call matrix_inverse(fg)
        if(cg_scheme=='weiss')then
@@ -655,14 +687,9 @@ contains
   !--------------------------------------------------------------------!
   !BHZ HAMILTONIAN:
   !--------------------------------------------------------------------!
-  function hk_bhz(kvec,N) result(hk)
-    real(8),dimension(:)      :: kvec
-    complex(8),dimension(N,N) :: hk
+  function hk_bhz(kx,ky) result(hk)
     real(8)                   :: kx,ky
-    integer                   :: N
-    if(N/=Nso)stop "hk_bhz error: N != Nspin*Norb == 4"
-    kx=kvec(1)
-    ky=kvec(2)
+    complex(8),dimension(4,4) :: hk
     Hk          = zero
     Hk(1:2,1:2) = hk_bhz2x2(kx,ky)
     Hk(3:4,3:4) = conjg(hk_bhz2x2(-kx,-ky))

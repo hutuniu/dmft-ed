@@ -25,7 +25,10 @@
      !Density-density interaction: same orbital, opposite spins
      !Euloc=\sum=i U_i*(n_u*n_d)_i
      !     if(.not.ed_supercond) then
-     htmp = htmp + dot_product(uloc,nup*ndw)!=\sum=i U_i*(n_u*n_d)_i
+     ! htmp = htmp + dot_product(uloc,nup*ndw)!=\sum=i U_i*(n_u*n_d)_i
+     do iorb=1,Norb
+        htmp = htmp + Uloc(iorb)*nup(iorb)*ndw(iorb)
+     enddo
      !     else
      !!htmp = htmp - dot_product(uloc,nup*ndw)!=\sum=i U_i*(n_u*n_d)_i
      !        htmp = htmp - uloc(1)*(nup(1)-0.5d0)*(ndw(1)-0.5d0)
@@ -52,7 +55,10 @@
      !if using the Hartree-shifted chemical potential: mu=0 for half-filling
      !sum up the contributions of hartree terms:
      if(hfmode)then
-        htmp=htmp - 0.5d0*dot_product(uloc,nup+ndw) + 0.25d0*sum(uloc)
+        ! htmp=htmp - 0.5d0*dot_product(uloc,nup+ndw) + 0.25d0*sum(uloc)
+        do iorb=1,Norb
+           htmp = htmp - 0.5d0*Uloc(iorb)*(nup(iorb)+ndw(iorb)) + 0.25d0*uloc(iorb)
+        enddo
         if(Norb>1)then
            do iorb=1,Norb
               do jorb=iorb+1,Norb

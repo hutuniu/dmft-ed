@@ -43,24 +43,31 @@ MODULE ED_BATH
           fdelta_bath_hybrd_real
   end interface fdelta_bath_real
 
-
+  !PUBLIC:
+  public :: get_bath_size
+  public :: check_bath_dimension
+  public :: spin_symmetrize_bath
+  public :: ph_symmetrize_bath
+  public :: ph_trans_bath
+  public :: break_symmetry_bath
+  public :: enforce_normal_bath
+  !PRIVATE (for effective_bath type)
+  public :: init_bath_ed
   public :: allocate_bath
   public :: deallocate_bath
-  public :: check_bath_dimension
-  public :: init_bath_ed
-  public :: get_bath_size
   public :: write_bath
   public :: save_bath
   public :: set_bath
   public :: copy_bath
-  public :: spin_symmetrize_bath
-  public :: ph_symmetrize_bath
-  public :: break_symmetry_bath
-  public :: enforce_normal_bath
+  !functions:
   public :: delta_bath_mats
   public :: delta_bath_real
   public :: fdelta_bath_mats
   public :: fdelta_bath_real
+  !<TODO add functions whose input is standard bath array and not effective_bath type
+  ! 
+  !>TODO
+
 
 contains
 
@@ -171,9 +178,9 @@ contains
   subroutine init_bath_ed(dmft_bath_,hwband_)
     type(effective_bath) :: dmft_bath_
     real(8)              :: hwband_,wband_
-    integer              :: i,iorb,ispin,unit,flen
+    integer              :: i,iorb,ispin,unit,flen,Nh
     logical              :: IOfile
-    real(8)              :: Nh,de
+    real(8)              :: de
     if(.not.dmft_bath_%status)stop "init_bath: bath not allocated"
     !Generating the bath anyway, then you may want to read it to 
     !update some entries. This way you can restart even 
@@ -183,7 +190,7 @@ contains
     dmft_bath_%e(:,:,Nbath)= hwband_
     Nh=Nbath/2
     if(mod(Nbath,2)==0)then
-       de=hwband_/max(dble(Nh-1),1.d0)
+       de=hwband_/max(Nh-1,1)
        dmft_bath_%e(:,:,Nh)  = -1.d-4
        dmft_bath_%e(:,:,Nh+1)=  1.d-4
        do i=2,Nh-1
@@ -191,7 +198,7 @@ contains
           dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de
        enddo
     else
-       de=hwband_/dble(Nh)
+       de=hwband_/Nh
        dmft_bath_%e(:,:,Nh+1)= 0.d0
        do i=2,Nh
           dmft_bath_%e(:,:,i)        =-hwband_ + (i-1)*de
@@ -548,6 +555,40 @@ contains
     call copy_bath(dmft_bath_,bath_)
     call deallocate_bath(dmft_bath_)
   end subroutine ph_symmetrize_bath
+
+  subroutine ph_trans_bath(bath_)
+    real(8),dimension(:,:) :: bath_
+    type(effective_bath)   :: dmft_bath_
+    type(effective_bath)   :: tmp_dmft_bath
+    integer                :: i
+    call allocate_bath(dmft_bath_)
+    call allocate_bath(tmp_dmft_bath)
+    call set_bath(bath_,dmft_bath_)
+    if(Nbath==1)return
+    do i=1,Nbath
+       select case(Norb)
+       case default
+          ! do nothing
+          dmft_bath_%e(:,:,i)= dmft_bath_%e(:,:,i)
+          dmft_bath_%v(:,:,i)= dmft_bath_%v(:,:,i)
+          if(ed_supercond)dmft_bath_%d(:,:,i)=dmft_bath_%d(:,:,i)
+       case(1)
+          dmft_bath_%e(:,:,i)= -dmft_bath_%e(:,:,i)
+          dmft_bath_%v(:,:,i)=  dmft_bath_%v(:,:,i)
+          if(ed_supercond)dmft_bath_%d(:,:,i)=dmft_bath_%d(:,:,i)
+       case(2)
+          tmp_dmft_bath%e(:,1,i) = -dmft_bath_%e(:,2,i)
+          tmp_dmft_bath%e(:,2,i) = -dmft_bath_%e(:,1,i)
+          dmft_bath_%e(:,:,i)    = tmp_dmft_bath%e(:,:,i)
+          tmp_dmft_bath%v(:,1,i) = dmft_bath_%v(:,2,i)
+          tmp_dmft_bath%v(:,2,i) = dmft_bath_%v(:,1,i)
+          dmft_bath_%v(:,:,i)    = tmp_dmft_bath%v(:,:,i)
+          if(ed_supercond)dmft_bath_%d(:,:,i)=dmft_bath_%d(:,:,i)          
+       end select
+    end do
+    call copy_bath(dmft_bath_,bath_)
+    call deallocate_bath(dmft_bath_)
+  end subroutine ph_trans_bath
 
 
   !+- enforce a normal (i.e. non superconductive) bath -+!

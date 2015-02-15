@@ -28,7 +28,7 @@ MODULE PLAIN_LANCZOS
   procedure(lanc_htimesv_c),pointer     :: cp_hprod
   logical                               :: verb=.false.
   real(8)                               :: threshold_=1.d-15
-  real(8)                               :: ncheck_=10
+  integer                               :: ncheck_=10
 
   public :: lanczos_plain_iteration_d
   public :: lanczos_plain_iteration_c

@@ -7,3 +7,4 @@ revision.inc
 mc_EDsc/
 .bash_completion.d
 .repo
+drivers/SQUARE_LATTICE.f90

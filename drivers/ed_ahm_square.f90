@@ -1,20 +1,6 @@
-!###################################################################
-!PURPOSE  : LANCZOS ED solution of DMFT problem for Hubbard model.
-!AUTHORS  : A. Amaricci
-!###################################################################
-program lancED
+program ed_ah
   USE DMFT_ED
-  ! USE CONSTANTS
-  ! USE IOTOOLS
-  ! USE FUNCTIONS
-  ! USE TOOLS
-  ! USE INTEGRATE
-  ! USE TIMER
-  ! USE MATRIX
-  ! USE ERROR
-  ! USE ARRAYS
-  ! USE SQUARE_LATTICE
-  ! USE FFTGF
+  !
   USE SCIFOR
   USE DMFT_TOOLS
   implicit none
@@ -25,9 +11,17 @@ program lancED
   real(8),allocatable    :: Bath(:,:),BathOld(:,:)
   !The local hybridization function:
   complex(8),allocatable :: Delta(:,:,:,:)
+  complex(8),allocatable :: Gmats(:,:),Greal(:,:)
+  complex(8),allocatable :: Smats(:,:),Sreal(:,:)
   character(len=16)      :: finput,fhloc
-  logical :: phsym,normal_bath
-  real(8),allocatable    :: Hk(:),wt(:),kxgrid(:),kygrid(:)
+  logical                :: phsym,normal_bath
+  real(8),allocatable    :: Hk(:),wt(:),kxgrid(:),kygrid(:),wm(:),wr(:)
+
+  ! call MPI_INIT(mpiERR)
+  ! call MPI_COMM_RANK(MPI_COMM_WORLD,mpiID,mpiERR)
+  ! call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
+  ! write(*,"(A,I4,A,I4,A)")'Processor ',mpiID,' of ',mpiSIZE,' is alive'
+  ! call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.conf')
   call parse_input_variable(wmixing,"wmixing",finput,default=1.d0,comment="Mixing bath parameter")
@@ -40,12 +34,17 @@ program lancED
 
   !Allocate Weiss Field:
   allocate(delta(2,Norb,Norb,Lmats))
+  allocate(Gmats(2,Lmats),Greal(2,Lreal))
+  allocate(Smats(2,Lmats),Sreal(2,Lreal))
+
+  wm = pi/beta*(2*arange(1,Lmats)-1)
+  wr = linspace(wini,wfin,Lreal)
 
   !setup solver
   Nb=get_bath_size()
   allocate(bath(Nb(1),Nb(2)))
   allocate(bathold(Nb(1),Nb(2)))
-  call init_ed_solver(bath)
+  call ed_init_solver(bath)
 
 
   Lk = Nx*Nx
@@ -54,9 +53,9 @@ program lancED
   write(*,*) "Using Nk_total="//txtfy(Lk)
   kxgrid = kgrid(Nx)
   kygrid = kgrid(Nx)
-  Hk     = build_hk_model(Lk,hk_model,kxgrid,kygrid,[0d0])
+  Hk     = build_hk_model(hk_model,kxgrid,kygrid,[0d0])
   Wt     = 1d0/Lk
-  call write_hk_w90("Hk2d.dat",1,2,1,dcmplx(Hk,0d0),kxgrid,kygrid,[0d0])
+  call write_hk_w90("Hk2d.dat",1,1,0,1,dcmplx(Hk,0d0),kxgrid,kygrid,[0d0])
   call get_free_dos(Hk,Wt)
 
   !DMFT loop
@@ -66,13 +65,25 @@ program lancED
      call start_loop(iloop,nloop,"DMFT-loop")
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
-     call ed_solver(bath) 
+     call ed_solve(bath) 
+     call ed_get_sigma_matsubara(Smats(1,:))
+     call ed_get_sigma_real(Sreal(1,:))
+     call ed_get_self_matsubara(Smats(2,:))
+     call ed_get_self_real(Sreal(2,:))
 
      !Get the Weiss field/Delta function to be fitted (user defined)
-     call get_delta
+     !call get_delta
+     call ed_get_gloc(dcmplx(Hk,0d0),Wt,Gmats,Greal,Smats,Sreal)
+     call ed_get_weiss(Gmats,Smats,Delta(:,1,1,:))
+     call splot("Gloc_iw.ed",wm,Gmats(1,:))
+     call splot("Floc_iw.ed",wm,Gmats(2,:))
+     call splot("Delta_iw.ed",wm,delta(1,1,1,:),delta(2,1,1,:))
+     call splot("Gloc_realw.ed",wr,-dimag(Greal(1,:))/pi,dreal(Greal(1,:)))
+     call splot("Floc_realw.ed",wr,-dimag(Greal(2,:))/pi,dreal(Greal(2,:)))
+
 
      !Perform the SELF-CONSISTENCY by fitting the new bath
-     call chi2_fitgf(delta,bath,ispin=1)
+     call ed_chi2_fitgf(delta,bath,ispin=1)
      if(phsym)call ph_symmetrize_bath(bath)
      if(normal_bath)call enforce_normal_bath(bath)
 
@@ -88,7 +99,10 @@ program lancED
   !call get_sc_optical_conductivity
   !call get_sc_internal_energy(Lmats)
 
-  call  ed_kinetic_energy_sc(impSmats(1,1,1,1,:),impSAmats(1,1,1,1,:),Hk,wt)
+  call  ed_kinetic_energy(Hk,wt,impSmats(1,1,1,1,:),impSAmats(1,1,1,1,:))
+
+  ! call MPI_FINALIZE(mpiERR)
+
 
 contains
 
@@ -108,66 +122,69 @@ contains
 
 
 
-  !+----------------------------------------+
-  subroutine get_delta
-    integer                    :: i,j,iorb,ik
-    complex(8)                 :: iw,zita,g0loc,cdet,zita1,zita2
-    complex(8),dimension(Lreal)   :: zeta
-    complex(8),dimension(2,Lmats) :: gloc,calG
-    complex(8),dimension(2,Lreal) :: grloc
-    real(8)                    :: wm(Lmats),wr(Lreal),tau(0:Lmats)
-    complex(8),dimension(Norb,Norb) :: Hloc
 
-    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
-    wr = linspace(wini,wfin,Lreal)
-    call get_Hloc(Hloc,1)
-    delta=zero
-    do i=1,Lmats
-       iw = xi*wm(i)
-       zita    = iw + xmu - Hloc(1,1) - impSmats(1,1,1,1,i) 
-       gloc(:,i)=zero
-       do ik=1,Lk
-          cdet = abs(zita-Hk(ik))**2 + impSAmats(1,1,1,1,i)**2
-          gloc(1,i)=gloc(1,i) + wt(ik)*(conjg(zita)-Hk(ik))/cdet
-          gloc(2,i)=gloc(2,i) - wt(ik)*impSAmats(1,1,1,1,i)/cdet
-       enddo
-       if(cg_scheme=='weiss')then
-          !Get G0^{-1} matrix components:
-          cdet      =  abs(gloc(1,i))**2 + (gloc(2,i))**2
-          calG(1,i) =  conjg(gloc(1,i))/cdet + impSmats(1,1,1,1,i)
-          calG(2,i) =  gloc(2,i)/cdet        + impSAmats(1,1,1,1,i) 
-          !Get Weiss field G0 components:
-          cdet            =  abs(calG(1,i))**2 + (calG(2,i))**2
-          delta(1,1,1,i)  =  conjg(calG(1,i))/cdet
-          delta(2,1,1,i)  =  calG(2,i)/cdet
-       else
-          cdet            = abs(gloc(1,i))**2 + (gloc(2,i))**2
-          delta(1,1,1,i)  = zita  - conjg(gloc(1,i))/cdet 
-          delta(2,1,1,i)  = - impSAmats(1,1,1,1,i) - gloc(2,i)/cdet 
-       endif
-    enddo
-    !
-    zeta(:) = cmplx(wr(:),eps,8) + xmu - impSreal(1,1,1,1,:)
-    do i=1,Lreal
-       zita1 = zeta(i)
-       zita2 = conjg(zeta(Lreal+1-i))
-       grloc(:,i) = zero
-       do ik=1,Lk
-          cdet = (zita1-Hk(ik))*(zita2-Hk(ik)) + impSAreal(1,1,1,1,i)*impSAreal(1,1,1,1,i)
-          grloc(1,i) = grloc(1,i) + wt(ik)*(zita2-Hk(ik))/cdet
-          grloc(2,i) = grloc(2,i) + wt(ik)*impSAreal(1,1,1,1,i)/cdet
-       enddo
-    enddo
 
-    call splot("Gloc_iw.ed",wm,gloc(1,:))
-    call splot("Floc_iw.ed",wm,gloc(2,:))
-    call splot("Gloc_realw.ed",wr,grloc(1,:))
-    call splot("Floc_realw.ed",wr,grloc(2,:))
-    call splot("DOS.ed",wr,-dimag(grloc(1,:))/pi)
-    call splot("Delta_iw.ed",wm,delta(1,1,1,:),delta(2,1,1,:))
 
-  end subroutine get_delta
-  !+----------------------------------------+
+
+
+
+  ! !+----------------------------------------+
+  ! subroutine get_delta
+  !   integer                    :: i,j,iorb,ik
+  !   complex(8)                 :: iw,zita,g0loc,cdet,zita1,zita2
+  !   complex(8),dimension(Lreal)   :: zeta
+  !   complex(8),dimension(2,Lmats) :: gloc,calG
+  !   complex(8),dimension(2,Lreal) :: grloc
+  !   real(8)                    :: wm(Lmats),wr(Lreal),tau(0:Lmats)
+  !   complex(8),dimension(Norb,Norb) :: Hloc
+  !   wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+  !   wr = linspace(wini,wfin,Lreal)
+  !   call get_Hloc(Hloc,1)
+  !   delta=zero
+  !   do i=1,Lmats
+  !      iw = xi*wm(i)
+  !      zita    = iw + xmu - Hloc(1,1) - impSmats(1,1,1,1,i) 
+  !      gloc(:,i)=zero
+  !      do ik=1,Lk
+  !         cdet = abs(zita-Hk(ik))**2 + impSAmats(1,1,1,1,i)**2
+  !         gloc(1,i)=gloc(1,i) + wt(ik)*(conjg(zita)-Hk(ik))/cdet
+  !         gloc(2,i)=gloc(2,i) - wt(ik)*impSAmats(1,1,1,1,i)/cdet
+  !      enddo
+  !      if(cg_scheme=='weiss')then
+  !         !Get G0^{-1} matrix components:
+  !         cdet      =  abs(gloc(1,i))**2 + (gloc(2,i))**2
+  !         calG(1,i) =  conjg(gloc(1,i))/cdet + impSmats(1,1,1,1,i)
+  !         calG(2,i) =  gloc(2,i)/cdet        + impSAmats(1,1,1,1,i) 
+  !         !Get Weiss field G0 components:
+  !         cdet            =  abs(calG(1,i))**2 + (calG(2,i))**2
+  !         delta(1,1,1,i)  =  conjg(calG(1,i))/cdet
+  !         delta(2,1,1,i)  =  calG(2,i)/cdet
+  !      else
+  !         cdet            = abs(gloc(1,i))**2 + (gloc(2,i))**2
+  !         delta(1,1,1,i)  = zita  - conjg(gloc(1,i))/cdet 
+  !         delta(2,1,1,i)  = - impSAmats(1,1,1,1,i) - gloc(2,i)/cdet 
+  !      endif
+  !   enddo
+  !   !
+  !   zeta(:) = cmplx(wr(:),eps,8) + xmu - impSreal(1,1,1,1,:)
+  !   do i=1,Lreal
+  !      zita1 = zeta(i)
+  !      zita2 = conjg(zeta(Lreal+1-i))
+  !      grloc(:,i) = zero
+  !      do ik=1,Lk
+  !         cdet = (zita1-Hk(ik))*(zita2-Hk(ik)) + impSAreal(1,1,1,1,i)*impSAreal(1,1,1,1,i)
+  !         grloc(1,i) = grloc(1,i) + wt(ik)*(zita2-Hk(ik))/cdet
+  !         grloc(2,i) = grloc(2,i) + wt(ik)*impSAreal(1,1,1,1,i)/cdet
+  !      enddo
+  !   enddo
+  !   call splot("Gloc_iw.ed",wm,gloc(1,:))
+  !   call splot("Floc_iw.ed",wm,gloc(2,:))
+  !   call splot("Gloc_realw.ed",wr,grloc(1,:))
+  !   call splot("Floc_realw.ed",wr,grloc(2,:))
+  !   call splot("DOS.ed",wr,-dimag(grloc(1,:))/pi)
+  !   call splot("Delta_iw.ed",wm,delta(1,1,1,:),delta(2,1,1,:))
+  ! end subroutine get_delta
+  ! !+----------------------------------------+
 
 
 
@@ -371,7 +388,7 @@ contains
 
 
 
-end program lancED
+end program ed_ah
 
 
 
