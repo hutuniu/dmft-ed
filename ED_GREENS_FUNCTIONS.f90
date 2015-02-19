@@ -12,6 +12,9 @@ MODULE ED_GREENS_FUNCTIONS
   USE SF_IOTOOLS, only: free_unit,reg,free_units,txtfy
   USE SF_ARRAYS,  only: arange,linspace
   USE SF_LINALG,  only: matrix_inverse
+  !<debug
+  USE DMFT_FFTGF
+  !>debug
   USE PLAIN_LANCZOS
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL

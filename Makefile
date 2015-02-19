@@ -1,7 +1,7 @@
 include make.inc
 
 #--> HUBBARD MODELS:
-#EXE=ed_hm_bethe
+EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
 #EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
@@ -22,7 +22,7 @@ include make.inc
 #EXE=ed_2x2bhz
 #EXE=ed_bhz
 #EXE=ed_bhz_afm
-EXE=ed_bhz_edge
+#EXE=ed_bhz_edge
 
 #INHOMO
 #EXE=ed_ahm_disorder

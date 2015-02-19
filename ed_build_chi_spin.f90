@@ -273,7 +273,7 @@ end subroutine lanc_ed_buildchi_tot_c
 !PURPOSE  : 
 !+------------------------------------------------------------------+
 subroutine add_to_lanczos_chi(vnorm,Ei,nlanc,alanc,blanc,iorb)
-  real(8)                                    :: vnorm,Ei,Egs,pesoBZ,de,peso
+  real(8)                                    :: vnorm,Ei,Ej,Egs,pesoBZ,de,peso
   integer                                    :: nlanc
   real(8),dimension(nlanc)                   :: alanc,blanc 
   integer                                    :: isign,iorb
@@ -292,12 +292,17 @@ subroutine add_to_lanczos_chi(vnorm,Ei,nlanc,alanc,blanc,iorb)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
   !
   do j=1,nlanc
-     de = diag(j)-Ei
+     Ej = diag(j)
+     de = Ej-Ei
      peso = pesoBZ*Z(1,j)*Z(1,j)
-     if(de>cutoff)chiiw(iorb,0)=chiiw(iorb,0) - peso*(exp(-beta*de)-1.d0)/de
+     ! if(de>cutoff)chiiw(iorb,0)=chiiw(iorb,0) - peso*(exp(-beta*de)-1.d0)/de
+     ! do i=1,Lmats
+     !    iw=xi*vm(i)
+     !    chiiw(iorb,i)=chiiw(iorb,i) + peso*(exp(-beta*de)-1.d0)/(iw+de)
+     ! enddo
      do i=1,Lmats
         iw=xi*vm(i)
-        chiiw(iorb,i)=chiiw(iorb,i) + peso*(exp(-beta*de)-1.d0)/(iw-de)
+        chiiw(iorb,i)=chiiw(iorb,i) + peso*(exp(-beta*de)-1d0)*2d0*de/(wm(i)**2+de**2)
      enddo
      do i=1,Lreal
         iw=dcmplx(wr(i),eps)
