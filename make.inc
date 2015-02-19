@@ -7,15 +7,14 @@ FPP_INEQ=MPI_INEQ
 #this is the flag for the ed parallelism [MPI]
 FPP_ED=
 
-
 .SUFFIXES: .f90
 
 ifeq ($(PLAT),intel)
-FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
+FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) -static-intel
 endif
 ifeq ($(PLAT),gnu)
 INCARGS=-I/opt/scifor/gnu/include -I/opt/dmft_tools/gnu/include
-FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
+FFLAG +=-ffree-line-length-none -static -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 endif
 
 #CHOOSE LINKING OPTIONS:

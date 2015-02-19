@@ -2,18 +2,21 @@ MODULE DMFT_ED
   USE ED_INPUT_VARS
 
   USE ED_VARS_GLOBAL, only: &
-       Nlat, &
-       Nsymm,Nindep,&
-       indep_list,&
-       map_lat2ind,map_ind2lat,&
-       icol,irow,&
-       ij2site,&
-       H0,&
-       impSmats, &
-       impSAmats,&
-       impSreal, &
-       impSAreal,&
-       ed_dens,   &
+       Nlat        ,&
+       Nsymm       ,&
+       Nindep      ,&
+       indep_list  ,&
+       map_lat2ind ,&
+       map_ind2lat ,&
+       icol        ,&
+       irow        ,&
+       ij2site     ,&
+       H0          ,&
+       impSmats    ,&
+       impSAmats   ,&
+       impSreal    ,&
+       impSAreal   ,&
+       ed_dens     ,&
                                 ! ed_dens_up,&
                                 ! ed_dens_dw,&
                                 ! ed_docc,   &
@@ -28,17 +31,19 @@ MODULE DMFT_ED
                                 ! ed_Dph,  &
        ED_MPI_ID,ED_MPI_SIZE,ED_MPI_ERR
 
-  USE ED_AUX_FUNX, only: &
-       set_Hloc,   &
-       get_Hloc,   &
+  USE ED_AUX_FUNX, only:&
+       set_Hloc,&
+       get_Hloc,&
        search_chemical_potential
 
-  USE ED_WRAP_AUX_FUNX, only:&
-       blocks_to_matrix, &
-       matrix_to_blocks, &
-       select_block, &
-       stride_index, &
-       get_independent_sites, &  
+  USE ED_WRAP_AUX_FUNX       , only:&
+       blocks_to_matrix      ,&
+       matrix_to_blocks      ,&
+       select_block          ,&
+       stride_index          ,&
+       extract_Hloc          ,&
+       reshape_Hloc          ,&
+       get_independent_sites ,&  
                                 !OBSOLETE (to be removed)
        get_lattice_hamiltonian
 
@@ -115,7 +120,7 @@ MODULE DMFT_ED
 
 
   USE ED_ENERGY, only:    ed_kinetic_energy
-  USE ED_WRAP_ENERGY,only:ed_kinetic_energy_lattice,kinetic_energy_lattice_OLD
+  USE ED_WRAP_ENERGY,only:ed_kinetic_energy_lattice
 
 
   USE ED_CHI2FIT,     only: ed_chi2_fitgf
