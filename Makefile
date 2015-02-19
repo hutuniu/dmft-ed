@@ -8,6 +8,7 @@ include make.inc
 #EXE=ed_hm_2b_cubic
 #EXE=ed_hm_bethe_afm
 #EXE=ed_hm_2bands_hyb_fcc3d
+#EXE=ed_hm_mpitest
 
 #--> PERIODIC ANDERSON & P-D MODELS
 #EXE=ed_pam_1b
@@ -21,10 +22,12 @@ include make.inc
 #EXE=ed_2x2bhz
 #EXE=ed_bhz
 #EXE=ed_bhz_afm
+#EXE=ed_bhz_edge
 
 #INHOMO
 #EXE=ed_ahm_disorder
-EXE=ed_hm_slab_hyb
+#EXE=ed_hm_slab_hyb
+EXE=ed_nano
 
 DIR =drivers
 DIREXE=$(HOME)/.bin

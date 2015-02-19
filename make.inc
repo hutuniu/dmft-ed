@@ -7,7 +7,6 @@ FPP_INEQ=MPI_INEQ
 #this is the flag for the ed parallelism [MPI]
 FPP_ED=
 
-
 .SUFFIXES: .f90
 
 ifeq ($(PLAT),intel)
