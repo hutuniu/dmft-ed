@@ -110,8 +110,8 @@ program ed_ahm_disorder
      call ed_get_sigma_real_lattice(Sreal(1,:,:),Nlat)
      call ed_get_self_real_lattice(Sreal(2,:,:),Nlat)
 
-     call ed_get_gloc_lattice(Hk,[1d0],Gmats=Gmats,Greal=Greal,Smats=Smats,Sreal=Sreal,Eloc=erandom)
-     call ed_get_weiss_lattice(Gmats,Smats,Delta,Eloc=erandom)
+     call ed_get_gloc_lattice(Hk,[1d0],Gmats=Gmats,Greal=Greal,Smats=Smats,Sreal=Sreal,iprint=0,Eloc=erandom)
+     call ed_get_weiss_lattice(Nlat,Gmats,Smats,Delta,Eloc=erandom)
      call ed_chi2_fitgf_lattice(bath,Delta,Eloc=erandom)
      bath = wmixing*bath + (1.d0-wmixing)*bath_old
      if(rdmft_phsym)then

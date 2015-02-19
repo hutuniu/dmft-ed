@@ -4,7 +4,8 @@ module ED_WRAP_GLOC
   USE ED_AUX_FUNX
   USE ED_WRAP_AUX_FUNX
   USE SF_TIMER
-  USE SF_LINALG,    only:matrix_inverse,matrix_inverse_sym,matrix_diagonalize,matrix_inverse_gj
+  USE SF_IOTOOLS,   only: reg,txtfy,store_data
+  USE SF_LINALG,    only:matrix_inverse,matrix_inverse_sym,matrix_diagonalize
   USE SF_ARRAYS,    only:linspace,arange
   implicit none
   private
@@ -21,23 +22,27 @@ module ED_WRAP_GLOC
   public :: ed_get_gloc_lattice
 
 
-  real(8),dimension(:),allocatable        :: wr,wm
+  real(8),dimension(:),allocatable :: wr,wm
+  character(len=20)                :: suffix
+
+
 
 contains
 
 
   !----------------------------------------------------------------------------------------!
-  ! PURPOSE: evaluate the Normal local Green's function for a given Hamiltonian matrix and
+  ! purpose: evaluate the Normal local Green's function for a given Hamiltonian matrix and
   ! self-energy functions. Hk is a big sparse matrix of the form H(k;R_i,R_j)_{ab}^{ss'}
   ! and size [Nk]*[Nlat*Nspin*Norb]**2
   !----------------------------------------------------------------------------------------!
-  subroutine ed_get_gloc_normal_1b(Hk,Wtk,Gmats,Greal,Smats,Sreal,Eloc,hk_symm)
+  subroutine ed_get_gloc_normal_1b(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
     complex(8),intent(inout)    :: Gmats(Nlat,Lmats)
     complex(8),intent(inout)    :: Greal(Nlat,Lreal)
     complex(8),intent(inout)    :: Smats(Nlat,Lmats)
     complex(8),intent(inout)    :: Sreal(Nlat,Lreal)
+    integer                     :: iprint
     !
     complex(8)                  :: Gmats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                  :: Greal_(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
@@ -56,20 +61,21 @@ contains
     Sreal_(:,1,1,1,1,:) = Sreal(:,:)
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
-    call ed_get_gloc_normal(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,Eloc_,hk_symm_)
+    call ed_get_gloc_normal(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
     Gmats(:,:) = Gmats_(:,1,1,1,1,:)
     Greal(:,:) = Greal_(:,1,1,1,1,:)
     Smats(:,:) = Smats_(:,1,1,1,1,:)
     Sreal(:,:) = Sreal_(:,1,1,1,1,:)
   end subroutine ed_get_gloc_normal_1b
 
-  subroutine ed_get_gloc_normal_mb(Hk,Wtk,Gmats,Greal,Smats,Sreal,Eloc,hk_symm)
+  subroutine ed_get_gloc_normal_mb(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
     complex(8),intent(inout)    :: Gmats(Nlat,Norb,Norb,Lmats)
     complex(8),intent(inout)    :: Greal(Nlat,Norb,Norb,Lreal)
     complex(8),intent(inout)    :: Smats(Nlat,Norb,Norb,Lmats)
     complex(8),intent(inout)    :: Sreal(Nlat,Norb,Norb,Lreal)
+    integer                     :: iprint
     !
     complex(8)                  :: Gmats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                  :: Greal_(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
@@ -87,20 +93,21 @@ contains
     Sreal_(:,1,1,:,:,:) = Sreal(:,:,:,:)
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
-    call ed_get_gloc_normal(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,Eloc_,hk_symm_)
+    call ed_get_gloc_normal(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
     Gmats(:,:,:,:) = Gmats_(:,1,1,:,:,:)
     Greal(:,:,:,:) = Greal_(:,1,1,:,:,:)
     Smats(:,:,:,:) = Smats_(:,1,1,:,:,:)
     Sreal(:,:,:,:) = Sreal_(:,1,1,:,:,:)
   end subroutine ed_get_gloc_normal_mb
 
-  subroutine ed_get_gloc_normal(Hk,Wtk,Gmats,Greal,Smats,Sreal,Eloc,hk_symm)
+  subroutine ed_get_gloc_normal(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
     complex(8),intent(inout)    :: Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8),intent(inout)    :: Greal(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
     complex(8),intent(inout)    :: Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8),intent(inout)    :: Sreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    integer                     :: iprint
     complex(8)                  :: zeta_mats(Nlat,Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                  :: zeta_real(Nlat,Nspin*Norb,Nspin*Norb,Lreal)
     complex(8)                  :: Gkmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
@@ -162,6 +169,48 @@ contains
        if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
     end do
     if(mpiID==0)call stop_timer
+    if(mpiID==0)then
+       select case(iprint)
+       case (0)
+          write(LOGfile,*)"Gloc not written on file."
+       case(1)                  !print only diagonal elements
+          write(LOGfile,*)"write spin-orbital diagonal elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                call store_data("LG"//reg(suffix),Gmats(:,ispin,ispin,iorb,iorb,:),wm)
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                call store_data("LG"//reg(suffix),Greal(:,ispin,ispin,iorb,iorb,:),wr)
+             enddo
+          enddo
+       case(2)                  !print spin-diagonal, all orbitals 
+          write(LOGfile,*)"write spin diagonal and all orbitals elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   call store_data("LG"//reg(suffix),Gmats(:,ispin,ispin,iorb,jorb,:),wm)
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                   call store_data("LG"//reg(suffix),Greal(:,ispin,ispin,iorb,jorb,:),wr)
+                enddo
+             enddo
+          enddo
+       case default                  !print all off-diagonals
+          write(LOGfile,*)"write all elements:"
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                      call store_data("LG"//reg(suffix),Gmats(:,ispin,jspin,iorb,jorb,:),wm)
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
+                      call store_data("LG"//reg(suffix),Greal(:,ispin,jspin,iorb,jorb,:),wr)
+                   enddo
+                enddo
+             enddo
+          enddo
+       end select
+    endif
   end subroutine ed_get_gloc_normal
 
   subroutine add_to_gloc_normal(zeta_site,Hk,hk_symm,Gkout)
@@ -221,13 +270,14 @@ contains
   ! self-energy functions. Hk is a big sparse matrix of the form H(k;R_i,R_j)_{ab}^{ss'}
   ! and size [Nk]*[Nlat*Nspin*Norb]**2
   !----------------------------------------------------------------------------------------!
-  subroutine ed_get_gloc_superc_1b(Hk,Wtk,Gmats,Greal,Smats,Sreal,Eloc,hk_symm)
+  subroutine ed_get_gloc_superc_1b(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
     complex(8),intent(inout)    :: Gmats(2,Nlat,Lmats)
     complex(8),intent(inout)    :: Greal(2,Nlat,Lreal)
     complex(8),intent(inout)    :: Smats(2,Nlat,Lmats)
     complex(8),intent(inout)    :: Sreal(2,Nlat,Lreal)
+    integer                     :: iprint
     !
     complex(8)                  :: Gmats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                  :: Greal_(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
@@ -246,20 +296,21 @@ contains
     Sreal_(:,:,1,1,1,1,:) = Sreal(:,:,:)
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-    call ed_get_gloc_superc(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,Eloc_,hk_symm_)
+    call ed_get_gloc_superc(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
     Gmats(:,:,:) = Gmats_(:,:,1,1,1,1,:)
     Greal(:,:,:) = Greal_(:,:,1,1,1,1,:)
     Smats(:,:,:) = Smats_(:,:,1,1,1,1,:)
     Sreal(:,:,:) = Sreal_(:,:,1,1,1,1,:)
   end subroutine ed_get_gloc_superc_1b
 
-  subroutine ed_get_gloc_superc_mb(Hk,Wtk,Gmats,Greal,Smats,Sreal,Eloc,hk_symm)
+  subroutine ed_get_gloc_superc_mb(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
     complex(8),intent(inout)    :: Gmats(2,Nlat,Norb,Norb,Lmats)
     complex(8),intent(inout)    :: Greal(2,Nlat,Norb,Norb,Lreal)
     complex(8),intent(inout)    :: Smats(2,Nlat,Norb,Norb,Lmats)
     complex(8),intent(inout)    :: Sreal(2,Nlat,Norb,Norb,Lreal)
+    integer                     :: iprint
     !
     complex(8)                  :: Gmats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                  :: Greal_(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
@@ -277,20 +328,22 @@ contains
     Sreal_(:,:,1,1,:,:,:) = Sreal(:,:,:,:,:)
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-    call ed_get_gloc_superc(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,Eloc_,hk_symm_)
+    call ed_get_gloc_superc(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
     Gmats(:,:,:,:,:) = Gmats_(:,:,1,1,:,:,:)
     Greal(:,:,:,:,:) = Greal_(:,:,1,1,:,:,:)
     Smats(:,:,:,:,:) = Smats_(:,:,1,1,:,:,:)
     Sreal(:,:,:,:,:) = Sreal_(:,:,1,1,:,:,:)
   end subroutine ed_get_gloc_superc_mb
 
-  subroutine ed_get_gloc_superc(Hk,Wtk,Gmats,Greal,Smats,Sreal,Eloc,hk_symm)
+  subroutine ed_get_gloc_superc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
     complex(8),intent(inout)    :: Gmats(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8),intent(inout)    :: Greal(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
     complex(8),intent(inout)    :: Smats(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8),intent(inout)    :: Sreal(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    integer                     :: iprint
+    !
     complex(8)                  :: zeta_mats(2,2,Nlat,Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                  :: zeta_real(2,2,Nlat,Nspin*Norb,Nspin*Norb,Lreal)
     complex(8)                  :: Gkmats(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
@@ -358,6 +411,54 @@ contains
        if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
     end do
     if(mpiID==0)call stop_timer
+    if(mpiID==0)then
+       select case(iprint)
+       case (0)
+          write(LOGfile,*)"Gloc not written on file."
+       case(1)                  !print only diagonal elements
+          write(LOGfile,*)"write spin-orbital diagonal elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                call store_data("LG"//reg(suffix),Gmats(1,:,ispin,ispin,iorb,iorb,:),wm)
+                call store_data("LF"//reg(suffix),Gmats(2,:,ispin,ispin,iorb,iorb,:),wm)
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                call store_data("LG"//reg(suffix),Greal(1,:,ispin,ispin,iorb,iorb,:),wr)
+                call store_data("LF"//reg(suffix),Greal(2,:,ispin,ispin,iorb,iorb,:),wr)
+             enddo
+          enddo
+       case(2)                  !print spin-diagonal, all orbitals 
+          write(LOGfile,*)"write spin diagonal and all orbitals elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   call store_data("LG"//reg(suffix),Gmats(1,:,ispin,ispin,iorb,jorb,:),wm)
+                   call store_data("LF"//reg(suffix),Gmats(2,:,ispin,ispin,iorb,jorb,:),wm)
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                   call store_data("LG"//reg(suffix),Greal(1,:,ispin,ispin,iorb,jorb,:),wr)
+                   call store_data("LF"//reg(suffix),Greal(2,:,ispin,ispin,iorb,jorb,:),wr)
+                enddo
+             enddo
+          enddo
+       case default                  !print all off-diagonals
+          write(LOGfile,*)"write all elements:"
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                      call store_data("LG"//reg(suffix),Gmats(1,:,ispin,jspin,iorb,jorb,:),wm)
+                      call store_data("LF"//reg(suffix),Gmats(2,:,ispin,jspin,iorb,jorb,:),wm)
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
+                      call store_data("LG"//reg(suffix),Greal(1,:,ispin,jspin,iorb,jorb,:),wr)
+                      call store_data("LF"//reg(suffix),Greal(2,:,ispin,jspin,iorb,jorb,:),wr)
+                   enddo
+                enddo
+             enddo
+          enddo
+       end select
+    endif
   end subroutine ed_get_gloc_superc
 
   subroutine add_to_gloc_superc(zeta_site,Hk,Wtk,hk_symm,Gkout)
@@ -405,30 +506,12 @@ contains
              enddo
           enddo
        enddo
-       ! Gk_tmp(1,:,:,:,i) = matrix_to_blocks(Gmatrix(1:Nlso,1:Nlso))         !block 11 of size Nlso*Nlso
-       ! Gk_tmp(2,:,:,:,i) = matrix_to_blocks(Gmatrix(1:Nlso,Nlso+1:2*Nlso))  !block 12 of size Nlso*Nlso
     enddo
 #ifdef _MPI_INEQ
     call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
 #else
     Gkout = Gktmp
 #endif
-    ! call MPI_ALLREDUCE(Gk_tmp,Gk,size(Gk),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
-    !add to k-summation
-    ! do ilat=1,Nlat
-    !    do ispin=1,Nspin
-    !       do jspin=1,Nspin
-    !          do iorb=1,Norb
-    !             do jorb=1,Norb
-    !                io = iorb + (ispin-1)*Norb
-    !                jo = jorb + (jspin-1)*Norb
-    !                Gloc(1,ilat,ispin,jspin,iorb,jorb,:) = Gloc(1,ilat,ispin,jspin,iorb,jorb,:) + Gk(1,ilat,io,jo,:)*Wtk
-    !                Gloc(2,ilat,ispin,jspin,iorb,jorb,:) = Gloc(2,ilat,ispin,jspin,iorb,jorb,:) + Gk(2,ilat,io,jo,:)*Wtk
-    !             enddo
-    !          enddo
-    !       enddo
-    !    enddo
-    ! enddo
   end subroutine add_to_gloc_superc
 
 end module ED_WRAP_GLOC

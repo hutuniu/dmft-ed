@@ -36,57 +36,60 @@ contains
   ! self-consistency equations and given G_loc and Sigma.
   ! NORMAL PHASE
   !-------------------------------------------------------------------------------------------
-  subroutine ed_get_weiss_field_normal_eloc_1b(Gloc,Smats,Weiss,Eloc)
-    complex(8)                                  :: Gloc(Nlat,Lmats)
-    complex(8)                                  :: Smats(Nlat,Lmats)
-    complex(8)                                  :: Weiss(Nlat,Lmats)
+  subroutine ed_get_weiss_field_normal_eloc_1b(Nsites,Gloc,Smats,Weiss,Eloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(Nsites,Lmats)
+    complex(8)                                  :: Smats(Nsites,Lmats)
+    complex(8)                                  :: Weiss(Nsites,Lmats)
     !
-    complex(8)                                  :: Gloc_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Gloc_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
     !
-    real(8),optional                            :: Eloc(Nlat*Norb*Nspin)
-    real(8)                                     :: Eloc_(Nlat*Norb*Nspin)
+    real(8),optional                            :: Eloc(Nsites*Norb*Nspin)
+    real(8)                                     :: Eloc_(Nsites*Norb*Nspin)
     if(Norb>1)stop "ed_get_weiss_field_normal_eloc_1b error: Norb > 1 in 1-band routine" 
     if(Nspin>1)stop "ed_get_weiss_field_normal_eloc_1b error: Nspin > 1 in 1-band routine" 
     Gloc_(:,1,1,1,1,:) = Gloc(:,:)
     Smats_(:,1,1,1,1,:) = Smats(:,:)
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-    call ed_get_weiss_field_normal_eloc(Gloc_,Smats_,Weiss_,Eloc_)
+    call ed_get_weiss_field_normal_eloc(Nsites,Gloc_,Smats_,Weiss_,Eloc_)
     Gloc(:,:) = Gloc_(:,1,1,1,1,:)
     Smats(:,:) = Smats_(:,1,1,1,1,:)
     Weiss(:,:) = Weiss_(:,1,1,1,1,:)
   end subroutine ed_get_weiss_field_normal_eloc_1b
 
-  subroutine ed_get_weiss_field_normal_eloc_mb(Gloc,Smats,Weiss,Eloc)
-    complex(8)                                  :: Gloc(Nlat,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats(Nlat,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss(Nlat,Norb,Norb,Lmats)
+  subroutine ed_get_weiss_field_normal_eloc_mb(Nsites,Gloc,Smats,Weiss,Eloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(Nsites,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(Nsites,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(Nsites,Norb,Norb,Lmats)
     !
-    complex(8)                                  :: Gloc_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Gloc_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
     !
-    real(8),optional                            :: Eloc(Nlat*Norb*Nspin)
-    real(8)                                     :: Eloc_(Nlat*Norb*Nspin)
+    real(8),optional                            :: Eloc(Nsites*Norb*Nspin)
+    real(8)                                     :: Eloc_(Nsites*Norb*Nspin)
     if(Nspin>1)stop "ed_get_weiss_field_normal_eloc_1m error: Nspin > 1 in M-band routine" 
     Gloc_(:,1,1,:,:,:) = Gloc(:,:,:,:)
     Smats_(:,1,1,:,:,:) = Smats(:,:,:,:)
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-    call ed_get_weiss_field_normal_eloc(Gloc_,Smats_,Weiss_,Eloc_)
+    call ed_get_weiss_field_normal_eloc(Nsites,Gloc_,Smats_,Weiss_,Eloc_)
     Gloc(:,:,:,:) = Gloc_(:,1,1,:,:,:)
     Smats(:,:,:,:) = Smats_(:,1,1,:,:,:)
     Weiss(:,:,:,:) = Weiss_(:,1,1,:,:,:)
   end subroutine ed_get_weiss_field_normal_eloc_mb
 
-  subroutine ed_get_weiss_field_normal_eloc(Gloc,Smats,Weiss,Eloc)
-    complex(8)                                  :: Gloc(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    real(8),optional                            :: Eloc(Nlat*Norb*Nspin)
+  subroutine ed_get_weiss_field_normal_eloc(Nsites,Gloc,Smats,Weiss,Eloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    real(8),optional                            :: Eloc(Nsites*Norb*Nspin)
     !aux
-    real(8)                                     :: Eloc_(Nlat*Norb*Nspin)
-    complex(8)                                  :: Weiss_tmp(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    real(8)                                     :: Eloc_(Nsites*Norb*Nspin)
+    complex(8)                                  :: Weiss_tmp(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                                  :: zeta_site(Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                                  :: Hloc(Nspin*Norb,Nspin*Norb)
     complex(8)                                  :: Smats_site(Nspin*Norb,Nspin*Norb,Lmats)
@@ -98,7 +101,9 @@ contains
     if(allocated(wm))deallocate(wm)
     allocate(wm(Lmats))
     wm = pi/beta*(2*arange(1,Lmats)-1)
-    mpi_site_loop: do ilat=1+mpiID,Nlat,mpiSIZE
+    Weiss_tmp = zero
+    Weiss     = zero
+    mpi_site_loop: do ilat=1+mpiID,Nsites,mpiSIZE
        !Dump the Gloc and the Smats for the ilat-th site into a [Norb*Nspin]^2 matrix
        !and create the zeta_site
        zeta_site=zero
@@ -145,7 +150,7 @@ contains
        endif
        !
        !Dump back the [Norb*Nspin]**2 block of the ilat-th site into the 
-       !output structure of [Nlat,Nspsin,Nspin,Norb,Norb] matrix
+       !output structure of [Nsites,Nspsin,Nspin,Norb,Norb] matrix
        do ispin=1,Nspin
           do jspin=1,Nspin
              do iorb=1,Norb
@@ -166,50 +171,53 @@ contains
   end subroutine ed_get_weiss_field_normal_eloc
 
 
-  subroutine ed_get_weiss_field_normal_hloc_1b(Gloc,Smats,Weiss,Hloc)
-    complex(8)                                  :: Gloc(Nlat,Lmats)
-    complex(8)                                  :: Smats(Nlat,Lmats)
-    complex(8)                                  :: Weiss(Nlat,Lmats)
+  subroutine ed_get_weiss_field_normal_hloc_1b(Nsites,Gloc,Smats,Weiss,Hloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(Nsites,Lmats)
+    complex(8)                                  :: Smats(Nsites,Lmats)
+    complex(8)                                  :: Weiss(Nsites,Lmats)
     !
-    complex(8)                                  :: Gloc_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Hloc(Nlat,Nspin,Nspin,Norb,Norb)
+    complex(8)                                  :: Gloc_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Hloc(Nsites,Nspin,Nspin,Norb,Norb)
     if(Norb>1)stop "ed_get_weiss_field_normal_hloc_1b error: Norb > 1 in 1-band routine" 
     if(Nspin>1)stop "ed_get_weiss_field_normal_hloc_1b error: Nspin > 1 in 1-band routine" 
     Gloc_(:,1,1,1,1,:) = Gloc(:,:)
     Smats_(:,1,1,1,1,:) = Smats(:,:)
-    call ed_get_weiss_field_normal_hloc(Gloc_,Smats_,Weiss_,Hloc)
+    call ed_get_weiss_field_normal_hloc(Nsites,Gloc_,Smats_,Weiss_,Hloc)
     Gloc(:,:) = Gloc_(:,1,1,1,1,:)
     Smats(:,:) = Smats_(:,1,1,1,1,:)
     Weiss(:,:) = Weiss_(:,1,1,1,1,:)
   end subroutine ed_get_weiss_field_normal_hloc_1b
 
-  subroutine ed_get_weiss_field_normal_hloc_mb(Gloc,Smats,Weiss,Hloc)
-    complex(8)                                  :: Gloc(Nlat,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats(Nlat,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss(Nlat,Norb,Norb,Lmats)
+  subroutine ed_get_weiss_field_normal_hloc_mb(Nsites,Gloc,Smats,Weiss,Hloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(Nsites,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(Nsites,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(Nsites,Norb,Norb,Lmats)
     !
-    complex(8)                                  :: Gloc_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Hloc(Nlat,Nspin,Nspin,Norb,Norb)
+    complex(8)                                  :: Gloc_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Hloc(Nsites,Nspin,Nspin,Norb,Norb)
     if(Nspin>1)stop "ed_get_weiss_field_normal_hloc_mb error: Nspin > 1 in 1-band routine" 
     Gloc_(:,1,1,:,:,:) = Gloc(:,:,:,:)
     Smats_(:,1,1,:,:,:) = Smats(:,:,:,:)
-    call ed_get_weiss_field_normal_hloc(Gloc_,Smats_,Weiss_,Hloc)
+    call ed_get_weiss_field_normal_hloc(Nsites,Gloc_,Smats_,Weiss_,Hloc)
     Gloc(:,:,:,:) = Gloc_(:,1,1,:,:,:)
     Smats(:,:,:,:) = Smats_(:,1,1,:,:,:)
     Weiss(:,:,:,:) = Weiss_(:,1,1,:,:,:)
   end subroutine ed_get_weiss_field_normal_hloc_mb
 
-  subroutine ed_get_weiss_field_normal_hloc(Gloc,Smats,Weiss,Hloc)
-    complex(8)                                  :: Gloc(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Hloc(Nlat,Nspin,Nspin,Norb,Norb)
+  subroutine ed_get_weiss_field_normal_hloc(Nsites,Gloc,Smats,Weiss,Hloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Hloc(Nsites,Nspin,Nspin,Norb,Norb)
     !aux
-    complex(8)                                  :: Weiss_tmp(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_tmp(Nsites,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                                  :: zeta_site(Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                                  :: Smats_site(Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                                  :: invGloc_site(Nspin*Norb,Nspin*Norb,Lmats)
@@ -219,14 +227,15 @@ contains
     if(allocated(wm))deallocate(wm)
     allocate(wm(Lmats))
     wm = pi/beta*(2*arange(1,Lmats)-1)
-    mpi_site_loop: do ilat=1+mpiID,Nlat,mpiSIZE
+    Weiss_tmp = zero
+    Weiss     = zero
+    mpi_site_loop: do ilat=1+mpiID,Nsites,mpiSIZE
        !Dump the Gloc and the Smats for the ilat-th site into a [Norb*Nspin]^2 matrix
        !and create the zeta_site
        zeta_site=zero
        do ispin=1,Nspin
           do iorb=1,Norb
              io = iorb + (ispin-1)*Norb
-             js = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
              zeta_site(io,io,:) = xi*wm(:) + xmu
           enddo
        enddo
@@ -266,19 +275,20 @@ contains
        endif
        !
        !Dump back the [Norb*Nspin]**2 block of the ilat-th site into the 
-       !output structure of [Nlat,Nspsin,Nspin,Norb,Norb] matrix
+       !output structure of [Nsites,Nspsin,Nspin,Norb,Norb] matrix
        do ispin=1,Nspin
           do jspin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
-                   Weiss_tmp(ilat,ispin,jspin,iorb,jorb,:) = calG0_site(io,jo,:)
+                   Weiss_tmp(ilat,ispin,jspin,iorb,jorb,1:Lmats) = calG0_site(io,jo,1:Lmats)
                 enddo
              enddo
           enddo
        enddo
     end do mpi_site_loop
+
 #ifdef _MPI_INEQ
     call MPI_ALLREDUCE(Weiss_tmp,Weiss,size(Weiss),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
 #else
@@ -293,57 +303,60 @@ contains
   ! self-consistency equations and given G_loc and Sigma.
   ! SUPERCONDUCTING PHASE
   !-------------------------------------------------------------------------------------------
-  subroutine ed_get_weiss_field_superc_eloc_1b(Gloc,Smats,Weiss,Eloc)
-    complex(8)                                  :: Gloc(2,Nlat,Lmats)
-    complex(8)                                  :: Smats(2,Nlat,Lmats)
-    complex(8)                                  :: Weiss(2,Nlat,Lmats)
+  subroutine ed_get_weiss_field_superc_eloc_1b(Nsites,Gloc,Smats,Weiss,Eloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(2,Nsites,Lmats)
+    complex(8)                                  :: Smats(2,Nsites,Lmats)
+    complex(8)                                  :: Weiss(2,Nsites,Lmats)
     !
-    complex(8)                                  :: Gloc_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Gloc_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
     !
-    real(8),optional                            :: Eloc(Nlat*Norb*Nspin)
-    real(8)                                     :: Eloc_(Nlat*Norb*Nspin)
+    real(8),optional                            :: Eloc(Nsites*Norb*Nspin)
+    real(8)                                     :: Eloc_(Nsites*Norb*Nspin)
     if(Norb>1)stop "ed_get_weiss_field_superc_eloc_1b error: Norb > 1 in 1-band routine" 
     if(Nspin>1)stop "ed_get_weiss_field_superc_eloc_1b error: Nspin > 1 in 1-band routine" 
     Gloc_(:,:,1,1,1,1,:) = Gloc(:,:,:)
     Smats_(:,:,1,1,1,1,:) = Smats(:,:,:)
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-    call ed_get_weiss_field_superc_eloc(Gloc_,Smats_,Weiss_,Eloc_)
+    call ed_get_weiss_field_superc_eloc(Nsites,Gloc_,Smats_,Weiss_,Eloc_)
     Gloc(:,:,:) = Gloc_(:,:,1,1,1,1,:)
     Smats(:,:,:) = Smats_(:,:,1,1,1,1,:)
     Weiss(:,:,:) = Weiss_(:,:,1,1,1,1,:)
   end subroutine ed_get_weiss_field_superc_eloc_1b
 
-  subroutine ed_get_weiss_field_superc_eloc_mb(Gloc,Smats,Weiss,Eloc)
-    complex(8)                                  :: Gloc(2,Nlat,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats(2,Nlat,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss(2,Nlat,Norb,Norb,Lmats)
+  subroutine ed_get_weiss_field_superc_eloc_mb(Nsites,Gloc,Smats,Weiss,Eloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(2,Nsites,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(2,Nsites,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(2,Nsites,Norb,Norb,Lmats)
     !
-    complex(8)                                  :: Gloc_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Gloc_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
     !
-    real(8),optional                            :: Eloc(Nlat*Norb*Nspin)
-    real(8)                                     :: Eloc_(Nlat*Norb*Nspin)
+    real(8),optional                            :: Eloc(Nsites*Norb*Nspin)
+    real(8)                                     :: Eloc_(Nsites*Norb*Nspin)
     if(Nspin>1)stop "ed_get_weiss_field_superc_eloc_Mb error: Nspin > 1 in M-band routine" 
     Gloc_(:,:,1,1,:,:,:) = Gloc(:,:,:,:,:)
     Smats_(:,:,1,1,:,:,:) = Smats(:,:,:,:,:)
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-    call ed_get_weiss_field_superc_eloc(Gloc_,Smats_,Weiss_,Eloc_)
+    call ed_get_weiss_field_superc_eloc(Nsites,Gloc_,Smats_,Weiss_,Eloc_)
     Gloc(:,:,:,:,:) = Gloc_(:,:,1,1,:,:,:)
     Smats(:,:,:,:,:) = Smats_(:,:,1,1,:,:,:)
     Weiss(:,:,:,:,:) = Weiss_(:,:,1,1,:,:,:)
   end subroutine ed_get_weiss_field_superc_eloc_mb
 
-  subroutine ed_get_weiss_field_superc_eloc(Gloc,Smats,Weiss,Eloc)
-    complex(8)                                  :: Gloc(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    real(8),optional                            :: Eloc(Nlat*Norb*Nspin)
+  subroutine ed_get_weiss_field_superc_eloc(Nsites,Gloc,Smats,Weiss,Eloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    real(8),optional                            :: Eloc(Nsites*Norb*Nspin)
     !aux
-    real(8)                                     :: Eloc_(Nlat*Norb*Nspin)
-    complex(8)                                  :: Weiss_tmp(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    real(8)                                     :: Eloc_(Nsites*Norb*Nspin)
+    complex(8)                                  :: Weiss_tmp(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                                  :: zeta_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
     complex(8)                                  :: Smats_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
     complex(8)                                  :: invGloc_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
@@ -356,8 +369,10 @@ contains
     allocate(wm(Lmats))
     wm = pi/beta*(2*arange(1,Lmats)-1)
     Nso =Nspin*Norb
-    Nlso=Nlat*Nspin*Norb
-    mpi_site_loop: do ilat=1+mpiID,Nlat,mpiSIZE
+    Nlso=Nsites*Nspin*Norb
+    Weiss_tmp = zero
+    Weiss     = zero
+    mpi_site_loop: do ilat=1+mpiID,Nsites,mpiSIZE
        !Dump the Gloc and the Smats for the ilat-th site into a [Norb*Nspin]^2 matrix
        !and create the zeta_site
        zeta_site=zero
@@ -416,7 +431,7 @@ contains
        endif
        !
        !Dump back the [Norb*Nspin]**2 block of the ilat-th site into the 
-       !output structure of [Nlat,Nspsin,Nspin,Norb,Norb] matrix
+       !output structure of [Nsites,Nspsin,Nspin,Norb,Norb] matrix
        do ispin=1,Nspin
           do jspin=1,Nspin
              do iorb=1,Norb
@@ -438,52 +453,55 @@ contains
   end subroutine ed_get_weiss_field_superc_eloc
 
 
-  subroutine ed_get_weiss_field_superc_hloc_1b(Gloc,Smats,Weiss,Hloc)
-    complex(8)                                  :: Gloc(2,Nlat,Lmats)
-    complex(8)                                  :: Smats(2,Nlat,Lmats)
-    complex(8)                                  :: Weiss(2,Nlat,Lmats)
+  subroutine ed_get_weiss_field_superc_hloc_1b(Nsites,Gloc,Smats,Weiss,Hloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(2,Nsites,Lmats)
+    complex(8)                                  :: Smats(2,Nsites,Lmats)
+    complex(8)                                  :: Weiss(2,Nsites,Lmats)
     !
-    complex(8)                                  :: Gloc_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Gloc_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
     !
-    complex(8)                                  :: Hloc(Nlat,Nspin,Nspin,Norb,Norb)
+    complex(8)                                  :: Hloc(Nsites,Nspin,Nspin,Norb,Norb)
     if(Norb>1)stop "ed_get_weiss_field_superc_hloc_1b error: Norb > 1 in 1-band routine" 
     if(Nspin>1)stop "ed_get_weiss_field_superc_hloc_1b error: Nspin > 1 in 1-band routine" 
     Gloc_(:,:,1,1,1,1,:) = Gloc(:,:,:)
     Smats_(:,:,1,1,1,1,:) = Smats(:,:,:)
-    call ed_get_weiss_field_superc_hloc(Gloc_,Smats_,Weiss_,Hloc)
+    call ed_get_weiss_field_superc_hloc(Nsites,Gloc_,Smats_,Weiss_,Hloc)
     Gloc(:,:,:) = Gloc_(:,:,1,1,1,1,:)
     Smats(:,:,:) = Smats_(:,:,1,1,1,1,:)
     Weiss(:,:,:) = Weiss_(:,:,1,1,1,1,:)
   end subroutine ed_get_weiss_field_superc_hloc_1b
 
-  subroutine ed_get_weiss_field_superc_hloc_mb(Gloc,Smats,Weiss,Hloc)
-    complex(8)                                  :: Gloc(2,Nlat,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats(2,Nlat,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss(2,Nlat,Norb,Norb,Lmats)
+  subroutine ed_get_weiss_field_superc_hloc_mb(Nsites,Gloc,Smats,Weiss,Hloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(2,Nsites,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(2,Nsites,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(2,Nsites,Norb,Norb,Lmats)
     !
-    complex(8)                                  :: Gloc_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Gloc_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
     !
-    complex(8)                                  :: Hloc(Nlat,Nspin,Nspin,Norb,Norb)
+    complex(8)                                  :: Hloc(Nsites,Nspin,Nspin,Norb,Norb)
     if(Nspin>1)stop "ed_get_weiss_field_superc_hloc_mb error: Nspin > 1 in M-band routine" 
     Gloc_(:,:,1,1,:,:,:) = Gloc(:,:,:,:,:)
     Smats_(:,:,1,1,:,:,:) = Smats(:,:,:,:,:)
-    call ed_get_weiss_field_superc_hloc(Gloc_,Smats_,Weiss_,Hloc)
+    call ed_get_weiss_field_superc_hloc(Nsites,Gloc_,Smats_,Weiss_,Hloc)
     Gloc(:,:,:,:,:) = Gloc_(:,:,1,1,:,:,:)
     Smats(:,:,:,:,:) = Smats_(:,:,1,1,:,:,:)
     Weiss(:,:,:,:,:) = Weiss_(:,:,1,1,:,:,:)
   end subroutine ed_get_weiss_field_superc_hloc_mb
 
-  subroutine ed_get_weiss_field_superc_hloc(Gloc,Smats,Weiss,Hloc)
-    complex(8)                                  :: Gloc(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Smats(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Weiss(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                                  :: Hloc(Nlat,Nspin,Nspin,Norb,Norb)
+  subroutine ed_get_weiss_field_superc_hloc(Nsites,Gloc,Smats,Weiss,Hloc)
+    integer                                     :: Nsites
+    complex(8)                                  :: Gloc(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Smats(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Hloc(Nsites,Nspin,Nspin,Norb,Norb)
     !aux
-    complex(8)                                  :: Weiss_tmp(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                                  :: Weiss_tmp(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                                  :: zeta_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
     complex(8)                                  :: Smats_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
     complex(8)                                  :: invGloc_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
@@ -495,8 +513,10 @@ contains
     allocate(wm(Lmats))
     wm = pi/beta*(2*arange(1,Lmats)-1)
     Nso =Nspin*Norb
-    Nlso=Nlat*Nspin*Norb
-    mpi_site_loop: do ilat=1+mpiID,Nlat,mpiSIZE
+    Nlso=Nsites*Nspin*Norb
+    Weiss_tmp = zero
+    Weiss     = zero
+    mpi_site_loop: do ilat=1+mpiID,Nsites,mpiSIZE
        !Dump the Gloc and the Smats for the ilat-th site into a [Norb*Nspin]^2 matrix
        !and create the zeta_site
        zeta_site=zero
@@ -554,7 +574,7 @@ contains
        endif
        !
        !Dump back the [Norb*Nspin]**2 block of the ilat-th site into the 
-       !output structure of [Nlat,Nspsin,Nspin,Norb,Norb] matrix
+       !output structure of [Nsites,Nspsin,Nspin,Norb,Norb] matrix
        do ispin=1,Nspin
           do jspin=1,Nspin
              do iorb=1,Norb

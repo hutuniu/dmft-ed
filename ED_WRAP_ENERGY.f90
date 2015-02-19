@@ -24,9 +24,6 @@ module ED_WRAP_ENERGY
   end interface ed_kinetic_energy_lattice
   public :: ed_kinetic_energy_lattice
 
-
-  public :: kinetic_energy_lattice_OLD
-
   real(8),dimension(:),allocatable        :: wm
 
 contains
@@ -674,142 +671,142 @@ contains
 
 
 
-  !###################################################################################################
-  !###################################################################################################
-  !               POSSIBLY OBSOLETE ROUTINES NOW SUPERSEDED BY TOP ROUTINE HERE
-  !               GETTING KINETIC ENERGY FOR ANY Norb*Nspin*Nlat*Nk NORMAL PHASE
-  !                (these routines are left temporarily for back-compatibility)
-  !                                     ( to be removed)
-  !###################################################################################################
-  !###################################################################################################
-  function kinetic_energy_lattice_OLD(Hk,wtk,Hloc,Sigma) result(ed_Ekin_lattice)
-    !+- ONLY SPIN DIAGONAL QUANTITIES -+!
-    complex(8),dimension(:,:,:)              :: Hk     ! [Norb*Nlat][Norb*Nlat][Nk]
-    real(8),dimension(:)                     :: wtk    ! [Lk]
-    complex(8),dimension(:,:,:)              :: Hloc   ! [Nlat][Norb][Norb]    
-    complex(8),dimension(:,:,:,:)            :: Sigma  ! [Nlat][Norb][Norb][Lmats]
-    integer                                  :: Lk,No
-    integer                                  :: i,ik,iorb,ilat,io,jorb,jo
-    real(8),dimension(:,:,:),allocatable     :: Sigma_HF
-    real(8),dimension(:),allocatable         :: elocal_
-    complex(8),dimension(:,:),allocatable    :: Ak,Bk
-    complex(8),dimension(:,:),allocatable    :: Ck,Zk
-    complex(8),dimension(:,:),allocatable    :: Zeta,Tk
-    complex(8),dimension(:,:),allocatable    :: Gk
-    real(8)                                  :: Tail0,Tail1,spin_degeneracy
-    !
-    real(8)                                  :: ed_Ekin_lattice,sumMats
-    real(8)                                  :: sumMatstmp,sumMatsk
-    !
-    ! checks !
-    if(allocated(wm))deallocate(wm)
-    allocate(wm(Lmats))
-    wm = pi/beta*(2*arange(1,Lmats)-1)
-    No = Norb*Nlat  ! generalized "orbital index"
-    write(*,*) No,Norb,Nlat
-    Lk=size(Hk,3)
-    ! check Hk !
-    if(size(Hk,1)/=No) stop "get_kinetic_energy: size Hk(:,*,*) /= No"
-    if(size(Hk,2)/=size(Hk,1)) stop "get_kinetic_energy: size Hk(*,:,*) /= Hk(:,*,*) "
-    ! check wt !
-    if(size(wtk)/=Lk) stop "get_kinetic_energy: size wt(*) /= Lk"
-    ! check Hloc !
-    if(size(Hloc,1)/=Nlat) stop "get_kinetic_energy: size Hloc(:,*,*) /= Nlat"
-    if(size(Hloc,2)/=size(Hloc,3)) stop "get_kinetic_energy: size Hloc(*,:,*) /= Hloc(*,*,:) "
-    if(size(Hloc,2)/=Norb) stop "get_kinetic_energy: size Hloc(*,:,*) /= Norb"
-    ! check Smats !
-    if(size(Sigma,1)/=Nlat) stop "get_kinetic_energy: size Smats(:,*,*,*) /= Nlat"
-    if(size(Sigma,2)/=size(Sigma,3)) stop "get_kinetic_energy: size Smats(*,:,*,*) /= Smats(*,*,:,*) "
-    if(size(Sigma,2)/=Norb) stop "get_kinetic_energy: size Smats(*,:,*,*) /= Norb"
-    if(size(Sigma,4)/=Lmats) stop "get_kinetic_energy: size Smats(*,*,*,:) /= Lmats"
-    !
-    allocate(Sigma_HF(Nlat,Norb,Norb))
-    allocate(Ak(No,No),Bk(No,No),Ck(No,No),Zk(No,No),Zeta(No,No),Tk(No,No))
-    allocate(Gk(No,No))
-    !
-    Sigma_HF = dreal(Sigma(:,:,:,Lmats))
-    !
-    ed_Ekin_lattice=0.d0
-    sumMats=0.d0
-    Zk=0d0 ; forall(i=1:No)Zk(i,i)=1d0
-    if(mpiID==0) write(LOGfile,*) "Kinetic energy computation"
-    if(mpiID==0)call start_timer
-    do ik=1,Lk       
-       Ak =  Hk(:,:,ik) !- xmu*Zk
-       Bk = -Hk(:,:,ik) !+ xmu*Zk      
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = (ilat-1)*Norb + iorb
-                jo = (ilat-1)*Norb + jorb
-                Bk(io,jo) = Bk(io,jo) - Sigma_HF(ilat,iorb,jorb) 
-                Bk(io,jo) = Bk(io,jo) - Hloc(ilat,iorb,jorb)
-             end do
-          end do
-       end do
-       !Gk(iw) computation
-       Gk=zero
-       sumMatstmp=0.d0      
-       sumMatsk=0.d0      
-       do i=1+mpiID,Lmats,mpiSIZE
-          Gk(:,:) = (xi*wm(i)+xmu)*Zk(:,:) - Hk(:,:,ik)
-          do ilat=1,Nlat
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = (ilat-1)*Norb + iorb
-                   jo = (ilat-1)*Norb + jorb
-                   Gk(io,jo) = Gk(io,jo) - Sigma(ilat,iorb,jorb,i)
-                   Gk(io,jo) = Gk(io,jo) - Hloc(ilat,iorb,jorb)
-                end do
-             end do
-          end do
-          !
-          call matrix_inverse(Gk(:,:))
-          !
-          Tk = Zk(:,:)/(xi*wm(i)) - Bk(:,:)/(xi*wm(i))**2
-          Ck = matmul(Ak,Gk(:,:) - Tk)
-          do io=1,No
-             sumMatstmp = sumMatstmp + Wtk(ik)*Ck(io,io)
-          end do
-       enddo
-       call MPI_ALLREDUCE(sumMatstmp,sumMatsk,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
-       sumMats=sumMats+sumMatsk
-       if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
-    enddo
-    if(mpiID==0)call stop_timer
-    spin_degeneracy=3.d0-Nspin !2 if Nspin=1, 1 if Nspin=2
-    sumMats=sumMats/beta*2.d0*spin_degeneracy
-    !
-    ! subtract tails
-    Tail0=0d0
-    Tail1=0d0
-    do ik=1,Lk
-       Ak= Hk(:,:,ik) !- xmu*Zk
-       Bk=-Hk(:,:,ik) !+ xmu*Zk      
-       do ilat=1,Nlat
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = (ilat-1)*Norb + iorb
-                jo = (ilat-1)*Norb + jorb
-                ! Bk(io,jo) = Bk(io,jo) - Sigma_HF(iorb,jorb,ilat)
-                ! if(iorb==jorb) Bk(io,jo) = Bk(io,jo) - elocal_(ilat) ![tmp...think to something more clever]
-                Bk(io,jo) = Bk(io,jo) - Sigma_HF(ilat,iorb,jorb)
-                Bk(io,jo) = Bk(io,jo) - Hloc(ilat,iorb,jorb)
-             end do
-          end do
-       end do
-       Ck= matmul(Ak,Bk)
-       do io=1,No
-          Tail0 = Tail0 + 0.5d0*Wtk(ik)*Ak(io,io)
-          Tail1 = Tail1 + 0.25d0*Wtk(ik)*Ck(io,io)
-       end do
-    enddo
-    Tail0=spin_degeneracy*Tail0
-    Tail1=spin_degeneracy*Tail1*beta
-    ed_Ekin_lattice=sumMats+Tail0+Tail1
-    ed_Ekin_lattice=ed_Ekin_lattice/dble(Nlat)
-    deallocate(Sigma_HF,Ak,Bk,Ck,Zk,Zeta,Gk,Tk)
-  end function kinetic_energy_lattice_OLD
+  ! !###################################################################################################
+  ! !###################################################################################################
+  ! !               POSSIBLY OBSOLETE ROUTINES NOW SUPERSEDED BY TOP ROUTINE HERE
+  ! !               GETTING KINETIC ENERGY FOR ANY Norb*Nspin*Nlat*Nk NORMAL PHASE
+  ! !                (these routines are left temporarily for back-compatibility)
+  ! !                                     ( to be removed)
+  ! !###################################################################################################
+  ! !###################################################################################################
+  ! function kinetic_energy_lattice_OLD(Hk,wtk,Hloc,Sigma) result(ed_Ekin_lattice)
+  !   !+- ONLY SPIN DIAGONAL QUANTITIES -+!
+  !   complex(8),dimension(:,:,:)              :: Hk     ! [Norb*Nlat][Norb*Nlat][Nk]
+  !   real(8),dimension(:)                     :: wtk    ! [Lk]
+  !   complex(8),dimension(:,:,:)              :: Hloc   ! [Nlat][Norb][Norb]    
+  !   complex(8),dimension(:,:,:,:)            :: Sigma  ! [Nlat][Norb][Norb][Lmats]
+  !   integer                                  :: Lk,No
+  !   integer                                  :: i,ik,iorb,ilat,io,jorb,jo
+  !   real(8),dimension(:,:,:),allocatable     :: Sigma_HF
+  !   real(8),dimension(:),allocatable         :: elocal_
+  !   complex(8),dimension(:,:),allocatable    :: Ak,Bk
+  !   complex(8),dimension(:,:),allocatable    :: Ck,Zk
+  !   complex(8),dimension(:,:),allocatable    :: Zeta,Tk
+  !   complex(8),dimension(:,:),allocatable    :: Gk
+  !   real(8)                                  :: Tail0,Tail1,spin_degeneracy
+  !   !
+  !   real(8)                                  :: ed_Ekin_lattice,sumMats
+  !   real(8)                                  :: sumMatstmp,sumMatsk
+  !   !
+  !   ! checks !
+  !   if(allocated(wm))deallocate(wm)
+  !   allocate(wm(Lmats))
+  !   wm = pi/beta*(2*arange(1,Lmats)-1)
+  !   No = Norb*Nlat  ! generalized "orbital index"
+  !   write(*,*) No,Norb,Nlat
+  !   Lk=size(Hk,3)
+  !   ! check Hk !
+  !   if(size(Hk,1)/=No) stop "get_kinetic_energy: size Hk(:,*,*) /= No"
+  !   if(size(Hk,2)/=size(Hk,1)) stop "get_kinetic_energy: size Hk(*,:,*) /= Hk(:,*,*) "
+  !   ! check wt !
+  !   if(size(wtk)/=Lk) stop "get_kinetic_energy: size wt(*) /= Lk"
+  !   ! check Hloc !
+  !   if(size(Hloc,1)/=Nlat) stop "get_kinetic_energy: size Hloc(:,*,*) /= Nlat"
+  !   if(size(Hloc,2)/=size(Hloc,3)) stop "get_kinetic_energy: size Hloc(*,:,*) /= Hloc(*,*,:) "
+  !   if(size(Hloc,2)/=Norb) stop "get_kinetic_energy: size Hloc(*,:,*) /= Norb"
+  !   ! check Smats !
+  !   if(size(Sigma,1)/=Nlat) stop "get_kinetic_energy: size Smats(:,*,*,*) /= Nlat"
+  !   if(size(Sigma,2)/=size(Sigma,3)) stop "get_kinetic_energy: size Smats(*,:,*,*) /= Smats(*,*,:,*) "
+  !   if(size(Sigma,2)/=Norb) stop "get_kinetic_energy: size Smats(*,:,*,*) /= Norb"
+  !   if(size(Sigma,4)/=Lmats) stop "get_kinetic_energy: size Smats(*,*,*,:) /= Lmats"
+  !   !
+  !   allocate(Sigma_HF(Nlat,Norb,Norb))
+  !   allocate(Ak(No,No),Bk(No,No),Ck(No,No),Zk(No,No),Zeta(No,No),Tk(No,No))
+  !   allocate(Gk(No,No))
+  !   !
+  !   Sigma_HF = dreal(Sigma(:,:,:,Lmats))
+  !   !
+  !   ed_Ekin_lattice=0.d0
+  !   sumMats=0.d0
+  !   Zk=0d0 ; forall(i=1:No)Zk(i,i)=1d0
+  !   if(mpiID==0) write(LOGfile,*) "Kinetic energy computation"
+  !   if(mpiID==0)call start_timer
+  !   do ik=1,Lk       
+  !      Ak =  Hk(:,:,ik) !- xmu*Zk
+  !      Bk = -Hk(:,:,ik) !+ xmu*Zk      
+  !      do ilat=1,Nlat
+  !         do iorb=1,Norb
+  !            do jorb=1,Norb
+  !               io = (ilat-1)*Norb + iorb
+  !               jo = (ilat-1)*Norb + jorb
+  !               Bk(io,jo) = Bk(io,jo) - Sigma_HF(ilat,iorb,jorb) 
+  !               Bk(io,jo) = Bk(io,jo) - Hloc(ilat,iorb,jorb)
+  !            end do
+  !         end do
+  !      end do
+  !      !Gk(iw) computation
+  !      Gk=zero
+  !      sumMatstmp=0.d0      
+  !      sumMatsk=0.d0      
+  !      do i=1+mpiID,Lmats,mpiSIZE
+  !         Gk(:,:) = (xi*wm(i)+xmu)*Zk(:,:) - Hk(:,:,ik)
+  !         do ilat=1,Nlat
+  !            do iorb=1,Norb
+  !               do jorb=1,Norb
+  !                  io = (ilat-1)*Norb + iorb
+  !                  jo = (ilat-1)*Norb + jorb
+  !                  Gk(io,jo) = Gk(io,jo) - Sigma(ilat,iorb,jorb,i)
+  !                  Gk(io,jo) = Gk(io,jo) - Hloc(ilat,iorb,jorb)
+  !               end do
+  !            end do
+  !         end do
+  !         !
+  !         call matrix_inverse(Gk(:,:))
+  !         !
+  !         Tk = Zk(:,:)/(xi*wm(i)) - Bk(:,:)/(xi*wm(i))**2
+  !         Ck = matmul(Ak,Gk(:,:) - Tk)
+  !         do io=1,No
+  !            sumMatstmp = sumMatstmp + Wtk(ik)*Ck(io,io)
+  !         end do
+  !      enddo
+  !      call MPI_ALLREDUCE(sumMatstmp,sumMatsk,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+  !      sumMats=sumMats+sumMatsk
+  !      if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+  !   enddo
+  !   if(mpiID==0)call stop_timer
+  !   spin_degeneracy=3.d0-Nspin !2 if Nspin=1, 1 if Nspin=2
+  !   sumMats=sumMats/beta*2.d0*spin_degeneracy
+  !   !
+  !   ! subtract tails
+  !   Tail0=0d0
+  !   Tail1=0d0
+  !   do ik=1,Lk
+  !      Ak= Hk(:,:,ik) !- xmu*Zk
+  !      Bk=-Hk(:,:,ik) !+ xmu*Zk      
+  !      do ilat=1,Nlat
+  !         do iorb=1,Norb
+  !            do jorb=1,Norb
+  !               io = (ilat-1)*Norb + iorb
+  !               jo = (ilat-1)*Norb + jorb
+  !               ! Bk(io,jo) = Bk(io,jo) - Sigma_HF(iorb,jorb,ilat)
+  !               ! if(iorb==jorb) Bk(io,jo) = Bk(io,jo) - elocal_(ilat) ![tmp...think to something more clever]
+  !               Bk(io,jo) = Bk(io,jo) - Sigma_HF(ilat,iorb,jorb)
+  !               Bk(io,jo) = Bk(io,jo) - Hloc(ilat,iorb,jorb)
+  !            end do
+  !         end do
+  !      end do
+  !      Ck= matmul(Ak,Bk)
+  !      do io=1,No
+  !         Tail0 = Tail0 + 0.5d0*Wtk(ik)*Ak(io,io)
+  !         Tail1 = Tail1 + 0.25d0*Wtk(ik)*Ck(io,io)
+  !      end do
+  !   enddo
+  !   Tail0=spin_degeneracy*Tail0
+  !   Tail1=spin_degeneracy*Tail1*beta
+  !   ed_Ekin_lattice=sumMats+Tail0+Tail1
+  !   ed_Ekin_lattice=ed_Ekin_lattice/dble(Nlat)
+  !   deallocate(Sigma_HF,Ak,Bk,Ck,Zk,Zeta,Gk,Tk)
+  ! end function kinetic_energy_lattice_OLD
 
 
 end module ED_WRAP_ENERGY
