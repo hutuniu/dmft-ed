@@ -5,12 +5,23 @@ module ED_WRAP_AUX_FUNX
   implicit none
   private
 
+  interface extract_Hloc
+     module procedure extract_Hloc_1
+     module procedure extract_Hloc_2
+  end interface extract_Hloc
+
+  interface reshape_Hloc
+     module procedure reshape_Hloc_1
+     module procedure reshape_Hloc_2
+  end interface reshape_Hloc
+
   !LATTICE:
   public :: blocks_to_matrix
   public :: matrix_to_blocks
   public :: select_block
   public :: stride_index
-  public :: lat_orb2lo
+  public :: extract_Hloc
+  public :: reshape_Hloc
   public :: get_independent_sites  
 
   !OBSOLETE (to be removed)
@@ -19,10 +30,11 @@ module ED_WRAP_AUX_FUNX
 contains
 
 
-  !-------------------------------------------------------------------------------------------
-  !PURPOSE:  perform all the reduction and broadcast from Nlat blocks of size Nso=Nspin*Norb 
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE: 
+  ! perform all the reduction and broadcast from Nlat blocks of size Nso=Nspin*Norb 
   ! (spin-orbital blocks) into a large matrix of order Nlat*Nso (just like Hk)
-  !-------------------------------------------------------------------------------------------
+  !+-----------------------------------------------------------------------------+!
   function blocks_to_matrix(Vblocks) result(Matrix)
     complex(8),dimension(Nlat,Nspin*Norb,Nspin*Norb)      :: Vblocks
     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Matrix
@@ -60,17 +72,16 @@ contains
 
 
 
-
-  !-------------------------------------------------------------------------------------------
-  !PURPOSE: 
-  ! - strid_index: given an array of indices ivec=[i_1,...,i_L] and the corresponding array of 
-  !                ranges nvec=[N_1,...,N_L], evaluate the index of the stride corresponding the 
-  !                actual ivec with respect to nvec as 
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE:
+  ! - strid_index: given an array of indices ivec=[i_1,...,i_L] and the corresponding 
+  !                array of ranges nvec=[N_1,...,N_L], evaluate the index of the 
+  !                stride corresponding the actual ivec with respect to nvec as 
   !                I_stride = i1 + \sum_{k=2}^L (i_k-1)\prod_{l=1}^{k-1}N_k
-  !                assuming that the  i_1 .inner. i_2 .... .inner i_L (i_1 fastest index, i_L
-  !                slowest index)
+  !                assuming that the  i_1 .inner. i_2 .... .inner i_L (i_1 fastest index, 
+  !                i_L slowest index)
   ! - lat_orb2lo: evaluate the stride for the simplest case of Norb and Nlat
-  !-------------------------------------------------------------------------------------------
+  !+-----------------------------------------------------------------------------+!
   function stride_index(Ivec,Nvec) result(i)
     integer,dimension(:)          :: Ivec
     integer,dimension(size(Ivec)) :: Nvec
@@ -82,21 +93,118 @@ contains
     enddo
   end function stride_index
 
-  function lat_orb2lo(ilat,iorb) result(io)
-    integer :: ilat,iorb,io
-    io=(ilat-1)*Norb + iorb
-  end function lat_orb2lo
 
 
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE:  
+  ! get the block diagonal local part of a given Hamiltonian H(k_\perp;Ri,Rj)
+  !+-----------------------------------------------------------------------------+!
+  function extract_Hloc_1(Hk,Nlat,Nspin,Norb) result(Hloc)
+    complex(8),dimension(:,:,:)                 :: Hk
+    integer                                     :: Nlat,Nspin,Norb
+    complex(8),dimension(size(Hk,1),size(Hk,2)) :: Hloc
+    !
+    integer                                     :: i,iorb,ispin,ilat,is
+    integer                                     :: j,jorb,jspin,jlat,js
+    Hloc = zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   Hloc(is,js) = sum(Hk(is,js,:))/size(Hk,3)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
+  end function extract_Hloc_1
+
+  function extract_Hloc_2(Hk,Nspin,Norb) result(Hloc)
+    complex(8),dimension(:,:,:)                 :: Hk
+    integer                                     :: Nspin,Norb
+    complex(8),dimension(size(Hk,1),size(Hk,2)) :: Hloc
+    !
+    integer                                     :: i,iorb,ispin,ilat,is
+    integer                                     :: j,jorb,jspin,jlat,js
+    Hloc = zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                i = stride_index([iorb,ispin],[Norb,Nspin])
+                j = stride_index([jorb,jspin],[Norb,Nspin])
+                is = iorb + (ispin-1)*Norb !spin-orbit stride
+                js = jorb + (jspin-1)*Norb !spin-orbit stride
+                print*,i,is,j,js
+                Hloc(is,js) = sum(Hk(is,js,:))/size(Hk,3)
+             enddo
+          enddo
+       enddo
+    enddo
+    where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
+  end function extract_Hloc_2
 
 
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE: 
+  ! reshape the block diagonal local part of a Hamiltonian from the [Nlso][Nlso]
+  ! shape to the [Nlat][Nspin][Nspin][Norb][Norb] shape used in the ED code.
+  !+-----------------------------------------------------------------------------+!
+  function reshape_Hloc_1(Hloc,Nlat,Nspin,Norb) result(edHloc)
+    complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hloc
+    integer                                               :: Nlat,Nspin,Norb
+    complex(8),dimension(Nlat,Nspin,Nspin,Norb,Norb)      :: edHloc
+    !
+    integer                                               :: i,iorb,ispin,ilat,is
+    integer                                               :: j,jorb,jspin,jlat,js
+    edHloc=zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   edHloc(ilat,ispin,jspin,iorb,jorb) = Hloc(is,js)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+  end function reshape_Hloc_1
 
-  !+-------------------------------------------------------+!
-  ! PURPOSE: find all inequivalent sites with respect the   !
-  ! user defined symmetry operations                        !
-  ! Build and check maps from the full(independent) lattice !
-  ! to the independent(full) lattice                        !
-  !+-------------------------------------------------------+!
+  function reshape_Hloc_2(Hloc,Nspin,Norb) result(edHloc)
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hloc
+    integer                                     :: Nlat,Nspin,Norb
+    complex(8),dimension(Nspin,Nspin,Norb,Norb) :: edHloc
+    !
+    integer                                     :: i,iorb,ispin,ilat,is
+    integer                                     :: j,jorb,jspin,jlat,js
+    edHloc=zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                edHloc(ispin,jspin,iorb,jorb) = Hloc(is,js)
+             enddo
+          enddo
+       enddo
+    enddo
+  end function reshape_Hloc_2
+
+
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE:  
+  ! find all inequivalent sites with respect the user defined symmetry operations 
+  ! Build and check maps from the full(independent) lattice to the independent 
+  ! (full) lattice                        !
+  !+-----------------------------------------------------------------------------+!
   subroutine get_independent_sites(symmetry_operations)
     integer                       :: i,row,col,unit,isymm
     integer,dimension(Nlat)       :: tmp_search

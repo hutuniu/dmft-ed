@@ -180,30 +180,29 @@ contains
                 do i=1,Lreal
                    write(unit(2),"(F26.15,6(F26.15))")wr(i),(dimag(impSreal(ispin,ispin,iorb,iorb,i)),dreal(impSreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
                 enddo
-                !
                 do isign=1,2
                    do i=1,lanc_nGFiter
-                      write(unit(7),"(6(F26.15,1x))")(GFpoles(ispin,ispin,iorb,iorb,isign,i),GFweights(ispin,ispin,iorb,iorb,isign,i),ispin=1,Nspin)
+                      write(unit(3),"(6(F26.15,1x))")(GFpoles(ispin,ispin,iorb,iorb,isign,i),GFweights(ispin,ispin,iorb,iorb,isign,i),ispin=1,Nspin)
                    enddo
-                   write(unit(7),*)""
+                   write(unit(3),*)""
                 enddo
              endif
              !
              if(ed_verbose<2)then
                 do i=1,Lmats
-                   write(unit(3),"(F26.15,6(F26.15))")wm(i),(dimag(impGmats(ispin,ispin,iorb,iorb,i)),dreal(impGmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                   write(unit(4),"(F26.15,6(F26.15))")wm(i),(dimag(impGmats(ispin,ispin,iorb,iorb,i)),dreal(impGmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
                 enddo
                 do i=1,Lreal
-                   write(unit(4),"(F26.15,6(F26.15))")wr(i),(dimag(impGreal(ispin,ispin,iorb,iorb,i)),dreal(impGreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                   write(unit(5),"(F26.15,6(F26.15))")wr(i),(dimag(impGreal(ispin,ispin,iorb,iorb,i)),dreal(impGreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
                 enddo
              endif
              !
              if(ed_verbose<1)then
                 do i=1,Lmats
-                   write(unit(5),"(F26.15,6(F26.15))")wm(i),(dimag(impG0mats(ispin,ispin,iorb,iorb,i)),dreal(impG0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                   write(unit(6),"(F26.15,6(F26.15))")wm(i),(dimag(impG0mats(ispin,ispin,iorb,iorb,i)),dreal(impG0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
                 enddo
                 do i=1,Lreal
-                   write(unit(6),"(F26.15,6(F26.15))")wr(i),(dimag(impG0real(ispin,ispin,iorb,iorb,i)),dreal(impG0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                   write(unit(7),"(F26.15,6(F26.15))")wr(i),(dimag(impG0real(ispin,ispin,iorb,iorb,i)),dreal(impG0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
                 enddo
              endif
              call close_units
@@ -268,31 +267,28 @@ contains
                    do i=1,Lreal
                       write(unit(2),"(F26.15,6(F26.15))")wr(i),(dimag(impSreal(ispin,ispin,iorb,jorb,i)),dreal(impSreal(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
                    enddo
-                endif
-                !
-                if(ed_verbose<3)then
                    do isign=1,2
                       do i=1,lanc_nGFiter
-                         write(unit(7),"(6(F26.15,1x))")(GFpoles(ispin,ispin,iorb,iorb,isign,i),GFweights(ispin,ispin,iorb,iorb,isign,i),ispin=1,Nspin)
+                         write(unit(3),"(6(F26.15,1x))")(GFpoles(ispin,ispin,iorb,iorb,isign,i),GFweights(ispin,ispin,iorb,iorb,isign,i),ispin=1,Nspin)
                       enddo
                    enddo
                 endif
                 !
                 if(ed_verbose<2)then
                    do i=1,Lmats
-                      write(unit(3),"(F26.15,6(F26.15))")wm(i),(dimag(impGmats(ispin,ispin,iorb,jorb,i)),dreal(impGmats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                      write(unit(4),"(F26.15,6(F26.15))")wm(i),(dimag(impGmats(ispin,ispin,iorb,jorb,i)),dreal(impGmats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
                    enddo
                    do i=1,Lreal
-                      write(unit(4),"(F26.15,6(F26.15))")wr(i),(dimag(impGreal(ispin,ispin,iorb,jorb,i)),dreal(impGreal(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                      write(unit(5),"(F26.15,6(F26.15))")wr(i),(dimag(impGreal(ispin,ispin,iorb,jorb,i)),dreal(impGreal(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
                    enddo
                 endif
                 !
                 if(ed_verbose<1)then
                    do i=1,Lmats
-                      write(unit(5),"(F26.15,6(F26.15))")wm(i),(dimag(impG0mats(ispin,ispin,iorb,jorb,i)),dreal(impG0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                      write(unit(6),"(F26.15,6(F26.15))")wm(i),(dimag(impG0mats(ispin,ispin,iorb,jorb,i)),dreal(impG0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
                    enddo
                    do i=1,Lreal
-                      write(unit(6),"(F26.15,6(F26.15))")wr(i),(dimag(impG0real(ispin,ispin,iorb,jorb,i)),dreal(impG0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                      write(unit(7),"(F26.15,6(F26.15))")wr(i),(dimag(impG0real(ispin,ispin,iorb,jorb,i)),dreal(impG0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
                    enddo
                 endif
                 call close_units()
@@ -309,17 +305,15 @@ contains
       if(ed_verbose<4)then
          open(unit(1),file="impSigma"//string//"_iw"//reg(ed_file_suffix)//".ed")
          open(unit(2),file="impSigma"//string//"_realw"//reg(ed_file_suffix)//".ed")
-      endif
-      if(ed_verbose<3)then
-         open(unit(7),file="Gpoles_weights"//string//reg(ed_file_suffix)//".ed")
+         open(unit(3),file="Gpoles_weights"//string//reg(ed_file_suffix)//".ed")
       endif
       if(ed_verbose<2)then
-         open(unit(3),file="impG"//string//"_iw"//reg(ed_file_suffix)//".ed")
-         open(unit(4),file="impG"//string//"_realw"//reg(ed_file_suffix)//".ed")
+         open(unit(4),file="impG"//string//"_iw"//reg(ed_file_suffix)//".ed")
+         open(unit(5),file="impG"//string//"_realw"//reg(ed_file_suffix)//".ed")
       endif
       if(ed_verbose<1)then
-         open(unit(5),file="impG0"//string//"_iw"//reg(ed_file_suffix)//".ed")
-         open(unit(6),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
+         open(unit(6),file="impG0"//string//"_iw"//reg(ed_file_suffix)//".ed")
+         open(unit(7),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
       endif
     end subroutine open_units
 
@@ -327,17 +321,15 @@ contains
       if(ed_verbose<4)then
          close(unit(1))
          close(unit(2))
-      endif
-      if(ed_verbose<3)then
-         close(unit(7))
+         close(unit(3))
       endif
       if(ed_verbose<2)then
-         close(unit(3))
          close(unit(4))
+         close(unit(5))
       endif
       if(ed_verbose<1)then
-         close(unit(5))
          close(unit(6))
+         close(unit(7))
       endif
     end subroutine close_units
 
@@ -400,7 +392,7 @@ contains
              fg0(1,i) =  wr(i)+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_real(ispin,iorb,wr(i)+xi*eps,dmft_bath)
              fg0(2,i) = -fdelta_bath_real(ispin,iorb,wr(i)+xi*eps,dmft_bath)
           enddo
-          impSreal(ispin,ispin,iorb,iorb,:)= fg0(1,:) - fg(1,:)
+          impSreal(ispin,ispin,iorb,iorb,:) = fg0(1,:) - fg(1,:)
           impSAreal(ispin,ispin,iorb,iorb,:)= fg0(2,:) - fg(2,:)
           do i=1,Lreal
              det(i)     =  -fg0(1,i)*conjg(fg0(1,Lreal+1-i)) - fg0(2,i)*fg0(2,i)
