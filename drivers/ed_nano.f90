@@ -38,7 +38,7 @@ program ed_nano
   call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
   write(*,"(A,I4,A,I4,A)")'Processor ',mpiID,' of ',mpiSIZE,' is alive'
   call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
-#ENDIF
+#endif
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED_NANO.conf')
   call parse_input_variable(nfile,"NFILE",finput,default="nano.in")
@@ -136,7 +136,7 @@ program ed_nano
 
 #ifdef _MPI_INEQ
   call MPI_FINALIZE(mpiERR)
-#ENDIF
+#endif
 
 
 contains
@@ -178,7 +178,7 @@ contains
        if(.not.blank_at_right)then
           site=trim(site)//next
        else
-          read(site,"(I)")isite
+          read(site,"(I6)")isite
           site=""
           i=i+1
           if(i>Nlat)stop "build_Hij error: lattice index > Nlat read from file"

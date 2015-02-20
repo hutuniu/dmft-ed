@@ -1,6 +1,6 @@
 #COMPILER (PARALLEL IF FPP_INEQ or FPP_ED ARE SET)
 FC=mpif90
-PLAT=intel
+PLAT=gnu
 #PRECOMPILATION FLAG (leave blank for serial code)
 #this is the flag for the inequivalent parallelism [MPI_INEQ]
 FPP_INEQ=MPI_INEQ
@@ -13,7 +13,7 @@ ifeq ($(PLAT),intel)
 FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
 endif
 ifeq ($(PLAT),gnu)
-INCARGS=-I/opt/scifor/gnu/include -I/opt/dmft_tools/gnu/include
+INCARGS=-I$(HOME)/opt/scifor/gnu/include -I$(HOME)/opt/dmft_tools/gnu/include
 FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 endif
 

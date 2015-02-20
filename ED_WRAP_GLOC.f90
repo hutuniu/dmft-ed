@@ -117,11 +117,13 @@ contains
     logical,optional            :: hk_symm(size(Hk,3))
     logical                     :: hk_symm_(size(Hk,3))
     integer                     :: i,ik,Lk,Nlso,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,js
+    
     Lk=size(Hk,3)
     Nlso=Nlat*Norb*Nspin
     if(size(Hk,1)/=Nlso.OR.size(Hk,2)/=Nlso) stop "rdmft_get_gloc_normal error: wrong dimensions of Hk"
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
+
     if(mpiID==0)write(LOGfile,*)"Get local GF (id=0):"
     !here we create the "array" *zeta_site* of Nlat blocks, each of size (Nspin*Norb)
     !then we use a newly created function *blocks_to_matrix* to spread the blocks into
