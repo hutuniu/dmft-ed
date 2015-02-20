@@ -10,11 +10,11 @@ FPP_ED=
 .SUFFIXES: .f90
 
 ifeq ($(PLAT),intel)
-FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) -static-intel
+FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
 endif
 ifeq ($(PLAT),gnu)
 INCARGS=-I/opt/scifor/gnu/include -I/opt/dmft_tools/gnu/include
-FFLAG +=-ffree-line-length-none -static -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
+FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 endif
 
 #CHOOSE LINKING OPTIONS:

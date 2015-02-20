@@ -22,12 +22,12 @@ include make.inc
 #EXE=ed_2x2bhz
 #EXE=ed_bhz
 #EXE=ed_bhz_afm
-EXE=ed_bhz_edge
+#EXE=ed_bhz_edge
 
 #INHOMO
 #EXE=ed_ahm_disorder
 #EXE=ed_hm_slab_hyb
-
+EXE=ed_nano
 
 DIR =drivers
 DIREXE=$(HOME)/.bin
