@@ -273,7 +273,7 @@ end subroutine lanc_ed_buildchi_tot_c
 !PURPOSE  : 
 !+------------------------------------------------------------------+
 subroutine add_to_lanczos_chi(vnorm,Ei,nlanc,alanc,blanc,iorb)
-  real(8)                                    :: vnorm,Ei,Ej,Egs,pesoBZ,de,peso
+  real(8)                                    :: vnorm,Ei,Ej,Egs,pesoF,pesoAB,pesoBZ,de,peso
   integer                                    :: nlanc
   real(8),dimension(nlanc)                   :: alanc,blanc 
   integer                                    :: isign,iorb
@@ -282,9 +282,11 @@ subroutine add_to_lanczos_chi(vnorm,Ei,nlanc,alanc,blanc,iorb)
   integer                                    :: i,j,ierr
   complex(8)                                 :: iw,chisp
   !
-  Egs = state_list%emin
-  pesoBZ = vnorm**2/zeta_function 
-  if(finiteT)pesoBZ = pesoBZ*exp(-beta*(Ei-Egs))
+  Egs    = state_list%emin
+  pesoF  = vnorm**2/zeta_function 
+  pesoBZ = 1d0
+  if(finiteT)pesoBZ = exp(-beta*(Ei-Egs))
+  !
   diag=0.d0 ; subdiag=0.d0 ; Z=0.d0
   forall(i=1:Nlanc)Z(i,i)=1.d0
   diag(1:Nlanc)    = alanc(1:Nlanc)
@@ -292,24 +294,27 @@ subroutine add_to_lanczos_chi(vnorm,Ei,nlanc,alanc,blanc,iorb)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
   !
   do j=1,nlanc
-     Ej = diag(j)
-     de = Ej-Ei
-     peso = pesoBZ*Z(1,j)*Z(1,j)
-     ! if(de>cutoff)chiiw(iorb,0)=chiiw(iorb,0) - peso*(exp(-beta*de)-1.d0)/de
-     ! do i=1,Lmats
-     !    iw=xi*vm(i)
-     !    chiiw(iorb,i)=chiiw(iorb,i) + peso*(exp(-beta*de)-1.d0)/(iw+de)
-     ! enddo
+     Ej     = diag(j)
+     dE     = Ej-Ei
+     pesoAB = Z(1,j)*Z(1,j)
+     peso   = pesoF*pesoAB*pesoBZ
+     !Matsubara:
+     !treat separately the first bosonic Matsubara freq.
+     if(beta*dE < 1)then
+        chiiw(iorb,0)=chiiw(iorb,0) + peso*2*beta
+     else
+        chiiw(iorb,0)=chiiw(iorb,0) + peso*2*(1d0-exp(-beta*dE))/dE !there is a factor 2 we do not know
+     endif
      do i=1,Lmats
-        iw=xi*vm(i)
-        chiiw(iorb,i)=chiiw(iorb,i) + peso*(exp(-beta*de)-1d0)*2d0*de/(wm(i)**2+de**2)
+        chiiw(iorb,i)=chiiw(iorb,i) + peso*2*dE/(vm(i)**2+dE**2)
      enddo
-     do i=1,Lreal
-        iw=dcmplx(wr(i),eps)
-        chiw(iorb,i)=chiw(iorb,i) + peso*(exp(-beta*de)-1.d0)/(iw-de)
-     enddo
+     !Imag. time:
      do i=0,Ltau
         chitau(iorb,i)=chitau(iorb,i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
+     enddo
+     !Real freq.: misses a factor 2
+     do i=1,Lreal
+        chiw(iorb,i)=chiw(iorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
      enddo
   enddo
 end subroutine add_to_lanczos_chi

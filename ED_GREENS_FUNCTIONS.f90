@@ -63,7 +63,11 @@ contains
   !PURPOSE  : Interface routine for Green's function calculation
   !+------------------------------------------------------------------+
   subroutine buildgf_impurity()
-    call allocate_grids
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
+    !
     if(.not.allocated(impGmats))stop "build_gf_super: impGmats not allocated"
     if(.not.allocated(impGreal))stop "build_gf_super: impGreal not allocated"
     if(.not.allocated(impFmats))stop "build_gf_super: impFmats not allocated"
@@ -96,8 +100,6 @@ contains
     end if
     !
     if(allocated(wm))deallocate(wm)
-    if(allocated(vm))deallocate(vm)
-    if(allocated(tau))deallocate(tau)
     if(allocated(wr))deallocate(wr)
     if(allocated(GFpoles))deallocate(GFpoles)
     if(allocated(GFweights))deallocate(GFweights)
@@ -114,7 +116,18 @@ contains
   !PURPOSE  : Interface routine for Susceptibility calculation
   !+------------------------------------------------------------------+
   subroutine buildchi_impurity()
-    call allocate_grids()
+    integer :: i
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(vm))allocate(vm(0:Lmats))          !bosonic frequencies
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    if(.not.allocated(tau))allocate(tau(0:Ltau))
+    wm     = pi/beta*(2*arange(1,Lmats)-1)
+    do i=0,Lmats
+       vm(i) = pi/beta*2*i
+    enddo
+    wr     = linspace(0d0,wfin,Lreal)
+    tau(0:)= linspace(0.d0,beta,Ltau+1)
+
     if(.not.allocated(Chitau))allocate(Chitau(Norb+1,0:Ltau))
     if(.not.allocated(Chiw))  allocate(Chiw(Norb+1,Lreal))
     if(.not.allocated(Chiiw)) allocate(Chiiw(Norb+1,0:Lmats))
