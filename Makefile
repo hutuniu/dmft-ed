@@ -1,6 +1,7 @@
 include make.inc
 
 #--> HUBBARD MODELS:
+EXE=ed_hm_2b_hyb_2dsquare
 #EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
 #EXE=ed_ahm_square
@@ -25,12 +26,12 @@ include make.inc
 #EXE=ed_bhz_edge
 
 #INHOMO
-EXE=ed_ahm_disorder
+#EXE=ed_ahm_disorder
 #EXE=ed_hm_slab_hyb
 #EXE=ed_nano
 
 DIR =drivers
-DIREXE=$(HOME)/.bin
+DIREXE=/scratch/mbalesti/.bin
 
 
 OBJS= MATRIX_SPARSE.o ED_BATH_TYPE.o ED_VARS_GLOBAL.o ED_INPUT_VARS.o ARPACK_LANCZOS.o PLAIN_LANCZOS.o ED_AUX_FUNX.o ED_EIGENSPACE.o ED_BATH.o ED_MATVEC.o ED_HAMILTONIAN.o ED_GREENS_FUNCTIONS.o ED_OBSERVABLES.o  ED_GLOC.o ED_WEISS.o ED_ENERGY.o ED_CHI2FIT.o ED_DIAG.o ED_MAIN.o ED_WRAP_AUX_FUNX.o ED_WRAP_MAIN.o ED_WRAP_GLOC.o ED_WRAP_WEISS.o ED_WRAP_ENERGY.o ED_WRAP_CHI2FIT.o DMFT_ED.o
@@ -52,7 +53,7 @@ compile: version $(OBJS)
 
 
 completion:
-	src_completion.sh $(DIR)/$(EXE).f90
+	scifor_completion.sh $(DIR)/$(EXE).f90
 	@echo "run: . .bash_completion.d/$(EXE) to add completion for $(EXE) in this shell"
 
 clean: 
