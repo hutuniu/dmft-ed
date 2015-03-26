@@ -15,7 +15,7 @@ subroutine build_gf_superc()
   do ispin=1,Nspin
      do iorb=1,Norb
         if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G&F_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
-        call lanc_ed_buildgf_sc_d(iorb,ispin,verbose)
+        call lanc_build_gf_superc_d(iorb,ispin,verbose)
      enddo
   enddo
   !
@@ -40,13 +40,13 @@ end subroutine build_gf_superc
 !+------------------------------------------------------------------+
 !PURPOSE  : DOUBLE PRECISION
 !+------------------------------------------------------------------+
-subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
+subroutine lanc_build_gf_superc_d(iorb,ispin,iverbose)
   real(8),allocatable              :: vvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)  
   integer                          :: iorb,ispin,isite,isect0,izero
   integer                          :: idim0,jsect0
   integer                          :: jdim0,isz0,jsz0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
@@ -100,7 +100,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
-        call add_to_lanczos_gf_sc(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ichan=1)
+        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ichan=1)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -130,7 +130,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
-        call add_to_lanczos_gf_sc(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ichan=2)
+        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ichan=2)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -171,7 +171,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
-        call add_to_lanczos_gf_sc(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ichan=3)
+        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ichan=3)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -205,7 +205,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
-        call add_to_lanczos_gf_sc(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ichan=1)
+        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ichan=1)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -235,7 +235,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
-        call add_to_lanczos_gf_sc(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ichan=2)
+        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ichan=2)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -276,7 +276,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
-        call add_to_lanczos_gf_sc(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ichan=3)
+        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ichan=3)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -287,7 +287,7 @@ subroutine lanc_ed_buildgf_sc_d(iorb,ispin,iverbose)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_ed_buildgf_sc_d
+end subroutine lanc_build_gf_superc_d
 
 
 
@@ -297,7 +297,7 @@ end subroutine lanc_ed_buildgf_sc_d
 !+------------------------------------------------------------------+
 !PURPOSE  : 
 !+------------------------------------------------------------------+
-subroutine add_to_lanczos_gf_sc(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,ichan)
+subroutine add_to_lanczos_gf_superc(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,ichan)
   complex(8)                                 :: vnorm2,pesoBZ,peso
   real(8)                                    :: Ei,Egs,de
   integer                                    :: nlanc
@@ -330,4 +330,4 @@ subroutine add_to_lanczos_gf_sc(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,icha
         Gaux_real(ichan,i)=Gaux_real(ichan,i) + peso/(iw-isign*de)
      enddo
   enddo
-end subroutine add_to_lanczos_gf_sc
+end subroutine add_to_lanczos_gf_superc

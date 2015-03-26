@@ -142,11 +142,14 @@ contains
     call init_bath_ed(dmft_bath,hwband_)
     call copy_bath(dmft_bath,bath_)
     if(isetup)then
-       if(.not.ed_supercond)then
-          call setup_pointers
-       else
-          call setup_pointers_sc
-       endif
+       select case(ed_mode)
+       case default
+          call setup_pointers_normal
+       case ("superc")
+          call setup_pointers_superc
+       case ("nonsu2")
+          call setup_pointers_nonsu2
+       end select
     endif
     call deallocate_bath(dmft_bath)
     isetup=.false.

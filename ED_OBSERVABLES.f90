@@ -34,7 +34,7 @@ contains
   !PURPOSE  : Evaluate and print out many interesting physical qties
   !+-------------------------------------------------------------------+
   subroutine observables_impurity()
-    integer,dimension(Ntot)          :: ib
+    integer,dimension(Nlevels)       :: ib
     integer                          :: i,j
     integer                          :: izero
     integer                          :: isector,jsector

@@ -27,7 +27,7 @@ contains
     real(8),dimension(:,:),allocatable :: Hredux
     integer                            :: isector
     integer,dimension(:),allocatable   :: Hmap    !map of the Sector S to Hilbert space H
-    integer,dimension(Ntot)            :: ib
+    integer,dimension(Nlevels)         :: ib
     integer                            :: mpiQ,mpiR                
     integer                            :: dim,iup,idw
     integer                            :: i,j,m,ms,iorb,jorb,ispin,impi,ishift
@@ -99,7 +99,7 @@ contains
     complex(8),dimension(:,:),allocatable :: Hredux
     integer                               :: isector
     integer,dimension(:),allocatable      :: Hmap    !map of the Sector S to Hilbert space H
-    integer,dimension(Ntot)               :: ib
+    integer,dimension(Nlevels)            :: ib
     integer                               :: mpiQ,mpiR                
     integer                               :: dim,iup,idw
     integer                               :: i,j,m,ms,iorb,jorb,ispin,impi,ishift

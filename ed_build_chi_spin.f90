@@ -38,7 +38,7 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
@@ -94,7 +94,7 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
@@ -159,7 +159,7 @@ subroutine lanc_ed_buildchi_tot_d(iverbose)
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
@@ -214,7 +214,7 @@ subroutine lanc_ed_buildchi_tot_c(iverbose)
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)

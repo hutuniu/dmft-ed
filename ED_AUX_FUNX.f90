@@ -30,8 +30,9 @@ MODULE ED_AUX_FUNX
   public :: init_ed_structure
   public :: search_chemical_potential
   !
-  public :: setup_pointers
-  public :: setup_pointers_sc
+  public :: setup_pointers_normal
+  public :: setup_pointers_super
+  public :: setup_pointers_nonsu2
   public :: build_sector
   public :: bdecomp
   public :: bjoin
@@ -57,48 +58,52 @@ contains
     logical                                  :: control
     real(8),dimension(Nspin,Nspin,Norb,Norb) :: reHloc         !local hamiltonian, real part 
     real(8),dimension(Nspin,Nspin,Norb,Norb) :: imHloc         !local hamiltonian, imag part
-    integer                                  :: i,NP,nup,ndw,iorb,jorb,ispin,jspin
+    integer                                  :: i,dim_sector_max,nup,ndw,iorb,jorb,ispin,jspin
     !
     !Norb=# of impurity orbitals
     !Nbath=# of bath sites (per orbital or not depending on bath_type)
     !Ns=total number of sites
-    !Nbo=total number of bath sites (all sites - impurity sites)
     select case(bath_type)
     case default
        Ns = (Nbath+1)*Norb
     case ('hybrid')
        Ns = Nbath+Norb
     end select
-    Nbo   = Ns-Norb
-    Ntot  = 2*Ns
-    NN    = 2**Ntot
+    Nlevels  = 2*Ns
+    Nhilbert = 2**Nlevels
     !
     nup=Ns/2
     ndw=Ns-nup
-    if(.not.ed_supercond)then
-       Nsect = (Ns+1)*(Ns+1)
-       NP=get_sector_dimension(nup,ndw)
-    else
-       Nsect = Ntot+1
-       NP=get_sc_sector_dimension(0)
-    endif
+    select case(ed_mode)
+    case default
+       Nsectors = (Ns+1)*(Ns+1)
+       dim_sector_max=get_normal_sector_dimension(nup,ndw)
+       if(Nhel/=1)stop "init_ed_structure error: Nhel!=1 in ed_mode=normal"
+    case ("superc")
+       Nsectors = Nlevels+1        !sz=-Ns:Ns=2*Ns+1=Nlevels+1
+       dim_sector_max=get_superc_sector_dimension(0)
+       if(Nhel/=1)stop "init_ed_structure error: Nhel!=1 in ed_mode=superc"
+    case("nonsu2")
+       Nsectors = Nlevels+1        !n=0:2*Ns=2*Ns+1=Nlevels+1
+       dim_sector_max=get_nonsu2_sector_dimension(Ns)
+       if(Nhel/=2)stop "init_ed_structure error: Nhel!=2 in ed_mode=nonsu2"
+    end select
     !
     if(ED_MPI_ID==0)then
        write(LOGfile,*)"Summary:"
        write(LOGfile,*)"--------------------------------------------"
        write(LOGfile,*)'Number of impurities         = ',Norb
        write(LOGfile,*)'Number of bath/impurity      = ',Nbath
-       write(LOGfile,*)'Total # of Bath sites/spin   = ',Nbo
-       write(LOGfile,*)'Total # of sites/spin        = ',Ns
-       write(LOGfile,*)'Maximum dimension            = ',NP
-       write(LOGfile,*)'Total size, Hilber space dim.= ',Ntot,NN
-       write(LOGfile,*)'Number of sectors            = ',Nsect
+       write(LOGfile,*)'Total # of Bath sites/spin   = ',Ns-Norb
+       write(LOGfile,*)'Total # of sites per spin    = ',Ns
+       write(LOGfile,*)'Maximum dimension            = ',dim_sector_max
+       write(LOGfile,*)'Total size, Hilber space dim.= ',Nlevels,Nhilbert
+       write(LOGfile,*)'Number of sectors            = ',Nsectors
        write(LOGfile,*)"--------------------------------------------"
     endif
 
     allocate(impHloc(Nspin,Nspin,Norb,Norb))
-    reHloc = 0.d0
-    imHloc = 0.d0
+    reHloc = 0d0 ; imHloc = 0d0
 
     inquire(file=Hunit,exist=control)
     if(control)then
@@ -119,6 +124,7 @@ contains
        if(ED_MPI_ID==0)then
           write(LOGfile,*)"impHloc file not found."
           write(LOGfile,*)"impHloc should be defined elsewhere..."
+          call sleep(1)
        endif
     endif
     impHloc = dcmplx(reHloc,imHloc)
@@ -130,16 +136,20 @@ contains
 
 
     allocate(impIndex(Norb,2))
-    allocate(getdim(Nsect),getnup(Nsect),getndw(Nsect),getsz(Nsect),twin_mask(Nsect))
-    if(.not.ed_supercond)then
-       allocate(getsector(0:Ns,0:Ns))
-    else
-       allocate(getsector(-Ns:Ns,1))
-    endif
-    allocate(getCsector(2,Nsect))
-    allocate(getCDGsector(2,Nsect))
+    allocate(getdim(Nsectors),twin_mask(Nsectors))
+    allocate(getnup(Nsectors),getndw(Nsectors),getsz(Nsectors),getn(Nsectors))
+    select case(ed_mode)
+    case default
+       allocate(getsectors(0:Ns,0:Ns))
+    case ("superc")
+       allocate(getsectors(-Ns:Ns,1))
+    case ("nonsu2")
+       allocate(getsectors(0:Nlevels,1))
+    end select
+    allocate(getCsector(2,Nsectors))
+    allocate(getCDGsector(2,Nsectors))
     allocate(getBathStride(Norb,Nbath))
-    allocate(neigen_sector(Nsect))
+    allocate(neigen_sector(Nsectors))
 
 
     !check finiteT
@@ -175,13 +185,16 @@ contains
     if(Nspin>2)stop "Nspin > 2 ERROR. ask developer or develop your own on separate branch..."
     if(Norb>3)stop "Norb > 3 ERROR. ask developer or develop your own on separate branch..." 
     if(nerr < dmft_error) nerr=dmft_error
-    if(ed_supercond)then
+    if(ed_mode=="superc")then
        if(Nspin>1)stop "SC+AFM ERROR. ask developer or develop your own on separate branch..." 
        if(Norb>1)stop "SC Multi-Band not yet implemented. Wait for the developer to understand what to do..."
        if(ed_type=='c')stop "SC with Hermitian H not yet implemented. Wait for the developer to code it..."
        if(ed_twin)stop  "SC reduction with twim sectors not yet implemented. Ask developer or do it your own..."
     endif
-
+    if(ed_mode=="nonsu2")then
+       if(bath_type/="hybrid")stop "nonSU(2) code is developed for Hybridized bath."
+       if(ed_twin)stop  "nonSU2 reduction with twim sectors not yet implemented. Ask developer or do it your own..."
+    endif
 
     if(nread/=0.d0)then
        i=abs(floor(log10(abs(nerr)))) !modulus of the order of magnitude of nerror
@@ -189,7 +202,10 @@ contains
        !nloop=(i-1)*niter                !increase the max number of dmft loop allowed so to do threshold loop
        !write(LOGfile,"(A,I10)")"Increased Nloop to:",nloop
     endif
-    if(Nspin>1.AND.ed_twin.eqv..true.)write(LOGfile,"(A)")"WARNING: using twin_sector with Nspin>1"
+    if(Nspin>1.AND.ed_twin.eqv..true.)then
+       write(LOGfile,"(A)")"WARNING: using twin_sector with Nspin>1"
+       call sleep(1)
+    end if
 
     !allocate functions
     allocate(impSmats(Nspin,Nspin,Norb,Norb,Lmats))
@@ -316,9 +332,12 @@ contains
 
 
   !+------------------------------------------------------------------+
-  !PURPOSE  : 
+  !PURPOSE: SETUP THE GLOBAL POINTERS FOR THE ED CALCULAIONS.
   !+------------------------------------------------------------------+
-  subroutine setup_pointers
+  !
+  !NORMAL CASE
+  !
+  subroutine setup_pointers_normal
     integer                          :: i,in,dim,isector,jsector,dimup,dimdw
     integer                          :: nup,ndw,jup,jdw,iorb
     integer,dimension(:),allocatable :: imap
@@ -332,19 +351,19 @@ contains
           getsector(nup,ndw)=isector
           getnup(isector)=nup
           getndw(isector)=ndw
-          dim = get_sector_dimension(nup,ndw)
+          dim = get_sector_dimension_normal(nup,ndw)
           getdim(isector)=dim
           neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
        enddo
     enddo
     twin_mask=.true.
     if(ed_twin)then
-       do isector=1,Nsect
+       do isector=1,Nsectors
           nup=getnup(isector)
           ndw=getndw(isector)
           if(nup<ndw)twin_mask(isector)=.false.
        enddo
-       if(ED_MPI_ID==0)write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsect
+       if(ED_MPI_ID==0)write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
     endif
     if(ED_MPI_ID==0)call stop_timer
 
@@ -367,14 +386,14 @@ contains
     end select
 
     getCsector=0
-    do isector=1,Nsect
+    do isector=1,Nsectors
        nup=getnup(isector);ndw=getndw(isector)
        jup=nup-1;jdw=ndw;if(jup < 0)cycle
        jsector=getsector(jup,jdw)
        getCsector(1,isector)=jsector
     enddo
     !
-    do isector=1,Nsect
+    do isector=1,Nsectors
        nup=getnup(isector);ndw=getndw(isector)
        jup=nup;jdw=ndw-1;if(jdw < 0)cycle
        jsector=getsector(jup,jdw)
@@ -382,23 +401,25 @@ contains
     enddo
 
     getCDGsector=0
-    do isector=1,Nsect
+    do isector=1,Nsectors
        nup=getnup(isector);ndw=getndw(isector)
        jup=nup+1;jdw=ndw;if(jup > Ns)cycle
        jsector=getsector(jup,jdw)
        getCDGsector(1,isector)=jsector
     enddo
     !
-    do isector=1,Nsect
+    do isector=1,Nsectors
        nup=getnup(isector);ndw=getndw(isector)
        jup=nup;jdw=ndw+1;if(jdw > Ns)cycle
        jsector=getsector(jup,jdw)
        getCDGsector(2,isector)=jsector
     enddo
-  end subroutine setup_pointers
+  end subroutine setup_pointers_normal
 
-
-  subroutine setup_pointers_sc
+  ! 
+  !SUPERCONDUCTING
+  !
+  subroutine setup_pointers_superc
     integer                          :: i,isz,in,dim,isector,jsector
     integer                          :: sz,iorb,dim2,jsz
     integer,dimension(:),allocatable :: imap
@@ -411,7 +432,7 @@ contains
        isector=isector+1
        getsector(isz,1)=isector
        getsz(isector)=isz
-       dim = get_sc_sector_dimension(isz)
+       dim = get_sector_dimension_superc(isz)
        getdim(isector)=dim
        neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
     enddo
@@ -441,14 +462,14 @@ contains
 
     getCsector=0
     !c_up
-    do isector=1,Nsect
+    do isector=1,Nsectors
        isz=getsz(isector);if(isz==-Ns)cycle
        jsz=isz-1
        jsector=getsector(jsz,1)
        getCsector(1,isector)=jsector
     enddo
     !c_dw
-    do isector=1,Nsect
+    do isector=1,Nsectors
        isz=getsz(isector);if(isz==Ns)cycle
        jsz=isz+1
        jsector=getsector(jsz,1)
@@ -457,20 +478,119 @@ contains
 
     getCDGsector=0
     !cdg_up
-    do isector=1,Nsect
+    do isector=1,Nsectors
        isz=getsz(isector);if(isz==Ns)cycle
        jsz=isz+1
        jsector=getsector(jsz,1)
        getCDGsector(1,isector)=jsector
     enddo
     !cdg_dw
-    do isector=1,Nsect
+    do isector=1,Nsectors
        isz=getsz(isector);if(isz==-Ns)cycle
        jsz=isz-1
        jsector=getsector(jsz,1)
        getCDGsector(2,isector)=jsector
     enddo
-  end subroutine setup_pointers_sc
+  end subroutine setup_pointers_superc
+
+  !
+  !NON SU(2) SYMMETRIC
+  !
+  subroutine setup_pointers_nonsu2
+    integer                          :: i,dim,isector,jsector
+    integer                          :: in,jn,iorb,jorb
+    integer,dimension(:),allocatable :: imap
+    integer,dimension(:),allocatable :: invmap
+    if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
+    if(ED_MPI_ID==0)call start_timer
+    isector=0
+    do in=0,Nlevels
+       isector=isector+1
+       getsector(in,1)=isector
+       getn(isector)=in
+       dim = get_sector_dimension_nonsu2(in)
+       getdim(isector)=dim
+       neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
+    enddo
+    twin_mask=.true.
+    !<TODO 
+    !build the twin sector statements in the non-SU2 channel.
+    !>TODO
+    if(ED_MPI_ID==0)call stop_timer
+
+    do in=1,Norb
+       impIndex(in,1)=in
+       impIndex(in,2)=in+Ns
+    enddo
+
+    select case(bath_type)
+    case default
+       do i=1,Nbath
+          do iorb=1,Norb
+             getBathStride(iorb,i) = Norb + (iorb-1)*Nbath + i
+          enddo
+       enddo
+    case ('hybrid')
+       do i=1,Nbath
+          getBathStride(:,i)      = Norb + i
+       enddo
+    end select
+
+
+    getCsector=0
+    !c_{up,dw}
+    do isector=1,Nsectors
+       in=getn(isector);if(in==0)cycle
+       jn=in-1
+       jsector=getsector(jn,1)
+       getCsector(1,isector)=jsector
+       getCsector(2,isector)=jsector
+    enddo
+
+    getCDGsector=0
+    !cdg_{up,dw}
+    do isector=1,Nsectors
+       in=getn(isector);if(in==Nlevels)cycle
+       jn=in+1
+       jsector=getsector(jn,1)
+       getCDGsector(1,isector)=jsector
+       getCDGsector(2,isector)=jsector
+    enddo
+  end subroutine setup_pointers_nonsu2
+
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : return the dimension of a sector
+  !+------------------------------------------------------------------+
+  !NORMAL
+  function get_sector_dimension_normal(nup,ndw) result(dim)
+    integer :: nup,ndw,dim,dimup,dimdw
+    ! dimup=(factorial(Ns)/factorial(nup)/factorial(Ns-nup))
+    ! dimdw=(factorial(Ns)/factorial(ndw)/factorial(Ns-ndw))
+    dimup = binomial(Ns,nup)    !this ensures better evaluation of the dimension
+    dimdw = binomial(Ns,ndw)    !as it avoids large numbers 
+    dim=dimup*dimdw
+  end function get_sector_dimension_normal
+  !SUPERC
+  function get_sector_dimension_superc(mz) result(dim)
+    integer :: mz
+    integer :: i,dim,Nb
+    dim=0
+    Nb=Ns-mz
+    do i=0,Nb/2 
+       dim=dim + 2**(Nb-2*i)*binomial(ns,Nb-2*i)*binomial(ns-Nb+2*i,i)
+    enddo
+  end function get_sector_dimension_superc
+  !NONSU2
+  function get_sector_dimension_nonsu2(n) result(dim)
+    integer :: n
+    integer :: dim
+    dim=binomial(2*Ns,n)
+  end function get_sector_dimension_nonsu2
+
 
 
 
@@ -480,20 +600,20 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : constructs the sectors by storing the map to the 
   !states i\in Hilbert_space from the states count in H_sector.
-  !+------------------------------------------------------------------+
   !|ImpUP,BathUP>|ImpDW,BathDW >
-  subroutine build_sector(isector,map,dim2)
+  !+------------------------------------------------------------------+
+  subroutine build_sector(isector,map)
     integer              :: i,j,isector,iup,idw,mz,dim
-    integer,optional     :: dim2
-    integer              :: nup,ndw,sz
-    integer              :: ivec(Ntot)
+    integer              :: nup,ndw,sz,nt
+    integer              :: ivec(Nlevels)
     integer,dimension(:) :: map
-    !if(size(map)/=getdim(isector))stop "error in build_sector: wrong dimension of map"
+    if(size(map)/=getdim(isector))stop "error in build_sector: wrong dimension of map"
     dim=0
-    if(.not.ed_supercond)then
-       nup = getnup(isector)
-       ndw = getndw(isector)
-       do i=1,NN
+    select case(ed_mode)
+    case default
+       nup = getNup(isector)
+       ndw = getNdw(isector)
+       do i=1,NNhilbert
           call bdecomp(i,ivec)
           iup = sum(ivec(1:Ns))
           idw = sum(ivec(Ns+1:2*Ns))
@@ -502,9 +622,9 @@ contains
              map(dim)      = i       !build the map to full space states
           endif
        enddo
-    else
+    case ("superc")
        sz = getsz(isector)
-       do i=1,NN
+       do i=1,Nhilbert
           call bdecomp(i,ivec)
           mz = sum(ivec(1:Ns)) - sum(ivec(Ns+1:2*Ns))
           if(mz==sz)then
@@ -512,8 +632,17 @@ contains
              map(dim)        = i       !build the map to full space states
           endif
        enddo
-    endif
-    if(present(dim2))dim2=dim
+    case ("nonsu2")
+       nt = getN(isector)
+       do i=1,Nhilbert
+          call bdecomp(i,ivec)
+          in = sum(ivec)
+          if(in==nt)then
+             dim      = dim+1
+             map(dim) = i
+          endif
+       enddo
+    end select
   end subroutine build_sector
 
 
@@ -521,51 +650,78 @@ contains
 
 
 
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : input a state |i> and output a vector ivec(Ntot)
-  !with its binary decomposition
-  !(corresponds to the decomposition of the number i-1)
-  !+------------------------------------------------------------------+
-  subroutine bdecomp(i,ivec)
-    integer :: ivec(Ntot)         
-    integer :: l,i
-    logical :: busy
-    !this is the configuration vector |1,..,Ns,Ns+1,...,Ntot>
-    !obtained from binary decomposition of the state/number i\in 2^Ntot
-    do l=0,Ntot-1
-       busy=btest(i-1,l)
-       ivec(l+1)=0
-       if(busy)ivec(l+1)=1
-    enddo
-  end subroutine bdecomp
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : input a vector ib(Ntot) with the binary sequence 
-  ! and output the corresponding state |i>
-  !(corresponds to the recomposition of the number i-1)
-  !+------------------------------------------------------------------+
-  subroutine bjoin(ivec,i)
-    integer,dimension(ntot) :: ivec
-    integer                 :: i,j
-    i=1
-    do j=1,Ntot
-       i=i+ivec(j)*2**(j-1)
-    enddo
-  end subroutine bjoin
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : input state |i> of the basis and calculates |j>=Cm|i>
+  !the sign of j has the phase convention
+  !m labels the sites
+  !+-------------------------------------------------------------------+
+  subroutine c(m,i,j,sgn)
+    integer :: ib(Nlevels)
+    integer :: i,j,m,km,k
+    integer :: isg
+    real(8) :: sgn
+    call bdecomp(i,ib)
+    if (ib(m)==0)then
+       j=0
+    else
+       if(m==1)then
+          j=i-1
+       else
+          km=0
+          do k=1,m-1
+             km=km+ib(k)
+          enddo
+          !km=sum(ib(1:m-1))
+          isg=(-1)**km
+          j=(i-2**(m-1))*isg
+       endif
+    endif
+    sgn=dfloat(j)/dfloat(abs(j))
+    j=abs(j)
+  end subroutine c
 
 
 
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : input state |i> of the basis and calculates |j>=Cm+|i>
+  !the sign of j has the phase convention
+  !m labels the sites
+  !+-------------------------------------------------------------------+
+  subroutine cdg(m,i,j,sgn)
+    integer :: ib(Nlevels)
+    integer :: i,j,m,km,k
+    integer :: isg
+    real(8) :: sgn
+    call bdecomp(i,ib)
+    if (ib(m)==1)then
+       j=0
+    else
+       if(m==1)then
+          j=i+1
+       else
+          km=0
+          do k=1,m-1
+             km=km+ib(k)
+          enddo
+          !km=sum(ib(1:m-1))
+          isg=(-1)**km
+          j=(i+2**(m-1))*isg
+       endif
+    endif
+    sgn=dfloat(j)/dfloat(abs(j))
+    j=abs(j)
+  end subroutine cdg
 
 
 
 
 
 
-
-
+  !##################################################################
+  !##################################################################
+  !TWIN SECTORS ROUTINES:
+  !##################################################################
+  !##################################################################
 
   !+------------------------------------------------------------------+
   !PURPOSE  : Build the re-ordering map to go from sector A(nup,ndw)
@@ -585,6 +741,186 @@ contains
     enddo                           !
     call sort_array(Order)          !return the ordering of B-states in \HHH with respect to those of A
   end subroutine twin_sector_order
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Flip an Hilbert space state m=|{up}>|{dw}> into:
+  !
+  ! normal: j=|{dw}>|{up}>  , nup --> ndw
+  ! superc: j=|{dw}>|{up}>  , sz  --> -sz
+  ! nonsu2: j=|{!up}>|{!dw}>, n   --> 2*Ns-n
+  !+------------------------------------------------------------------+
+  function flip_state(m) result(j)
+    integer :: m
+    integer :: j
+    integer :: ivec(Nlevels),foo(Nlevels)
+    call bdecomp(m,ivec)
+    ! foo(1:Ns)=Ivec(Ns+1:2*Ns)
+    ! foo(Ns+1:2*Ns)=Ivec(1:Ns)
+    ! call bjoin(foo,j)
+    select case(ed_mode)
+    case default
+       !Exchange UP-config |{up}> with DW-config |{dw}>
+       foo(1:Ns)     =Ivec(Ns+1:2*Ns)
+       foo(Ns+1:2*Ns)=Ivec(1:Ns)
+    case("superc")
+       !Invert the overall spin sign: |{up}> <---> |{dw}>
+       !sz-->-sz: |110>|100>[sz=2-1=1] -->|100>|110>[sz=1-2=-1]
+       !sz-->-sz: |000>|100>[sz=0-1=-1]-->|100>|000>[sz=1-0=1]
+       !sz-->-sz: |111>|000>[sz=3-0=3] -->|000>|111>[sz=0-3=-3]
+       foo(1:Ns)     =Ivec(Ns+1:2*Ns)
+       foo(Ns+1:2*Ns)=Ivec(1:Ns)
+    case ("nonsu2")
+       !Exchange Occupied sites (1) with Empty sites (0)
+       where(ivec==1)foo=0
+       where(ivec==0)foo=1
+    end select
+    call bjoin(foo,j)
+  end function flip_state
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : get the twin of a given sector (the one with opposite 
+  ! quantum numbers): 
+  ! nup,ndw ==> ndw,nup (spin-exchange)
+  ! sz      ==> -sz     (total spin flip)
+  ! n       ==> 2*Ns-n  (particle hole)
+  !+------------------------------------------------------------------+
+  function get_twin_sector(isector) result(jsector)
+    integer,intent(in) :: isector
+    integer :: jsector
+    integer :: iup,idw,in,isz
+    select case(ed_mode)
+    case default
+       iup=getnup(isector)
+       idw=getndw(isector)
+       jsector=getsector(idw,iup)
+    case ("superc")
+       isz=getsz(isector)
+       jsector=getsector(-isz,1)
+    case("nonsu2")
+       in=getn(isector)
+       jsector=getsector(Nlevels-in,1)
+    end select
+  end function get_twin_sector
+
+
+
+
+
+
+
+
+
+
+  !##################################################################
+  !##################################################################
+  !AUXILIARY COMPUTATIONAL ROUTINES ARE HERE BELOW:
+  !##################################################################
+  !##################################################################
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : input a state |i> and output a vector ivec(Nlevels)
+  !with its binary decomposition
+  !(corresponds to the decomposition of the number i-1)
+  !+------------------------------------------------------------------+
+  subroutine bdecomp(i,ivec)
+    integer :: ivec(Nlevels)         
+    integer :: l,i
+    logical :: busy
+    !this is the configuration vector |1,..,Ns,Ns+1,...,Nlevels>
+    !obtained from binary decomposition of the state/number i\in 2^2*Ns
+    do l=0,Nlevels-1
+       busy=btest(i-1,l)
+       ivec(l+1)=0
+       if(busy)ivec(l+1)=1
+    enddo
+  end subroutine bdecomp
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : input a vector ib(Nlevels) with the binary sequence 
+  ! and output the corresponding state |i>
+  !(corresponds to the recomposition of the number i-1)
+  !+------------------------------------------------------------------+
+  subroutine bjoin(ivec,i)
+    integer,dimension(Nlevels) :: ivec
+    integer                 :: i,j
+    i=1
+    do j=1,Nlevels
+       i=i+ivec(j)*2**(j-1)
+    enddo
+  end subroutine bjoin
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : calculate the factorial of an integer N!=1.2.3...(N-1).N
+  !+------------------------------------------------------------------+
+  recursive function factorial(n) result(f)
+    integer            :: f
+    integer,intent(in) :: n
+    if(n<=0)then
+       f=1
+    else
+       f=n*factorial(n-1)
+    end if
+  end function factorial
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : calculate the binomial factor n1 over n2
+  !+------------------------------------------------------------------+
+  function binomial(n1,n2) result(nchoos)
+    real(8) :: xh
+    integer :: n1,n2,i
+    integer nchoos
+    xh = 1.d0
+    if(n2<0) then
+       nchoos = 0
+       return
+    endif
+    if(n2==0) then
+       nchoos = 1
+       return
+    endif
+    do i = 1,n2
+       xh = xh*dble(n1+1-i)/dble(i)
+    enddo
+    nchoos = int(xh + 0.5d0)
+  end function binomial
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE : binary search of a value in an array
+  !+------------------------------------------------------------------+
+  recursive function binary_search(a,value) result(bsresult)
+    integer,intent(in) :: a(:), value
+    integer            :: bsresult, mid
+    mid = size(a)/2 + 1
+    if (size(a) == 0) then
+       bsresult = 0        ! not found
+    else if (a(mid) > value) then
+       bsresult= binary_search(a(:mid-1), value)
+    else if (a(mid) < value) then
+       bsresult = binary_search(a(mid+1:), value)
+       if (bsresult /= 0) then
+          bsresult = mid + bsresult
+       end if
+    else
+       bsresult = mid      ! SUCCESS!!
+    end if
+  end function binary_search
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE : sort array of integer using random algorithm
+  !+------------------------------------------------------------------+
   subroutine sort_array(array)
     integer,dimension(:),intent(inout)      :: array
     integer,dimension(size(array))          :: order
@@ -642,80 +978,13 @@ contains
 
 
 
-
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : input state |i> of the basis and calculates |j>=Cm|i>
-  !the sign of j has the phase convention
-  !m labels the sites
-  !+-------------------------------------------------------------------+
-  subroutine c(m,i,j,sgn)
-    integer :: ib(Ntot)
-    integer :: i,j,m,km,k
-    integer :: isg
-    real(8) :: sgn
-    call bdecomp(i,ib)
-    if (ib(m)==0)then
-       j=0
-    else
-       if(m==1)then
-          j=i-1
-       else
-          km=0
-          do k=1,m-1
-             km=km+ib(k)
-          enddo
-          !km=sum(ib(1:m-1))
-          isg=(-1)**km
-          j=(i-2**(m-1))*isg
-       endif
-    endif
-    sgn=dfloat(j)/dfloat(abs(j))
-    j=abs(j)
-  end subroutine c
-
-
-
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : input state |i> of the basis and calculates |j>=Cm+|i>
-  !the sign of j has the phase convention
-  !m labels the sites
-  !+-------------------------------------------------------------------+
-  subroutine cdg(m,i,j,sgn)
-    integer :: ib(Ntot)
-    integer :: i,j,m,km,k
-    integer :: isg
-    real(8) :: sgn
-    call bdecomp(i,ib)
-    if (ib(m)==1)then
-       j=0
-    else
-       if(m==1)then
-          j=i+1
-       else
-          km=0
-          do k=1,m-1
-             km=km+ib(k)
-          enddo
-          !km=sum(ib(1:m-1))
-          isg=(-1)**km
-          j=(i+2**(m-1))*isg
-       endif
-    endif
-    sgn=dfloat(j)/dfloat(abs(j))
-    j=abs(j)
-  end subroutine cdg
-
-
-
-
-
   !+------------------------------------------------------------------+
   !PURPOSE  : print a state vector |{up}>|{dw}>
   !+------------------------------------------------------------------+
   subroutine print_state_vector_ivec(ib,unit)
     integer,optional :: unit
     integer :: i,j,unit_
-    integer :: ib(ntot)
+    integer :: ib(Nlevels)
     unit_=6;if(present(unit))unit_=unit
     call bjoin(ib,i)
     write(unit_,"(I3,1x,A1)",advance="no")i,"|"
@@ -728,7 +997,7 @@ contains
   subroutine print_state_vector_int(i,unit)
     integer,optional :: unit
     integer :: i,j,unit_
-    integer :: ib(ntot)
+    integer :: ib(Nlevels)
     unit_=6;if(present(unit))unit_=unit
     call bdecomp(i,ib)
     write(unit_,"(I3,1x,A1)",advance="no")i,"|"
@@ -741,129 +1010,17 @@ contains
 
 
 
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Flip an Hilbert space state m=|{up}>|{dw}> into 
-  ! j=|{dw}>|{up}>
-  !+------------------------------------------------------------------+
-  function flip_state(m) result(j)
-    integer :: m
-    integer :: j
-    integer :: ivec(Ntot),foo(Ntot)
-    call bdecomp(m,ivec)
-    foo(1:Ns)=Ivec(Ns+1:2*Ns)
-    foo(Ns+1:2*Ns)=Ivec(1:Ns)
-    call bjoin(foo,j)
-  end function flip_state
 
 
 
 
 
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Flip an Hilbert space state m=|{up}>|{dw}> into 
-  ! j=|{dw}>|{up}>
-  !+------------------------------------------------------------------+
-  function get_twin_sector(isector) result(jsector)
-    integer,intent(in) :: isector
-    integer :: jsector
-    integer :: nup,ndw
-    nup=getnup(isector)
-    ndw=getndw(isector)
-    jsector=getsector(ndw,nup)
-  end function get_twin_sector
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : calculate the factorial
-  !+------------------------------------------------------------------+
-  function get_sector_dimension(nup,ndw) result(dim)
-    integer :: nup,ndw,dim,dimup,dimdw
-    dimup=(factorial(Ns)/factorial(nup)/factorial(Ns-nup))
-    dimdw=(factorial(Ns)/factorial(ndw)/factorial(Ns-ndw))
-    dim=dimup*dimdw
-  end function get_sector_dimension
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : calculate the factorial
-  !+------------------------------------------------------------------+
-  function get_sc_sector_dimension(mz) result(dim)
-    integer :: mz
-    integer :: i,dim,Nb
-    dim=0
-    Nb=Ns-mz
-    do i=0,Nb/2 
-       dim=dim + 2**(Nb-2*i)*nchoos(ns,Nb-2*i)*nchoos(ns-Nb+2*i,i)
-    enddo
-  end function get_sc_sector_dimension
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : calculate the factorial of an integer N!=1.2.3...(N-1).N
-  !+------------------------------------------------------------------+
-  recursive function factorial(n) result(f)
-    integer            :: f
-    integer,intent(in) :: n
-    if(n<=0)then
-       f=1
-    else
-       f=n*factorial(n-1)
-    end if
-  end function factorial
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : calculate the binomial factor
-  !+------------------------------------------------------------------+
-  function nchoos(n1,n2)
-    real(8) :: xh
-    integer :: n1,n2,i
-    integer nchoos
-    xh = 1.d0
-    if(n2<0) then
-       nchoos = 0
-       return
-    endif
-    if(n2==0) then
-       nchoos = 1
-       return
-    endif
-    do i = 1,n2
-       xh = xh*real(n1+1-i,8)/real(i,8)
-    enddo
-    nchoos = int(xh + 0.5d0)
-  end function nchoos
-
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE : binary search of a value in an array
-  !+------------------------------------------------------------------+
-  recursive function binary_search(a,value) result(bsresult)
-    integer,intent(in) :: a(:), value
-    integer            :: bsresult, mid
-    mid = size(a)/2 + 1
-    if (size(a) == 0) then
-       bsresult = 0        ! not found
-    else if (a(mid) > value) then
-       bsresult= binary_search(a(:mid-1), value)
-    else if (a(mid) < value) then
-       bsresult = binary_search(a(mid+1:), value)
-       if (bsresult /= 0) then
-          bsresult = mid + bsresult
-       end if
-    else
-       bsresult = mid      ! SUCCESS!!
-    end if
-  end function binary_search
-
-
-
+  !##################################################################
+  !##################################################################
+  ! ROUTINES TO SEARCH CHEMICAL POTENTIAL UP TO SOME ACCURACY
+  ! can be used to fix any other *var so that  *ntmp == nread
+  !##################################################################
+  !##################################################################
 
   !+------------------------------------------------------------------+
   !PURPOSE  : 

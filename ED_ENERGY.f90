@@ -35,7 +35,7 @@ contains
   !PURPOSE  : Get internal energy from the Impurity problem.
   !+-------------------------------------------------------------------+
   subroutine local_energy_impurity()
-    integer,dimension(Ntot)                           :: ib
+    integer,dimension(Nlevels)                        :: ib
     integer                                           :: i,j
     integer                                           :: izero
     integer                                           :: isector
@@ -112,6 +112,46 @@ contains
           !
           !LOCAL ENERGY
           ed_Eknot = ed_Eknot + dot_product(eloc(1,:),nup)*gs_weight + dot_product(eloc(Nspin,:),ndw)*gs_weight
+          !==> HYBRIDIZATION TERMS I: same or different orbitals, same spins.
+          do iorb=1,Norb
+             do jorb=1,Norb
+                !SPIN UP
+                if((ib(iorb)==0).AND.(ib(jorb)==1))then
+                   call c(jorb,m,k1,sg1)
+                   call cdg(iorb,k1,k2,sg2)
+                   j=binary_search(Hmap,k2)
+                   ed_Eknot = ed_Eknot + impHloc(1,1,iorb,jorb)*sg1*sg2*gs_weight
+                endif
+                !SPIN DW
+                if((ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
+                   call c(jorb+Ns,m,k1,sg1)
+                   call cdg(iorb+Ns,k1,k2,sg2)
+                   j=binary_search(Hmap,k2)
+                   ed_Eknot = ed_Eknot + impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2*gs_weight
+                endif
+             enddo
+          enddo
+          !==> HYBRIDIZATION TERMS II: same or different orbitals, opposite spins.
+          if(ed_mode=="nonsu2")then
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !UP-DW
+                   if((impHloc(1,Nspin,iorb,jorb)/=zero).AND.(ib(iorb)==0).AND.(ib(jorb+Ns)==1))then
+                      call c(jorb+Ns,m,k1,sg1)
+                      call cdg(iorb,k1,k2,sg2)
+                      j=binary_search(Hmap,k2)
+                      ed_Eknot = ed_Eknot + impHloc(1,Nspin,iorb,jorb)*sg1*sg2*gs_weight
+                   endif
+                   !DW-UP
+                   if((impHloc(Nspin,1,iorb,jorb)/=zero).AND.(ivec(iorb+Ns)==0).AND.(ivec(jorb)==1))then
+                      call c(jorb,m,k1,sg1)
+                      call cdg(iorb+Ns,k1,k2,sg2)
+                      j=binary_search(Hmap,k2)
+                      ed_Eknot = ed_Eknot + impHloc(Nspin,1,iorb,jorb)*sg1*sg2*gs_weight
+                   endif
+                enddo
+             enddo
+          endif
           !
           !DENSITY-DENSITY INTERACTION: SAME ORBITAL, OPPOSITE SPINS
           !Euloc=\sum=i U_i*(n_u*n_d)_i
@@ -119,11 +159,6 @@ contains
           do iorb=1,Norb
              ed_Epot = ed_Epot + Uloc(iorb)*nup(iorb)*ndw(iorb)*gs_weight
           enddo
-          ! if(.not.ed_supercond) then
-          !    ed_Epot = ed_Epot + dot_product(uloc,nup*ndw)*gs_weight
-          ! else
-          !    ed_Epot = ed_Epot - uloc(1)*(nup(1)-0.5d0)*(ndw(1)-0.5d0)*gs_weight
-          ! end if
           !
           !DENSITY-DENSITY INTERACTION: DIFFERENT ORBITALS, OPPOSITE SPINS
           !Eust=\sum_ij Ust*(n_up_i*n_dn_j + n_up_j*n_dn_i)

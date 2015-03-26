@@ -17,9 +17,9 @@ subroutine build_gf_normal()
         if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
         select case(ed_type)
         case default
-           call lanc_ed_buildgf_d(iorb,ispin,verbose)
+           call lanc_build_gf_normal_d(iorb,ispin,verbose)
         case ('c')
-           call lanc_ed_buildgf_c(iorb,ispin,verbose)
+           call lanc_build_gf_normal_c(iorb,ispin,verbose)
         end select
      enddo
   enddo
@@ -32,9 +32,9 @@ subroutine build_gf_normal()
                    reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))
               select case(ed_type)
               case default
-                 call lanc_ed_buildgf_mix_d(iorb,jorb,ispin,verbose)
+                 call lanc_build_gf_normal_mix_d(iorb,jorb,ispin,verbose)
               case ('c')
-                 call lanc_ed_buildgf_mix_c(iorb,jorb,ispin,verbose)                    
+                 call lanc_build_gf_normal_mix_c(iorb,jorb,ispin,verbose)                    
               end select
            enddo
         enddo
@@ -63,13 +63,13 @@ end subroutine build_gf_normal
 !+------------------------------------------------------------------+
 !PURPOSE  : DOUBLE PRECISION
 !+------------------------------------------------------------------+
-subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
+subroutine lanc_build_gf_normal_d(iorb,ispin,iverbose)
   real(8),allocatable              :: vvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)  
   integer                          :: iorb,ispin,isite,isect0,izero
   integer                          :: idim0,jsect0
   integer                          :: jdim0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
@@ -122,7 +122,7 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -151,7 +151,7 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -162,19 +162,19 @@ subroutine lanc_ed_buildgf_d(iorb,ispin,iverbose)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_ed_buildgf_d
+end subroutine lanc_build_gf_normal_d
 
 
 !+------------------------------------------------------------------+
 !PURPOSE  : DOUBLE COMPLEX
 !+------------------------------------------------------------------+
-subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
+subroutine lanc_build_gf_normal_c(iorb,ispin,iverbose)
   complex(8),allocatable           :: vvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: iorb,ispin,isite,isect0,izero
   integer                          :: idim0,jsect0
   integer                          :: jdim0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
@@ -228,7 +228,7 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
         call ed_buildH_c(jsect0)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=one*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -258,7 +258,7 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
         call ed_buildH_c(jsect0)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=one*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -269,7 +269,7 @@ subroutine lanc_ed_buildgf_c(iorb,ispin,iverbose)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_ed_buildgf_c
+end subroutine lanc_build_gf_normal_c
 
 
 
@@ -279,11 +279,11 @@ end subroutine lanc_ed_buildgf_c
 !+------------------------------------------------------------------+
 !PURPOSE  : DOUBLE PRECISION
 !+------------------------------------------------------------------+
-subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
+subroutine lanc_build_gf_normal_mix_d(iorb,jorb,ispin,iverbose)
   integer                          :: iorb,jorb,ispin,isite,jsite,isect0,izero
   integer                          :: idim0,jsect0
   integer                          :: jdim0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
@@ -350,7 +350,7 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -388,7 +388,7 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -426,7 +426,7 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
         cnorm2=-xi*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -464,7 +464,7 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
         call ed_buildH_d(jsect0)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
         cnorm2=-xi*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -475,18 +475,18 @@ subroutine lanc_ed_buildgf_mix_d(iorb,jorb,ispin,iverbose)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_ed_buildgf_mix_d
+end subroutine lanc_build_gf_normal_mix_d
 
 
 
 !+------------------------------------------------------------------+
 !PURPOSE  : DOUBLE COMPLEX
 !+------------------------------------------------------------------+
-subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
+subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin,iverbose)
   integer                          :: iorb,jorb,ispin,isite,jsite,isect0,izero
   integer                          :: idim0,jsect0
   integer                          :: jdim0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
@@ -553,7 +553,7 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         call ed_buildH_c(jsect0)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=one*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -591,7 +591,7 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         call ed_buildH_c(jsect0)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=one*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -629,7 +629,7 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         call ed_buildH_c(jsect0)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=-xi*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -667,7 +667,7 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
         call ed_buildH_c(jsect0)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=-xi*norm2
-        call add_to_lanczos_gf(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
+        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -678,7 +678,7 @@ subroutine lanc_ed_buildgf_mix_c(iorb,jorb,ispin,iverbose)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_ed_buildgf_mix_c
+end subroutine lanc_build_gf_normal_mix_c
 
 
 
@@ -691,7 +691,7 @@ end subroutine lanc_ed_buildgf_mix_c
 !+------------------------------------------------------------------+
 !PURPOSE  : 
 !+------------------------------------------------------------------+
-subroutine add_to_lanczos_gf(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,ispin)
+subroutine add_to_lanczos_gf_normal(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,ispin)
   complex(8)                                 :: vnorm2,pesoBZ,peso
   real(8)                                    :: Ei,Egs,de
   integer                                    :: nlanc,itype
@@ -728,4 +728,4 @@ subroutine add_to_lanczos_gf(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,ispin)
   enddo
 
 
-end subroutine add_to_lanczos_gf
+end subroutine add_to_lanczos_gf_normal
