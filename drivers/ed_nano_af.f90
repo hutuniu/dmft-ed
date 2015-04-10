@@ -12,7 +12,7 @@ program ed_nano
   integer                                       :: ilat,ineq
   !Bath:
   integer                                       :: Nb(2)
-  real(8),allocatable                           :: Bath_prev(:,:,:),Bath_ineq(:,:,:)
+  real(8),allocatable                           :: Bath_prev(:,:,:),Bath_ineq(:,:,:)!,Bath(:,:,:)
   !The local hybridization function:
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Weiss_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Smats,Smats_ineq
@@ -82,12 +82,15 @@ program ed_nano
 
   !Setup solver
   Nb=get_bath_size()
+  !  allocate(Bath(Nlat,Nb(1),Nb(2)))
   allocate(Bath_ineq(Nineq,Nb(1),Nb(2)))
   allocate(Bath_prev(Nineq,Nb(1),Nb(2)))
   call ed_init_solver_lattice(Bath_ineq)
 
   do ineq=1,Nineq
      ilat = ineq2lat(ineq)
+     !Bath_ineq(ineq,:,:)     = Bath(ilat,:,:)
+     call break_symmetry_bath(Bath_ineq(ineq,:,:),sb_field,dble(sb_field_sign(ineq)))
      Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
   enddo
 
@@ -124,7 +127,7 @@ program ed_nano
 
      ! fit baths and mix result with old baths
      call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin=1)
-     !call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin=2)
+     call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin=2)
      if(phsym)then
         do ineq=1,Nineq
            call ph_symmetrize_bath(bath_ineq(ineq,:,:))
@@ -133,6 +136,7 @@ program ed_nano
      Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
      if(mpiID==0)then
        converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
+       !converged = check_convergence_local(docc_ineq,dmft_error,nsuccess,nloop)
        if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
     endif
 #ifdef _MPI_INEQ

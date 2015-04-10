@@ -220,7 +220,7 @@ contains
           if(Nspin==2)then
              write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magz(iorb),iorb=1,Norb)
           endif
-       !endif
+       endif
     endif
     !
     do iorb=1,Norb
