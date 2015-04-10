@@ -101,6 +101,8 @@ contains
     if(allocated(wm))deallocate(wm)
     allocate(wm(Lmats))
     wm = pi/beta*(2*arange(1,Lmats)-1)
+    Weiss_tmp = zero
+    Weiss     = zero
     mpi_site_loop: do ilat=1+mpiID,Nsites,mpiSIZE
        !Dump the Gloc and the Smats for the ilat-th site into a [Norb*Nspin]^2 matrix
        !and create the zeta_site
@@ -368,6 +370,8 @@ contains
     wm = pi/beta*(2*arange(1,Lmats)-1)
     Nso =Nspin*Norb
     Nlso=Nsites*Nspin*Norb
+    Weiss_tmp = zero
+    Weiss     = zero
     mpi_site_loop: do ilat=1+mpiID,Nsites,mpiSIZE
        !Dump the Gloc and the Smats for the ilat-th site into a [Norb*Nspin]^2 matrix
        !and create the zeta_site
@@ -510,6 +514,8 @@ contains
     wm = pi/beta*(2*arange(1,Lmats)-1)
     Nso =Nspin*Norb
     Nlso=Nsites*Nspin*Norb
+    Weiss_tmp = zero
+    Weiss     = zero
     mpi_site_loop: do ilat=1+mpiID,Nsites,mpiSIZE
        !Dump the Gloc and the Smats for the ilat-th site into a [Norb*Nspin]^2 matrix
        !and create the zeta_site
