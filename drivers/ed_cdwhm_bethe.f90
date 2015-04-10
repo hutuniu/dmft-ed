@@ -20,12 +20,13 @@ program ed_cdw
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Delta ![Nlat][Nspin][Nspin][Norb][Norb][Nfreq]
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Smats
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Sreal
-  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Gmats
-  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Greal
+  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Gmats,Gmats_loc
+  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Greal,Greal_loc
   !Hamiltonian
   real(8),allocatable                           :: BetheDOS(:)
   real(8),allocatable                           :: BetheEk(:,:,:)
   complex(8),allocatable                        :: Hloc(:,:,:,:,:)
+  character(len=5)                              :: tmp_suffix
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
   call parse_input_variable(Nk,"Nk",finput,default=500)
@@ -35,10 +36,12 @@ program ed_cdw
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   !
   call ed_read_input(trim(finput))
+
   xmu0=xmu+W0
 
   Nlat=2                        !the two ineq. sublattices A,B
   if(Norb/=1)stop "This drivers requires Norb==1"
+  if(Nspin/=1)stop "This drivers requires Nspin==1"
 
   allocate(BetheDOS(Nk),BetheEk(Nlat,Nlat,Nk))
   call build_Hbethe2x2
@@ -51,15 +54,20 @@ program ed_cdw
   allocate(Delta(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Gmats_loc(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(Greal_loc(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))  
 
   !setup solver
   Nb=get_bath_size()
+  print*,"Nb = ",Nb(1)," ",Nb(2)
   allocate(bath(Nlat,Nb(1),Nb(2)))
   allocate(bath_prev(Nlat,Nb(1),Nb(2)))
   do ineq=1,2
+     write(tmp_suffix,'(I4.4)') ineq
+     ed_file_suffix="_site"//trim(tmp_suffix)
      call ed_init_solver(Bath(ineq,:,:))
   enddo
 
@@ -75,6 +83,8 @@ program ed_cdw
      ! solve the impurities on each inequivalent site:
      do ineq=1,2
         xmu=xmu0-W0*n0(3-ineq)
+        write(tmp_suffix,'(I4.4)') ineq
+        ed_file_suffix="_site"//trim(tmp_suffix)
         call ed_solve(bath(ineq,:,:))
         n0(ineq) = ed_dens(1)
         call ed_get_sigma_matsubara(Smats(ineq,:,:,:,:,:))
@@ -82,39 +92,42 @@ program ed_cdw
         call ed_get_gimp_matsubara(Gmats(ineq,:,:,:,:,:))
         call ed_get_gimp_real(Greal(ineq,:,:,:,:,:))
      enddo
-     print*,n0(1),n0(2)
+     print*,""
+     print*,"n1 = ",n0(1)," n2= ",n0(2)
      print*,""
 
-     xmu=xmu0
-     ! !Get the local Green's functions
-     ! BetheEk(1,1,:) = BetheEk(1,1,:)+W0*n0(2)
-     ! BetheEk(2,2,:) = BetheEk(2,2,:)+W0*n0(1)
-     ! call ed_get_gloc_lattice(one*BetheEk,BetheDOS,Gmats,Greal,Smats,Sreal,iprint=1)
-     !Get Delta and fit it
      do ineq=1,2
-        ! xmu=xmu0-W0*n0(3-ineq)
-        ! call ed_get_weiss(Gmats(ineq,:,:,:,:,:),Smats(ineq,:,:,:,:,:),Delta(ineq,:,:,:,:,:),iprint=1)
-        Delta(ineq,:,:,:,:,:) = wband**2/4d0*Gmats(3-ineq,:,:,:,:,:)
+        xmu=xmu0-W0*n0(3-ineq)
+        write(tmp_suffix,'(I4.4)') ineq
+        ed_file_suffix="_site"//trim(tmp_suffix)
+        call ed_get_gloc(one*BetheEk(1,1,:),BetheDOS,&
+             Gmats_loc(ineq,1,1,1,1,:),&
+             Greal_loc(ineq,1,1,1,1,:),&
+             Smats(ineq,1,1,1,1,:),&
+             Sreal(ineq,1,1,1,1,:),iprint=1)
+        !Get Delta and fit it
+        ! call ed_get_weiss(Gmats_loc(ineq,:,:,:,:,:),Smats(ineq,:,:,:,:,:),Delta(ineq,:,:,:,:,:),iprint=1)
+        Delta(ineq,:,:,:,:,:) = (wband**2d0)/4d0*Gmats(3-ineq,:,:,:,:,:)!Gmats_loc(3-ineq,:,:,:,:,:)
         call ed_chi2_fitgf(Delta(ineq,1,1,:,:,:),bath(ineq,:,:),ispin=1)
      enddo
 
-     xmu=xmu0
+
      !MIXING:
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_prev
 
      !Check convergence (if required change chemical potential)
-     converged = check_convergence(delta(ineq,1,1,1,1,:),dmft_error,nsuccess,nloop)
+     converged = check_convergence(delta(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
+
      !if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu0,converged)
      call end_loop
   enddo
 
   do ineq=1,2
      xmu = xmu0 - W0*n0(3-ineq)
-     Eout(ineq,:) = ed_kinetic_energy(one*BetheEk(1,1,:),BetheDOS,Smats(ineq,:,:,:,:,:))
-     print*,Eout(ineq,:)
+     write(tmp_suffix,'(I4.4)') ineq
+     ed_file_suffix="_site"//trim(tmp_suffix)
+     call ed_kinetic_energy(one*BetheEk(1,1,:),BetheDOS,Smats(ineq,1,1,1,1,:))
   enddo
-
-  print*,sum(Eout,dim=1)
 
 contains
 
