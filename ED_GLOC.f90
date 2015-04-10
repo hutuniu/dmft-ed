@@ -24,7 +24,7 @@ module ED_GLOC
   public :: ed_get_gloc
 
   real(8),dimension(:),allocatable :: wr,wm
-  character(len=20)                :: suffix
+  character(len=64)                :: suffix
 
 
 contains
@@ -36,8 +36,8 @@ contains
   ! and size [Nk]*[Nlat*Nspin*Norb]**2
   !----------------------------------------------------------------------------------------!
   subroutine ed_get_gloc_normal_1b(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
-    complex(8),dimension(:)            :: Hk              ![Norb*Nspin][Norb*Nspin][Nk]
-    real(8)                            :: Wtk(size(Hk,1)) ![Nk]
+    complex(8),dimension(:)            :: Hk              ![Nk]
+    real(8)                            :: Wtk(size(Hk))   ![Nk]
     complex(8),intent(inout)           :: Gmats(Lmats)
     complex(8),intent(inout)           :: Greal(Lreal)
     complex(8),intent(inout)           :: Smats(Lmats)
@@ -176,10 +176,10 @@ contains
           write(LOGfile,*)"write spin-orbital diagonal elements:"
           do ispin=1,Nspin
              do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)//"_iw.ed"
                 call splot("Gloc"//reg(suffix),wm,Gmats(ispin,ispin,iorb,iorb,:))
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                call splot("Gloc"//reg(suffix),wm,-dimag(Greal(ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(ispin,ispin,iorb,iorb,:)))
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(ispin,ispin,iorb,iorb,:)))
              enddo
           enddo
        case(2)                  !print spin-diagonal, all orbitals 
@@ -187,10 +187,10 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
                    call splot("Gloc"//reg(suffix),wm,Gmats(ispin,ispin,iorb,jorb,:))
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                   call splot("Gloc"//reg(suffix),wm,-dimag(Greal(ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(ispin,ispin,iorb,jorb,:)))
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                   call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(ispin,ispin,iorb,jorb,:)))
                 enddo
              enddo
           enddo
@@ -200,10 +200,10 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw"//reg(ed_file_suffix)//".ed"
                       call splot("Gloc"//reg(suffix),wm,Gmats(ispin,jspin,iorb,jorb,:))
-                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
-                      call splot("Gloc"//reg(suffix),wm,-dimag(Greal(ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(ispin,jspin,iorb,jorb,:)))
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw"//reg(ed_file_suffix)//".ed"
+                      call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(ispin,jspin,iorb,jorb,:)))
                    enddo
                 enddo
              enddo
@@ -408,12 +408,12 @@ contains
           write(LOGfile,*)"write spin-orbital diagonal elements:"
           do ispin=1,Nspin
              do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
                 call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,ispin,iorb,iorb,:))
                 call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,ispin,iorb,iorb,:))
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                call splot("Gloc"//reg(suffix),wm,-dimag(Greal(1,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(1,ispin,ispin,iorb,iorb,:)))
-                call splot("Floc"//reg(suffix),wm,-dimag(Greal(2,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(2,ispin,ispin,iorb,iorb,:)))
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(1,ispin,ispin,iorb,iorb,:)))
+                call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(2,ispin,ispin,iorb,iorb,:)))
              enddo
           enddo
        case(2)
@@ -421,12 +421,12 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
                    call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,ispin,iorb,jorb,:))
                    call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,ispin,iorb,jorb,:))
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                   call splot("Gloc"//reg(suffix),wm,-dimag(Greal(1,ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(1,ispin,ispin,iorb,jorb,:)))
-                   call splot("Floc"//reg(suffix),wm,-dimag(Greal(2,ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(2,ispin,ispin,iorb,jorb,:)))
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                   call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(1,ispin,ispin,iorb,jorb,:)))
+                   call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(2,ispin,ispin,iorb,jorb,:)))
                 enddo
              enddo
           enddo
@@ -436,12 +436,12 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw"//reg(ed_file_suffix)//".ed"
                       call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,jspin,iorb,jorb,:))
                       call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,jspin,iorb,jorb,:))
-                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
-                      call splot("Gloc"//reg(suffix),wm,-dimag(Greal(1,ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(1,ispin,jspin,iorb,jorb,:)))
-                      call splot("Floc"//reg(suffix),wm,-dimag(Greal(2,ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(2,ispin,jspin,iorb,jorb,:)))
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw"//reg(ed_file_suffix)//".ed"
+                      call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(1,ispin,jspin,iorb,jorb,:)))
+                      call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(2,ispin,jspin,iorb,jorb,:)))
                    enddo
                 enddo
              enddo

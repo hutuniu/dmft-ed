@@ -306,14 +306,17 @@ contains
     Hloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
     if(ED_MPI_ID==0)then
-       do i=1,Nso
-          write(LOGfile,"(90F21.12)")(dreal(Hloc(i,j)),j=1,Nso)
-       enddo
-       write(LOGfile,*)""
-       do i=1,Nso
-          write(LOGfile,"(90F21.12)")(dimag(Hloc(i,j)),j=1,Nso)
-       enddo
+       call print_hloc(Hloc,LOGfile)
+       ! write(LOGfile,"(A)")"Hloc"
+       ! do i=1,Nso
+       !    write(LOGfile,"(90F21.12)")(dreal(Hloc(i,j)),j=1,Nso)
+       ! enddo
+       ! write(LOGfile,*)""
+       ! do i=1,Nso
+       !    write(LOGfile,"(90F21.12)")(dimag(Hloc(i,j)),j=1,Nso)
+       ! enddo
     endif
+
     !
     if(ED_MPI_ID==0)call start_timer()
     H0=0d0
@@ -465,14 +468,17 @@ contains
     Hloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
     if(ED_MPI_ID==0)then
-       do i=1,Nso
-          write(LOGfile,"(90F21.12)")(dreal(Hloc(i,j)),j=1,Nso)
-       enddo
-       write(LOGfile,*)""
-       do i=1,Nso
-          write(LOGfile,"(90F21.12)")(dimag(Hloc(i,j)),j=1,Nso)
-       enddo
+       call print_hloc(Hloc,LOGfile)
+       ! write(LOGfile,"(A)")"Hloc"
+       ! do i=1,Nso
+       !    write(LOGfile,"(90F21.12)")(dreal(Hloc(i,j)),j=1,Nso)
+       ! enddo
+       ! write(LOGfile,*)""
+       ! do i=1,Nso
+       !    write(LOGfile,"(90F21.12)")(dimag(Hloc(i,j)),j=1,Nso)
+       ! enddo
     endif
+
     !
     H0=0d0
     Zk=0d0 ; forall(i=1:Nso)Zk(i,i)=1d0

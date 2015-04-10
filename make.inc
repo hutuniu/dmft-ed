@@ -3,7 +3,7 @@ FC=mpif90
 PLAT=gnu
 #PRECOMPILATION FLAG (leave blank for serial code)
 #this is the flag for the inequivalent parallelism [MPI_INEQ]
-FPP_INEQ=MPI_INEQ
+FPP_INEQ=
 #this is the flag for the ed parallelism [MPI]
 FPP_ED=
 
@@ -23,3 +23,11 @@ endif
 #ARGS=-ldmftt -lscifor $(MKLARGS) -lminpack -larpack -lparpack 
 #ELSE:
 ARGS=  -ldmftt -lscifor -lfftpack -llapack -lblas -lminpack -larpack -lparpack
+
+#REVISION SOFTWARE GIT:
+BRANCH=_$(shell git rev-parse --abbrev-ref HEAD)
+VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
+
+ifeq ($(BRANCH),_master)
+BRANCH=
+endif
