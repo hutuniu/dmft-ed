@@ -284,7 +284,7 @@ contains
     call print_state_list(unit)
     close(unit)
     if(ed_verbose<=3)call print_state_list(LOGfile)
-
+    !
     zeta_function=0.d0
     Egs = state_list%emin
     if(finiteT)then
@@ -316,22 +316,24 @@ contains
     !
     !Get histogram distribution of the sector contributing to the evaluated spectrum:
     !Go thru states list and update the neigen_sector(isector) sector-by-sector
-    if(ed_verbose<2.AND.finiteT.AND.ED_MPI_ID==0)then
-       unit=free_unit()
-       open(unit,file="histogram_states"//reg(ed_file_suffix)//".ed",access='append')
-       hist_n = Nsect
-       hist_a = 1.d0
-       hist_b = real(Nsect,8)
-       hist_w = 1.d0
-       hist = histogram_allocate(hist_n)
-       call histogram_set_range_uniform(hist,hist_a,hist_b)
-       do i=1,state_list%size
-          isect0 = es_return_sector(state_list,i)
-          call histogram_accumulate(hist,dble(isect0),hist_w)
-       enddo
-       call histogram_print(hist,unit)
-       write(unit,*)""
-       close(unit)
+    if(finiteT)then
+       if(ED_MPI_ID==0)then
+          unit=free_unit()
+          open(unit,file="histogram_states"//reg(ed_file_suffix)//".ed",access='append')
+          hist_n = Nsect
+          hist_a = 1d0
+          hist_b = dble(Nsect)
+          hist_w = 1d0
+          hist = histogram_allocate(hist_n)
+          call histogram_set_range_uniform(hist,hist_a,hist_b)
+          do i=1,state_list%size
+             isect0 = es_return_sector(state_list,i)
+             call histogram_accumulate(hist,dble(isect0),hist_w)
+          enddo
+          call histogram_print(hist,unit)
+          write(unit,*)""
+          close(unit)
+       endif
        !
        !
        !
@@ -363,9 +365,9 @@ contains
        ! if this condition is violated then required number of states is increased
        ! if number of states is larger than those required to fullfill the cutoff: 
        ! trim the list and number of states.
-       Egs = state_list%emin
-       Ec  = state_list%emax
-       Nsize=state_list%size
+       Egs  = state_list%emin
+       Ec   = state_list%emax
+       Nsize= state_list%size
        if(exp(-beta*(Ec-Egs)) > cutoff)then
           lanc_nstates_total=lanc_nstates_total + lanc_nstates_step
           if(ED_MPI_ID==0)write(LOGfile,"(A,I4)")"Increasing lanc_nstates_total:",lanc_nstates_total
@@ -381,8 +383,8 @@ contains
           do i=1,NtoBremoved
              call es_pop_state(state_list)
           enddo
-          if(ED_MPI_ID==0.AND.trim_state_list)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
-          if(ED_MPI_ID==0)write(*,"(A,I4)")"Adjusting list_size to         :",state_list%size
+          if(ed_verbose<4.AND.ED_MPI_ID==0.AND.trim_state_list)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
+          if(ed_verbose<4.AND.ED_MPI_ID==0)write(*,"(A,I4)")"Trim list_size to         :",state_list%size
        endif
     endif
   end subroutine ed_analysis
