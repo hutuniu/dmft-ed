@@ -26,6 +26,7 @@ MODULE ED_AUX_FUNX
 
   public :: set_Hloc
   public :: get_Hloc  
+  public :: print_hloc
   !
   public :: init_ed_structure
   public :: search_chemical_potential

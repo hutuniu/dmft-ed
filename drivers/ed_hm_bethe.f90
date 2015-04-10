@@ -71,7 +71,7 @@ program lancED
      Bath_=Bath
 
      !Check convergence (if required change chemical potential)
-     
+
      converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
      if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu,converged)
      call end_loop
@@ -81,9 +81,9 @@ program lancED
   ! print*,K
   ! call get_ed_energy(1000)
 
-  ! allocate(wt(500),Hk(500))
-  ! call bethe_lattice(wt,Hk,500,1.d0)
-  ! call ed_kinetic_energy(impSmats(1,1,1,1,:),Hk,wt)
+  allocate(wt(500),Hk(500))
+  call bethe_lattice(wt,Hk,500,1.d0)
+  call ed_kinetic_energy(Hk,wt,impSmats(1,1,1,1,:))
 
 contains
 

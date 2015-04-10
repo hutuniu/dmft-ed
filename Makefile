@@ -29,6 +29,8 @@ EXE=ed_ahm_bethe
 #EXE=ed_hm_slab_hyb
 #EXE=ed_nano
 
+EXE=ed_cdwhm_bethe
+
 DIR =drivers
 DIREXE=$(HOME)/.bin
 
