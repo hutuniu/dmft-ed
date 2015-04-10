@@ -160,11 +160,12 @@ contains
   !+-----------------------------------------------------------------------------+!
   subroutine ed_init_solver_lattice(bath)
     real(8),dimension(:,:,:) :: bath
-    integer :: ilat
-    logical :: check_dim
-    character(len=5) :: tmp_suffix
-    if(size(bath,1).ne.Nlat) stop "init_lattice_bath: wrong bath size dimension 3 (Nlat)"
-    do ilat=1,Nlat
+    integer                  :: ilat,Nineq
+    logical                  :: check_dim
+    character(len=5)         :: tmp_suffix
+    Nineq = size(bath,1)
+    if(Nineq > Nlat)stop "init_lattice_bath error: size[bath,1] > Nlat"
+    do ilat=1,Nineq
        check_dim = check_bath_dimension(bath(ilat,:,:))
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
        write(tmp_suffix,'(I4.4)') ilat
