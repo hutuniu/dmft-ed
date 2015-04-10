@@ -57,7 +57,7 @@ compile: version $(OBJS)
 
 
 completion:
-	src_completion.sh $(DIR)/$(EXE).f90
+	scifor_completion.sh $(DIR)/$(EXE).f90
 	@echo "run: . .bash_completion.d/$(EXE) to add completion for $(EXE) in this shell"
 
 clean: 
