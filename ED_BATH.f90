@@ -17,26 +17,54 @@ MODULE ED_BATH
 
   private
 
+  !\Delta NORMAL hybridization function Matsubara
   interface delta_bath_mats
      module procedure delta_bath_mats_1
      module procedure delta_bath_mats_2
   end interface delta_bath_mats
 
-  interface delta_bath_real
-     module procedure delta_bath_real_1
-     module procedure delta_bath_real_2
-  end interface delta_bath_real
-
+  !\Delta ANOMALOUS hybridization function Matsubara
   interface fdelta_bath_mats
      module procedure fdelta_bath_mats_1
      module procedure fdelta_bath_mats_2
   end interface fdelta_bath_mats
 
+  !\Nabla\Delta NORMAL hybridization function gradient Matsubara
+  interface grad_delta_bath_mats
+     module procedure grad_delta_bath_mats_1
+     module procedure grad_delta_bath_mats_2
+  end interface grad_delta_bath_mats
+
+  !\Nabla\Delta ANOMALOUS hybridization function gradient Matsubara
+  interface grad_fdelta_bath_mats
+     module procedure grad_fdelta_bath_mats_1
+     module procedure grad_fdelta_bath_mats_2
+  end interface grad_fdelta_bath_mats
+
+  !Weiss NORMAL non-interacting Green's function Matsubara
+  interface weiss_bath_mats
+     module procedure weiss_bath_mats_1
+     module procedure weiss_bath_mats_2
+  end interface weiss_bath_mats
+
+  !Weiss ANOMALOUS non-interacting Green's function Matsubara
+  interface fweiss_bath_mats
+     module procedure fweiss_bath_mats_1
+     module procedure fweiss_bath_mats_2
+  end interface fweiss_bath_mats
+
+
+  !\Delta NORMAL hybridization function Real
+  interface delta_bath_real
+     module procedure delta_bath_real_1
+     module procedure delta_bath_real_2
+  end interface delta_bath_real
+
+  !\Delta ANOMALOUS hybridization function Real
   interface fdelta_bath_real
      module procedure fdelta_bath_real_1
      module procedure fdelta_bath_real_2
   end interface fdelta_bath_real
-
 
   public :: allocate_bath              !INTERNAL (for effective_bath type)
   public :: deallocate_bath            !INTERNAL (for effective_bath type)
@@ -57,9 +85,17 @@ MODULE ED_BATH
   public :: check_array_bath_dimension !INTERNAL (for array bath type)
   public :: dmft_bath2array            !INTERNAL (for effective_bath type)
   public :: array2dmft_bath            !INTERNAL (for effective_bath type)
+  !
   public :: delta_bath_mats            !DELTA FUNCTION
-  public :: delta_bath_real            !DELTA FUNCTION
   public :: fdelta_bath_mats           !DELTA FUNCTION
+  !
+  public :: weiss_bath_mats            !WEISS FUNCTION
+  public :: fweiss_bath_mats           !WEISS FUNCTION
+  !
+  public :: grad_delta_bath_mats       !GRAD_DELTA FUNCTION
+  public :: grad_fdelta_bath_mats      !GRAD_DELTA FUNCTION
+  !
+  public :: delta_bath_real            !DELTA FUNCTION
   public :: fdelta_bath_real           !DELTA FUNCTION
 
 
@@ -1235,7 +1271,7 @@ contains
 
 
 
-  
+
 
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: A procedure that transforms a simple array as used in the Chi**2 
@@ -1390,471 +1426,53 @@ contains
 
 
 
-
-
-
-
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : compute the hybridization function at a point x from
+  ! type(effective_bath) :: dmft_bath
+  ! OR
+  ! real(8),dimension(:) :: bath_array
+  !+-------------------------------------------------------------------+
+  ! DELTA_BATH_MATS:
+  include "ed_delta_bath_mats.f90"
 
 
   !+-------------------------------------------------------------------+
-  !PURPOSE  : compute the hybridization function for a given spin and 
-  ! orbital indices ispin and iorb at a point x from the input 
-  ! effective_bath type dmft_bath
+  !PURPOSE  :  compute the gradient of the hybridization function
+  ! at a point x
+  ! type(effective_bath) :: dmft_bath
+  ! OR
+  ! real(8),dimension(:) :: bath_array
   !+-------------------------------------------------------------------+
-  !NORMAL:
-  !Matsubara:
-  function delta_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
-    integer,intent(in)    :: iorb,jorb,ispin,jspin
-    type(effective_bath)  :: dmft_bath_
-    complex(8),intent(in) :: x
-    complex(8)            :: fg
-    select case(bath_type)
-    case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
-       select case(ed_mode)
-       case default
-          !\Delta_{aa}^{ss} = \sum_k [ V_{a}^{s}(k) * V_{a}^{s}(k)/(iw_n - E_{a}^{s}(k)) ]
-          fg = sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)/(x - dmft_bath_%e(ispin,iorb,:)) )
-          !
-          !
-       case ("superc")
-          !\Delta_{aa}^{ss} = - \sum_k [ V_{a}^{s}(k) * V_{a}^{s}(k) * (iw_n + E_{a}^{s}(k)) /
-          !                             (w_n**2 + E_{a}^{s}(k)**2 + \Delta_{a}^{s}(k)**2) ]
-          fg = -sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)*(x + dmft_bath_%e(ispin,iorb,:))/&
-               (dimag(x)**2 + dmft_bath_%e(ispin,iorb,:)**2 + dmft_bath_%d(ispin,iorb,:)**2) )
-          !
-          !
-       case ("nonsu2")
-          !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(iw_n - H_{a}^{h}(k))]
-          call pull_nonsu2_components(dmft_bath_)
-          fg = zero
-          do ihel=1,Nhel
-             fg = fg + sum( dmft_bath_%w(ispin,ihel,iorb,:)*dmft_bath_%w(ihel,jspin,iorb,:)/(x - dmft_bath_%h(ihel,iorb,:))
-          enddo
-          !
-          !
-       end select
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
-       select case(ed_mode)
-       case default
-          !\Delta_{ab}^{ss} = \sum_k [ V_{a}^{s}(k) * V_{b}^{s}(k)/(iw_n - E^{s}(k)) ]
-          fg = sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)/(x - dmft_bath_%e(ispin,1,:)))
-          !
-          !
-       case ("superc")
-          ! should be:
-          !\Delta_{ab}^{ss} = - \sum_k [ V_{a}^{s}(k) * V_{b}^{s}(k) * (iw_n + E^{s}(k)) /
-          !                             (w_n**2 + E^{s}(k)**2 + \Delta^{s}(k)**2) ]
-          stop "Delta_bath_mats error: called with ed_mode=superc, bath_type=hybrid. THIS IS NOT YET CHECKED"
-          fg = -sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)*(x + dmft_bath_%e(ispin,1,:))/&
-               (dimag(x)**2 + dmft_bath_%e(ispin,1,:)**2 + dmft_bath_%d(ispin,1,:)**2))
-          !
-          !
-       case ("nonsu2")
-          !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(iw_n - H^{h}(k))]
-          call pull_nonsu2_components(dmft_bath_)
-          fg = zero
-          do ihel=1,Nhel
-             fg = fg + sum( dmft_bath_%w(ispin,ihel,iorb,:)*dmft_bath_%w(ihel,jspin,jorb,:)/(x - dmft_bath_%h(ihel,1,:))
-          enddo
-          !
-          !
-       end select
-    end select
-  end function delta_bath_mats_1
-  !
-  !
-  !
-  !Real:
-  function delta_bath_real_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
-    integer,intent(in)    :: iorb,jorb,ispin,jspin
-    type(effective_bath)  :: dmft_bath_
-    complex(8),intent(in) :: x
-    complex(8)            :: fg
-    select case(bath_type)
-    case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
-       select case(ed_mode)
-       case default
-          !\Delta_{aa}^{ss} = \sum_k [ V_{a}^{s}(k) * V_{a}^{s}(k)/(w+i\h - E_{a}^{s}(k)) ]
-          fg = sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)/(x - dmft_bath_%e(ispin,iorb,:)) )
-          !
-          !
-       case ("superc")
-          !\Delta_{aa}^{ss} = - \sum_k [ V_{a}^{s}(k) * V_{a}^{s}(k) * (w+i\h + E_{a}^{s}(k)) /
-          !                             ( (w+i\h)*(-w-i\h) + E_{a}^{s}(k)**2 + \Delta_{a}^{s}(k)**2) ]
-          fg = -sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)*(x + dmft_bath_%e(ispin,iorb,:))/&
-               ( x*(-x) + dmft_bath_%e(ispin,iorb,:)**2 + dmft_bath_%d(ispin,iorb,:)**2) )
-          !
-          !
-       case ("nonsu2")
-          !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(w+i\h - H_{a}^{h}(k))]
-          call pull_nonsu2_components(dmft_bath_)
-          fg = zero
-          do ihel=1,Nhel
-             fg = fg + sum( dmft_bath_%w(ispin,ihel,iorb,:)*dmft_bath_%w(ihel,jspin,iorb,:)/(x - dmft_bath_%h(ihel,iorb,:))
-          enddo
-          !
-          !
-       end select
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
-       select case(ed_mode)
-       case default
-          !\Delta_{ab}^{ss} = \sum_k [ V_{a}^{s}(k) * V_{b}^{s}(k)/(w+i\h - E^{s}(k)) ]
-          fg = sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)/(x - dmft_bath_%e(ispin,1,:)))
-          !
-          !
-       case ("superc")
-          ! should be:
-          !\Delta_{ab}^{ss} = - \sum_k [ V_{a}^{s}(k) * V_{b}^{s}(k) * (w+i\h + E^{s}(k)) /
-          !                             ( (w+i\h)*(-w-i\h) + E^{s}(k)**2 + \Delta^{s}(k)**2) ]
-          stop "Delta_bath_real error: called with ed_mode=superc, bath_type=hybrid. THIS IS NOT YET CHECKED"
-          fg = -sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)*(x + dmft_bath_%e(ispin,1,:))/&
-               ( x*(-x) + dmft_bath_%e(ispin,1,:)**2 + dmft_bath_%d(ispin,1,:)**2) )
-          !
-          !
-       case ("nonsu2")
-          !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(w+i\h - H^{h}(k))]
-          call pull_nonsu2_components(dmft_bath_)
-          fg = zero
-          do ihel=1,Nhel
-             fg = fg + sum( dmft_bath_%w(ispin,ihel,iorb,:)*dmft_bath_%w(ihel,jspin,jorb,:)/(x - dmft_bath_%h(ihel,1,:))
-          enddo
-          !
-          !
-       end select
-    end select
-  end function delta_bath_real_1
-  !
-  !
-  !
-  !ANOMALous:
-  !Matsubara:
-  function fdelta_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
-    type(effective_bath)  :: dmft_bath_
-    complex(8),intent(in) :: x
-    integer,intent(in)    :: iorb,ispin,jorb,jspin
-    complex(8)            :: fg
-    select case(bath_type)
-    case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
-       select case(ed_mode)
-       case default
-          stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=normal"
-       case ("superc")
-          !\FDelta_{aa}^{ss} = \sum_k [ \Delta_{a}^{s}(k) * V_{a}^{s}(k) * V_{a}^{s}(k)  /
-          !                             ( w_n**2 + E_{a}^{s}(k)**2 + \Delta_{a}^{s}(k)**2) ]
-          fg = sum(dmft_bath_%d(ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)/&
-               ( dimag(x)**2 + dmft_bath_%e(ispin,iorb,:)**2 + dmft_bath_%d(ispin,iorb,:)**2 ) )
-          !
-          !
-       case ("nonsu2")
-          stop "Fdelta_bath_mats error: called with ed_mode=nonsu2, bath_type=normal"
-       end select
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
-       select case(ed_mode)
-       case default
-          stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=hybrid"
-       case ("superc")
-          ! should be:
-          !\FDelta_{ab}^{ss} = - \sum_k [ \Delta^{s}(k) * V_{a}^{s}(k) * V_{b}^{s}(k) /
-          !                             (w_n**2 + E^{s}(k)**2 + \Delta^{s}(k)**2) ]
-          stop "Fdelta_bath_mats error: called with ed_mode=superc, bath_type=hybrid. THIS IS NOT YET CHECKED"
-          fg = -sum( dmft_bath_d%(ispin, 1,:)*dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)/&
-               ( dimag(x)**2 + dmft_bath_%e(ispin,   1,:)**2 + dmft_bath_%d(ispin,   1,:)**2 ) )
-          !
-          !
-       case ("nonsu2")
-          stop "Fdelta_bath_mats error: called with ed_mode=nonsu2, bath_type=hybrid"
-       end select
-    end select
-  end function fdelta_bath_mats_1
-  !
-  !Real:
-  function fdelta_bath_real_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
-    type(effective_bath)  :: dmft_bath_
-    complex(8),intent(in) :: x
-    integer,intent(in)    :: iorb,ispin,jorb,jspin
-    complex(8)            :: fg
-    select case(bath_type)
-    case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
-       select case(ed_mode)
-       case default
-          stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=normal"
-       case ("superc")
-          !\FDelta_{aa}^{ss} = \sum_k [ \Delta_{a}^{s}(k) * V_{a}^{s}(k) * V_{a}^{s}(k)  /
-          !                             ( (w+i\h)*(-w-i\h) + E_{a}^{s}(k)**2 + \Delta_{a}^{s}(k)**2) ]
-          fg = sum(dmft_bath_%d(ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)/&
-               ( x*(-x) + dmft_bath_%e(ispin,iorb,:)**2 + dmft_bath_%d(ispin,iorb,:)**2 ) )
-          !
-          !
-       case ("nonsu2")
-          stop "Fdelta_bath_mats error: called with ed_mode=nonsu2, bath_type=normal"
-       end select
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
-       select case(ed_mode)
-       case default
-          stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=hybrid"
-       case ("superc")
-          ! should be:
-          !\FDelta_{ab}^{ss} = - \sum_k [ \Delta^{s}(k) * V_{a}^{s}(k) * V_{b}^{s}(k) /
-          !                             (w_n**2 + E^{s}(k)**2 + \Delta^{s}(k)**2) ]
-          stop "Fdelta_bath_mats error: called with ed_mode=superc, bath_type=hybrid. THIS IS NOT YET CHECKED"
-          fg = -sum( dmft_bath_d%(ispin, 1,:)*dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)/&
-               ( x*(-x) + dmft_bath_%e(ispin,   1,:)**2 + dmft_bath_%d(ispin,   1,:)**2 ) )
-          !
-          !
-       case ("nonsu2")
-          stop "Fdelta_bath_mats error: called with ed_mode=nonsu2, bath_type=hybrid"
-       end select
-    end select
-  end function fdelta_bath_real_1
-
-
-
-
-
-
-
-
-
+  ! GRAD_DELTA_BATH_MATS:
+  include "ed_grad_delta_bath_mats.f90"
 
 
   !+-------------------------------------------------------------------+
-  !PURPOSE  : compute the hybridization function for a given spin and 
-  ! orbital indices ispin and iorb at a point x from the user provided 
-  ! user bath array bath_
+  !PURPOSE  : compute the G0 function at a point x from
+  ! type(effective_bath) :: dmft_bath
+  ! OR
+  ! real(8),dimension(:) :: bath_array
   !+-------------------------------------------------------------------+
-  !NORMAL:
-  !Matsubara:
-  function delta_bath_mats_2(ispin,jspin,iorb,jorb,x,bath_) result(fg)
-    integer,intent(in)    :: iorb,jorb,ispin,jspin
-    type(effective_bath)  :: dmft_bath_
-    complex(8),intent(in) :: x
-    complex(8)            :: fg
-    real(8),dimension(:)  :: bath_
-    logical               :: check
-    check= check_bath_dimension(bath_)
-    if(.not.check)stop "delta_bath_mats_ error: wrong bath dimensions"
-    call allocate_bath(dmft_bath_)
-    call set_bath(bath_,dmft_bath_)
-    select case(bath_type)
-    case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
-       select case(ed_mode)
-       case default
-          !\Delta_{aa}^{ss} = \sum_k [ V_{a}^{s}(k) * V_{a}^{s}(k)/(iw_n - E_{a}^{s}(k)) ]
-          fg = sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)/(x - dmft_bath_%e(ispin,iorb,:)) )
-          !
-          !
-       case ("superc")
-          !\Delta_{aa}^{ss} = - \sum_k [ V_{a}^{s}(k) * V_{a}^{s}(k) * (iw_n + E_{a}^{s}(k)) /
-          !                             (w_n**2 + E_{a}^{s}(k)**2 + \Delta_{a}^{s}(k)**2) ]
-          fg = -sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)*(x + dmft_bath_%e(ispin,iorb,:))/&
-               (dimag(x)**2 + dmft_bath_%e(ispin,iorb,:)**2 + dmft_bath_%d(ispin,iorb,:)**2) )
-          !
-          !
-       case ("nonsu2")
-          !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(iw_n - H_{a}^{h}(k))]
-          call pull_nonsu2_components(dmft_bath_)
-          fg = zero
-          do ihel=1,Nhel
-             fg = fg + sum( dmft_bath_%w(ispin,ihel,iorb,:)*dmft_bath_%w(ihel,jspin,iorb,:)/(x - dmft_bath_%h(ihel,iorb,:))
-          enddo
-          !
-          !
-       end select
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
-       select case(ed_mode)
-       case default
-          !\Delta_{ab}^{ss} = \sum_k [ V_{a}^{s}(k) * V_{b}^{s}(k)/(iw_n - E^{s}(k)) ]
-          fg = sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)/(x - dmft_bath_%e(ispin,1,:)))
-          !
-          !
-       case ("superc")
-          ! should be:
-          !\Delta_{ab}^{ss} = - \sum_k [ V_{a}^{s}(k) * V_{b}^{s}(k) * (iw_n + E^{s}(k)) /
-          !                             (w_n**2 + E^{s}(k)**2 + \Delta^{s}(k)**2) ]
-          stop "Delta_bath_mats error: called with ed_mode=superc, bath_type=hybrid. THIS IS NOT YET CHECKED"
-          fg = -sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)*(x + dmft_bath_%e(ispin,1,:))/&
-               (dimag(x)**2 + dmft_bath_%e(ispin,1,:)**2 + dmft_bath_%d(ispin,1,:)**2))
-          !
-          !
-       case ("nonsu2")
-          !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(iw_n - H^{h}(k))]
-          call pull_nonsu2_components(dmft_bath_)
-          fg = zero
-          do ihel=1,Nhel
-             fg = fg + sum( dmft_bath_%w(ispin,ihel,iorb,:)*dmft_bath_%w(ihel,jspin,jorb,:)/(x - dmft_bath_%h(ihel,1,:))
-          enddo
-          !
-          !
-       end select
-    end select
-    call deallocate_bath(dmft_bath_)
-  end function delta_bath_mats_2
-  !
-  !
-  !
-  !Real:
-  function delta_bath_real_2(ispin,jspin,iorb,jorb,x,bath_) result(fg)
-    integer,intent(in)    :: iorb,jorb,ispin,jspin
-    type(effective_bath)  :: dmft_bath_
-    complex(8),intent(in) :: x
-    complex(8)            :: fg
-    real(8),dimension(:)  :: bath_
-    logical               :: check
-    check= check_bath_dimension(bath_)
-    if(.not.check)stop "delta_bath_mats_ error: wrong bath dimensions"
-    call allocate_bath(dmft_bath_)
-    call set_bath(bath_,dmft_bath_)
-    select case(bath_type)
-    case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
-       select case(ed_mode)
-       case default
-          !\Delta_{aa}^{ss} = \sum_k [ V_{a}^{s}(k) * V_{a}^{s}(k)/(w+i\h - E_{a}^{s}(k)) ]
-          fg = sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)/(x - dmft_bath_%e(ispin,iorb,:)) )
-          !
-          !
-       case ("superc")
-          !\Delta_{aa}^{ss} = - \sum_k [ V_{a}^{s}(k) * V_{a}^{s}(k) * (w+i\h + E_{a}^{s}(k)) /
-          !                             ( (w+i\h)*(-w-i\h) + E_{a}^{s}(k)**2 + \Delta_{a}^{s}(k)**2) ]
-          fg = -sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)*(x + dmft_bath_%e(ispin,iorb,:))/&
-               ( x*(-x) + dmft_bath_%e(ispin,iorb,:)**2 + dmft_bath_%d(ispin,iorb,:)**2) )
-          !
-          !
-       case ("nonsu2")
-          !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(w+i\h - H_{a}^{h}(k))]
-          call pull_nonsu2_components(dmft_bath_)
-          fg = zero
-          do ihel=1,Nhel
-             fg = fg + sum( dmft_bath_%w(ispin,ihel,iorb,:)*dmft_bath_%w(ihel,jspin,iorb,:)/(x - dmft_bath_%h(ihel,iorb,:))
-          enddo
-          !
-          !
-       end select
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
-       select case(ed_mode)
-       case default
-          !\Delta_{ab}^{ss} = \sum_k [ V_{a}^{s}(k) * V_{b}^{s}(k)/(w+i\h - E^{s}(k)) ]
-          fg = sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)/(x - dmft_bath_%e(ispin,1,:)))
-          !
-          !
-       case ("superc")
-          ! should be:
-          !\Delta_{ab}^{ss} = - \sum_k [ V_{a}^{s}(k) * V_{b}^{s}(k) * (w+i\h + E^{s}(k)) /
-          !                             ( (w+i\h)*(-w-i\h) + E^{s}(k)**2 + \Delta^{s}(k)**2) ]
-          stop "Delta_bath_real error: called with ed_mode=superc, bath_type=hybrid. THIS IS NOT YET CHECKED"
-          fg = -sum( dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)*(x + dmft_bath_%e(ispin,1,:))/&
-               ( x*(-x) + dmft_bath_%e(ispin,1,:)**2 + dmft_bath_%d(ispin,1,:)**2) )
-          !
-          !
-       case ("nonsu2")
-          !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(w+i\h - H^{h}(k))]
-          call pull_nonsu2_components(dmft_bath_)
-          fg = zero
-          do ihel=1,Nhel
-             fg = fg + sum( dmft_bath_%w(ispin,ihel,iorb,:)*dmft_bath_%w(ihel,jspin,jorb,:)/(x - dmft_bath_%h(ihel,1,:))
-          enddo
-          !
-          !
-       end select
-    end select
-    call deallocate_bath(dmft_bath_)
-  end function delta_bath_real_2
-  !
-  !
-  !
-  !ANOMALous:
-  !Matsubara:
-  function fdelta_bath_mats_2(ispin,jspin,iorb,jorb,x,bath_) result(fg)
-    type(effective_bath)  :: dmft_bath_
-    complex(8),intent(in) :: x
-    integer,intent(in)    :: iorb,ispin,jorb,jspin
-    complex(8)            :: fg
-    real(8),dimension(:)  :: bath_
-    logical               :: check
-    check= check_bath_dimension(bath_)
-    if(.not.check)stop "delta_bath_mats_ error: wrong bath dimensions"
-    call allocate_bath(dmft_bath_)
-    call set_bath(bath_,dmft_bath_)
-    select case(bath_type)
-    case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
-       select case(ed_mode)
-       case default
-          stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=normal"
-       case ("superc")
-          !\FDelta_{aa}^{ss} = \sum_k [ \Delta_{a}^{s}(k) * V_{a}^{s}(k) * V_{a}^{s}(k)  /
-          !                             ( w_n**2 + E_{a}^{s}(k)**2 + \Delta_{a}^{s}(k)**2) ]
-          fg = sum(dmft_bath_%d(ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)/&
-               ( dimag(x)**2 + dmft_bath_%e(ispin,iorb,:)**2 + dmft_bath_%d(ispin,iorb,:)**2 ) )
-          !
-          !
-       case ("nonsu2")
-          stop "Fdelta_bath_mats error: called with ed_mode=nonsu2, bath_type=normal"
-       end select
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
-       select case(ed_mode)
-       case default
-          stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=hybrid"
-       case ("superc")
-          ! should be:
-          !\FDelta_{ab}^{ss} = - \sum_k [ \Delta^{s}(k) * V_{a}^{s}(k) * V_{b}^{s}(k) /
-          !                             (w_n**2 + E^{s}(k)**2 + \Delta^{s}(k)**2) ]
-          stop "Fdelta_bath_mats error: called with ed_mode=superc, bath_type=hybrid. THIS IS NOT YET CHECKED"
-          fg = -sum( dmft_bath_d%(ispin, 1,:)*dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)/&
-               ( dimag(x)**2 + dmft_bath_%e(ispin,   1,:)**2 + dmft_bath_%d(ispin,   1,:)**2 ) )
-          !
-          !
-       case ("nonsu2")
-          stop "Fdelta_bath_mats error: called with ed_mode=nonsu2, bath_type=hybrid"
-       end select
-    end select
-    call deallocate_bath(dmft_bath_)
-  end function fdelta_bath_mats_2
-  !
-  !Real:
-  function fdelta_bath_real_2(ispin,jspin,iorb,jorb,x,bath_) result(fg)
-    type(effective_bath)  :: dmft_bath_
-    complex(8),intent(in) :: x
-    integer,intent(in)    :: iorb,ispin,jorb,jspin
-    complex(8)            :: fg
-    real(8),dimension(:)  :: bath_
-    logical               :: check
-    check= check_bath_dimension(bath_)
-    if(.not.check)stop "delta_bath_mats_ error: wrong bath dimensions"
-    call allocate_bath(dmft_bath_)
-    call set_bath(bath_,dmft_bath_)
-    select case(bath_type)
-    case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
-       select case(ed_mode)
-       case default
-          stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=normal"
-       case ("superc")
-          !\FDelta_{aa}^{ss} = \sum_k [ \Delta_{a}^{s}(k) * V_{a}^{s}(k) * V_{a}^{s}(k)  /
-          !                             ( (w+i\h)*(-w-i\h) + E_{a}^{s}(k)**2 + \Delta_{a}^{s}(k)**2) ]
-          fg = sum(dmft_bath_%d(ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,iorb,:)/&
-               ( x*(-x) + dmft_bath_%e(ispin,iorb,:)**2 + dmft_bath_%d(ispin,iorb,:)**2 ) )
-          !
-          !
-       case ("nonsu2")
-          stop "Fdelta_bath_mats error: called with ed_mode=nonsu2, bath_type=normal"
-       end select
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
-       select case(ed_mode)
-       case default
-          stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=hybrid"
-       case ("superc")
-          ! should be:
-          !\FDelta_{ab}^{ss} = - \sum_k [ \Delta^{s}(k) * V_{a}^{s}(k) * V_{b}^{s}(k) /
-          !                             (w_n**2 + E^{s}(k)**2 + \Delta^{s}(k)**2) ]
-          stop "Fdelta_bath_mats error: called with ed_mode=superc, bath_type=hybrid. THIS IS NOT YET CHECKED"
-          fg = -sum( dmft_bath_d%(ispin, 1,:)*dmft_bath_%v(1,ispin,iorb,:)*dmft_bath_%v(1,ispin,jorb,:)/&
-               ( x*(-x) + dmft_bath_%e(ispin,   1,:)**2 + dmft_bath_%d(ispin,   1,:)**2 ) )
-          !
-          !
-       case ("nonsu2")
-          stop "Fdelta_bath_mats error: called with ed_mode=nonsu2, bath_type=hybrid"
-       end select
-    end select
-    call deallocate_bath(dmft_bath_)
-  end function fdelta_bath_real_2
+  ! WEISS_BATH_MATS:
+  include "ed_weiss_bath_mats.f90"
+
+
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : compute the hybridization function at a point x from
+  ! type(effective_bath) :: dmft_bath
+  ! OR
+  ! real(8),dimension(:) :: bath_array
+  !+-------------------------------------------------------------------+
+  ! DELTA_BATH_REAL:
+  include "ed_delta_bath_real.f90"
+
+
+
+
+
+
+
+
 
 
 
