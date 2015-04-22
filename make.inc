@@ -26,6 +26,7 @@ ARGS=  -ldmftt -lscifor -lfftpack -llapack -lblas -lminpack -larpack -lparpack
 
 #REVISION SOFTWARE GIT:
 BRANCH=_$(shell git rev-parse --abbrev-ref HEAD)
+REV=$(shell git rev-parse HEAD)
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 
 ifeq ($(BRANCH),_master)

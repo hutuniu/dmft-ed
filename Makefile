@@ -26,8 +26,8 @@ include make.inc
 
 #INHOMO
 #EXE=ed_ahm_disorder
-#EXE=ed_hm_slab_hyb
-EXE=ed_nano
+EXE=ed_hm_slab_hyb
+#EXE=ed_nano
 
 #EXE=ed_cdwhm_bethe
 
