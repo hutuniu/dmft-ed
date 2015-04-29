@@ -23,16 +23,10 @@
      enddo
      !
      !Density-density interaction: same orbital, opposite spins
-     !Euloc=\sum=i U_i*(n_u*n_d)_i
-     !     if(.not.ed_supercond) then
-     ! htmp = htmp + dot_product(uloc,nup*ndw)!=\sum=i U_i*(n_u*n_d)_i
+     !\sum_\a \pm U_\a*(n_{\a,up}*n_{\a,dw})
      do iorb=1,Norb
         htmp = htmp + Uloc(iorb)*nup(iorb)*ndw(iorb)
      enddo
-     !     else
-     !!htmp = htmp - dot_product(uloc,nup*ndw)!=\sum=i U_i*(n_u*n_d)_i
-     !        htmp = htmp - uloc(1)*(nup(1)-0.5d0)*(ndw(1)-0.5d0)
-     !     end if
      if(Norb>1)then
         !density-density interaction: different orbitals, opposite spins
         !Eust=\sum_ij Ust*(n_up_i*n_dn_j + n_up_j*n_dn_i)
@@ -55,7 +49,6 @@
      !if using the Hartree-shifted chemical potential: mu=0 for half-filling
      !sum up the contributions of hartree terms:
      if(hfmode)then
-        ! htmp=htmp - 0.5d0*dot_product(uloc,nup+ndw) + 0.25d0*sum(uloc)
         do iorb=1,Norb
            htmp = htmp - 0.5d0*Uloc(iorb)*(nup(iorb)+ndw(iorb)) + 0.25d0*uloc(iorb)
         enddo
@@ -201,7 +194,7 @@
      !
      !
      !ANOMALOUS PAIR-CREATION/DESTRUCTION
-     if(ed_supercond)then
+     if(ed_mode=="superc")then
         do iorb=1,size(dmft_bath%e,2)
            do kp=1,Nbath
               ms=getBathStride(iorb,kp)

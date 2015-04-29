@@ -38,111 +38,6 @@ contains
   ! - Sigma: [Nlat][Nspin][Nspin][Norb][Norb][L]
   ! - Sigma: [Nlat][L]
   !-------------------------------------------------------------------------------------------
-  function kinetic_energy_lattice_normal_1(Hk,Wtk,Sigma) result(ed_Ekin_lattice)
-    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
-    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
-    complex(8),dimension(:,:,:,:)                             :: Sigma  ! [Nlat][Nspin*Norb][Nspin*Norb][L]
-    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,4)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
-    integer                                                   :: ilat,jlat,iorb,jorb,ispin,jspin,io,jo,is,js
-    integer                                                   :: Nlso,Nso,Lk
-    real(8)                                                   :: ed_Ekin_lattice(2)
-    !Get generalized Lattice-Spin-Orbital index
-    Nlso = Nlat*Nspin*Norb
-    Nso  = Nspin*Norb
-    !Get number of k-points:
-    Lk=size(Hk,3)
-    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
-    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
-    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
-    if(size(Sigma,2)/=Nso) stop "kinetic_energy_lattice_superc error: size[Sigma,2] != Nspin*Norb"
-    if(size(Sigma,3)/=size(Sigma,2)) stop "kinetic_energy_lattice_superc error: size[Sigma,3] != size[Sigma,2] "
-    Sigma_ = zero
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   is = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
-                   js = jorb + (jspin-1)*Norb + (ilat-1)*Nspin*Norb
-                   Sigma_(is,js,:) = Sigma(ilat,io,jo,:)
-                enddo
-             enddo
-          enddo
-       enddo
-    enddo
-    ed_Ekin_lattice = kinetic_energy_lattice_normal(Hk,Wtk,Sigma_)
-  end function kinetic_energy_lattice_normal_1
-
-
-  function kinetic_energy_lattice_normal_2(Hk,Wtk,Sigma) result(ed_Ekin_lattice)
-    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
-    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
-    complex(8),dimension(:,:,:,:,:,:)                         :: Sigma  ! [Nlat][Nspin][Nspin][Norb][Norb][L]
-    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,6)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
-    integer                                                   :: ilat,jlat,iorb,jorb,ispin,jspin,io,jo,is,js
-    integer                                                   :: Nlso,Nso,Lk
-    real(8)                                                   :: ed_Ekin_lattice(2)
-    !Get generalized Lattice-Spin-Orbital index
-    Nlso = Nlat*Nspin*Norb
-    Nso  = Nspin*Norb
-    !Get number of k-points:
-    Lk=size(Hk,3)
-    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
-    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
-    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
-    if(size(Sigma,2)/=Nspin) stop "kinetic_energy_lattice_superc error: size[Sigma,2] != Nspin"
-    if(size(Sigma,3)/=size(Sigma,2)) stop "kinetic_energy_lattice_superc error: size[Sigma,3] != size[Sigma,2] "
-    if(size(Sigma,4)/=Norb) stop "kinetic_energy_lattice_superc error: size[Sigma,4] != Norb"
-    if(size(Sigma,5)/=size(Sigma,4)) stop "kinetic_energy_lattice_superc error: size[Sigma,5] != size[Sigma,4] "
-    Sigma_ = zero
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   is = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
-                   js = jorb + (jspin-1)*Norb + (ilat-1)*Nspin*Norb
-                   Sigma_(is,js,:) = Sigma(ilat,ispin,jspin,iorb,jorb,:)
-                enddo
-             enddo
-          enddo
-       enddo
-    enddo
-    ed_Ekin_lattice = kinetic_energy_lattice_normal(Hk,Wtk,Sigma_)
-  end function kinetic_energy_lattice_normal_2
-
-
-  function kinetic_energy_lattice_normal_1B(Hk,Wtk,Sigma) result(ed_Ekin_lattice)
-    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
-    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
-    complex(8),dimension(:,:)                                 :: Sigma  ! [Nlat][L]
-    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,2)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb]][L]
-    integer                                                   :: ilat
-    integer                                                   :: Nlso,Nso,Lk
-    real(8)                                                   :: ed_Ekin_lattice(2)
-    if(Norb>1)stop "kinetic_energy_lattice_normal_case1B error: Norb > 1 in 1-band routine" 
-    if(Nspin>1)stop "kinetic_energy_lattice_normal_case1B error: Nspin > 1 in 1-band routine" 
-    !Get generalized Lattice-Spin-Orbital index
-    Nlso = Nlat*Nspin*Norb
-    Nso  = Nspin*Norb
-    !Get number of k-points:
-    Lk=size(Hk,3)
-    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
-    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
-    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
-    Sigma_ = zero
-    do ilat=1,Nlat
-       Sigma_(ilat,ilat,:) = Sigma(ilat,:)
-    enddo
-    ed_Ekin_lattice = kinetic_energy_lattice_normal(Hk,Wtk,Sigma_)
-  end function kinetic_energy_lattice_normal_1B
-
-
-
   function kinetic_energy_lattice_normal(Hk,Wtk,Sigma) result(Eout)
     complex(8),dimension(:,:,:)                 :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
     real(8),dimension(size(Hk,3))               :: wtk    ! [Nk]
@@ -299,6 +194,112 @@ contains
   end function kinetic_energy_lattice_normal
 
 
+  !INTERFACES:
+  function kinetic_energy_lattice_normal_1(Hk,Wtk,Sigma) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
+    complex(8),dimension(:,:,:,:)                             :: Sigma  ! [Nlat][Nspin*Norb][Nspin*Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,4)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    integer                                                   :: ilat,jlat,iorb,jorb,ispin,jspin,io,jo,is,js
+    integer                                                   :: Nlso,Nso,Lk
+    real(8)                                                   :: ed_Ekin_lattice(2)
+    !Get generalized Lattice-Spin-Orbital index
+    Nlso = Nlat*Nspin*Norb
+    Nso  = Nspin*Norb
+    !Get number of k-points:
+    Lk=size(Hk,3)
+    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
+    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
+    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
+    if(size(Sigma,2)/=Nso) stop "kinetic_energy_lattice_superc error: size[Sigma,2] != Nspin*Norb"
+    if(size(Sigma,3)/=size(Sigma,2)) stop "kinetic_energy_lattice_superc error: size[Sigma,3] != size[Sigma,2] "
+    Sigma_ = zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Nspin*Norb
+                   Sigma_(is,js,:) = Sigma(ilat,io,jo,:)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_normal(Hk,Wtk,Sigma_)
+  end function kinetic_energy_lattice_normal_1
+  !
+  function kinetic_energy_lattice_normal_2(Hk,Wtk,Sigma) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
+    complex(8),dimension(:,:,:,:,:,:)                         :: Sigma  ! [Nlat][Nspin][Nspin][Norb][Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,6)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    integer                                                   :: ilat,jlat,iorb,jorb,ispin,jspin,io,jo,is,js
+    integer                                                   :: Nlso,Nso,Lk
+    real(8)                                                   :: ed_Ekin_lattice(2)
+    !Get generalized Lattice-Spin-Orbital index
+    Nlso = Nlat*Nspin*Norb
+    Nso  = Nspin*Norb
+    !Get number of k-points:
+    Lk=size(Hk,3)
+    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
+    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
+    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
+    if(size(Sigma,2)/=Nspin) stop "kinetic_energy_lattice_superc error: size[Sigma,2] != Nspin"
+    if(size(Sigma,3)/=size(Sigma,2)) stop "kinetic_energy_lattice_superc error: size[Sigma,3] != size[Sigma,2] "
+    if(size(Sigma,4)/=Norb) stop "kinetic_energy_lattice_superc error: size[Sigma,4] != Norb"
+    if(size(Sigma,5)/=size(Sigma,4)) stop "kinetic_energy_lattice_superc error: size[Sigma,5] != size[Sigma,4] "
+    Sigma_ = zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Nspin*Norb
+                   Sigma_(is,js,:) = Sigma(ilat,ispin,jspin,iorb,jorb,:)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_normal(Hk,Wtk,Sigma_)
+  end function kinetic_energy_lattice_normal_2
+  !
+  function kinetic_energy_lattice_normal_1B(Hk,Wtk,Sigma) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
+    complex(8),dimension(:,:)                                 :: Sigma  ! [Nlat][L]
+    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,2)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb]][L]
+    integer                                                   :: ilat
+    integer                                                   :: Nlso,Nso,Lk
+    real(8)                                                   :: ed_Ekin_lattice(2)
+    if(Norb>1)stop "kinetic_energy_lattice_normal_case1B error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop "kinetic_energy_lattice_normal_case1B error: Nspin > 1 in 1-band routine" 
+    !Get generalized Lattice-Spin-Orbital index
+    Nlso = Nlat*Nspin*Norb
+    Nso  = Nspin*Norb
+    !Get number of k-points:
+    Lk=size(Hk,3)
+    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
+    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
+    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
+    Sigma_ = zero
+    do ilat=1,Nlat
+       Sigma_(ilat,ilat,:) = Sigma(ilat,:)
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_normal(Hk,Wtk,Sigma_)
+  end function kinetic_energy_lattice_normal_1B
+
+
+
+
+
 
 
 
@@ -316,129 +317,6 @@ contains
   ! - Sigma: [Nlat][Nspin][Nspin][Norb][Norb][L]
   ! - Sigma: [Nlat][L]
   !-------------------------------------------------------------------------------------------
-  function kinetic_energy_lattice_superc_1(Hk,Wtk,Sigma,SigmaA) result(ed_Ekin_lattice)
-    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
-    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
-    complex(8),dimension(:,:,:,:)                             :: Sigma  ! [Nlat][Nspin*Norb][Nspin*Norb][L]
-    complex(8),dimension(:,:,:,:)                             :: SigmaA ! [Nlat][Nspin*Norb][Nspin*Norb][L]
-    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,4)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
-    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,4)) :: SigmaA_! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
-    integer                                                   :: i,iorb,ilat,ispin,io,is
-    integer                                                   :: j,jorb,jlat,jspin,jo,js
-    integer                                                   :: Nlso,Nso,Lk
-    real(8)                                                   :: ed_Ekin_lattice(2)
-    !Get generalized Lattice-Spin-Orbital index
-    Nlso = Nlat*Nspin*Norb
-    Nso  = Nspin*Norb
-    !Get number of k-points:
-    Lk=size(Hk,3)
-    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
-    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
-    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
-    if(size(Sigma,2)/=Nso) stop "kinetic_energy_lattice_superc error: size[Sigma,2] != Nspin*Norb"
-    if(size(Sigma,3)/=size(Sigma,2)) stop "kinetic_energy_lattice_superc error: size[Sigma,3] != size[Sigma,2] "
-    if(size(SigmaA,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[SigmaA,1] != Nlat"
-    if(size(SigmaA,2)/=Nso) stop "kinetic_energy_lattice_superc error: size[SigmaA,2] != Nspin*Norb"
-    if(size(SigmaA,3)/=size(SigmaA,2)) stop "kinetic_energy_lattice_superc error: size[SigmaA,3] != size[SigmaA,2] "
-    Sigma_=zero
-    SigmaA_=zero
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb !spin-orbit stride
-                   jo = jorb + (jspin-1)*Norb !spin-orbit stride
-                   is = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
-                   js = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
-                   Sigma_(is,js,:) = Sigma(ilat,io,jo,:)
-                   SigmaA_(is,js,:)= SigmaA(ilat,io,jo,:)
-                enddo
-             enddo
-          enddo
-       enddo
-    enddo
-    ed_Ekin_lattice = kinetic_energy_lattice_superc(Hk,Wtk,Sigma_,SigmaA_)
-  end function kinetic_energy_lattice_superc_1
-
-  function kinetic_energy_lattice_superc_2(Hk,Wtk,Sigma,SigmaA) result(ed_Ekin_lattice)
-    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
-    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
-    complex(8),dimension(:,:,:,:,:,:)                         :: Sigma  ! [Nlat][Nspin][Nspin][Norb][Norb][L]
-    complex(8),dimension(:,:,:,:,:,:)                         :: SigmaA ! [Nlat][Nspin][Nspin][Norb][Norb][L]
-    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,6)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
-    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,6)) :: SigmaA_! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
-    integer                                                   :: i,iorb,ilat,ispin,io,is
-    integer                                                   :: j,jorb,jlat,jspin,jo,js
-    integer                                                   :: Nlso,Nso,Lk
-    real(8)                                                   :: ed_Ekin_lattice(2)
-    !Get generalized Lattice-Spin-Orbital index
-    Nlso = Nlat*Nspin*Norb
-    Nso  = Nspin*Norb
-    !Get number of k-points:
-    Lk=size(Hk,3)
-    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
-    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
-    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
-    if(size(Sigma,2)/=Nspin) stop "kinetic_energy_lattice_superc error: size[Sigma,2] != Nspin"
-    if(size(Sigma,3)/=size(Sigma,2)) stop "kinetic_energy_lattice_superc error: size[Sigma,3] != size[Sigma,2] "
-    if(size(Sigma,4)/=Norb) stop "kinetic_energy_lattice_superc error: size[Sigma,4] != Norb"
-    if(size(Sigma,5)/=size(Sigma,4)) stop "kinetic_energy_lattice_superc error: size[Sigma,5] != size[Sigma,4] "
-    if(size(SigmaA,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[SigmaA,1] != Nlat"
-    if(size(SigmaA,2)/=Nspin) stop "kinetic_energy_lattice_superc error: size[SigmaA,2] != Nspin"
-    if(size(SigmaA,3)/=size(SigmaA,2)) stop "kinetic_energy_lattice_superc error: size[SigmaA,3] != size[SigmaA,2] "
-    if(size(SigmaA,4)/=Norb) stop "kinetic_energy_lattice_superc error: size[SigmaA,4] != Norb"
-    if(size(SigmaA,5)/=size(SigmaA,4)) stop "kinetic_energy_lattice_superc error: size[SigmaA,5] != size[SigmaA,4] "
-    Sigma_=zero
-    SigmaA_=zero
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   is = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
-                   js = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
-                   Sigma_(is,js,:) = Sigma(ilat,ispin,jspin,iorb,jorb,:)
-                   SigmaA_(is,js,:)= SigmaA(ilat,ispin,jspin,iorb,jorb,:)
-                enddo
-             enddo
-          enddo
-       enddo
-    enddo
-    ed_Ekin_lattice = kinetic_energy_lattice_superc(Hk,Wtk,Sigma_,SigmaA_)
-  end function kinetic_energy_lattice_superc_2
-
-  function kinetic_energy_lattice_superc_1B(Hk,Wtk,Sigma,SigmaA) result(ed_Ekin_lattice)
-    complex(8),dimension(:,:,:)                                 :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
-    real(8),dimension(size(Hk,3))                               :: wtk    ! [Nk]
-    complex(8),dimension(:,:)                                   :: Sigma  ! [Nlat][L]
-    complex(8),dimension(:,:)                                   :: SigmaA ! [Nlat][L]  
-    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,2))   :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
-    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,2))   :: SigmaA_! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
-    integer                                                     :: i,iorb,ilat,ispin,io,is
-    integer                                                     :: j,jorb,jlat,jspin,jo,js
-    integer                                                     :: Nlso,Nso,Lk
-    real(8)                                                     :: ed_Ekin_lattice(2)
-    if(Norb>1)stop "kinetic_energy_lattice_superc_case_1B error: Norb > 1 in 1-band routine" 
-    if(Nspin>1)stop "kinetic_energy_lattice_superc_case_1B error: Nspin > 1 in 1-band routine" 
-    !Get generalized Lattice-Spin-Orbital index
-    Nlso = Nlat*Nspin*Norb
-    Nso  = Nspin*Norb
-    !Get number of k-points:
-    Lk=size(Hk,3)
-    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
-    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
-    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
-    if(size(SigmaA,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[SigmaA,1] != Nlat"
-    Sigma_=zero
-    SigmaA_=zero
-    do ilat=1,Nlat
-       Sigma_(ilat,ilat,:)  = Sigma(ilat,:)
-       SigmaA_(ilat,ilat,:) = SigmaA(ilat,:)
-    enddo
-    ed_Ekin_lattice = kinetic_energy_lattice_superc(Hk,Wtk,Sigma_,SigmaA_)
-  end function kinetic_energy_lattice_superc_1B
-
   function kinetic_energy_lattice_superc(Hk,Wtk,Sigma,SigmaA) result(Eout)
     complex(8),dimension(:,:,:)                     :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
     real(8),dimension(size(Hk,3))                   :: wtk    ! [Nk]
@@ -612,6 +490,135 @@ contains
     call write_kinetic_info()
     call write_kinetic(Eout)
   end function kinetic_energy_lattice_superc
+
+
+  !INTERFACES:
+  function kinetic_energy_lattice_superc_1(Hk,Wtk,Sigma,SigmaA) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
+    complex(8),dimension(:,:,:,:)                             :: Sigma  ! [Nlat][Nspin*Norb][Nspin*Norb][L]
+    complex(8),dimension(:,:,:,:)                             :: SigmaA ! [Nlat][Nspin*Norb][Nspin*Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,4)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,4)) :: SigmaA_! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    integer                                                   :: i,iorb,ilat,ispin,io,is
+    integer                                                   :: j,jorb,jlat,jspin,jo,js
+    integer                                                   :: Nlso,Nso,Lk
+    real(8)                                                   :: ed_Ekin_lattice(2)
+    !Get generalized Lattice-Spin-Orbital index
+    Nlso = Nlat*Nspin*Norb
+    Nso  = Nspin*Norb
+    !Get number of k-points:
+    Lk=size(Hk,3)
+    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
+    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
+    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
+    if(size(Sigma,2)/=Nso) stop "kinetic_energy_lattice_superc error: size[Sigma,2] != Nspin*Norb"
+    if(size(Sigma,3)/=size(Sigma,2)) stop "kinetic_energy_lattice_superc error: size[Sigma,3] != size[Sigma,2] "
+    if(size(SigmaA,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[SigmaA,1] != Nlat"
+    if(size(SigmaA,2)/=Nso) stop "kinetic_energy_lattice_superc error: size[SigmaA,2] != Nspin*Norb"
+    if(size(SigmaA,3)/=size(SigmaA,2)) stop "kinetic_energy_lattice_superc error: size[SigmaA,3] != size[SigmaA,2] "
+    Sigma_=zero
+    SigmaA_=zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb !spin-orbit stride
+                   jo = jorb + (jspin-1)*Norb !spin-orbit stride
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   Sigma_(is,js,:) = Sigma(ilat,io,jo,:)
+                   SigmaA_(is,js,:)= SigmaA(ilat,io,jo,:)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_superc(Hk,Wtk,Sigma_,SigmaA_)
+  end function kinetic_energy_lattice_superc_1
+  !
+  function kinetic_energy_lattice_superc_2(Hk,Wtk,Sigma,SigmaA) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
+    complex(8),dimension(:,:,:,:,:,:)                         :: Sigma  ! [Nlat][Nspin][Nspin][Norb][Norb][L]
+    complex(8),dimension(:,:,:,:,:,:)                         :: SigmaA ! [Nlat][Nspin][Nspin][Norb][Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,6)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,6)) :: SigmaA_! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    integer                                                   :: i,iorb,ilat,ispin,io,is
+    integer                                                   :: j,jorb,jlat,jspin,jo,js
+    integer                                                   :: Nlso,Nso,Lk
+    real(8)                                                   :: ed_Ekin_lattice(2)
+    !Get generalized Lattice-Spin-Orbital index
+    Nlso = Nlat*Nspin*Norb
+    Nso  = Nspin*Norb
+    !Get number of k-points:
+    Lk=size(Hk,3)
+    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
+    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
+    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
+    if(size(Sigma,2)/=Nspin) stop "kinetic_energy_lattice_superc error: size[Sigma,2] != Nspin"
+    if(size(Sigma,3)/=size(Sigma,2)) stop "kinetic_energy_lattice_superc error: size[Sigma,3] != size[Sigma,2] "
+    if(size(Sigma,4)/=Norb) stop "kinetic_energy_lattice_superc error: size[Sigma,4] != Norb"
+    if(size(Sigma,5)/=size(Sigma,4)) stop "kinetic_energy_lattice_superc error: size[Sigma,5] != size[Sigma,4] "
+    if(size(SigmaA,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[SigmaA,1] != Nlat"
+    if(size(SigmaA,2)/=Nspin) stop "kinetic_energy_lattice_superc error: size[SigmaA,2] != Nspin"
+    if(size(SigmaA,3)/=size(SigmaA,2)) stop "kinetic_energy_lattice_superc error: size[SigmaA,3] != size[SigmaA,2] "
+    if(size(SigmaA,4)/=Norb) stop "kinetic_energy_lattice_superc error: size[SigmaA,4] != Norb"
+    if(size(SigmaA,5)/=size(SigmaA,4)) stop "kinetic_energy_lattice_superc error: size[SigmaA,5] != size[SigmaA,4] "
+    Sigma_=zero
+    SigmaA_=zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   Sigma_(is,js,:) = Sigma(ilat,ispin,jspin,iorb,jorb,:)
+                   SigmaA_(is,js,:)= SigmaA(ilat,ispin,jspin,iorb,jorb,:)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_superc(Hk,Wtk,Sigma_,SigmaA_)
+  end function kinetic_energy_lattice_superc_2
+  !
+  function kinetic_energy_lattice_superc_1B(Hk,Wtk,Sigma,SigmaA) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                                 :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                               :: wtk    ! [Nk]
+    complex(8),dimension(:,:)                                   :: Sigma  ! [Nlat][L]
+    complex(8),dimension(:,:)                                   :: SigmaA ! [Nlat][L]  
+    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,2))   :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,2),size(Sigma,2))   :: SigmaA_! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    integer                                                     :: i,iorb,ilat,ispin,io,is
+    integer                                                     :: j,jorb,jlat,jspin,jo,js
+    integer                                                     :: Nlso,Nso,Lk
+    real(8)                                                     :: ed_Ekin_lattice(2)
+    if(Norb>1)stop "kinetic_energy_lattice_superc_case_1B error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop "kinetic_energy_lattice_superc_case_1B error: Nspin > 1 in 1-band routine" 
+    !Get generalized Lattice-Spin-Orbital index
+    Nlso = Nlat*Nspin*Norb
+    Nso  = Nspin*Norb
+    !Get number of k-points:
+    Lk=size(Hk,3)
+    if(size(Hk,1)/=Nlso) stop "kinetic_energy_lattice_superc error: size[Hk,1] != Nlat*Nspin*Norb"
+    if(size(Hk,2)/=size(Hk,1)) stop "kinetic_energy_lattice_superc error: size[Hk,1] != size[Hk,2]"
+    if(size(Sigma,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[Sigma,1] != Nlat"
+    if(size(SigmaA,1)/=Nlat) stop "kinetic_energy_lattice_superc error: size[SigmaA,1] != Nlat"
+    Sigma_=zero
+    SigmaA_=zero
+    do ilat=1,Nlat
+       Sigma_(ilat,ilat,:)  = Sigma(ilat,:)
+       SigmaA_(ilat,ilat,:) = SigmaA(ilat,:)
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_superc(Hk,Wtk,Sigma_,SigmaA_)
+  end function kinetic_energy_lattice_superc_1B
+
+
+
+
 
 
 

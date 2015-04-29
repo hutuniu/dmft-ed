@@ -11,7 +11,7 @@ MODULE ED_GREENS_FUNCTIONS
   USE SF_TIMER  
   USE SF_IOTOOLS, only: free_unit,reg,free_units,txtfy
   USE SF_ARRAYS,  only: arange,linspace
-  USE SF_LINALG,  only: matrix_inverse
+  USE SF_LINALG,  only: inv
   USE PLAIN_LANCZOS
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
@@ -37,8 +37,7 @@ MODULE ED_GREENS_FUNCTIONS
 
   !AUX GF
   !=========================================================
-  complex(8),allocatable,dimension(:,:)      :: Gaux_mats,Gaux_real
-
+  complex(8),allocatable,dimension(:,:)      :: auxGmats,auxGreal
 
   !Poles & Weights 
   !=========================================================
@@ -84,13 +83,14 @@ contains
     GFpoles=zero
     GFweights=zero
     !
-    if(.not.ed_supercond)then
+    select case(ed_mode)
+    case default
        call build_gf_normal()
        call get_sigma_print_gf_normal()
-    else
+    case ("superc")
        call build_gf_superc()
        call get_sigma_print_gf_superc()
-    end if
+    end select
     !
     if(allocated(wm))deallocate(wm)
     if(allocated(vm))deallocate(vm)
@@ -102,8 +102,8 @@ contains
   !+------------------------------------------------------------------+
   !                    GREEN'S FUNCTIONS 
   !+------------------------------------------------------------------+
-  include 'ed_build_gf_normal.f90'
-  include 'ed_build_gf_superc.f90'
+  include 'ed_greens_funcs_build_gf_normal.f90'
+  include 'ed_greens_funcs_build_gf_superc.f90'
 
 
 
@@ -133,7 +133,7 @@ contains
   !+------------------------------------------------------------------+
   !                    SPIN SUSCPTIBILITY
   !+------------------------------------------------------------------+
-  include 'ed_build_chi_spin.f90'
+  include 'ed_greens_funcs_build_chi_spin.f90'
 
 
 
@@ -157,12 +157,12 @@ contains
        do ispin=1,Nspin
           do iorb=1,Norb
              do i=1,Lmats
-                fg0 = xi*wm(i) + xmu - impHloc(ispin,ispin,iorb,iorb) - delta_bath_mats(ispin,iorb,xi*wm(i),dmft_bath)
+                fg0 = xi*wm(i) + xmu - impHloc(ispin,ispin,iorb,iorb) - delta_bath_mats(ispin,ispin,iorb,iorb,xi*wm(i),dmft_bath)
                 impSmats(ispin,ispin,iorb,iorb,i)= fg0 - one/impGmats(ispin,ispin,iorb,iorb,i)
                 impG0mats(ispin,ispin,iorb,iorb,i) = one/fg0
              enddo
              do i=1,Lreal
-                fg0 = wr(i) + xmu - impHloc(ispin,ispin,iorb,iorb) - delta_bath_real(ispin,iorb,wr(i)+xi*eps,dmft_bath)
+                fg0 = wr(i) + xmu - impHloc(ispin,ispin,iorb,iorb) - delta_bath_real(ispin,ispin,iorb,iorb,wr(i)+xi*eps,dmft_bath)
                 impSreal(ispin,ispin,iorb,iorb,i)= fg0 - one/impGreal(ispin,ispin,iorb,iorb,i)
                 impG0real(ispin,ispin,iorb,iorb,i) = one/fg0
              enddo
@@ -208,27 +208,27 @@ contains
              call close_units
           enddo
        endif
-
+       !
     case ('hybrid')             !Diagonal in spin only. Full Orbital structure
        !                        !intra-orbital hopping allow for mixed _ab GF
        do ispin=1,Nspin         !Spin diagona
           do iorb=1,Norb        !Orbital diagonal part GF_0=(iw+mu)_aa-hloc_aa-Delta_aa
              do i=1,Lmats
-                impG0mats(ispin,ispin,iorb,iorb,i)= xi*wm(i)+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_mats(ispin,iorb,iorb,xi*wm(i),dmft_bath)
+                impG0mats(ispin,ispin,iorb,iorb,i)= xi*wm(i)+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_mats(ispin,ispin,iorb,iorb,xi*wm(i),dmft_bath)
              enddo
              do i=1,Lreal
-                impG0real(ispin,ispin,iorb,iorb,i)= wr(i)+xi*eps+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_real(ispin,iorb,iorb,wr(i)+xi*eps,dmft_bath)
+                impG0real(ispin,ispin,iorb,iorb,i)= wr(i)+xi*eps+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_real(ispin,ispin,iorb,iorb,wr(i)+xi*eps,dmft_bath)
              enddo
           enddo
           do iorb=1,Norb         !Orbital non-diagonal part
              do jorb=iorb+1,Norb !GF_0=-hloc_ab-Delta_ab
                 do i=1,Lmats
-                   impG0mats(ispin,ispin,iorb,jorb,i)= -impHloc(ispin,ispin,iorb,jorb)-delta_bath_mats(ispin,iorb,jorb,xi*wm(i),dmft_bath)
-                   impG0mats(ispin,ispin,jorb,iorb,i)= -impHloc(ispin,ispin,jorb,iorb)-delta_bath_mats(ispin,jorb,iorb,xi*wm(i),dmft_bath)
+                   impG0mats(ispin,ispin,iorb,jorb,i)= -impHloc(ispin,ispin,iorb,jorb)-delta_bath_mats(ispin,ispin,iorb,jorb,xi*wm(i),dmft_bath)
+                   impG0mats(ispin,ispin,jorb,iorb,i)= -impHloc(ispin,ispin,jorb,iorb)-delta_bath_mats(ispin,ispin,jorb,iorb,xi*wm(i),dmft_bath)
                 enddo
                 do i=1,Lreal
-                   impG0real(ispin,ispin,iorb,jorb,i)= -impHloc(ispin,ispin,iorb,jorb)-delta_bath_real(ispin,iorb,jorb,wr(i)+xi*eps,dmft_bath)
-                   impG0real(ispin,ispin,jorb,iorb,i)= -impHloc(ispin,ispin,jorb,iorb)-delta_bath_real(ispin,jorb,iorb,wr(i)+xi*eps,dmft_bath)
+                   impG0real(ispin,ispin,iorb,jorb,i)= -impHloc(ispin,ispin,iorb,jorb)-delta_bath_real(ispin,ispin,iorb,jorb,wr(i)+xi*eps,dmft_bath)
+                   impG0real(ispin,ispin,jorb,iorb,i)= -impHloc(ispin,ispin,jorb,iorb)-delta_bath_real(ispin,ispin,jorb,iorb,wr(i)+xi*eps,dmft_bath)
                 enddo
              enddo
           enddo
@@ -239,17 +239,17 @@ contains
           do i=1,Lmats
              invGimp = impGmats(ispin,ispin,:,:,i)
              impG0   = impG0mats(ispin,ispin,:,:,i)
-             call matrix_inverse(invGimp)
+             call inv(invGimp)
              impSmats(ispin,ispin,:,:,i) = impG0 - invGimp
-             call matrix_inverse(impG0)
+             call inv(impG0)
              impG0mats(ispin,ispin,:,:,i)=impG0
           enddo
           do i=1,Lreal
              invGimp = impGreal(ispin,ispin,:,:,i)
              impG0   = impG0real(ispin,ispin,:,:,i)
-             call matrix_inverse(invGimp)
+             call inv(invGimp)
              impSreal(ispin,ispin,:,:,i) = impG0 - invGimp
-             call matrix_inverse(impG0)
+             call inv(impG0)
              impG0real(ispin,ispin,:,:,i)=impG0
           enddo
        enddo
@@ -257,7 +257,7 @@ contains
        !Print the impurity functions:
        if(ED_MPI_ID==0)then
           do iorb=1,Norb
-             do jorb=1,Norb
+             do jorb=iorb,Norb
                 suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
                 call open_units(reg(suffix))
                 if(ed_verbose<4)then
@@ -296,9 +296,9 @@ contains
           enddo
        endif
     end select
-
+    !
   contains
-
+    !
     subroutine open_units(string)
       character(len=*) :: string
       unit=free_units(size(unit))
@@ -316,7 +316,7 @@ contains
          open(unit(7),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
       endif
     end subroutine open_units
-
+    !
     subroutine close_units()
       if(ed_verbose<4)then
          close(unit(1))
@@ -332,7 +332,7 @@ contains
          close(unit(7))
       endif
     end subroutine close_units
-
+    !
   end subroutine get_sigma_print_gf_normal
 
 
@@ -342,28 +342,31 @@ contains
   !PURPOSE  : Print Superconducting Green's functions
   !+------------------------------------------------------------------+
   subroutine get_sigma_print_gf_superc
-    integer                                        :: i,j,ispin,unit(12),iorb,jorb
-    complex(8)                                     :: iw
-    complex(8),allocatable,dimension(:)            :: det
-    complex(8),allocatable,dimension(:,:)          :: fg0,fg,sigma
+    integer                                           :: i,j,ispin,unit(12),iorb,jorb
+    complex(8)                                        :: iw
+    complex(8),allocatable,dimension(:)               :: det
+    complex(8),allocatable,dimension(:,:)             :: fg0,fg,sigma
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats,impF0mats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real,impF0real
-    character(len=20)                              :: suffix
+    complex(8),dimension(2,2,Nspin*Norb,Nspin*Norb,Lmats) :: zeta_mats
+    complex(8),dimension(2,2,Nspin*Norb,Nspin*Norb,Lreal) :: zeta_real
+    complex(8),dimension(2*Nspin*Norb,2*Nspin*Norb)    :: G0imp,invGimp,Simp
+    character(len=20)                                 :: suffix
     !
-    !Diagonal in both spin and orbital
-    !this is ensured by the special *per impurity" bath structure
-    !no intra-orbital hoopings
-    !THIS IS SUPERCONDUCTING CASE
-    allocate(fg0(2,Lmats),fg(2,Lmats),det(Lmats))
-    do ispin=1,Nspin
+    select case(bath_type)
+    case default                !Diagonal in both spin and orbital
+       !                        !this is ensured by the special *per impurity" bath structure
+       !                        !no intra-orbital hoopings
+       allocate(fg0(2,Lmats),fg(2,Lmats),det(Lmats))
+       ispin=1
        do iorb=1,Norb
           det     =  abs(impGmats(ispin,ispin,iorb,iorb,:))**2 + (impFmats(ispin,ispin,iorb,iorb,:))**2
           fg(1,:) =  conjg(impGmats(ispin,ispin,iorb,iorb,:))/det
           fg(2,:) =  impFmats(ispin,ispin,iorb,iorb,:)/det
           do i=1,LMats
              iw = xi*wm(i)
-             fg0(1,i) = iw+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_mats(ispin,iorb,iw,dmft_bath)
-             fg0(2,i) = -fdelta_bath_mats(ispin,iorb,iw,dmft_bath)
+             fg0(1,i) = iw+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_mats(ispin,ispin,iorb,iorb,iw,dmft_bath)
+             fg0(2,i) = -fdelta_bath_mats(ispin,ispin,iorb,iorb,iw,dmft_bath)
           enddo
           impSmats(ispin,ispin,iorb,iorb,:)= fg0(1,:) - fg(1,:)
           impSAmats(ispin,ispin,iorb,iorb,:)= fg0(2,:) - fg(2,:)
@@ -371,12 +374,10 @@ contains
           impG0mats(ispin,ispin,iorb,iorb,:) = conjg(fg0(1,:))/det
           impF0mats(ispin,ispin,iorb,iorb,:) = fg0(2,:)/det
        enddo
-    enddo
-    deallocate(fg0,fg,det)
-
-
-    allocate(fg0(2,Lreal),fg(2,Lreal),det(Lreal))
-    do ispin=1,Nspin
+       deallocate(fg0,fg,det)
+       !
+       allocate(fg0(2,Lreal),fg(2,Lreal),det(Lreal))
+       ispin=1
        do iorb=1,Norb
           do i=1,Lreal
              iw=dcmplx(wr(i),eps)
@@ -389,8 +390,8 @@ contains
                   impFreal(ispin,ispin,iorb,iorb,i)*impFreal(ispin,ispin,iorb,iorb,i)
              fg(1,i) =  -conjg(impGreal(ispin,ispin,iorb,iorb,Lreal+1-i))/det(i)
              fg(2,i) =  -impFreal(ispin,ispin,iorb,iorb,i)/det(i)
-             fg0(1,i) =  wr(i)+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_real(ispin,iorb,wr(i)+xi*eps,dmft_bath)
-             fg0(2,i) = -fdelta_bath_real(ispin,iorb,wr(i)+xi*eps,dmft_bath)
+             fg0(1,i) =  wr(i)+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_real(ispin,ispin,iorb,iorb,wr(i)+xi*eps,dmft_bath)
+             fg0(2,i) = -fdelta_bath_real(ispin,ispin,iorb,iorb,wr(i)+xi*eps,dmft_bath)
           enddo
           impSreal(ispin,ispin,iorb,iorb,:) = fg0(1,:) - fg(1,:)
           impSAreal(ispin,ispin,iorb,iorb,:)= fg0(2,:) - fg(2,:)
@@ -400,74 +401,224 @@ contains
              impF0real(ispin,ispin,iorb,iorb,i) = -fg0(2,i)/det(i)
           enddo
        enddo
-    enddo
-    deallocate(fg0,fg,det)
-
-    !
-    if(ED_MPI_ID==0)then
+       deallocate(fg0,fg,det)
+       !
+       if(ED_MPI_ID==0)then
+          do iorb=1,Norb
+             suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))
+             call open_units(reg(suffix))
+             if(ed_verbose<4)then
+                do i=1,Lmats
+                   write(unit(1),"(F26.15,6(F26.15))")wm(i),&
+                        (dimag(impSmats(ispin,ispin,iorb,iorb,i)),dreal(impSmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lmats
+                   write(unit(2),"(F26.15,6(F26.15))")wm(i),&
+                        (dimag(impSAmats(ispin,ispin,iorb,iorb,i)),dreal(impSAmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lreal
+                   write(unit(3),"(F26.15,6(F26.15))")wr(i),&
+                        (dimag(impSreal(ispin,ispin,iorb,iorb,i)),dreal(impSreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lreal
+                   write(unit(4),"(F26.15,6(F26.15))")wr(i),&
+                        (dimag(impSAreal(ispin,ispin,iorb,iorb,i)),dreal(impSAreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+             endif
+             if(ed_verbose<2)then
+                do i=1,Lmats
+                   write(unit(5),"(F26.15,6(F26.15))")wm(i),&
+                        (dimag(impGmats(ispin,ispin,iorb,iorb,i)),dreal(impGmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lmats
+                   write(unit(6),"(F26.15,6(F26.15))")wm(i),&
+                        (dimag(impFmats(ispin,ispin,iorb,iorb,i)),dreal(impFmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lreal
+                   write(unit(7),"(F26.15,6(F26.15))")wr(i),&
+                        (dimag(impGreal(ispin,ispin,iorb,iorb,i)),dreal(impGreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lreal
+                   write(unit(8),"(F26.15,6(F26.15))")wr(i),&
+                        (dimag(impFreal(ispin,ispin,iorb,iorb,i)),dreal(impFreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+             endif
+             if(ed_verbose<1)then
+                do i=1,Lmats
+                   write(unit(9),"(F26.15,6(F26.15))")wm(i),&
+                        (dimag(impG0mats(ispin,ispin,iorb,iorb,i)),dreal(impG0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lmats
+                   write(unit(10),"(F26.15,6(F26.15))")wm(i),&
+                        (dimag(impF0mats(ispin,ispin,iorb,iorb,i)),dreal(impF0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lreal
+                   write(unit(11),"(F26.15,6(F26.15))")wr(i),&
+                        (dimag(impG0real(ispin,ispin,iorb,iorb,i)),dreal(impG0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+                do i=1,Lreal
+                   write(unit(12),"(F26.15,6(F26.15))")wr(i),&
+                        (dimag(impF0real(ispin,ispin,iorb,iorb,i)),dreal(impF0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+                enddo
+             endif
+             call close_units
+          enddo
+          !
+       endif
+       !
+       !
+    case ("hybrid")
+       !
+       !
+       ispin=1
+       zeta_mats=zero
+       zeta_real=zero
        do iorb=1,Norb
-          suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))
-          call open_units(reg(suffix))
-          if(ed_verbose<4)then
-             do i=1,Lmats
-                write(unit(1),"(F26.15,6(F26.15))")wm(i),&
-                     (dimag(impSmats(ispin,ispin,iorb,iorb,i)),dreal(impSmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lmats
-                write(unit(2),"(F26.15,6(F26.15))")wm(i),&
-                     (dimag(impSAmats(ispin,ispin,iorb,iorb,i)),dreal(impSAmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lreal
-                write(unit(3),"(F26.15,6(F26.15))")wr(i),&
-                     (dimag(impSreal(ispin,ispin,iorb,iorb,i)),dreal(impSreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lreal
-                write(unit(4),"(F26.15,6(F26.15))")wr(i),&
-                     (dimag(impSAreal(ispin,ispin,iorb,iorb,i)),dreal(impSAreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-          endif
-          if(ed_verbose<2)then
-             do i=1,Lmats
-                write(unit(5),"(F26.15,6(F26.15))")wm(i),&
-                     (dimag(impGmats(ispin,ispin,iorb,iorb,i)),dreal(impGmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lmats
-                write(unit(6),"(F26.15,6(F26.15))")wm(i),&
-                     (dimag(impFmats(ispin,ispin,iorb,iorb,i)),dreal(impFmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lreal
-                write(unit(7),"(F26.15,6(F26.15))")wr(i),&
-                     (dimag(impGreal(ispin,ispin,iorb,iorb,i)),dreal(impGreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lreal
-                write(unit(8),"(F26.15,6(F26.15))")wr(i),&
-                     (dimag(impFreal(ispin,ispin,iorb,iorb,i)),dreal(impFreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-          endif
-          if(ed_verbose<1)then
-             do i=1,Lmats
-                write(unit(9),"(F26.15,6(F26.15))")wm(i),&
-                     (dimag(impG0mats(ispin,ispin,iorb,iorb,i)),dreal(impG0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lmats
-                write(unit(10),"(F26.15,6(F26.15))")wm(i),&
-                     (dimag(impF0mats(ispin,ispin,iorb,iorb,i)),dreal(impF0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lreal
-                write(unit(11),"(F26.15,6(F26.15))")wr(i),&
-                     (dimag(impG0real(ispin,ispin,iorb,iorb,i)),dreal(impG0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-             do i=1,Lreal
-                write(unit(12),"(F26.15,6(F26.15))")wr(i),&
-                     (dimag(impF0real(ispin,ispin,iorb,iorb,i)),dreal(impF0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
-             enddo
-          endif
-          call close_units
+          zeta_mats(1,1,iorb,iorb,:) = xi*wm(:) + xmu
+          zeta_mats(2,2,iorb,iorb,:) = xi*wm(:) - xmu
+          !
+          zeta_real(1,1,iorb,iorb,:) = dcmplx(wr(:),eps)                  + xmu
+          zeta_real(2,2,iorb,iorb,:) = -conjg(dcmplx(wr(Lreal:1:-1),eps)) + xmu
        enddo
-    endif
-
+       do iorb=1,Norb
+          do jorb=1,Norb
+             do i=1,Lmats
+                zeta_mats(1,1,iorb,jorb,i) = zeta_mats(1,1,iorb,jorb,i) - delta_bath_mats(ispin,ispin,iorb,jorb,xi*wm(i),dmft_bath)       
+                zeta_mats(1,2,iorb,jorb,i) = zeta_mats(1,2,iorb,jorb,i) - fdelta_bath_mats(ispin,ispin,iorb,jorb,xi*wm(i),dmft_bath)
+                zeta_mats(2,1,iorb,jorb,i) = zeta_mats(2,1,iorb,jorb,i) - fdelta_bath_mats(ispin,ispin,iorb,jorb,xi*wm(i),dmft_bath)
+                zeta_mats(2,2,iorb,jorb,i) = zeta_mats(2,2,iorb,jorb,i) + conjg(delta_bath_mats(ispin,ispin,iorb,jorb,xi*wm(i),dmft_bath))
+             enddo
+             !
+             do i=1,Lreal
+                zeta_real(1,1,iorb,jorb,i) = zeta_real(1,1,iorb,jorb,i) - delta_bath_real(ispin,ispin,iorb,jorb,dcmplx(wr(i),eps),dmft_bath)
+                zeta_real(1,2,iorb,jorb,i) = zeta_real(1,2,iorb,jorb,i) - fdelta_bath_real(ispin,ispin,iorb,jorb,dcmplx(wr(i),eps),dmft_bath)
+                zeta_real(2,1,iorb,jorb,i) = zeta_real(2,1,iorb,jorb,i) - conjg(fdelta_bath_real(ispin,ispin,iorb,jorb,dcmplx(wr(Lreal-i+1),eps),dmft_bath))
+                zeta_real(2,2,iorb,jorb,i) = zeta_real(2,2,iorb,jorb,i) - delta_bath_real(ispin,ispin,iorb,jorb,dcmplx(wr(Lreal-i+1),eps),dmft_bath)
+             enddo
+          enddo
+       enddo
+       !
+       do i=1,Lmats
+          G0imp  = zero
+          G0imp(1:Norb,1:Norb)               = zeta_mats(1,1,:,:,i)  - impHloc(ispin,ispin,:,:)
+          G0imp(1:Norb,Norb+1:2*Norb)        = zeta_mats(1,2,:,:,i)
+          G0imp(Norb+1:2*Norb,1:Norb)        = zeta_mats(2,1,:,:,i)
+          G0imp(Norb+1:2*Norb,Norb+1:2*Norb) = zeta_mats(2,2,:,:,i)  + impHloc(ispin,ispin,:,:) 
+          !
+          invGimp=zero
+          invGimp(1:Norb,1:Norb)               = impGmats(ispin,ispin,iorb,jorb,i)
+          invGimp(1:Norb,Norb+1:2*Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
+          invGimp(Norb+1:2*Norb,1:Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
+          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGmats(ispin,ispin,iorb,jorb,i))
+          call inv(invGimp)
+          !
+          !Dyson: Sigma = G0^{-1} - G^{-1}
+          Simp = G0imp - invGimp
+          impSmats(ispin,ispin,:,:,i)  = Simp(1:Norb,1:Norb)
+          impSAmats(ispin,ispin,:,:,i) = Simp(1:Norb,Norb+1:2*Norb)
+          !
+          !Get G0
+          call inv(G0imp)
+          impG0mats(ispin,ispin,:,:,i) = invGimp(1:Norb,1:Norb)
+          impF0mats(ispin,ispin,:,:,i) = invGimp(1:Norb,Norb+1:2*Norb)
+          !
+       enddo
+       !
+       do i=1,Lreal
+          G0imp  = zero
+          G0imp(1:Norb,1:Norb)               = zeta_real(1,1,:,:,i)  - impHloc(ispin,ispin,:,:)
+          G0imp(1:Norb,Norb+1:2*Norb)        = zeta_real(1,2,:,:,i)
+          G0imp(Norb+1:2*Norb,1:Norb)        = zeta_real(2,1,:,:,i)
+          G0imp(Norb+1:2*Norb,Norb+1:2*Norb) = zeta_real(2,2,:,:,i)  + impHloc(ispin,ispin,:,:) 
+          !
+          invGimp=zero
+          invGimp(1:Norb,1:Norb)               = impGreal(ispin,ispin,iorb,jorb,i)
+          invGimp(1:Norb,Norb+1:2*Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
+          invGimp(Norb+1:2*Norb,1:Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
+          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGreal(ispin,ispin,iorb,jorb,i))
+          call inv(invGimp)
+          !
+          !Dyson: Sigma = G0^{-1} - G^{-1}
+          Simp = G0imp - invGimp
+          impSreal(ispin,ispin,:,:,i)  = Simp(1:Norb,1:Norb)
+          impSAreal(ispin,ispin,:,:,i) = Simp(1:Norb,Norb+1:2*Norb)
+          !
+          !Get G0
+          call inv(G0imp)
+          impG0real(ispin,ispin,:,:,i) = invGimp(1:Norb,1:Norb)
+          impF0real(ispin,ispin,:,:,i) = invGimp(1:Norb,Norb+1:2*Norb)
+       enddo
+       !
+       !
+       if(ED_MPI_ID==0)then
+          do iorb=1,Norb
+             do jorb=iorb,Norb
+                suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
+                call open_units(reg(suffix))
+                if(ed_verbose<4)then
+                   do i=1,Lmats
+                      write(unit(1),"(F26.15,6(F26.15))")wm(i),&
+                           (dimag(impSmats(ispin,ispin,iorb,jorb,i)),dreal(impSmats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                   do i=1,Lmats
+                      write(unit(2),"(F26.15,6(F26.15))")wm(i),&
+                           (dimag(impSAmats(ispin,ispin,iorb,jorb,i)),dreal(impSAmats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                   do i=1,Lreal
+                      write(unit(3),"(F26.15,6(F26.15))")wr(i),&
+                           (dimag(impSreal(ispin,ispin,iorb,jorb,i)),dreal(impSreal(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                   do i=1,Lreal
+                      write(unit(4),"(F26.15,6(F26.15))")wr(i),&
+                           (dimag(impSAreal(ispin,ispin,iorb,jorb,i)),dreal(impSAreal(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                endif
+                if(ed_verbose<2)then
+                   do i=1,Lmats
+                      write(unit(5),"(F26.15,6(F26.15))")wm(i),&
+                           (dimag(impGmats(ispin,ispin,iorb,jorb,i)),dreal(impGmats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                   do i=1,Lmats
+                      write(unit(6),"(F26.15,6(F26.15))")wm(i),&
+                           (dimag(impFmats(ispin,ispin,iorb,jorb,i)),dreal(impFmats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                   do i=1,Lreal
+                      write(unit(7),"(F26.15,6(F26.15))")wr(i),&
+                           (dimag(impGreal(ispin,ispin,iorb,jorb,i)),dreal(impGreal(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                   do i=1,Lreal
+                      write(unit(8),"(F26.15,6(F26.15))")wr(i),&
+                           (dimag(impFreal(ispin,ispin,iorb,jorb,i)),dreal(impFreal(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                endif
+                if(ed_verbose<1)then
+                   do i=1,Lmats
+                      write(unit(9),"(F26.15,6(F26.15))")wm(i),&
+                           (dimag(impG0mats(ispin,ispin,iorb,jorb,i)),dreal(impG0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                   do i=1,Lmats
+                      write(unit(10),"(F26.15,6(F26.15))")wm(i),&
+                           (dimag(impF0mats(ispin,ispin,iorb,jorb,i)),dreal(impF0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                   do i=1,Lreal
+                      write(unit(11),"(F26.15,6(F26.15))")wr(i),&
+                           (dimag(impG0real(ispin,ispin,iorb,jorb,i)),dreal(impG0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                   do i=1,Lreal
+                      write(unit(12),"(F26.15,6(F26.15))")wr(i),&
+                           (dimag(impF0real(ispin,ispin,iorb,jorb,i)),dreal(impF0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+                   enddo
+                endif
+                call close_units
+             enddo
+          enddo
+          !
+       endif
+       !
+    end select
+    !
   contains
-
+    !
     subroutine open_units(string)
       character(len=*) :: string
       unit=free_units(size(unit))
@@ -490,7 +641,7 @@ contains
          open(unit(12),file="impF0"//string//"_realw"//reg(ed_file_suffix)//".ed")
       endif
     end subroutine open_units
-
+    !
     subroutine close_units()
       if(ed_verbose<4)then
          close(unit(1))
@@ -511,7 +662,7 @@ contains
          close(unit(12))
       endif
     end subroutine close_units
-
+    !
   end subroutine get_sigma_print_gf_superc
 
 

@@ -627,8 +627,8 @@ contains
     do ispin=1,Nspin
        do iorb=1,Norb
           io = iorb + (ispin-1)*Norb
-          zeta_site(io,io,:)         = xi*wm(:) + xmu - Hloc(ispin,jspin,iorb,jorb)
-          zeta_site(io+Nso,io+Nso,:) = xi*wm(:) - xmu + Hloc(ispin,jspin,iorb,jorb)
+          zeta_site(io,io,:)         = xi*wm(:) + xmu 
+          zeta_site(io+Nso,io+Nso,:) = xi*wm(:) - xmu 
        enddo
     enddo
     do ispin=1,Nspin
@@ -637,10 +637,10 @@ contains
              do jorb=1,Norb
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
-                zeta_site(io,jo,:)           = zeta_site(io,jo,:)         - Smats(1,ispin,jspin,iorb,jorb,:)
-                zeta_site(io,jo+Nso,:)       =-Smats(2,ispin,jspin,iorb,jorb,:)
-                zeta_site(io+Nso,jo,:)       =-Smats(2,ispin,jspin,iorb,jorb,:)
-                zeta_site(io+Nso,jo+Nso,:)   = zeta_site(io+Nso,jo+Nso,:) + conjg(Smats(1,ispin,jspin,iorb,jorb,:))
+                zeta_site(io,jo,:)           = zeta_site(io,jo,:)         - Hloc(ispin,jspin,iorb,jorb) - Smats(1,ispin,jspin,iorb,jorb,:)
+                zeta_site(io,jo+Nso,:)       =                                                          - Smats(2,ispin,jspin,iorb,jorb,:)
+                zeta_site(io+Nso,jo,:)       =                                                          - Smats(2,ispin,jspin,iorb,jorb,:)
+                zeta_site(io+Nso,jo+Nso,:)   = zeta_site(io+Nso,jo+Nso,:) + Hloc(ispin,jspin,iorb,jorb) + conjg(Smats(1,ispin,jspin,iorb,jorb,:))
                 !
                 invGloc_site(io,jo,:)        = Gloc(1,ispin,jspin,iorb,jorb,:)
                 invGloc_site(io,jo+Nso,:)    = Gloc(2,ispin,jspin,iorb,jorb,:)

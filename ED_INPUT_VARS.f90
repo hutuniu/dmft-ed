@@ -45,7 +45,7 @@ MODULE ED_INPUT_VARS
   logical              :: finiteT             !flag for finite temperature calculation
   logical              :: ed_twin             !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   character(len=1)     :: ed_type             !flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)
-  logical              :: ed_supercond        !flag to set ed symmetry type: F=normal (default), T=superc=superconductive
+  character(len=7)     :: ed_mode             !flag to set ed symmetry type: normal (default), superc=superconductive
   character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
   character(len=100)   :: ed_file_suffix      !suffix string attached to the output files.
   real(8)              :: nread               !fixed density. if 0.d0 fixed chemical potential calculation.
@@ -70,13 +70,6 @@ MODULE ED_INPUT_VARS
   !RDMFT VARIABLES:
   !=========================================================
   integer              :: Nside            !linear size of the cluster to be solved.
-  ! real(8)              :: Wdis             !degree of local disorder.
-  ! integer              :: idum             !initial seed for the random variable sample.	
-  ! real(8)              :: a0trap           !bottom of the trap. here kept separated from mu.
-  ! real(8)              :: V0trap           !Trap curvature in x,y directions (assumed circular symmetry)
-  ! real(8)              :: chitrap          !Tentative value for the global trap compressibility dN/d(mu_{tot})
-  ! integer              :: N_wanted         !Required number of particles for canonical calculations [set 0 for fixmu]
-  ! real(8)              :: N_tol            !Tolerance over the total number of particles
   logical              :: pbcflag          !periodic boundary conditions flag
   logical              :: symmflag         !Enforce trap cubic symmetry in the xy-plane.
   real(8)              :: rdmft_nread      !density value for chemical potential search.
@@ -143,7 +136,7 @@ contains
     call parse_input_variable(cg_eps,"CG_EPS",INPUTunit,default=0.000001d0,comment="Conjugate-Gradient eps tolerance.")
     call parse_input_variable(cg_weight,"CG_WEIGHT",INPUTunit,default=0,comment="Conjugate-Gradient weight form: 0=1.0 ,1=1/n , 2=1/w.")
     call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")
-    call parse_input_variable(ed_Supercond,"ED_SUPERCOND",INPUTunit,default=.false.,comment="Flag to set ED type: F=normal, T=superconductive")
+    call parse_input_variable(ed_Mode,"ED_MODE",INPUTunit,default="normal",comment="Flag to set ED type: normal, superc")
     call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")

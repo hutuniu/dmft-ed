@@ -11,13 +11,12 @@ module ED_WRAP_GLOC
   private
   !
   interface ed_get_gloc_lattice
-     module procedure &
-          ed_get_gloc_normal,   &
-          ed_get_gloc_normal_1b,&
-          ed_get_gloc_normal_mb,&
-          ed_get_gloc_superc,   &
-          ed_get_gloc_superc_1b,&
-          ed_get_gloc_superc_mb
+     module procedure ed_get_gloc_normal
+     module procedure ed_get_gloc_normal_1b
+     module procedure ed_get_gloc_normal_mb
+     module procedure ed_get_gloc_superc
+     module procedure ed_get_gloc_superc_1b
+     module procedure ed_get_gloc_superc_mb
   end interface ed_get_gloc_lattice
   public :: ed_get_gloc_lattice
 
@@ -117,7 +116,7 @@ contains
     logical,optional            :: hk_symm(size(Hk,3))
     logical                     :: hk_symm_(size(Hk,3))
     integer                     :: i,ik,Lk,Nlso,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,js
-    
+
     Lk=size(Hk,3)
     Nlso=Nlat*Norb*Nspin
     if(size(Hk,1)/=Nlso.OR.size(Hk,2)/=Nlso) stop "rdmft_get_gloc_normal error: wrong dimensions of Hk"

@@ -21,6 +21,9 @@ module ED_DIAG
 
   public :: diagonalize_impurity
 
+  real(8),allocatable,dimension(:) :: egs_values
+
+
 contains
 
   !                    LANCZOS DIAGONALIZATION
@@ -47,7 +50,7 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_diag_d
     integer             :: nup,ndw,isector,dim
-    integer             :: nup0,ndw0,isect0,dim0,izero,sz0
+    integer             :: isect,izero,sz
     integer             :: i,j,iter
     integer             :: numgs
     integer             :: Nitermax,Neigen,Nblock
@@ -55,6 +58,9 @@ contains
     real(8),allocatable :: eig_values(:)
     real(8),allocatable :: eig_basis(:,:)
     logical             :: lanc_solve,Tflag
+    if(allocated(egs_values))deallocate(egs_values)
+    allocate(egs_values(Nsectors))
+    egs_values=0d0
     if(state_list%status)call es_delete_espace(state_list)
     state_list=es_init_espace()
     oldzero=1000.d0
@@ -62,25 +68,33 @@ contains
     if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer()
     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
     iter=0
-    sector: do isector=1,Nsect
+    sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        if(ED_MPI_ID==0)then
           if(ed_verbose<0)then
              dim      = getdim(isector)
-             if(.not.ed_supercond)then
-                nup0  = getnup(isector)
-                ndw0  = getndw(isector)
-                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
-             else
-                sz0   = getsz(isector)
-                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
-             endif
+             select case(ed_mode)
+             case default
+                nup  = getnup(isector)
+                ndw  = getndw(isector)
+                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup,", ndw:",ndw,", dim=",getdim(isector)
+             case ("superc")
+                sz   = getsz(isector)
+                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector)
+             end select
           elseif(ed_verbose<2)then
              call eta(iter,count(twin_mask),LOGfile)
           endif
        endif
-       Tflag    = twin_mask(isector).AND.ed_twin.AND.(getnup(isector)/=getndw(isector))
+       ! Tflag    = twin_mask(isector).AND.ed_twin.AND.(getnup(isector)/=getndw(isector))
+       Tflag    = twin_mask(isector).AND.ed_twin
+       select case(ed_mode)
+       case default
+          Tflag=Tflag.AND.(getnup(isector)/=getndw(isector))
+       case ("superc")
+          Tflag=Tflag.AND.(getsz(isector)/=0)
+       end select
        dim      = getdim(isector)
        Neigen   = min(dim,neigen_sector(isector))
        Nitermax = min(dim,lanc_niter)
@@ -88,7 +102,7 @@ contains
        !
        lanc_solve  = .true.
        if(Neigen==dim)lanc_solve=.false.
-       if(dim<=max(16,ED_MPI_SIZE))lanc_solve=.false.
+       if(dim<=max(512,ED_MPI_SIZE))lanc_solve=.false.
        !
        if(lanc_solve)then
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
@@ -104,9 +118,12 @@ contains
           allocate(eig_values(dim),eig_basis(dim,dim))
           eig_values=0.d0 ; eig_basis=0.d0 
           call ed_buildH_d(isector,eig_basis)
+          if(spH0%status)call sp_delete_matrix(spH0)
           call matrix_diagonalize(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=1.d0
        endif
+       !
+       egs_values(isector)=eig_values(1)
        !
        if(finiteT)then
           do i=1,Neigen
@@ -121,7 +138,7 @@ contains
              call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector,twin=Tflag)
           elseif(abs(enemin-oldzero) <= gs_threshold)then
              numgs=numgs+1
-             if (numgs > Nsect)stop "ed_diag: too many gs"
+             if (numgs > Nsectors)stop "ed_diag: too many gs"
              oldzero=min(oldzero,enemin)
              call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector,twin=Tflag)
           endif
@@ -142,7 +159,7 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_diag_c
     integer                :: nup,ndw,isector,dim
-    integer                :: nup0,ndw0,isect0,dim0,izero,sz0
+    integer                :: isect,izero,sz
     integer                :: i,j,iter
     integer                :: numgs
     integer                :: Nitermax,Neigen,Nblock
@@ -150,7 +167,9 @@ contains
     real(8),allocatable    :: eig_values(:)
     complex(8),allocatable :: eig_basis(:,:)
     logical                :: lanc_solve,Tflag
-
+    if(allocated(egs_values))deallocate(egs_values)
+    allocate(egs_values(Nsectors))
+    egs_values=0.d0
     if(state_list%status)call es_delete_espace(state_list)
     state_list=es_init_espace()
     oldzero=1000.d0
@@ -158,25 +177,33 @@ contains
     if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer()
     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
     iter=0
-    sector: do isector=1,Nsect
+    sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        if(ED_MPI_ID==0)then
           if(ed_verbose<0)then
              dim      = getdim(isector)
-             if(.not.ed_supercond)then
-                nup0  = getnup(isector)
-                ndw0  = getndw(isector)
-                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup0,", ndw:",ndw0,", dim=",dim
-             else
-                sz0   = getsz(isector)
-                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz0," dim=",dim
-             endif
+             select case(ed_mode)
+             case default
+                nup  = getnup(isector)
+                ndw  = getndw(isector)
+                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15)")iter,"-Solving sector:",isector,", nup:",nup,", ndw:",ndw,", dim=",getdim(isector)
+             case ("superc")
+                sz   = getsz(isector)
+                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector)
+             end select
           elseif(ed_verbose<2)then
              call eta(iter,count(twin_mask),LOGfile)
           endif
        endif
-       Tflag    = twin_mask(isector).AND.ed_twin.AND.(getnup(isector)/=getndw(isector))
+       !Tflag    = twin_mask(isector).AND.ed_twin.AND.(getnup(isector)/=getndw(isector))
+       Tflag    = twin_mask(isector).AND.ed_twin
+       select case(ed_mode)
+       case default
+          Tflag=Tflag.AND.(getnup(isector)/=getndw(isector))
+       case ("superc")
+          Tflag=Tflag.AND.(getsz(isector)/=0)
+       end select
        dim      = getdim(isector)
        Neigen   = min(dim,neigen_sector(isector))
        Nitermax = min(dim,lanc_niter)
@@ -184,7 +211,7 @@ contains
        !
        lanc_solve  = .true.
        if(Neigen==dim)lanc_solve=.false.
-       if(dim<=10)lanc_solve=.false.
+       if(dim<=max(512,ED_MPI_SIZE))lanc_solve=.false.
        !
        if(lanc_solve)then
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
@@ -200,9 +227,12 @@ contains
           allocate(eig_values(Dim),eig_basis(Dim,dim))
           eig_values=0.d0 ; eig_basis=zero
           call ed_buildH_c(isector,eig_basis)
+          if(spH0%status)call sp_delete_matrix(spH0)
           call matrix_diagonalize(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=one
        endif
+       !
+       egs_values(isector)=eig_values(1)
        !
        if(finiteT)then
           do i=1,Neigen
@@ -217,7 +247,7 @@ contains
              call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector,twin=Tflag)
           elseif(abs(enemin-oldzero) <= gs_threshold)then
              numgs=numgs+1
-             if (numgs > Nsect)stop "ed_diag: too many gs"
+             if (numgs > Nsectors)stop "ed_diag: too many gs"
              oldzero=min(oldzero,enemin)
              call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector,twin=Tflag)
           endif
@@ -235,28 +265,34 @@ contains
 
 
   subroutine print_state_list(unit)
-    integer :: nup,ndw,isector,dim
-    integer :: nup0,ndw0,isect0,dim0,izero,sz0
-    integer :: i,j,unit,Nsize,NtoBremoved,nstates_below_cutoff
-    integer :: numgs
-    real(8) :: Egs,Ei,Ec
+    integer :: nup,ndw,sz,n,isector,jsector,dim
+    integer :: istate
+    integer :: i,j,unit
+    real(8) :: Estate
+    if(ed_twin)then
+       do isector=1,Nsectors
+          if(.not.twin_mask(isector))egs_values(get_twin_sector(isector))=egs_values(isector)
+       enddo
+    endif
     if(ED_MPI_ID==0)then
-       if(.not.ed_supercond)then
-          write(unit,"(A)")"# i         E_i           exp(-(E-E0)/T)    nup ndw Sect      Dim"
-       else
-          write(unit,"(A)")"# i          E_i           exp(-(E-E0)/T)     Sz    Sect    Dim"
-       endif
-       do i=1,state_list%size
-          Ei     = es_return_energy(state_list,i)
-          isect0 = es_return_sector(state_list,i)
-          if(.not.ed_supercond)then
-             nup0   = getnup(isect0)
-             ndw0   = getndw(isect0)
-             write(unit,"(i3,f18.12,ES21.12,1x,2i3,3x,i3,i10)")i,Ei,exp(-beta*(Ei-state_list%emin)),nup0,ndw0,isect0,getdim(isect0)
-          else
-             sz0   = getsz(isect0)
-             write(unit,"(i3,f18.12,ES21.12,1x,i3,3x,i3,i10)"),i,Ei,exp(-beta*(Ei-state_list%emin)),sz0,isect0,getdim(isect0)
-          endif
+       select case(ed_mode)
+       case default
+          write(unit,"(A)")"#i       E_i           exp(-(E-E0)/T)    nup ndw Sect  Dim"
+       case ("superc")
+          write(unit,"(A)")"#i       E_i           exp(-(E-E0)/T)     Sz    Sect    Dim"
+       end select
+       do istate=1,state_list%size
+          Estate  = es_return_energy(state_list,istate)
+          isector = es_return_sector(state_list,istate)
+          select case(ed_mode)
+          case default
+             nup   = getnup(isector)
+             ndw   = getndw(isector)
+             write(unit,"(i3,f18.12,E18.9,1x,2i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),nup,ndw,isector,getdim(isector)
+          case("superc")
+             sz   = getsz(isector)
+             write(unit,"(i3,f18.12,E18.9,1x,i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),sz,isector,getdim(isector)
+          end select
        enddo
     endif
   end subroutine print_state_list
@@ -268,9 +304,11 @@ contains
   !lanczos  diagonalization. 
   !+------------------------------------------------------------------+
   subroutine ed_analysis()
-    integer             :: nup,ndw,isector,dim
-    integer             :: nup0,ndw0,isect0,dim0,izero,sz0
-    integer             :: i,j,unit,Nsize,NtoBremoved,nstates_below_cutoff
+    integer             :: nup,ndw,sz,n,isector,jsector,dim
+    integer             :: istate
+    integer             :: i,j,unit
+    real(8)             :: Estate
+    integer             :: Nsize,NtoBremoved,nstates_below_cutoff
     integer             :: numgs
     real(8)             :: Egs,Ei,Ec
     logical             :: lanc_solve
@@ -285,7 +323,7 @@ contains
     close(unit)
     if(ed_verbose<=3)call print_state_list(LOGfile)
     !
-    zeta_function=0.d0
+    zeta_function=0d0
     Egs = state_list%emin
     if(finiteT)then
        do i=1,state_list%size
@@ -297,19 +335,20 @@ contains
     end if
     !
     numgs=es_return_gs_degeneracy(state_list,gs_threshold)
-    if(numgs>Nsect)stop "ed_diag: too many gs"
-    do izero=1,numgs
-       isect0= es_return_sector(state_list,izero)
-       Egs   = es_return_energy(state_list,izero)
-       dim0  = getdim(isect0)
-       if(.not.ed_supercond)then
-          nup0  = getnup(isect0)
-          ndw0  = getndw(isect0)
-          if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12,2I4)")'egs =',egs,nup0,ndw0
-       else
-          sz0  = getsz(isect0)
-          if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12,I4)")'egs =',egs,sz0
-       endif
+    if(numgs>Nsectors)stop "ed_diag: too many gs"
+    do istate=1,numgs
+       isector = es_return_sector(state_list,istate)
+       Egs     = es_return_energy(state_list,istate)
+       dim     = getdim(isector)
+       select case(ed_mode)
+       case default
+          nup  = getnup(isector)
+          ndw  = getndw(isector)
+          if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12,2I4)")'Egs =',Egs,nup,ndw
+       case("superc")
+          sz  = getsz(isector)
+          if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12,I4)")'Egs =',Egs,sz
+       end select
     enddo
     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12)")'Z   =',zeta_function
     !
@@ -320,15 +359,15 @@ contains
        if(ED_MPI_ID==0)then
           unit=free_unit()
           open(unit,file="histogram_states"//reg(ed_file_suffix)//".ed",access='append')
-          hist_n = Nsect
+          hist_n = Nsectors
           hist_a = 1d0
-          hist_b = dble(Nsect)
+          hist_b = dble(Nsectors)
           hist_w = 1d0
           hist = histogram_allocate(hist_n)
           call histogram_set_range_uniform(hist,hist_a,hist_b)
           do i=1,state_list%size
-             isect0 = es_return_sector(state_list,i)
-             call histogram_accumulate(hist,dble(isect0),hist_w)
+             isector = es_return_sector(state_list,i)
+             call histogram_accumulate(hist,dble(isector),hist_w)
           enddo
           call histogram_print(hist,unit)
           write(unit,*)""
@@ -337,18 +376,18 @@ contains
        !
        !
        !
-       allocate(list_sector(state_list%size),count_sector(Nsect))
+       allocate(list_sector(state_list%size),count_sector(Nsectors))
        !get the list of actual sectors contributing to the list
        do i=1,state_list%size
           list_sector(i) = es_return_sector(state_list,i)
        enddo
        !count how many times a sector appears in the list
-       do i=1,Nsect
+       do i=1,Nsectors
           count_sector(i) = count(list_sector==i)
        enddo
        !adapt the number of required Neig for each sector based on how many
        !appeared in the list.
-       do i=1,Nsect
+       do i=1,Nsectors
           if(any(list_sector==i))then !if(count_sector(i)>1)then
              neigen_sector(i)=neigen_sector(i)+1
           else

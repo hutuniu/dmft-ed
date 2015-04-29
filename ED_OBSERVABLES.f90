@@ -34,7 +34,7 @@ contains
   !PURPOSE  : Evaluate and print out many interesting physical qties
   !+-------------------------------------------------------------------+
   subroutine observables_impurity()
-    integer,dimension(Ntot)          :: ib
+    integer,dimension(Nlevels)       :: ib
     integer                          :: i,j
     integer                          :: izero
     integer                          :: isector,jsector
@@ -140,7 +140,7 @@ contains
     enddo
     !
     !SUPERCONDUCTING ORDER PARAMETER
-    if(ed_supercond) then
+    if(ed_mode=="superc")then
        do ispin=1,Nspin
           do iorb=1,Norb
              numstates=state_list%size
@@ -211,11 +211,12 @@ contains
        if(iolegend)call write_legend
        call write_observables()
        write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(ed_file_suffix)//"=",(dens(iorb),iorb=1,Norb),sum(dens)
-       if(ed_supercond)then
-          write(LOGfile,"(A,20f18.12,A)")    "phi "//reg(ed_file_suffix)//"=",(phisc(iorb),iorb=1,Norb),(abs(uloc(iorb))*phisc(iorb),iorb=1,Norb)
-       else
+       select case(ed_mode)
+       case default
           write(LOGfile,"(A,10f18.12,A)")    "docc"//reg(ed_file_suffix)//"=",(docc(iorb),iorb=1,Norb)       
-       endif
+       case("superc")
+          write(LOGfile,"(A,20f18.12,A)")    "phi "//reg(ed_file_suffix)//"=",(phisc(iorb),iorb=1,Norb),(abs(uloc(iorb))*phisc(iorb),iorb=1,Norb)
+       end select
        if(ed_verbose<3)then
           if(Nspin==2)then
              write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magz(iorb),iorb=1,Norb)
@@ -270,7 +271,8 @@ contains
     integer :: unit,iorb,jorb,ispin
     unit = free_unit()
     open(unit,file="observables_info.ed")
-    if(.not.ed_supercond)then
+    select case(ed_mode)
+    case default
        write(unit,"(A1,90(A10,6X))")"#",&
             (reg(txtfy(iorb))//"dens_"//reg(txtfy(iorb)),iorb=1,Norb),&
             (reg(txtfy(Norb+iorb))//"docc_"//reg(txtfy(iorb)),iorb=1,Norb),&
@@ -283,7 +285,7 @@ contains
             ((reg(txtfy((5+Norb)*Norb+2+(iorb-1)*Norb+jorb))//"n2_"//reg(txtfy(iorb))//reg(txtfy(jorb)),jorb=1,Norb),iorb=1,Norb),&
             ((reg(txtfy((5+2*Norb)*Norb+2+(ispin-1)*Nspin+iorb))//"z_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin),&
             ((reg(txtfy((6+2*Norb)*Norb+2+Nspin+(ispin-1)*Nspin+iorb))//"sig_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
-    else
+    case ("superc")
        write(unit,"(A1,90(A10,6X))")"#",&
             (reg(txtfy(iorb))//"dens_"//reg(txtfy(iorb)),iorb=1,Norb),&
             (reg(txtfy(Norb+iorb))//"phi_"//reg(txtfy(iorb)),iorb=1,Norb),&
@@ -297,7 +299,7 @@ contains
             ((reg(txtfy((6+Norb)*Norb+2+(iorb-1)*Norb+jorb))//"n2_"//reg(txtfy(iorb))//reg(txtfy(jorb)),jorb=1,Norb),iorb=1,Norb),&
             ((reg(txtfy((6+2*Norb)*Norb+2+(ispin-1)*Nspin+iorb))//"z_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin),&
             ((reg(txtfy((7+2*Norb)*Norb+2+Nspin+(ispin-1)*Nspin+iorb))//"sig_"//reg(txtfy(iorb))//"s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
-    endif
+    end select
     close(unit)
     !
     unit = free_unit()
@@ -325,7 +327,8 @@ contains
        !
        unit = free_unit()
        open(unit,file="observables_all"//reg(ed_file_suffix)//".ed",position='append')
-       if(.not.ed_supercond)then
+       select case(ed_mode)
+       case default
           write(unit,"(90(F15.9,1X))")&
                (dens(iorb),iorb=1,Norb),&
                (docc(iorb),iorb=1,Norb),&
@@ -337,7 +340,7 @@ contains
                ((n2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
                ((zimp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin),&
                ((simp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin)
-       else
+       case ("superc")
           write(unit,"(90(F15.9,1X))")&
                (dens(iorb),iorb=1,Norb),&
                (phisc(iorb),iorb=1,Norb),&
@@ -350,13 +353,14 @@ contains
                ((n2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
                ((zimp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin),&
                ((simp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin)
-       endif
+       end select
        close(unit)    
     endif
     !
     unit = free_unit()
     open(unit,file="observables_last"//reg(ed_file_suffix)//".ed")
-    if(.not.ed_supercond)then
+    select case(ed_mode)
+    case default
        write(unit,"(90(F15.9,1X))")&
             (dens(iorb),iorb=1,Norb),&
             (docc(iorb),iorb=1,Norb),&
@@ -368,7 +372,7 @@ contains
             ((n2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
             ((zimp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin),&
             ((simp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin)
-    else
+    case ("superc")
        write(unit,"(90(F15.9,1X))")&
             (dens(iorb),iorb=1,Norb),&
             (phisc(iorb),iorb=1,Norb),&
@@ -381,7 +385,7 @@ contains
             ((n2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
             ((zimp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin),&
             ((simp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin)
-    endif
+    end select
     close(unit)         
   end subroutine write_observables
 
