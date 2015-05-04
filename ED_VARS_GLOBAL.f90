@@ -26,7 +26,8 @@ MODULE ED_VARS_GLOBAL
   integer                                     :: Nlevels
   integer                                     :: Nhilbert
   integer                                     :: Nsectors
-
+  integer                                     :: Nhel
+  
   !local part of the Hamiltonian
   !INTERNAL USE (accessed thru functions)
   !=========================================================
@@ -43,6 +44,7 @@ MODULE ED_VARS_GLOBAL
   integer,allocatable,dimension(:)            :: getdim
   integer,allocatable,dimension(:)            :: getNup,getNdw
   integer,allocatable,dimension(:)            :: getSz
+  integer,allocatable,dimension(:)            :: getN
   logical,allocatable,dimension(:)            :: twin_mask
 
   !Effective Bath used in the ED code (this is opaque to user)

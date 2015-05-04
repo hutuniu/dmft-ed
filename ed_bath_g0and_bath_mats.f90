@@ -6,15 +6,16 @@
 ! Fdelta_: anomalous
 !+-----------------------------------------------------------------------------+!
 !NORMAL:
-function weiss_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
+function g0and_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
   integer,intent(in)                  :: iorb,jorb,ispin,jspin
   type(effective_bath)                :: dmft_bath_
   complex(8),intent(in)               :: x
   integer                             :: l,m,s,r,k
   complex(8)                          :: det
   complex(8)                          :: fg,delta,ff,fdelta
-  complex(8),dimension(Norb,Norb)     :: fgorb,zeta
+  complex(8),dimension(Norb,Norb)     :: fgorb,zeta,dorb
   complex(8),dimension(2*Norb,2*Norb) :: szeta,sfgorb
+  complex(8),dimension(Nhel,Nhel) :: fghel,dhel
   !
   select case(bath_type)
   case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
@@ -33,6 +34,10 @@ function weiss_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
         det   = abs(fg)**2 + ff**2
         fg    = conjg(fg)/det
         !
+     case ("nonsu2")
+        !
+        stop "G0And_bath_mats error: called with ed_mode=nonsu2, bath_type=normal. THIS IS NOT YET CHECKED"
+        !
      end select
      !
   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
@@ -44,11 +49,8 @@ function weiss_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
            zeta(l,l) = x + xmu
         enddo
         do l=1,Norb
-           !fgorb(l,l) = x + xmu - impHloc(ispin,ispin,l,l) - delta_bath_mats(ispin,ispin,l,l,x,dmft_bath_)
-           do m=1,Norb !m=l+1,Norb
+           do m=1,Norb
               fgorb(l,m) = zeta(l,m) - impHloc(ispin,ispin,l,m) - delta_bath_mats(ispin,ispin,l,m,x,dmft_bath_)
-              ! fgorb(l,m) = -impHloc(ispin,ispin,l,m) - delta_bath_mats(ispin,ispin,l,m,x,dmft_bath_)
-              ! fgorb(m,l) = -impHloc(ispin,ispin,m,l) - delta_bath_mats(ispin,ispin,m,l,x,dmft_bath_)
            enddo
         enddo
         call inv(fgorb)
@@ -71,11 +73,15 @@ function weiss_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
         call inv(sfgorb)
         fg = sfgorb(iorb,jorb)
         !
+     case ("nonsu2")
+        !
+        stop "G0AND_bath_mats error: called with ed_mode=nonsu2, bath_type=hybrid. THIS IS NOT YET CHECKED"
+        !
      end select
   end select
-end function weiss_bath_mats_1
+end function g0and_bath_mats_1
 
-function weiss_bath_mats_2(ispin,jspin,iorb,jorb,x,bath_) result(fg)
+function g0and_bath_mats_2(ispin,jspin,iorb,jorb,x,bath_) result(fg)
   integer,intent(in)    :: iorb,jorb,ispin,jspin
   type(effective_bath)  :: dmft_bath_
   complex(8),intent(in) :: x
@@ -83,14 +89,14 @@ function weiss_bath_mats_2(ispin,jspin,iorb,jorb,x,bath_) result(fg)
   real(8),dimension(:)  :: bath_
   logical               :: check
   check= check_bath_dimension(bath_)
-  if(.not.check)stop "weiss_bath_mats_ error: wrong bath dimensions"
+  if(.not.check)stop "g0and_bath_mats error: wrong bath dimensions"
   call allocate_bath(dmft_bath_)
   call set_bath(bath_,dmft_bath_)
-  fg = weiss_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_)
+  fg = g0and_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_)
   call deallocate_bath(dmft_bath_)
-end function weiss_bath_mats_2
+end function g0and_bath_mats_2
 
-function weiss_bath_mats_3(ispin,jspin,x,dmft_bath_) result(fgorb)
+function g0and_bath_mats_3(ispin,jspin,x,dmft_bath_) result(fgorb)
   integer,intent(in)                  :: ispin,jspin
   type(effective_bath)                :: dmft_bath_
   complex(8),intent(in)               :: x
@@ -157,9 +163,9 @@ function weiss_bath_mats_3(ispin,jspin,x,dmft_bath_) result(fgorb)
         !
      end select
   end select
-end function weiss_bath_mats_3
+end function g0and_bath_mats_3
 
-function weiss_bath_mats_4(ispin,jspin,x,bath_) result(fgorb)
+function g0and_bath_mats_4(ispin,jspin,x,bath_) result(fgorb)
   integer,intent(in)    :: ispin,jspin
   type(effective_bath)  :: dmft_bath_
   complex(8),intent(in) :: x
@@ -168,18 +174,18 @@ function weiss_bath_mats_4(ispin,jspin,x,bath_) result(fgorb)
   logical               :: check
   integer               :: iorb,jorb
   check= check_bath_dimension(bath_)
-  if(.not.check)stop "weiss_bath_mats_ error: wrong bath dimensions"
+  if(.not.check)stop "g0and_bath_mats error: wrong bath dimensions"
   call allocate_bath(dmft_bath_)
   call set_bath(bath_,dmft_bath_)
-  fgorb = weiss_bath_mats_3(ispin,jspin,x,dmft_bath_)
+  fgorb = g0and_bath_mats_3(ispin,jspin,x,dmft_bath_)
   call deallocate_bath(dmft_bath_)
-end function weiss_bath_mats_4
+end function g0and_bath_mats_4
 
 
 
 
 !ANOMALous:
-function fweiss_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
+function f0and_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
   type(effective_bath)                :: dmft_bath_
   complex(8),intent(in)               :: x
   integer,intent(in)                  :: iorb,ispin,jorb,jspin
@@ -193,7 +199,7 @@ function fweiss_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
      !
      select case(ed_mode)
      case default
-        stop "Fweiss_bath_mats error: called with ed_mode=normal, bath_type=normal"
+        stop "F0And_bath_mats error: called with ed_mode=normal, bath_type=normal"
         !
      case ("superc")
         delta = delta_bath_mats(ispin,ispin,iorb,iorb,x,dmft_bath_)
@@ -208,7 +214,7 @@ function fweiss_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
      select case(ed_mode)
      case default
-        stop "Fweiss_bath_mats error: called with ed_mode=normal, bath_type=hybrid"
+        stop "F0And_bath_mats error: called with ed_mode=normal, bath_type=hybrid"
         !
      case ("superc")
         szeta = zero
@@ -229,9 +235,9 @@ function fweiss_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
         !
      end select
   end select
-end function fweiss_bath_mats_1
+end function f0and_bath_mats_1
 
-function fweiss_bath_mats_2(ispin,jspin,iorb,jorb,x,bath_) result(fg)
+function f0and_bath_mats_2(ispin,jspin,iorb,jorb,x,bath_) result(fg)
   type(effective_bath)  :: dmft_bath_
   complex(8),intent(in) :: x
   integer,intent(in)    :: iorb,ispin,jorb,jspin
@@ -239,15 +245,15 @@ function fweiss_bath_mats_2(ispin,jspin,iorb,jorb,x,bath_) result(fg)
   real(8),dimension(:)  :: bath_
   logical               :: check
   check= check_bath_dimension(bath_)
-  if(.not.check)stop "weiss_bath_mats_ error: wrong bath dimensions"
+  if(.not.check)stop "f0and_bath_mats error: wrong bath dimensions"
   call allocate_bath(dmft_bath_)
   call set_bath(bath_,dmft_bath_)
-  fg = fweiss_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_)
+  fg = f0and_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_)
   call deallocate_bath(dmft_bath_)
-end function fweiss_bath_mats_2
+end function f0and_bath_mats_2
 
 
-function fweiss_bath_mats_3(ispin,jspin,x,dmft_bath_) result(fgorb)
+function f0and_bath_mats_3(ispin,jspin,x,dmft_bath_) result(fgorb)
   type(effective_bath)                :: dmft_bath_
   complex(8),intent(in)               :: x
   integer,intent(in)                  :: ispin,jspin
@@ -264,7 +270,7 @@ function fweiss_bath_mats_3(ispin,jspin,x,dmft_bath_) result(fgorb)
      !
      select case(ed_mode)
      case default
-        stop "Fweiss_bath_mats error: called with ed_mode=normal, bath_type=normal"
+        stop "F0And_bath_mats error: called with ed_mode=normal, bath_type=normal"
         !
      case ("superc")
         do iorb=1,Norb
@@ -281,7 +287,7 @@ function fweiss_bath_mats_3(ispin,jspin,x,dmft_bath_) result(fgorb)
   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
      select case(ed_mode)
      case default
-        stop "Fweiss_bath_mats error: called with ed_mode=normal, bath_type=hybrid"
+        stop "F0And_bath_mats error: called with ed_mode=normal, bath_type=hybrid"
         !
      case ("superc")
         szeta = zero
@@ -302,9 +308,9 @@ function fweiss_bath_mats_3(ispin,jspin,x,dmft_bath_) result(fgorb)
         !
      end select
   end select
-end function fweiss_bath_mats_3
+end function f0and_bath_mats_3
 
-function fweiss_bath_mats_4(ispin,jspin,x,bath_) result(fgorb)
+function f0and_bath_mats_4(ispin,jspin,x,bath_) result(fgorb)
   type(effective_bath)  :: dmft_bath_
   complex(8),intent(in) :: x
   integer,intent(in)    :: ispin,jspin
@@ -313,9 +319,9 @@ function fweiss_bath_mats_4(ispin,jspin,x,bath_) result(fgorb)
   logical               :: check
   integer               :: iorb,jorb
   check= check_bath_dimension(bath_)
-  if(.not.check)stop "weiss_bath_mats_ error: wrong bath dimensions"
+  if(.not.check)stop "f0and_bath_mats_ error: wrong bath dimensions"
   call allocate_bath(dmft_bath_)
   call set_bath(bath_,dmft_bath_)
-  fgorb = fweiss_bath_mats_3(ispin,jspin,x,dmft_bath_)
+  fgorb = f0and_bath_mats_3(ispin,jspin,x,dmft_bath_)
   call deallocate_bath(dmft_bath_)
-end function fweiss_bath_mats_4
+end function f0and_bath_mats_4

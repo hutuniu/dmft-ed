@@ -7,13 +7,16 @@
 !+-----------------------------------------------------------------------------+!
 !NORMAL:
 function delta_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
-  integer,intent(in)                      :: iorb,jorb,ispin,jspin
-  type(effective_bath)                    :: dmft_bath_
-  integer                                 :: i,j,l,k
-  complex(8),intent(in)                   :: x
-  complex(8)                              :: fg
-  real(8),dimension(Nbath)                :: eps,dps,vps,den
-  real(8),dimension(Norb,Nbath)           :: vops
+  integer,intent(in)                        :: iorb,jorb,ispin,jspin
+  type(effective_bath)                      :: dmft_bath_
+  integer                                   :: ih,k
+  complex(8),intent(in)                     :: x
+  complex(8)                                :: fg
+  real(8),dimension(Nbath)                  :: eps,dps,vps,den
+  real(8),dimension(Norb,Nbath)             :: vops
+  real(8),dimension(Nspin,Nbath)            :: hps
+  real(8),dimension(Nspin,Nspin,Nbath)      :: wps
+  real(8),dimension(Nspin,Nspin,Norb,Nbath) :: wops
   select case(bath_type)
   case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
      !
@@ -33,6 +36,18 @@ function delta_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
         !\Delta_{aa} = - \sum_k [ V_{a}(k) * V_{a}(k) * (iw_n + E_{a}(k)) / Den(k) ]
         fg = -sum( vps(:)*vps(:)*(x + eps(:))/den(:) )
         !
+        !
+     case ("nonsu2")
+        !we assume that the %e and %w are correctly popolated in this channel
+        hps = dmft_bath_%e(1:Nspin,iorb,1:Nbath)
+        wps = dmft_bath_%w(1:Nspin,1:Nspin,iorb,1:Nbath)
+        !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(iw_n - H_{a}^{h}(k))]
+        fg = zero
+        do ih=1,Nspin
+           fg = fg + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x - hps(ih,:)) )
+        enddo
+        !
+        !
      end select
      !
   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
@@ -45,13 +60,24 @@ function delta_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
         fg = sum( vops(iorb,:)*vops(jorb,:)/(x - eps(:)) )
         !
      case ("superc")
-        eps  = dmft_bath_%e(ispin,1      ,1:Nbath)
-        dps  = dmft_bath_%d(ispin,1      ,1:Nbath)
+        eps  = dmft_bath_%e(ispin,1     ,1:Nbath)
+        dps  = dmft_bath_%d(ispin,1     ,1:Nbath)
         vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
         ! Den(k) = (w_n**2 + E(k)**2 + \D(k)**2
         forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2
         !\Delta_{ab} = - \sum_k [ V_{a}(k) * V_{b}(k) * (iw_n + E(k)) / Den(k) ]
         fg = -sum( vops(iorb,:)*vops(jorb,:)*(x + eps(:))/den(:) )
+        !
+        !
+     case ("nonsu2")
+        !we assume that the %e and %w are correctly popolated in this channel
+        hps  = dmft_bath_%e(        1:Nspin,1     ,1:Nbath)
+        wops = dmft_bath_%w(1:Nspin,1:Nspin,1:Norb,1:Nbath)
+        !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(iw_n - H^{h}(k))]
+        fg = zero
+        do ih=1,Nspin
+           fg = fg + sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x - hps(ih,:))
+        enddo
         !
      end select
      !
@@ -116,6 +142,9 @@ function fdelta_bath_mats_1(ispin,jspin,iorb,jorb,x,dmft_bath_) result(fg)
         forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2
         !\FDelta_{ab} = - \sum_k [ \Delta(k) * V_{a}(k) * V_{b}(k) / Den(k) ]
         fg = -sum( dps(:)*vops(iorb,:)*vops(jorb,:)/den(:) )
+        !
+     case ("nonsu2")
+        stop "Fdelta_bath_mats error: called with ed_mode=nonsu2, bath_type=hybrid"
         !
      end select
   end select

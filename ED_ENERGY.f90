@@ -131,6 +131,27 @@ contains
                 endif
              enddo
           enddo
+          !==> HYBRIDIZATION TERMS II: same or different orbitals, opposite spins.
+          if(ed_mode=="nonsu2")then
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !UP-DW
+                   if((impHloc(1,Nspin,iorb,jorb)/=zero).AND.(ib(iorb)==0).AND.(ib(jorb+Ns)==1))then
+                      call c(jorb+Ns,m,k1,sg1)
+                      call cdg(iorb,k1,k2,sg2)
+                      j=binary_search(Hmap,k2)
+                      ed_Eknot = ed_Eknot + impHloc(1,Nspin,iorb,jorb)*sg1*sg2*gs_weight
+                   endif
+                   !DW-UP
+                   if((impHloc(Nspin,1,iorb,jorb)/=zero).AND.(ivec(iorb+Ns)==0).AND.(ivec(jorb)==1))then
+                      call c(jorb,m,k1,sg1)
+                      call cdg(iorb+Ns,k1,k2,sg2)
+                      j=binary_search(Hmap,k2)
+                      ed_Eknot = ed_Eknot + impHloc(Nspin,1,iorb,jorb)*sg1*sg2*gs_weight
+                   endif
+                enddo
+             enddo
+          endif
           !
           !DENSITY-DENSITY INTERACTION: SAME ORBITAL, OPPOSITE SPINS
           !Euloc=\sum=i U_i*(n_u*n_d)_i
@@ -248,12 +269,6 @@ contains
     call write_energy_info()
     call write_energy()
   end subroutine local_energy_impurity
-
-
-
-
-
-
 
 
 

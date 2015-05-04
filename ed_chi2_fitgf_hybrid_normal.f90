@@ -170,11 +170,6 @@ contains
     do i=1,Ldelta
        w=Xdelta(i)
        if(cg_scheme=='weiss')then
-          ! do l=1,Norb
-          !    do m=1,Norb
-          !       gwf(l,m) = weiss_bath_mats(ispin,ispin,l,m,xi*w,dmft_bath)
-          !    enddo
-          ! enddo
           gwf = weiss_bath_mats(ispin,ispin,xi*w,dmft_bath)
        else
           do l=1,Norb

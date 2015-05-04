@@ -86,7 +86,7 @@ subroutine lanc_build_gf_normal_d(iorb,ispin)
      idim  = getdim(isector)
      allocate(HImap(idim))
      call build_sector(isector,HImap)
-
+     !
      !ADD ONE PARTICLE:
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
