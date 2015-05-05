@@ -170,12 +170,7 @@ contains
     do i=1,Ldelta
        w=Xdelta(i)
        if(cg_scheme=='weiss')then
-          ! do l=1,Norb
-          !    do m=1,Norb
-          !       gwf(l,m) = weiss_bath_mats(ispin,ispin,l,m,xi*w,dmft_bath)
-          !    enddo
-          ! enddo
-          gwf = weiss_bath_mats(ispin,ispin,xi*w,dmft_bath)
+          gwf = g0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
        else
           do l=1,Norb
              do m=1,Norb
@@ -285,7 +280,7 @@ function chi2_weiss_hybrid_normal(a) result(chi2)
   call chi2_bath2dmft_bath(a,chi2_bath,ispin)
   do i=1,Ldelta
      w    = Xdelta(i)
-     fgorb(:,:,i) = weiss_bath_mats(ispin,ispin,xi*w,chi2_bath)
+     fgorb(:,:,i) = g0and_bath_mats(ispin,ispin,xi*w,chi2_bath)
   enddo
   do l=1,totNorb
      iorb=getIorb(l)

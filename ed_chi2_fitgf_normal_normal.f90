@@ -165,7 +165,7 @@ contains
        do i=1,Ldelta
           w = Xdelta(i)
           if(cg_scheme=='weiss')then
-             fgand = weiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
+             fgand = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
           else
              fgand = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
           endif
@@ -252,7 +252,7 @@ function chi2_weiss_normal_normal(a) result(chi2)
   call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
   do i=1,Ldelta
      w      = Xdelta(i)
-     g0(i)  = weiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
+     g0(i)  = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
   enddo
   !
   chi2=sum(abs(Gdelta(1,:)-g0(:))**2/Wdelta(:))

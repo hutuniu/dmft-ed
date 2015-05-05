@@ -175,12 +175,8 @@ contains
     do i=1,Ldelta
        w=Xdelta(i)
        if(cg_scheme=='weiss')then
-          do l=1,Norb
-             do m=1,Norb
-                gwf(1,l,m) = weiss_bath_mats(ispin,ispin,l,m,xi*w,dmft_bath)
-                gwf(2,l,m) = fweiss_bath_mats(ispin,ispin,l,m,xi*w,dmft_bath)
-             enddo
-          enddo
+          gwf(1,:,:) = g0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
+          gwf(2,:,:) = f0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
        else
           do l=1,Norb
              do m=1,Norb
@@ -303,8 +299,8 @@ function chi2_weiss_hybrid_superc(a) result(chi2)
   call chi2_bath2dmft_bath(a,chi2_bath,ispin)
   do i=1,Ldelta
      w   = Xdelta(i)
-     g0(1,:,:,i)  = weiss_bath_mats(ispin,ispin,xi*w,chi2_bath)
-     g0(2,:,:,i)  = fweiss_bath_mats(ispin,ispin,xi*w,chi2_bath)
+     g0(1,:,:,i)  = g0and_bath_mats(ispin,ispin,xi*w,chi2_bath)
+     g0(2,:,:,i)  = f0and_bath_mats(ispin,ispin,xi*w,chi2_bath)
   enddo
   do l=1,totNorb
      iorb=getIorb(l)

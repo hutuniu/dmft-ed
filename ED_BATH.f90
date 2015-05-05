@@ -41,14 +41,22 @@ MODULE ED_BATH
   !\Delta hybridization function Matsubara
   !NORMAL
   interface delta_bath_mats
-     module procedure delta_bath_mats_1
-     module procedure delta_bath_mats_2
+     module procedure delta_bath_mats_main
+     module procedure delta_bath_mats_ispin_jspin
+     module procedure delta_bath_mats_ispin_jspin_iorb_jorb
+     module procedure delta_bath_mats_main_
+     module procedure delta_bath_mats_ispin_jspin_
+     module procedure delta_bath_mats_ispin_jspin_iorb_jorb_
   end interface delta_bath_mats
   !
   !ANOMALOUS
   interface fdelta_bath_mats
-     module procedure fdelta_bath_mats_1
-     module procedure fdelta_bath_mats_2
+     module procedure fdelta_bath_mats_main
+     module procedure fdelta_bath_mats_ispin_jspin
+     module procedure fdelta_bath_mats_ispin_jspin_iorb_jorb
+     module procedure fdelta_bath_mats_main_
+     module procedure fdelta_bath_mats_ispin_jspin_
+     module procedure fdelta_bath_mats_ispin_jspin_iorb_jorb_
   end interface fdelta_bath_mats
   !
   public :: delta_bath_mats
@@ -58,57 +66,162 @@ MODULE ED_BATH
   !\Nabla\Delta NORMAL hybridization function gradient Matsubara
   !NORMAL
   interface grad_delta_bath_mats
-     module procedure grad_delta_bath_mats_1
-     module procedure grad_delta_bath_mats_2
+     module procedure grad_delta_bath_mats_main
+     module procedure grad_delta_bath_mats_ispin_jspin
+     module procedure grad_delta_bath_mats_ispin_jspin_iorb_jorb
+     module procedure grad_delta_bath_mats_main_
+     module procedure grad_delta_bath_mats_ispin_jspin_
+     module procedure grad_delta_bath_mats_ispin_jspin_iorb_jorb_
   end interface grad_delta_bath_mats
   !
   !ANOMALOUS
   interface grad_fdelta_bath_mats
-     module procedure grad_fdelta_bath_mats_1
-     module procedure grad_fdelta_bath_mats_2
+     module procedure grad_fdelta_bath_mats_main
+     module procedure grad_fdelta_bath_mats_ispin_jspin
+     module procedure grad_fdelta_bath_mats_ispin_jspin_iorb_jorb
+     module procedure grad_fdelta_bath_mats_main_
+     module procedure grad_fdelta_bath_mats_ispin_jspin_
+     module procedure grad_fdelta_bath_mats_ispin_jspin_iorb_jorb_
   end interface grad_fdelta_bath_mats
   !
   public :: grad_delta_bath_mats
   public :: grad_fdelta_bath_mats
 
 
-  !Weiss non-interacting Green's function Matsubara
-  !NORMAL
-  interface weiss_bath_mats
-     module procedure weiss_bath_mats_1
-     module procedure weiss_bath_mats_2
-     module procedure weiss_bath_mats_3
-     module procedure weiss_bath_mats_4
-  end interface weiss_bath_mats
-  !
-  !ANOMALOUS
-  interface fweiss_bath_mats
-     module procedure fweiss_bath_mats_1
-     module procedure fweiss_bath_mats_2
-     module procedure fweiss_bath_mats_3
-     module procedure fweiss_bath_mats_4
-  end interface fweiss_bath_mats
-  !
-  public :: weiss_bath_mats
-  public :: fweiss_bath_mats
 
 
   !\Delta hybridization function Real
   !NORMAL
   interface delta_bath_real
-     module procedure delta_bath_real_1
-     module procedure delta_bath_real_2
+     module procedure delta_bath_real_main
+     module procedure delta_bath_real_ispin_jspin
+     module procedure delta_bath_real_ispin_jspin_iorb_jorb
+     module procedure delta_bath_real_main_
+     module procedure delta_bath_real_ispin_jspin_
+     module procedure delta_bath_real_ispin_jspin_iorb_jorb_
   end interface delta_bath_real
   !
   !ANOMALOUS
   interface fdelta_bath_real
-     module procedure fdelta_bath_real_1
-     module procedure fdelta_bath_real_2
+     module procedure fdelta_bath_real_main
+     module procedure fdelta_bath_real_ispin_jspin
+     module procedure fdelta_bath_real_ispin_jspin_iorb_jorb
+     module procedure fdelta_bath_real_main_
+     module procedure fdelta_bath_real_ispin_jspin_
+     module procedure fdelta_bath_real_ispin_jspin_iorb_jorb_
   end interface fdelta_bath_real
   !
   public :: delta_bath_real
   public :: fdelta_bath_real
 
+
+
+
+  !Non-interacting Green's function Matsubara
+  !NORMAL
+  interface g0and_bath_mats
+     module procedure g0and_bath_mats_main
+     module procedure g0and_bath_mats_ispin_jspin
+     module procedure g0and_bath_mats_ispin_jspin_iorb_jorb
+     module procedure g0and_bath_mats_main_
+     module procedure g0and_bath_mats_ispin_jspin_
+     module procedure g0and_bath_mats_ispin_jspin_iorb_jorb_
+  end interface g0and_bath_mats
+  !
+  !ANOMALOUS
+  interface f0and_bath_mats
+     module procedure f0and_bath_mats_main
+     module procedure f0and_bath_mats_ispin_jspin
+     module procedure f0and_bath_mats_ispin_jspin_iorb_jorb
+     module procedure f0and_bath_mats_main_
+     module procedure f0and_bath_mats_ispin_jspin_
+     module procedure f0and_bath_mats_ispin_jspin_iorb_jorb_
+  end interface f0and_bath_mats
+  !
+  public :: g0and_bath_mats
+  public :: f0and_bath_mats
+
+
+
+
+  !Inverse Non-interacting Green's function Matsubara
+  !NORMAL
+  interface invg0_bath_mats
+     module procedure invg0_bath_mats_main
+     module procedure invg0_bath_mats_ispin_jspin
+     module procedure invg0_bath_mats_ispin_jspin_iorb_jorb
+     module procedure invg0_bath_mats_main_
+     module procedure invg0_bath_mats_ispin_jspin_
+     module procedure invg0_bath_mats_ispin_jspin_iorb_jorb_
+  end interface invg0_bath_mats
+  !
+  !ANOMALOUS
+  interface invf0_bath_mats
+     module procedure invf0_bath_mats_main
+     module procedure invf0_bath_mats_ispin_jspin
+     module procedure invf0_bath_mats_ispin_jspin_iorb_jorb
+     module procedure invf0_bath_mats_main_
+     module procedure invf0_bath_mats_ispin_jspin_
+     module procedure invf0_bath_mats_ispin_jspin_iorb_jorb_
+  end interface invf0_bath_mats
+  !
+  public :: invg0_bath_mats
+  public :: invf0_bath_mats
+
+
+
+
+
+  !Non-interacting Green's function Real-axis
+  !NORMAL
+  interface g0and_bath_real
+     module procedure g0and_bath_real_main
+     module procedure g0and_bath_real_ispin_jspin
+     module procedure g0and_bath_real_ispin_jspin_iorb_jorb
+     module procedure g0and_bath_real_main_
+     module procedure g0and_bath_real_ispin_jspin_
+     module procedure g0and_bath_real_ispin_jspin_iorb_jorb_
+  end interface g0and_bath_real
+  !
+  !ANOMALOUS
+  interface f0and_bath_real
+     module procedure f0and_bath_real_main
+     module procedure f0and_bath_real_ispin_jspin
+     module procedure f0and_bath_real_ispin_jspin_iorb_jorb
+     module procedure f0and_bath_real_main_
+     module procedure f0and_bath_real_ispin_jspin_
+     module procedure f0and_bath_real_ispin_jspin_iorb_jorb_
+  end interface f0and_bath_real
+  !
+  public :: g0and_bath_real
+  public :: f0and_bath_real
+
+
+
+
+  !Inverse Non-interacting Green's function Real-axis
+  !NORMAL
+  interface invg0_bath_real
+     module procedure invg0_bath_real_main
+     module procedure invg0_bath_real_ispin_jspin
+     module procedure invg0_bath_real_ispin_jspin_iorb_jorb
+     module procedure invg0_bath_real_main_
+     module procedure invg0_bath_real_ispin_jspin_
+     module procedure invg0_bath_real_ispin_jspin_iorb_jorb_
+  end interface invg0_bath_real
+  !
+  !ANOMALOUS
+  interface invf0_bath_real
+     module procedure invf0_bath_real_main
+     module procedure invf0_bath_real_ispin_jspin
+     module procedure invf0_bath_real_ispin_jspin_iorb_jorb
+     module procedure invf0_bath_real_main_
+     module procedure invf0_bath_real_ispin_jspin_
+     module procedure invf0_bath_real_ispin_jspin_iorb_jorb_
+  end interface invf0_bath_real
+  !
+  public :: invg0_bath_real
+  public :: invf0_bath_real
 
 
 
@@ -1144,8 +1257,37 @@ contains
   ! OR
   ! real(8),dimension(:) :: bath_array
   !+-------------------------------------------------------------------+
-  ! WEISS_BATH_MATS:
-  include "ed_bath_weiss_bath_mats.f90"
+  ! G0and_BATH_MATS:
+  include "ed_bath_g0and_bath_mats.f90"
 
+
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : compute the inverse G0 function at a point x from
+  ! type(effective_bath) :: dmft_bath
+  ! OR
+  ! real(8),dimension(:) :: bath_array
+  !+-------------------------------------------------------------------+
+  ! invG0_BATH_MATS:
+  include "ed_bath_invg0_bath_mats.f90"
+
+
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : compute the G0 function at a point x from
+  ! type(effective_bath) :: dmft_bath
+  ! OR
+  ! real(8),dimension(:) :: bath_array
+  !+-------------------------------------------------------------------+
+  ! G0and_BATH_REAL:
+  include "ed_bath_g0and_bath_real.f90"
+
+
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : compute the inverse G0 function at a point x from
+  ! type(effective_bath) :: dmft_bath
+  ! OR
+  ! real(8),dimension(:) :: bath_array
+  !+-------------------------------------------------------------------+
+  ! invG0_BATH_REAL:
+  include "ed_bath_invg0_bath_real.f90"
 
 END MODULE ED_BATH

@@ -167,8 +167,8 @@ contains
        do i=1,Ldelta
           w = Xdelta(i)
           if(cg_scheme=='weiss')then
-             fgand(1) = weiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-             fgand(2) = fweiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
+             fgand(1) = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
+             fgand(2) = f0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
           else
              fgand(1) = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
              fgand(2) = fdelta_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
@@ -256,8 +256,8 @@ function chi2_weiss_normal_superc(a) result(chi2)
   call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
   do i=1,Ldelta
      w   = Xdelta(i)
-     g0(1,i)  = weiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
-     g0(2,i)  = fweiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
+     g0(1,i)  = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
+     g0(2,i)  = f0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
   enddo
   !
   chi2 = sum(abs(Gdelta(1,:)-g0(1,:))**2/Wdelta(:)) 
