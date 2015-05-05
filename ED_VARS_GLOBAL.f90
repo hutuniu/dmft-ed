@@ -26,8 +26,7 @@ MODULE ED_VARS_GLOBAL
   integer                                     :: Nlevels
   integer                                     :: Nhilbert
   integer                                     :: Nsectors
-  integer                                     :: Nhel
-  
+
   !local part of the Hamiltonian
   !INTERNAL USE (accessed thru functions)
   !=========================================================

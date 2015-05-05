@@ -92,7 +92,6 @@ contains
     case("nonsu2")
        Nsectors = Nlevels+1        !n=0:2*Ns=2*Ns+1=Nlevels+1
        dim_sector_max=get_nonsu2_sector_dimension(Ns)
-       if(Nhel/=2)stop "init_ed_structure error: Nhel!=2 in ed_mode=nonsu2"
     end select
     !
     if(ED_MPI_ID==0)then
@@ -209,7 +208,7 @@ contains
     if(nread/=0.d0)then
        i=abs(floor(log10(abs(nerr)))) !modulus of the order of magnitude of nerror
        niter=nloop/3
-       !nloop=(i-1)*niter            !increase the max number of dmft loop allowed so to do threshold loop
+       !nloop=(i-1)*niter                !increase the max number of dmft loop allowed so to do threshold loop
        !write(LOGfile,"(A,I10)")"Increased Nloop to:",nloop
     endif
     if(Nspin>1.AND.ed_twin.eqv..true.)then

@@ -160,7 +160,6 @@ contains
     call substring_delete(Hfile,".restart")
     call substring_delete(Hfile,".ed")
     Ltau=max(int(beta),Ltau)
-    Nhel=1 ; if(ed_mode=="nonsu2")Nhel=2
     !
     if(ED_MPI_ID==0)call save_input_file(INPUTunit)
     !
