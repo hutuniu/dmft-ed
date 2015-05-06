@@ -12,7 +12,9 @@
     USE DMFT_VECTORS
  !   USE SQUARE_LATTICE
     !
-    USE MPI
+#ifdef _MPI_INEQ
+  USE MPI
+#endif
     implicit none
     !
     complex(8),allocatable,dimension(:,:) :: Smats,Sreal !self_energies
@@ -77,7 +79,7 @@
     integer,dimension(:),allocatable      :: ik2ix,ik2iy
     integer,dimension(:,:),allocatable    :: kindex
     real(8)                               :: peso,kx,ky
-    !type(vect2D),dimension(:,:),allocatable :: kgrid
+    real(8),dimension(:),allocatable      :: kxgrid,kygrid
     !>
     
     !<DEBUG 
@@ -92,15 +94,14 @@
     !>DEBUG
 
 
-
-    !+---------+!
+#ifdef _MPI_INEQ
     ! START MPI !
-    !+---------+!
     call MPI_INIT(mpiERR)
     call MPI_COMM_RANK(MPI_COMM_WORLD,mpiID,mpiERR)
     call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
     write(*,"(A,I4,A,I4,A)")'Processor ',mpiID,' of ',mpiSIZE,' is alive'
     call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+#endif
 
     !+--------------------+!
     ! READ INPUT VARIABLES !
@@ -127,64 +128,67 @@
     !+-----------------------------+!
     Nlat = Nside
     !
-    !< OLD SQUARE LATTICE ROUTINES
-    ! Lk   = square_lattice_dimension(Nx)
+    
+    ! Nk = Nx/2+1
+    ! Lk = Nk*(Nk+1)/2    
+    ! ai=1.d0*Xver       ; aj=1.d0*Yver
+    ! bi=(pi2/1.d0)*Xver ; bj=(pi2/1.d0)*Yver    
     ! allocate(epsik(Lk),wt(Lk),kVect(Lk),hk_symm(Lk))
-    ! wt   = square_lattice_structure(Lk,Nx)
-    ! epsik= square_lattice_dispersion_array(Lk,ts)
-    ! call get_free_dos(epsik,wt)
+    ! allocate(kindex(0:Nk,0:Nk))
+    ! allocate(ik2ix(Lk),ik2iy(Lk))    
+    ! ik=0
+    ! do ix=0,Nx/2
+    !    do iy=0,ix          
+    !       ik=ik+1
+    !       Kx=dble(ix)/dble(Nx)
+    !       Ky=dble(iy)/dble(Nx)
+    !       ik2ix(ik)=ix
+    !       ik2iy(ik)=iy
+    !       kVect(ik)=Kx*bi + Ky*bj - pi*Vone 
+    !       kindex(ix,iy)=ik
+    !       if (ix==0) then
+    !          peso=1.d0       !center
+    !       elseif(ix==Nx/2) then
+    !          if (iy==0) then
+    !             peso=2.d0    ! point (pi,0)
+    !          elseif(iy==Nx/2) then 
+    !             peso=1.d0    ! corner 
+    !          else
+    !             peso=4.d0    ! border
+    !          endif
+    !       else
+    !          if (iy==ix) then
+    !             peso=4.d0    ! diagonal
+    !          elseif (iy==0) then
+    !             peso=4.d0    ! x-axis
+    !          else
+    !             peso=8.d0    ! all other points
+    !          endif
+    !       endif
+    !       wt(ik)=peso/dble(Nx**2)
+    !    enddo
+    ! enddo    
     ! do ik=1,Lk
     !    ix=ik2ix(ik)
     !    iy=ik2iy(ik)
-    !    kVect(ik) = sl_kgrid(ix,iy)
-    ! end do
-    !>
-
-    Nk = Nx/2+1
-    Lk = Nk*(Nk+1)/2    
-    ai=1.d0*Xver       ; aj=1.d0*Yver
-    bi=(pi2/1.d0)*Xver ; bj=(pi2/1.d0)*Yver    
+    !    epsik(ik)=-2*ts*( dcos(kVect(ik)%x) + dcos(kVect(ik)%y) )
+    ! enddo
+    
+    allocate(kxgrid(Nx),kygrid(Nx))
+    kxgrid = linspace(0.d0,pi,Nx)
+    kygrid = linspace(0.d0,pi,Nx)
+    Lk = Nx*Nx
     allocate(epsik(Lk),wt(Lk),kVect(Lk),hk_symm(Lk))
-    allocate(kindex(0:Nk,0:Nk))
-    allocate(ik2ix(Lk),ik2iy(Lk))    
+    wt = 1.d0/dble(Lk)    
     ik=0
-    do ix=0,Nx/2
-       do iy=0,ix          
-          ik=ik+1
-          Kx=dble(ix)/dble(Nx)
-          Ky=dble(iy)/dble(Nx)
-          ik2ix(ik)=ix
-          ik2iy(ik)=iy
-          kVect(ik)=Kx*bi + Ky*bj - pi*Vone 
-          kindex(ix,iy)=ik
-          if (ix==0) then
-             peso=1.d0       !center
-          elseif(ix==Nx/2) then
-             if (iy==0) then
-                peso=2.d0    ! point (pi,0)
-             elseif(iy==Nx/2) then 
-                peso=1.d0    ! corner 
-             else
-                peso=4.d0    ! border
-             endif
-          else
-             if (iy==ix) then
-                peso=4.d0    ! diagonal
-             elseif (iy==0) then
-                peso=4.d0    ! x-axis
-             else
-                peso=8.d0    ! all other points
-             endif
-          endif
-          wt(ik)=peso/dble(Nx**2)
-       enddo
-    enddo    
-    do ik=1,Lk
-       ix=ik2ix(ik)
-       iy=ik2iy(ik)
-       epsik(ik)=-2*ts*( dcos(kVect(ik)%x) + dcos(kVect(ik)%y) )
-    enddo
-    call get_free_dos(epsik,wt)
+    do ix=1,Nx
+       do iy=1,Nx
+          ik = ik + 1
+          epsik(ik) = -2*ts*( dcos(kxgrid(ix)) + dcos(kygrid(iy)) )
+       end do
+    end do
+    
+    call get_free_dos(epsik,wt)    
     Nkz=20
     allocate(epsik_embedd(Nkz))
     kz=0.d0
@@ -455,7 +459,9 @@
           ! check convergence
           docc_check_=sum(dsite_,2)
           if(mpiID==0) converged = check_convergence_local(docc_check_,dmft_error,Nsuccess,nloop,id=0,file="error.err")
+#ifdef _MPI_INEQ
           call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
+#endif
           ! Reshuffle baths to full slab and compute quantities at convergency
           if(converged) then            
              allocate(tmpBath(Nb(1),Nb(2)))
@@ -536,8 +542,10 @@
           if(mpiID==0) then
              if(nread/=0.d0) call search_chemical_potential(xmu,ncheck,converged)
           end if
+#ifdef _MPI_INEQ
           call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
           call MPI_BCAST(xmu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpiERR)
+#endif
           xmu=wmixing*xmu + (1.d0-wmixing)*xmu_
        end if
        call print_out_mb(converged)
