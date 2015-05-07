@@ -10,23 +10,7 @@ program ed_stripe
 #ifdef _MPI_INEQ
   USE MPI
 #endif
-  ! USE RDMFT
-  ! USE RANDOM,    only:nrand,init_random_number
-  ! USE ERROR
-  ! USE TOOLS
-  ! USE IOTOOLS
-  ! USE ARRAYS
-  ! USE STATISTICS
-  ! USE SQUARE_LATTICE
-  ! USE DMFT_ED
   implicit none
-  ! complex(8),allocatable,dimension(:,:,:) :: Smats,Sreal !self_energies  !(2,Nsites,Nspin,Nspin,Norb,Norb,Lmats) 
-  ! complex(8),allocatable,dimension(:,:,:) :: Smats_,Sreal_ !self_energies
-  ! !WARNING:  in get_sigma separate normal and anomalous components !!!
-  ! complex(8),allocatable,dimension(:,:,:) :: Gmats,Greal !local green's functions  ! Gmats(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats) 
-  ! complex(8),allocatable,dimension(:,:,:) :: Gmats_,Greal_ !local green's functions
-  ! complex(8),allocatable,dimension(:,:,:) :: Delta          !(2,size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
-  ! complex(8),allocatable,dimension(:,:,:) :: Delta_      
   complex(8),allocatable                :: Hloc(:,:,:,:,:)       ![Nlat][Nspin][Nspin][Norb][Norb]
   complex(8),allocatable                :: Hloc_(:,:,:,:,:)      ![Nindep][Nspin][Nspin][Norb][Norb]
 
@@ -35,24 +19,20 @@ program ed_stripe
   complex(8),allocatable                :: Gmats(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
   complex(8),allocatable                :: Greal(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
   complex(8),allocatable                :: Delta(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-
+  
   complex(8),allocatable                :: Smats_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
   complex(8),allocatable                :: Sreal_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lreal]
   complex(8),allocatable                :: Gmats_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
   complex(8),allocatable                :: Greal_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lreal]
   complex(8),allocatable                :: Delta_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
-
-
   !<DEBUG
-  complex(8),allocatable,dimension(:,:,:) :: Gmats_1b          !(2,Nlat,Lmats)
-  complex(8),allocatable,dimension(:,:,:) :: Gmats_1b_         !(2,Nindep,Lmats)         
-  complex(8),allocatable,dimension(:,:,:) :: Smats_1b          !(2,Nlat,Lmats)
-  complex(8),allocatable,dimension(:,:,:) :: Smats_1b_         !(2,Nindep,Lmats)         
-  complex(8),allocatable,dimension(:,:,:) :: Delta_1b          !(2,Nlat,Lmats)
-  complex(8),allocatable,dimension(:,:,:) :: Delta_1b_         !(2,Nindep,Lmats)       
+  ! complex(8),allocatable,dimension(:,:,:) :: Gmats_1b          !(2,Nlat,Lmats)
+  ! complex(8),allocatable,dimension(:,:,:) :: Gmats_1b_         !(2,Nindep,Lmats)         
+  ! complex(8),allocatable,dimension(:,:,:) :: Smats_1b          !(2,Nlat,Lmats)
+  ! complex(8),allocatable,dimension(:,:,:) :: Smats_1b_         !(2,Nindep,Lmats)         
+  ! complex(8),allocatable,dimension(:,:,:) :: Delta_1b          !(2,Nlat,Lmats)
+  ! complex(8),allocatable,dimension(:,:,:) :: Delta_1b_         !(2,Nindep,Lmats)       
   !DEBUG>
-
-
 
   real(8),allocatable,dimension(:,:,:)    :: bath,bath_old
   real(8),allocatable,dimension(:,:,:)    :: bath_,bath_old_
@@ -106,7 +86,6 @@ program ed_stripe
   call parse_input_variable(pbc_col,"PBC_COL","inputRDMFT.in",default=.false.)
   call parse_input_variable(symmetry_flag,"REFLECTION_SYMM","inputRDMFT.in",default=.true.,comment='Set lattice reflection symmetry')  
   !
-  !call rdmft_read_input("inputRDMFT.in")
   call ed_read_input("inputRDMFT.in")
   call set_store_size(1024)
 
@@ -178,9 +157,9 @@ program ed_stripe
   allocate(Delta(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
 
   !<DEBUG
-  allocate(Gmats_1b(2,Nlat,Lmats))
-  allocate(Smats_1b(2,Nlat,Lmats))
-  allocate(Delta_1b(2,Nlat,Lmats))
+  ! allocate(Gmats_1b(2,Nlat,Lmats))
+  ! allocate(Smats_1b(2,Nlat,Lmats))
+  ! allocate(Delta_1b(2,Nlat,Lmats))
   !DEBUG>
 
 
@@ -211,9 +190,9 @@ program ed_stripe
      allocate(Delta_(2,Nindep,Nspin,Nspin,Norb,Norb,Lmats))
 
      !<DEBUG
-     allocate(Gmats_1b_(2,Nindep,Lmats))
-     allocate(Smats_1b_(2,Nindep,Lmats))
-     allocate(Delta_1b_(2,Nindep,Lmats))
+     ! allocate(Gmats_1b_(2,Nindep,Lmats))
+     ! allocate(Smats_1b_(2,Nindep,Lmats))
+     ! allocate(Delta_1b_(2,Nindep,Lmats))
      !DEBUG>
 
      do i_ind=1,Nindep
@@ -241,7 +220,6 @@ program ed_stripe
            enddo
         endif
         bath_old_=bath_
-        !call ed_solve_impurity(bath_,Smats_,Sreal_,nii_,dii_,pii_,eii_,usite=usite)
         call ed_solve_lattice(bath_,Hloc_,Uloc_ii=Usite)
         nii_ = ed_get_dens_lattice(Nindep,1)
         dii_ = ed_get_docc_lattice(Nindep,1)
@@ -262,113 +240,35 @@ program ed_stripe
            eii(ilat) = eii_(i_ind)
         end do
         !
-        !call rdmft_get_gloc(Hk,wt,Gmats,Greal,Smats,Sreal,hk_symm=hk_symm)
         call ed_get_gloc_lattice(Hk,Wt,Gmats,Greal,Smats,Sreal,1,hk_symm=hk_symm)
         !
         do i_ind=1,Nindep
            ilat=indep_list(i_ind)
            Gmats_(:,i_ind,:,:,:,:,:)=Gmats(:,ilat,:,:,:,:,:)
            Greal_(:,i_ind,:,:,:,:,:)=Greal(:,ilat,:,:,:,:,:)
-        end do
-        
+        end do        
         !<DEBUG
-        do i_ind=1,Nindep
-           do i=1,Lmats
-              Gmats_1b_(:,i_ind,i)=Gmats_(:,i_ind,1,1,1,1,i)
-              Smats_1b_(:,i_ind,i)=Smats_(:,i_ind,1,1,1,1,i)
-           end do
-        end do
-        ilat=1
-        do i=1,Lmats
-           write(500,'(10(F18.10))') wm(i),Smats_1b_(1,ilat,i),Smats_(1,ilat,1,1,1,1,i)
-           write(501,'(10(F18.10))') wm(i),Gmats_1b_(1,ilat,i),Gmats_(1,ilat,1,1,1,1,i)
-        end do
-
-        Delta_1b_=zero
-
-        !<DEBUG
-        ! write(*,*)
-        ! write(*,*)
-        ! write(*,*) "eloc-hloc Nmats=10"
-        ! write(*,*)
-        ! write(*,*)        
-        !DEBUG>
-
-        !<DEBUG
-        ! write(*,*) 
-        ! write(*,*) "input-Smats  hloc "
-        ! write(*,'(4(F28.20))') dreal(Smats_(:,1,1,1,1,1,10))
-        ! write(*,'(4(F28.20))') dimag(Smats_(:,1,1,1,1,1,10))
-        ! write(*,*)
+        ! do i_ind=1,Nindep
+        !    do i=1,Lmats
+        !       Gmats_1b_(:,i_ind,i)=Gmats_(:,i_ind,1,1,1,1,i)
+        !       Smats_1b_(:,i_ind,i)=Smats_(:,i_ind,1,1,1,1,i)
+        !    end do
+        ! end do
+        ! ilat=1
+        ! do i=1,Lmats
+        !    write(500,'(10(F18.10))') wm(i),Smats_1b_(1,ilat,i),Smats_(1,ilat,1,1,1,1,i)
+        !    write(501,'(10(F18.10))') wm(i),Gmats_1b_(1,ilat,i),Gmats_(1,ilat,1,1,1,1,i)
+        ! end do
+        ! Delta_1b_=zero
+        ! call ed_get_weiss_lattice(Nindep,Gmats_1b_,Smats_1b_,Delta_1b_)        
         !DEBUG>
         call ed_get_weiss_lattice(Nindep,Gmats_,Smats_,Delta_,Hloc_)                        
-        !<DEBUG
-        ! write(*,*) 
-        ! write(*,*) "output-Smats  hloc"
-        ! write(*,'(4(F28.20))') dreal(Smats_(:,1,1,1,1,1,10))
-        ! write(*,'(4(F28.20))') dimag(Smats_(:,1,1,1,1,1,10))
-        ! write(*,*)
-        !DEBUG>
-
-        !<DEBUG
-        ! write(*,*) 
-        ! write(*,*) "input-Smats  hloc "
-        ! write(*,'(4(F28.20))') dreal(Smats_1b_(:,1,10))
-        ! write(*,'(4(F28.20))') dimag(Smats_1b_(:,1,10))
-        ! write(*,*)
-        !DEBUG>
-        call ed_get_weiss_lattice(Nindep,Gmats_1b_,Smats_1b_,Delta_1b_)        
-        !<DEBUG
-        ! write(*,*) 
-        ! write(*,*) "output-Smats  eloc "
-        ! write(*,'(4(F28.20))') dreal(Smats_1b_(:,1,10))
-        ! write(*,'(4(F28.20))') dimag(Smats_1b_(:,1,10))
-        ! write(*,*)
-        !DEBUG>
-
-        !<DEBUG
-        ! do i=1,Lmats
-        !    write(600,'(10(F18.10))') wm(i),Delta_1b_(1,ilat,i),Delta_(1,ilat,1,1,1,1,i)
-        !    write(601,'(10(F18.10))') wm(i),Delta_1b_(2,ilat,i),Delta_(2,ilat,1,1,1,1,i)
-        ! end do
-        !DEBUG>
-
- !       write(*,'(10(F28.20))') Delta_(1,1,1,1,1,1,10)
-
-        !<DEBUG
-        ! write(*,*)
-        ! write(*,*)
-        ! write(*,*) "hloc-eloc Nmats=10"
-        ! write(*,*)
-        ! write(*,*)        
-        !DEBUG>
-
-
-        ! call ed_get_weiss_lattice_hloc(Nindep,Gmats_,Smats_,Delta_,Hloc_)       
-        ! call ed_get_weiss_lattice_eloc(Nindep,Gmats_1b_,Smats_1b_,Delta_1b_)        
-
-
-!        write(*,'(10(F28.20))') Delta_(1,1,1,1,1,1,10)
-
-        !Delta_(1:2,1:Nindep,1,1,1,1,1:Lmats) = Delta_1b_(1:2,1:Nindep,1:Lmats)
-        !
-!        ilat=1
-        !DEBUG>
-
-        !<DEBUG
-        ! do i=1,Lmats
-        !    write(700,'(10(F18.10))') wm(i),Delta_1b_(1,ilat,i),Delta_(1,ilat,1,1,1,1,i)
-        !    write(701,'(10(F18.10))') wm(i),Delta_1b_(2,ilat,i),Delta_(2,ilat,1,1,1,1,i)
-        ! end do
-        !DEBUG>
         call ed_chi2_fitgf_lattice(bath_,Delta_,Hloc_)
-
         !
         bath_=wmixing*bath_ + (1.d0-wmixing)*bath_old_
         !
      else
         bath_old=bath
-        !call ed_solve_impurity(bath,Smats,Sreal,nii,dii,pii,eii,usite=usite)
         call ed_solve_lattice(bath,Hloc)
         nii = ed_get_dens_lattice(Nlat,1)
         dii = ed_get_docc_lattice(Nlat,1)
@@ -379,11 +279,8 @@ program ed_stripe
         call ed_get_self_matsubara_lattice(Smats(2,:,:,:,:,:,:),Nlat)
         call ed_get_self_real_lattice(Sreal(2,:,:,:,:,:,:),Nlat)
         !
-        !call rdmft_get_gloc(Hk,wt,Gmats,Greal,Smats,Sreal,hk_symm=hk_symm)
         call ed_get_gloc_lattice(Hk,Wt,Gmats,Greal,Smats,Sreal,1,hk_symm=hk_symm)
         !
-        !call rdmft_get_weiss_field(Nlat,Gmats,Smats,Delta)
-        !call ed_fit_bath(bath,Delta)
         call ed_get_weiss_lattice(Nlat,Gmats,Smats,Delta,Hloc)        
         call ed_chi2_fitgf_lattice(bath,Delta,Hloc)
         !
