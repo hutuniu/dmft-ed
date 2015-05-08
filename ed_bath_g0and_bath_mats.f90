@@ -10,7 +10,7 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
   complex(8),intent(in)                       :: x
   type(effective_bath)                        :: dmft_bath_
   complex(8),dimension(Nspin,Nspin,Norb,Norb) :: G0and
-  integer                                     :: iorb,jorb,ispin,jspin
+  integer                                     :: iorb,jorb,ispin,jspin,io,jo,Nso
   complex(8)                                  :: det
   complex(8)                                  :: fg,delta,ff,fdelta
   complex(8),dimension(:,:),allocatable       :: fgorb,zeta
@@ -20,6 +20,7 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
      !
      select case(ed_mode)
      case default
+        !
         do ispin=1,Nspin
            do iorb=1,Norb
               delta = delta_bath_mats(ispin,ispin,iorb,iorb,x,dmft_bath_)
@@ -29,6 +30,7 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
         enddo
         !
      case ("superc")
+        !
         do ispin=1,Nspin
            do iorb=1,Norb
               delta =  delta_bath_mats(ispin,ispin,iorb,iorb,x,dmft_bath_)
@@ -40,20 +42,56 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
            enddo
         enddo
         !
+     case ("nonsu2")
+        !
+        !!Although we could in principle exploit the absence of local inter-orbital hybridization in the bath_type= normal channel
+        !the matrices are not truly block diagonal (in the sense that each block is diagonal, so one could in principle
+        !reshape the blocks into a diagonal matrix with doubled dimension and diagonalize that), so I prefer here take the
+        !simplest approach and diagonalize the matrix as it is.
+        Nso=Nspin*Norb
+        allocate(fgorb(Nso,Nso),zeta(Nso,Nso))
+        zeta = (x + xmu)*eye(Nso)
+        fgorb= zero
+        !
+        do ispin=1,Nspin
+           do jspin=1,Nspin
+              do iorb=1,Norb
+                 do jorb=1,Norb
+                    io = iorb + (ispin-1)*Norb
+                    jo = jorb + (jspin-1)*Norb
+                    fgorb(io,jo) = zeta(io,jo) - impHloc(ispin,jspin,iorb,jorb) - delta_bath_mats(ispin,jspin,iorb,jorb,x,dmft_bath_)
+                 enddo
+              enddo
+           enddo
+        enddo
+        call inv(fgorb)
+        do ispin=1,Nspin
+           do jspin=1,Nspin
+              do iorb=1,Norb
+                 do jorb=1,Norb
+                    io = iorb + (ispin-1)*Norb
+                    jo = jorb + (jspin-1)*Norb
+                    G0and(ispin,jspin,iorb,jorb) = fgorb(io,jo)
+                 enddo
+              enddo
+           enddo
+        enddo
+        deallocate(fgorb,zeta)
+        !
      end select
+     !
      !
   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
      !
+     !
      select case(ed_mode)
      case default
+        !
         allocate(fgorb(Norb,Norb),zeta(Norb,Norb))
         G0and=zero
         do ispin=1,Nspin         !Spin diagonal
-           zeta = zero
            fgorb= zero
-           do iorb=1,Norb
-              zeta(iorb,iorb) = x + xmu
-           enddo
+           zeta = (x+xmu)*eye(Norb)
            do iorb=1,Norb
               do jorb=1,Norb
                  fgorb(iorb,jorb) = zeta(iorb,jorb)-impHloc(ispin,ispin,iorb,jorb)-delta_bath_mats(ispin,ispin,iorb,jorb,x,dmft_bath_)
@@ -65,6 +103,7 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
         deallocate(fgorb,zeta)
         !
      case ("superc")
+        !
         allocate(fgorb(2*Norb,2*Norb),zeta(2*Norb,2*Norb))
         G0and = zero
         do ispin=1,Nspin
@@ -84,6 +123,37 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
            enddo
            call inv(fgorb)
            G0and(ispin,ispin,:,:) = fgorb(1:Norb,1:Norb)
+        enddo
+        deallocate(fgorb,zeta)
+        !
+     case ("nonsu2")
+        !
+        Nso=Nspin*Norb
+        allocate(fgorb(Nso,Nso),zeta(Nso,Nso))
+        zeta = (x + xmu)*eye(Nso)
+        fgorb= zero
+        do ispin=1,Nspin
+           do jspin=1,Nspin
+              do iorb=1,Norb
+                 do jorb=1,Norb
+                    io = iorb + (ispin-1)*Norb
+                    jo = jorb + (jspin-1)*Norb
+                    fgorb(io,jo) = zeta(io,jo) - impHloc(ispin,jspin,iorb,jorb) - delta_bath_mats(ispin,jspin,iorb,jorb,x,dmft_bath_)
+                 enddo
+              enddo
+           enddo
+        enddo
+        call inv(fgorb)
+        do ispin=1,Nspin
+           do jspin=1,Nspin
+              do iorb=1,Norb
+                 do jorb=1,Norb
+                    io = iorb + (ispin-1)*Norb
+                    jo = jorb + (jspin-1)*Norb
+                    G0and(ispin,jspin,iorb,jorb) = fgorb(io,jo)
+                 enddo
+              enddo
+           enddo
         enddo
         deallocate(fgorb,zeta)
         !
@@ -185,7 +255,7 @@ function f0and_bath_mats_main(x,dmft_bath_) result(F0and)
      !
      select case(ed_mode)
      case default
-        stop "F0and_bath_mats error: called with ed_mode=normal, bath_type=normal"
+        stop "F0and_bath_mats error: called with ed_mode=normal/nonsu2, bath_type=normal"
         !
      case ("superc")
         do ispin=1,Nspin
@@ -204,7 +274,7 @@ function f0and_bath_mats_main(x,dmft_bath_) result(F0and)
   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
      select case(ed_mode)
      case default
-        stop "F0and_bath_mats error: called with ed_mode=normal, bath_type=hybrid"
+        stop "F0and_bath_mats error: called with ed_mode=normal/nonsu2, bath_type=hybrid"
         !
      case ("superc")
         allocate(fgorb(2*Norb,2*Norb),zeta(2*Norb,2*Norb))
@@ -224,7 +294,7 @@ function f0and_bath_mats_main(x,dmft_bath_) result(F0and)
               enddo
            enddo
            call inv(fgorb)
-           F0and(ispin,ispin,:,:) = fgorb(iorb+Norb,jorb+Norb)
+           F0and(ispin,ispin,:,:) = fgorb(1:Norb,1+Norb:Norb+Norb)
         enddo
         deallocate(fgorb,zeta)
         !

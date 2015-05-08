@@ -34,7 +34,8 @@ MODULE ED_BATH
   public :: ph_symmetrize_bath         !PUBLIC   (for user_bath)
   public :: ph_trans_bath              !PUBLIC   (for user_bath)
   public :: enforce_normal_bath        !PUBLIC   (for user_bath)
-
+  public :: push_Whyb_matrix           !PUBLIC   (for effective_bath)
+  public :: pull_Whyb_matrix           !PUBLIC   (for effective_bath)
 
   !functions:
   !
@@ -407,7 +408,7 @@ contains
     integer                         :: Ntrue
     logical                         :: bool
     !
-    Ntrue = get_chi2_bath_size
+    Ntrue = get_chi2_bath_size()
     !
     bool  = (size(a) == Ntrue)
     !
@@ -638,7 +639,7 @@ contains
                 write(unit_,"(90(F21.12,1X))")(&
                      dmft_bath_%e(ispin,1,i),&
                      dmft_bath_%d(ispin,1,i),&
-                     (dmft_bath_%v(ihel,ispin,iorb,i),iorb=1,Norb),&
+                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),&
                      ispin=1,Nspin)
              enddo
           case ("nonsu2")
@@ -732,7 +733,7 @@ contains
   subroutine set_bath(bath_,dmft_bath_)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
-    integer                :: i,iorb,ispin,stride,io
+    integer                :: i,iorb,jorb,ispin,jspin,stride,io
     logical                :: check
     if(.not.dmft_bath_%status)stop "SET_BATH: bath not allocated"
     check = check_bath_dimension(bath_)
@@ -876,7 +877,7 @@ contains
                 do iorb=1,Norb
                    do i=1,Nbath
                       io = stride + i + (iorb-1)*Nbath + (jspin-1)*Norb*Nbath + (ispin-1)*Norb*Nbath*Nspin
-                      dmft_bath_%w(ispin,jspin,iorb,i) = bath(io)
+                      dmft_bath%w(ispin,jspin,iorb,i) = bath_(io)
                    enddo
                 enddo
              enddo
@@ -898,7 +899,7 @@ contains
   subroutine copy_bath(dmft_bath_,bath_)
     type(effective_bath)   :: dmft_bath_
     real(8),dimension(:)   :: bath_
-    integer                :: iorb,ispin,stride,io,i
+    integer                :: iorb,jorb,ispin,jspin,stride,io,i
     logical                :: check
     if(.not.dmft_bath_%status)stop "COPY_BATH: bath not allocated"
     check=check_bath_dimension(bath_)
@@ -1396,7 +1397,7 @@ contains
                 do iorb_=1,Norb
                    do i_=1,Nbath
                       io_ = stride_ + i_ + (iorb_-1)*Nbath + (jspin_-1)*Norb*Nbath + (ispin_-1)*Nspin*Norb*Nbath
-                      array(io_) =  dmft_bath_%w(ispin_,jspin_,iorb_,i_)
+                      array(io_) =  dmft_bath%w(ispin_,jspin_,iorb_,i_)
                    enddo
                 enddo
              enddo
@@ -1534,7 +1535,7 @@ contains
                 do iorb_=1,Norb
                    do i_=1,Nbath
                       io_ = stride_ + i_ + (iorb_-1)*Nbath + (jspin_-1)*Norb*Nbath + (ispin_-1)*Nspin*Norb*Nbath
-                      dmft_bath_%w(ispin_,jspin_,iorb_,i_) = array(io_)
+                      dmft_bath%w(ispin_,jspin_,iorb_,i_) = array(io_)
                    enddo
                 enddo
              enddo

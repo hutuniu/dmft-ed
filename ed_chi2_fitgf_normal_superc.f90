@@ -140,10 +140,6 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
   enddo
   if(ed_verbose<2)call write_bath(dmft_bath,LOGfile)
   !
-  ! unit=free_unit()
-  ! open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".restart")
-  ! call write_bath(dmft_bath,unit)
-  ! close(unit)
   call save_bath(dmft_bath)
   !
   if(ed_verbose<3)call write_fit_result(ispin)
@@ -154,27 +150,31 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
 contains
   !
   subroutine write_fit_result(ispin)
-    complex(8)        :: fgand(2),det
+    complex(8)        :: fgand(2,Norb,Norb,Ldelta)
     integer           :: i,j,iorb,ispin
     real(8)           :: w
+    !
+    do i=1,Ldelta
+       w = Xdelta(i)
+       if(cg_scheme=='weiss')then
+          fgand(1,:,:,i) = g0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
+          fgand(2,:,:,i) = f0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
+       else
+          fgand(1,:,:,i) = delta_bath_mats(ispin,ispin,xi*w,dmft_bath)
+          fgand(2,:,:,i) = fdelta_bath_mats(ispin,ispin,xi*w,dmft_bath)
+       endif
+    enddo
+    !
     do iorb=1,Norb
        suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
-       Gdelta(1,1:Ldelta) = fg(1,iorb,iorb,1:Ldelta)
-       Fdelta(1,1:Ldelta) = fg(2,iorb,iorb,1:Ldelta)
-       fgand=zero
        unit=free_unit()
        open(unit,file="fit_delta"//reg(suffix)//".ed")
        do i=1,Ldelta
-          w = Xdelta(i)
-          if(cg_scheme=='weiss')then
-             fgand(1) = weiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-             fgand(2) = fweiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-          else
-             fgand(1) = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-             fgand(2) = fdelta_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-          endif
-          write(unit,"(10F24.15)")Xdelta(i),dimag(Gdelta(1,i)),dimag(fgand(1)),dreal(Gdelta(1,i)),dreal(fgand(1)), &
-               dimag(Fdelta(1,i)),dimag(fgand(2)),dreal(Fdelta(1,i)),dreal(fgand(2))
+          write(unit,"(10F24.15)")Xdelta(i),&
+               dimag(fg(1,iorb,iorb,i)),dimag(fgand(1,iorb,iorb,i)),&
+               dreal(fg(1,iorb,iorb,i)),dreal(fgand(1,iorb,iorb,i)), &
+               dimag(fg(2,iorb,iorb,i)),dimag(fgand(2,iorb,iorb,i)),&
+               dreal(fg(2,iorb,iorb,i)),dreal(fgand(2,iorb,iorb,i))
        enddo
        close(unit)
     enddo
@@ -187,22 +187,22 @@ end subroutine chi2_fitgf_normal_superc
 !PURPOSE: Evaluate the \chi^2 distance of \Delta_Anderson function 
 !         in the SUPERCONDUCTING case.
 !+-------------------------------------------------------------+
-function chi2_delta_normal_superc(a) result(chi2_sc)
+function chi2_delta_normal_superc(a) result(chi2)
   real(8),dimension(:)           ::  a
+  real(8)                        ::  chi2
   complex(8),dimension(2,Ldelta) ::  g0
-  real(8)                        ::  chi2_sc,w
+  real(8)                        ::  w
   integer                        ::  i,iorb,ispin
-  chi2_sc = 0d0 
   iorb=Orb_indx
   ispin=Spin_indx
   call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
   do i=1,Ldelta
      w = xdelta(i)
-     g0(1,i) = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
+     g0(1,i) =  delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
      g0(2,i) = fdelta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
   enddo
   !
-  chi2_sc=sum(abs(Gdelta(1,:)-g0(1,:))**2/Wdelta(:)) + sum(abs(Fdelta(1,:)-g0(2,:))**2/Wdelta(:))
+  chi2=sum(abs(Gdelta(1,:)-g0(1,:))**2/Wdelta(:)) + sum(abs(Fdelta(1,:)-g0(2,:))**2/Wdelta(:))
   !
 end function chi2_delta_normal_superc
 
@@ -212,18 +212,21 @@ end function chi2_delta_normal_superc
 !+-------------------------------------------------------------+
 function grad_chi2_delta_normal_superc(a) result(dchi2)
   real(8),dimension(:)                   ::  a
+  real(8),dimension(size(a))             ::  dchi2
+  real(8),dimension(size(a))             ::  df
   complex(8),dimension(2,Ldelta)         ::  g0
-  real(8),dimension(size(a))             ::  dchi2,df
   complex(8),dimension(2,Ldelta,size(a)) ::  dg0
   integer                                ::  i,j,iorb,ispin
   real(8)                                ::  w
+  !
   iorb=Orb_indx
   ispin=Spin_indx
-  !push the array into a dmft_bath
+  !
   call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
+  !
   do i=1,Ldelta
      w          = Xdelta(i)
-     g0(1,i)    = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
+     g0(1,i)    =  delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
      g0(2,i)    = fdelta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
      dg0(1,i,:) = grad_delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath,size(a))
      dg0(2,i,:) = grad_fdelta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath,size(a))
@@ -247,17 +250,20 @@ end function grad_chi2_delta_normal_superc
 !+-------------------------------------------------------------+
 function chi2_weiss_normal_superc(a) result(chi2)
   real(8),dimension(:)           ::  a
+  real(8)                        ::  chi2
   complex(8),dimension(2,Ldelta) ::  g0
-  real(8)                        ::  chi2,w
+  real(8)                        ::  w
   integer                        ::  i,iorb,ispin
+  !
   iorb=Orb_indx
   ispin=Spin_indx
-  !push the array into a dmft_bath
+  !
   call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
+  !
   do i=1,Ldelta
      w   = Xdelta(i)
-     g0(1,i)  = weiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
-     g0(2,i)  = fweiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
+     g0(1,i)  = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
+     g0(2,i)  = f0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
   enddo
   !
   chi2 = sum(abs(Gdelta(1,:)-g0(1,:))**2/Wdelta(:)) 

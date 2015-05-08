@@ -433,8 +433,8 @@ end subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d
 
 
 !PURPOSE: Evaluate the same same orbital IORB, different spin ISPIN,JSPIN impurity GF.
-subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,ispin,jspin)
-  integer                          :: iorb,jorb,ispin,isite,jsite,isector,istate
+subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
+  integer                          :: iorb,jorb,ispin,jspin,isite,jsite,isector,istate
   integer                          :: idim,jsector
   integer                          :: jdim
   integer                          :: ib(Nlevels)
@@ -626,12 +626,12 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,ispin,jspin)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d
+end subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d
 
 
 !PURPOSE: Evaluate the same different orbital IORB,JORB, different spin ISPIN,JSPIN impurity GF.
 subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
-  integer                          :: iorb,jorb,ispin,isite,jsite,isector,istate
+  integer                          :: iorb,jorb,ispin,jspin,isite,jsite,isector,istate
   integer                          :: idim,jsector
   integer                          :: jdim
   integer                          :: ib(Nlevels)
@@ -1144,8 +1144,8 @@ end subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c
 
 
 !PURPOSE: Evaluate the same same orbital IORB, different spin ISPIN,JSPIN impurity GF.
-subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,ispin,jspin)
-  integer                          :: iorb,jorb,ispin,isite,jsite,isector,istate
+subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
+  integer                          :: iorb,jorb,ispin,jspin,isite,jsite,isector,istate
   integer                          :: idim,jsector
   integer                          :: jdim
   integer                          :: ib(Nlevels)
@@ -1337,12 +1337,12 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,ispin,jspin)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c
+end subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c
 
 
 !PURPOSE: Evaluate the same different orbital IORB,JORB, different spin ISPIN,JSPIN impurity GF.
 subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
-  integer                          :: iorb,jorb,ispin,isite,jsite,isector,istate
+  integer                          :: iorb,jorb,ispin,jspin,isite,jsite,isector,istate
   integer                          :: idim,jsector
   integer                          :: jdim
   integer                          :: ib(Nlevels)

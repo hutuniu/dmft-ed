@@ -10,9 +10,12 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
   complex(8),intent(in)                       :: x
   type(effective_bath)                        :: dmft_bath_
   complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Delta
-  integer                                     :: iorb,jorb,ispin,jspin,k
+  integer                                     :: iorb,jorb,ispin,jspin,ih,k
   real(8),dimension(Nbath)                    :: eps,dps,vps,den
   real(8),dimension(Norb,Nbath)               :: vops
+  real(8),dimension(Nspin,Nbath)              :: hps
+  real(8),dimension(Nspin,Nspin,Nbath)        :: wps
+  real(8),dimension(Nspin,Nspin,Norb,Nbath)   :: wops
   !
   Delta=zero
   !
@@ -21,38 +24,39 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
      !
      select case(ed_mode)
      case default
+        !
+        !\Delta_{aa} = \sum_k [ V_{a}(k) * V_{a}(k)/(iw_n - E_{a}(k)) ]
         do ispin=1,Nspin
            do iorb=1,Norb
               eps = dmft_bath_%e(ispin,iorb,1:Nbath)
               vps = dmft_bath_%v(ispin,iorb,1:Nbath)
-              !\Delta_{aa} = \sum_k [ V_{a}(k) * V_{a}(k)/(iw_n - E_{a}(k)) ]
               Delta(ispin,ispin,iorb,iorb) = sum( vps(:)*vps(:)/(x - eps(:)) )
            enddo
         enddo
         !
      case ("superc")
+        !
+        !\Delta_{aa} = - \sum_k [ V_{a}(k) * V_{a}(k) * (iw_n + E_{a}(k)) / Den(k) ]
         do ispin=1,Nspin
            do iorb=1,Norb
               eps = dmft_bath_%e(ispin,iorb,1:Nbath)
               dps = dmft_bath_%d(ispin,iorb,1:Nbath)
               vps = dmft_bath_%v(ispin,iorb,1:Nbath)
-              ! Den(k) = (w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
-              forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2
-              !\Delta_{aa} = - \sum_k [ V_{a}(k) * V_{a}(k) * (iw_n + E_{a}(k)) / Den(k) ]
+              forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2 !den(k) = w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
               Delta(ispin,ispin,iorb,iorb) = -sum( vps(:)*vps(:)*(x + eps(:))/den(:) )
            enddo
-        enddo     
+        enddo
         !
      case ("nonsu2")
+        !
+        !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(iw_n - H_{a}^{h}(k))]
         !we assume that the %e and %w are correctly popolated in this channel
         hps = dmft_bath_%e(1:Nspin,iorb,1:Nbath)
         wps = dmft_bath_%w(1:Nspin,1:Nspin,iorb,1:Nbath)
-        !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(iw_n - H_{a}^{h}(k))]
-        fg = zero
+        Delta(ispin,ispin,iorb,iorb)=zero
         do ih=1,Nspin
-           fg = fg + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x - hps(ih,:)) )
+           Delta(ispin,ispin,iorb,iorb) = Delta(ispin,ispin,iorb,iorb) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x - hps(ih,:)) )
         enddo
-        !
         !
      end select
      !
@@ -60,10 +64,11 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
      !
      select case(ed_mode)
      case default
+        !
+        !\Delta_{ab} = \sum_k [ V_{a}(k) * V_{b}(k)/(iw_n - E(k)) ]
         do ispin=1,Nspin
            eps  = dmft_bath_%e(ispin,1     ,1:Nbath)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
-           !\Delta_{ab} = \sum_k [ V_{a}(k) * V_{b}(k)/(iw_n - E(k)) ]
            do iorb=1,Norb
               do jorb=1,Norb
                  Delta(ispin,ispin,iorb,jorb) = sum( vops(iorb,:)*vops(jorb,:)/(x - eps(:)) )
@@ -72,27 +77,29 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
         enddo
         !
      case ("superc")
+        !
+        !\Delta_{ab} = - \sum_k [ V_{a}(k) * V_{b}(k) * (iw_n + E(k)) / Den(k) ]
         do ispin=1,Nspin
            eps  = dmft_bath_%e(ispin,1      ,1:Nbath)
            dps  = dmft_bath_%d(ispin,1      ,1:Nbath)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
-           ! Den(k) = (w_n**2 + E(k)**2 + \D(k)**2
-           forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2
-           !\Delta_{ab} = - \sum_k [ V_{a}(k) * V_{b}(k) * (iw_n + E(k)) / Den(k) ]
+           forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2 ! den(k) = w_n**2 + E(k)**2 + \D(k)**2
            do iorb=1,Norb
               do jorb=1,Norb
                  Delta(ispin,ispin,iorb,jorb) = -sum( vops(iorb,:)*vops(jorb,:)*(x + eps(:))/den(:) )
               enddo
            enddo
         enddo
+        !
      case ("nonsu2")
+        !
+        !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(iw_n - H^{h}(k))]
         !we assume that the %e and %w are correctly popolated in this channel
         hps  = dmft_bath_%e(        1:Nspin,1     ,1:Nbath)
         wops = dmft_bath_%w(1:Nspin,1:Nspin,1:Norb,1:Nbath)
-        !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(iw_n - H^{h}(k))]
-        fg = zero
+        Delta(ispin,ispin,iorb,iorb) = zero
         do ih=1,Nspin
-           fg = fg + sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x - hps(ih,:))
+           Delta(ispin,ispin,iorb,iorb) = Delta(ispin,ispin,iorb,iorb) + sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x - hps(ih,:)) )
         enddo
         !
      end select
@@ -196,7 +203,7 @@ function fdelta_bath_mats_main(x,dmft_bath_) result(Fdelta)
      !
      select case(ed_mode)
      case default
-        stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=normal"
+        stop "Fdelta_bath_mats error: called with ed_mode=normal/nonsu2, bath_type=normal"
         !
      case ("superc")
         do ispin=1,Nspin
@@ -220,13 +227,13 @@ function fdelta_bath_mats_main(x,dmft_bath_) result(Fdelta)
         stop "Fdelta_bath_mats error: called with ed_mode=normal/nonsu2, bath_type=hybrid"
         !
      case ("superc")
+        !
+        !\FDelta_{ab} = - \sum_k [ \Delta(k) * V_{a}(k) * V_{b}(k) / Den(k) ]
         do ispin=1,Nspin
            eps  = dmft_bath_%e(ispin,1     ,1:Nbath)
            dps  = dmft_bath_%d(ispin,1     ,1:Nbath)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
-           ! Den(k) = (w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
-           forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2
-           !\FDelta_{ab} = - \sum_k [ \Delta(k) * V_{a}(k) * V_{b}(k) / Den(k) ]
+           forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2 !den(k) = w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
            do iorb=1,Norb
               do jorb=1,Norb
                  Fdelta(ispin,ispin,iorb,jorb) = -sum( dps(:)*vops(iorb,:)*vops(jorb,:)/den(:) )

@@ -151,16 +151,15 @@ contains
     complex(8)                                        :: fg0
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats,invG0mats,invGmats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real,invG0real,invGreal
-    complex(8),dimension(Norb,Norb)                   :: invGimp,impG0
+    complex(8),dimension(Norb,Norb)                   :: invGimp
     character(len=20)                                 :: suffix
     integer,dimension(:),allocatable                  :: getIorb,getJorb
     integer                                           :: totNorb,l
     !
+    !
     select case(bath_type)
-       !
-       !
-       !
     case default                !Diagonal in both spin and orbital
+       !
        !
        allocate(getIorb(Norb),getJorb(Norb))
        l=0
@@ -204,9 +203,7 @@ contains
        enddo
        !
        !
-       !
     case ('hybrid')             !Diagonal in spin only. Full Orbital structure
-       !
        !
        !
        allocate(getIorb(Norb*(Norb+1)/2),getJorb(Norb*(Norb+1)/2))
@@ -353,7 +350,7 @@ contains
 
 
 
-  
+
   !+------------------------------------------------------------------+
   !PURPOSE  : Print Superconducting Green's functions
   !+------------------------------------------------------------------+
@@ -617,51 +614,38 @@ contains
 
 
 
+
+
+
+
+
   !+------------------------------------------------------------------+
   !PURPOSE  : Print nonSU2 Green's functions
   !+------------------------------------------------------------------+
   subroutine get_sigma_print_gf_nonsu2
     integer                                           :: i,j,isign,unit(7),iorb,jorb,ispin,jspin,io,jo
     complex(8)                                        :: fg0
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)       :: invGimp,impG0
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats,invG0mats
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real,invG0real
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)       :: invGimp
     character(len=20)                                 :: suffix
     !
     !Although we can exploit the absence of local inter-orbital hybridization in the bath_type=irred (normal) channel
     !the matrices are not truly block diagonal (in the sense that each block is diagonal, so one could in principle
     !reshape the blocks into a diagonal matrix with doubled dimension and diagonalize that), so I prefer here take the
-    !simplest approach and diagonalize the matrix as it is, get Sigma and see.
+    !simplest approach and diagonalize the matrix as it is.
     !
-    !Diagonal case: same orb, same spin
+    !Get G0^-1
     impG0mats=zero
     impG0real=zero
-    do ispin=1,Nspin
-       do iorb=1,Norb
-          impG0mats(ispin,ispin,iorb,iorb,:)= xi*wm(:)+xmu
-          impG0real(ispin,ispin,iorb,iorb,:)= wr(:)+xi*eps+xmu
-       enddo
+    do i=1,Lmats
+       invG0mats(:,:,:,:,i)=invg0_bath_mats(xi*wm(i),dmft_bath)       
     enddo
-    !
-    !Off-diagonal case: different orbitals, different spins
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb         !
-             do jorb=1,Norb !GF_0=-hloc_{ab}^{ss}-Delta_{ab}^{ss}
-                do i=1,Lmats
-                   impG0mats(ispin,jspin,iorb,jorb,i)=impG0mats(ispin,jspin,iorb,jorb,i)-impHloc(ispin,ispin,iorb,jorb)-delta_bath_mats(ispin,jspin,iorb,jorb,xi*wm(i),dmft_bath)
-                enddo
-                do i=1,Lreal
-                   impG0real(ispin,jspin,iorb,jorb,i)=impG0mats(ispin,jspin,iorb,jorb,i)-impHloc(ispin,jspin,iorb,jorb)-delta_bath_real(ispin,jspin,iorb,jorb,wr(i)+xi*eps,dmft_bath)
-                enddo
-             enddo
-          enddo
-       enddo
+    do i=1,Lreal
+       invG0real(:,:,:,:,i)=invg0_bath_real(dcmplx(wr(i),eps),dmft_bath)
     enddo
-    !
-    !
-    !
-    !                         !Get Sigma and G_0 by matrix inversions:
+    !Get Gimp^-1
+    !Get Sigma functions: Sigma= G0^-1 - G^-1
     do i=1,Lmats
        do ispin=1,Nspin
           do jspin=1,Nspin
@@ -670,21 +654,18 @@ contains
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
                    invGimp(io,jo) = impGmats(ispin,jspin,iorb,jorb,i)
-                   impG0(io,jo)   = impG0mats(ispin,jspin,iorb,jorb,i)
                 enddo
              enddo
           enddo
        enddo
        call inv(invGimp) !<--- get [G_{imp}]^-1
-       call inv(impG0)   !<--- get [calG0_{imp}]^-1
        do ispin=1,Nspin
           do jspin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
-                   impSmats(ispin,jspin,iorb,jorb,i) = impG0mats(ispin,jspin,iorb,jorb,i) - invGimp(io,jo) !<-- calG0_imp^-1 - Gimp^-1
-                   impG0mats(ispin,jspin,iorb,jorb,i)= impG0(io,jo)                                        !<-- calG0 = [calG0^-1]^-1
+                   impSmats(ispin,jspin,iorb,jorb,i) = invG0mats(ispin,jspin,iorb,jorb,i) - invGimp(io,jo) !<-- calG0_imp^-1 - Gimp^-1
                 enddo
              enddo
           enddo
@@ -699,28 +680,35 @@ contains
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
                    invGimp(io,jo) = impGreal(ispin,jspin,iorb,jorb,i)
-                   impG0(io,jo)   = impG0real(ispin,jspin,iorb,jorb,i)
                 enddo
              enddo
           enddo
        enddo
-       call matrix_inverse(invGimp) !<--- get [G_{imp}]^-1
-       call matrix_inverse(impG0)   !<--- get [calG0_{imp}]^-1
+       call inv(invGimp) !<--- get [G_{imp}]^-1
        do ispin=1,Nspin
           do jspin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
-                   impSreal(ispin,jspin,iorb,jorb,i) = impG0real(ispin,jspin,iorb,jorb,i) - invGimp(io,jo) !<-- calG0_imp^-1 - Gimp^-1
-                   impG0real(ispin,jspin,iorb,jorb,i)= impG0(io,jo)                                        !<-- calG0 = [calG0^-1]^-1
+                   impSreal(ispin,jspin,iorb,jorb,i) = invG0real(ispin,jspin,iorb,jorb,i) - invGimp(io,jo) !<-- calG0_imp^-1 - Gimp^-1
                 enddo
              enddo
           enddo
        enddo
     enddo
-    !
-    !
+    !Get G0and:
+    do i=1,Lmats
+       impG0mats(:,:,:,:,i) = g0and_bath_mats(xi*wm(i),dmft_bath)
+    enddo
+    do i=1,Lreal
+       impG0real(:,:,:,:,i) = g0and_bath_real(xi*wm(i),dmft_bath)
+    enddo
+    !!
+    !!
+    !!
+    !!
+    !!
     !Print the impurity functions:
     if(ED_MPI_ID==0)then
        do ispin=1,Nspin
@@ -732,33 +720,33 @@ contains
                    call open_units(reg(suffix))
                    if(ed_verbose<4)then
                       do i=1,Lmats
-                         write(unit(1),"(F26.15,6(F26.15))")wm(i),(dimag(impSmats(ispin,jspin,iorb,jorb,i)),dreal(impSmats(ispin,jspin,iorb,jorb,i)),ispin=1,Nspin)
+                         write(unit(1),"(F26.15,6(F26.15))")wm(i),dimag(impSmats(ispin,jspin,iorb,jorb,i)),dreal(impSmats(ispin,jspin,iorb,jorb,i))
                       enddo
                       do i=1,Lreal
-                         write(unit(2),"(F26.15,6(F26.15))")wr(i),(dimag(impSreal(ispin,jspin,iorb,jorb,i)),dreal(impSreal(ispin,jspin,iorb,jorb,i)),ispin=1,Nspin)
+                         write(unit(2),"(F26.15,6(F26.15))")wr(i),dimag(impSreal(ispin,jspin,iorb,jorb,i)),dreal(impSreal(ispin,jspin,iorb,jorb,i))
                       enddo
                       do isign=1,2
                          do i=1,lanc_nGFiter
-                            write(unit(3),"(6(F26.15,1x))")(GFpoles(ispin,jspin,iorb,iorb,isign,i),GFweights(ispin,jspin,iorb,iorb,isign,i),ispin=1,Nspin)
+                            write(unit(3),"(6(F26.15,1x))")GFpoles(ispin,jspin,iorb,iorb,isign,i),GFweights(ispin,jspin,iorb,iorb,isign,i)
                          enddo
                       enddo
                    endif
                    !
                    if(ed_verbose<2)then
                       do i=1,Lmats
-                         write(unit(4),"(F26.15,6(F26.15))")wm(i),(dimag(impGmats(ispin,jspin,iorb,jorb,i)),dreal(impGmats(ispin,jspin,iorb,jorb,i)),ispin=1,Nspin)
+                         write(unit(4),"(F26.15,6(F26.15))")wm(i),dimag(impGmats(ispin,jspin,iorb,jorb,i)),dreal(impGmats(ispin,jspin,iorb,jorb,i))
                       enddo
                       do i=1,Lreal
-                         write(unit(5),"(F26.15,6(F26.15))")wr(i),(dimag(impGreal(ispin,jspin,iorb,jorb,i)),dreal(impGreal(ispin,jspin,iorb,jorb,i)),ispin=1,Nspin)
+                         write(unit(5),"(F26.15,6(F26.15))")wr(i),dimag(impGreal(ispin,jspin,iorb,jorb,i)),dreal(impGreal(ispin,jspin,iorb,jorb,i))
                       enddo
                    endif
                    !
                    if(ed_verbose<1)then
                       do i=1,Lmats
-                         write(unit(6),"(F26.15,6(F26.15))")wm(i),(dimag(impG0mats(ispin,jspin,iorb,jorb,i)),dreal(impG0mats(ispin,jspin,iorb,jorb,i)),ispin=1,Nspin)
+                         write(unit(6),"(F26.15,6(F26.15))")wm(i),dimag(impG0mats(ispin,jspin,iorb,jorb,i)),dreal(impG0mats(ispin,jspin,iorb,jorb,i))
                       enddo
                       do i=1,Lreal
-                         write(unit(7),"(F26.15,6(F26.15))")wr(i),(dimag(impG0real(ispin,jspin,iorb,jorb,i)),dreal(impG0real(ispin,jspin,iorb,jorb,i)),ispin=1,Nspin)
+                         write(unit(7),"(F26.15,6(F26.15))")wr(i),dimag(impG0real(ispin,jspin,iorb,jorb,i)),dreal(impG0real(ispin,jspin,iorb,jorb,i))
                       enddo
                    endif
                    call close_units()

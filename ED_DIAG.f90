@@ -50,7 +50,7 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_diag_d
     integer             :: nup,ndw,isector,dim
-    integer             :: isect,izero,sz
+    integer             :: isect,izero,sz,nt
     integer             :: i,j,iter
     integer             :: numgs
     integer             :: Nitermax,Neigen,Nblock
@@ -84,7 +84,7 @@ contains
                 write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector)
              case ("nonsu2")
                 nt   = getn(isector)
-                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15)")iter,"-Solving sector:",isector," n:",n," dim=",getdim(isector)
+                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15)")iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector)
              end select
           elseif(ed_verbose<2)then
              call eta(iter,count(twin_mask),LOGfile)
@@ -164,7 +164,7 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_diag_c
     integer                :: nup,ndw,isector,dim
-    integer                :: isect,izero,sz
+    integer                :: isect,izero,sz,nt
     integer                :: i,j,iter
     integer                :: numgs
     integer                :: Nitermax,Neigen,Nblock
@@ -198,7 +198,7 @@ contains
                 write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector)
              case ("nonsu2")
                 nt   = getn(isector)
-                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15)")iter,"-Solving sector:",isector," n:",n," dim=",getdim(isector)
+                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15)")iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector)
              end select
           elseif(ed_verbose<2)then
              call eta(iter,count(twin_mask),LOGfile)

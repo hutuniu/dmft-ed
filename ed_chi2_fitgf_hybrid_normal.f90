@@ -147,10 +147,6 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
   !
   if(ed_verbose<2)call write_bath(dmft_bath,LOGfile)
   !
-  ! unit=free_unit()
-  ! open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".restart")
-  ! call write_bath(dmft_bath,unit)
-  ! close(unit)
   call save_bath(dmft_bath)
   !
   if(ed_verbose<3)call write_fit_result(ispin)
@@ -163,28 +159,16 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
 contains
   !
   subroutine write_fit_result(ispin)
-    integer                              :: i,j,l,m,iorb,jorb,ispin,jspin
-    real(8)                              :: w
-    complex(8),dimension(Norb,Norb)      :: gwf
-    complex(8),dimension(totNorb,Ldelta) :: fgand
+    integer                                :: i,j,l,m,iorb,jorb,ispin,jspin
+    real(8)                                :: w
+    complex(8),dimension(Norb,Norb,Ldelta) :: fgand
     do i=1,Ldelta
        w=Xdelta(i)
        if(cg_scheme=='weiss')then
-          gwf = weiss_bath_mats(ispin,ispin,xi*w,dmft_bath)
+          fgand(:,:,i) = g0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
        else
-          do l=1,Norb
-             do m=1,Norb
-                gwf(l,m) = delta_bath_mats(ispin,ispin,l,m,xi*w,dmft_bath)
-             enddo
-          enddo
+          fgand(:,:,i) = delta_bath_mats(ispin,ispin,xi*w,dmft_bath)
        endif
-       !
-       do l=1,totNorb
-          iorb=getIorb(l)
-          jorb=getJorb(l)
-          fgand(l,i)=gwf(iorb,jorb)
-       enddo
-       !
     enddo
     !
     do l=1,totNorb
@@ -194,8 +178,9 @@ contains
        unit=free_unit()
        open(unit,file="fit_delta"//reg(suffix)//".ed")
        do i=1,Ldelta
-          write(unit,"(5F24.15)")Xdelta(i),dimag(Gdelta(l,i)),dimag(fgand(l,i)),&
-               dreal(Gdelta(l,i)),dreal(fgand(l,i))
+          write(unit,"(5F24.15)")Xdelta(i),&
+               dimag(fg(iorb,jorb,i)),dimag(fgand(iorb,jorb,i)),&
+               dreal(fg(iorb,jorb,i)),dreal(fgand(iorb,jorb,i))
        enddo
        close(unit)
     enddo
@@ -209,21 +194,26 @@ end subroutine chi2_fitgf_hybrid_normal
 !PURPOSE: Evaluate the \chi^2 distance of \Delta_Anderson function.
 !+-------------------------------------------------------------+
 function chi2_delta_hybrid_normal(a) result(chi2)
-  real(8),dimension(:)         :: a
-  real(8),dimension(totNorb)   :: chi2_orb
-  complex(8),dimension(Ldelta) :: g0
-  real(8)                      :: chi2,w
-  integer                      :: i,l,iorb,jorb,ispin
-  ispin=Spin_indx
+  real(8),dimension(:)                   :: a
+  real(8),dimension(totNorb)             :: chi2_orb
+  complex(8),dimension(Norb,Norb,Ldelta) :: g0
+  real(8)                                :: w
+  real(8)                                :: chi2
+  integer                                :: i,l,iorb,jorb,ispin
+  !
+  ispin = Spin_indx
+  !
   call chi2_bath2dmft_bath(a,chi2_bath,ispin)
+  !
+  do i=1,Ldelta
+     w = xdelta(i)
+     g0(:,:,i) = delta_bath_mats(ispin,ispin,xi*w,chi2_bath)
+  enddo
+  !
   do l=1,totNorb
      iorb=getIorb(l)
      jorb=getJorb(l)
-     do i=1,Ldelta
-        w = xdelta(i)
-        g0(i) = delta_bath_mats(ispin,ispin,iorb,jorb,xi*w,chi2_bath)
-     enddo
-     chi2_orb(l) = sum(abs(Gdelta(l,:)-g0(:))**2/Wdelta(:))
+     chi2_orb(l) = sum(abs(Gdelta(l,:) - g0(iorb,jorb,:))**2/Wdelta(:))
   enddo
   !
   chi2=sum(chi2_orb)
@@ -235,28 +225,31 @@ end function chi2_delta_hybrid_normal
 ! \Delta_Anderson function.
 !+-------------------------------------------------------------+
 function grad_chi2_delta_hybrid_normal(a) result(dchi2)
-  real(8),dimension(:)                 :: a
-  real(8),dimension(size(a))           :: dchi2
-  real(8),dimension(totNorb,size(a))   :: df
-  complex(8),dimension(Ldelta)         :: g0
-  complex(8),dimension(Ldelta,size(a)) :: dg0
-  integer                              :: i,j,l,iorb,jorb,ispin
-  real(8)                              :: w
-  ispin=Spin_indx
+  real(8),dimension(:)                           :: a
+  real(8),dimension(size(a))                     :: dchi2
+  real(8),dimension(totNorb,size(a))             :: df
+  complex(8),dimension(Norb,Norb,Ldelta)         :: g0
+  complex(8),dimension(Norb,Norb,Ldelta,size(a)) :: dg0
+  integer                                        :: i,j,l,iorb,jorb,ispin
+  real(8)                                        :: w
+  !
+  ispin = Spin_indx
+  !
   call chi2_bath2dmft_bath(a,chi2_bath,ispin)
+  !
+  do i=1,Ldelta
+     w = xdelta(i)
+     g0(:,:,i)    = delta_bath_mats(ispin,ispin,xi*w,chi2_bath)
+     dg0(:,:,i,:) = grad_delta_bath_mats(ispin,ispin,xi*w,chi2_bath,size(a))
+  enddo
+  !
   do l=1,totNorb
      iorb=getIorb(l)
      jorb=getJorb(l)
-     do i=1,Ldelta
-        w = xdelta(i)
-        g0(i)    = delta_bath_mats(ispin,ispin,iorb,jorb,xi*w,chi2_bath)
-        dg0(i,:) = grad_delta_bath_mats(ispin,ispin,iorb,jorb,xi*w,chi2_bath,size(a))
-     enddo
-     !
      do j=1,size(a)
         df(l,j)=&
-             sum( dreal(Gdelta(l,:)-g0(:))*dreal(dg0(:,j))/Wdelta(:) ) + &
-             sum( dimag(Gdelta(l,:)-g0(:))*dimag(dg0(:,j))/Wdelta(:) )
+             sum( dreal(Gdelta(l,:)-g0(iorb,jorb,:))*dreal(dg0(iorb,jorb,:,j))/Wdelta(:) ) + &
+             sum( dimag(Gdelta(l,:)-g0(iorb,jorb,:))*dimag(dg0(iorb,jorb,:,j))/Wdelta(:) )
      enddo
   enddo
   !
@@ -272,20 +265,23 @@ end function grad_chi2_delta_hybrid_normal
 function chi2_weiss_hybrid_normal(a) result(chi2)
   real(8),dimension(:)                   :: a
   real(8),dimension(totNorb)             :: chi2_orb
-  complex(8),dimension(Ldelta)           :: g0
-  complex(8),dimension(Norb,Norb,Ldelta) :: fgorb
+  complex(8),dimension(Norb,Norb,Ldelta) :: g0
   real(8)                                :: chi2,w
   integer                                :: i,l,iorb,jorb,ispin
-  ispin=Spin_indx
+  !
+  ispin = Spin_indx
+  !
   call chi2_bath2dmft_bath(a,chi2_bath,ispin)
+  !
   do i=1,Ldelta
      w    = Xdelta(i)
-     fgorb(:,:,i) = weiss_bath_mats(ispin,ispin,xi*w,chi2_bath)
+     g0(:,:,i) = g0and_bath_mats(ispin,ispin,xi*w,chi2_bath)
   enddo
+  !
   do l=1,totNorb
      iorb=getIorb(l)
      jorb=getJorb(l)
-     chi2_orb(l) = sum(abs(Gdelta(l,:)-fgorb(iorb,jorb,:))**2/Wdelta(:))
+     chi2_orb(l) = sum(abs(Gdelta(l,:)-g0(iorb,jorb,:))**2/Wdelta(:))
   enddo
   !
   chi2=sum(chi2_orb)

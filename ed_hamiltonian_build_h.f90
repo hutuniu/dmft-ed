@@ -171,7 +171,7 @@
                  !
               endif
               !DW-UP
-              if((impHloc(Nspin,1,iorb,jorb)/=zero).AND.(ivec(iorb+Ns)==0).AND.(ivec(jorb)==1))then
+              if((impHloc(Nspin,1,iorb,jorb)/=zero).AND.(ib(iorb+Ns)==0).AND.(ib(jorb)==1))then
                  call c(jorb,m,k1,sg1)
                  call cdg(iorb+Ns,k1,k2,sg2)
                  j=binary_search(Hmap,k2)
@@ -289,7 +289,7 @@
            do kp=1,Nbath
               ms=getBathStride(iorb,kp)
               !\Delta_l c_{\up,ms} c_{\dw,ms}
-              if( (dmft_bath%d(1,iorb,kp)\=0d0) .AND. (ib(ms)==1) .AND. (ib(ms+Ns)==1) )then
+              if( (dmft_bath%d(1,iorb,kp)/=0d0) .AND. (ib(ms)==1) .AND. (ib(ms+Ns)==1) )then
                  call c(ms,m,k1,sg1)
                  call c(ms+Ns,k1,k2,sg2)
                  j=binary_search(Hmap,k2)

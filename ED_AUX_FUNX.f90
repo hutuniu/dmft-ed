@@ -199,7 +199,7 @@ contains
     endif
     if(ed_mode=="nonsu2")then
        !if(bath_type/="hybrid")stop "nonSU2 code is developed for Hybridized bath."
-       if(Nspin\=2)stop "NONSU2 with Nspin!=2 IS NOT ALLOWED. To enfore PM use ed_sym_spin=T."
+       if(Nspin/=2)stop "NONSU2 with Nspin!=2 IS NOT ALLOWED. To enfore PM use ed_sym_spin=T."
        if(ed_twin)stop  "NONSU2 + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
     endif
     !#############################################################################################
@@ -554,7 +554,7 @@ contains
        isector=isector+1
        getsector(in,1)=isector
        getn(isector)=in
-       dim = get_sector_dimension_nonsu2(in)
+       dim = get_nonsu2_sector_dimension(in)
        getdim(isector)=dim
        neigen_sector(isector) = min(dim,lanc_nstates_sector)
     enddo
@@ -649,7 +649,7 @@ contains
   !|ImpUP,BathUP>|ImpDW,BathDW >
   !+------------------------------------------------------------------+
   subroutine build_sector(isector,map)
-    integer              :: i,j,isector,iup,idw,mz,dim
+    integer              :: i,j,isector,iup,idw,mz,dim,in
     integer              :: nup,ndw,sz,nt
     integer              :: ivec(Nlevels)
     integer,dimension(:) :: map

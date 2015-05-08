@@ -46,6 +46,7 @@ MODULE ED_INPUT_VARS
   logical              :: ed_twin             !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   character(len=1)     :: ed_type             !flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)
   character(len=7)     :: ed_mode             !flag to set ed symmetry type: normal=normal (default), superc=superconductive, nonsu2=broken SU(2)
+  logical              :: ed_spin_sym         !
   character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
   character(len=100)   :: ed_file_suffix      !suffix string attached to the output files.
   real(8)              :: nread               !fixed density. if 0.d0 fixed chemical potential calculation.
@@ -137,6 +138,7 @@ contains
     call parse_input_variable(cg_weight,"CG_WEIGHT",INPUTunit,default=0,comment="Conjugate-Gradient weight form: 0=1.0 ,1=1/n , 2=1/w.")
     call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")    
     call parse_input_variable(ed_mode,"ED_MODE",INPUTunit,default='normal',comment="Flag to set ED type: normal=normal, superc=superconductive, nonsu2=broken SU(2)")
+    call parse_input_variable(ed_spin_sym,"ED_SPIN_SYM",INPUTunit,default=.true.,comment="Flag to force paramagnetic solution in the nonSU2 channel.")
     call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
@@ -145,14 +147,14 @@ contains
 
     !+- LATTICE INPUT -+!
     call parse_input_variable(Nside,"NSIDE",INPUTunit,default=6)
-    call parse_input_variable(rdmft_nread,"RDMFT_NREAD",INPUTunit,default=0.d0)
-    call parse_input_variable(rdmft_nerror,"RDMFT_NERROR",INPUTunit,default=1.d-4)
-    call parse_input_variable(rdmft_ndelta,"RDMFT_NDELTA",INPUTunit,default=0.1d0)
-    call parse_input_variable(rdmft_phsym,"RDMFT_PHSYM",INPUTunit,default=.false.)
-    call parse_input_variable(rdmft_lrsym,"RDMFT_LRSYM",INPUTunit,default=.false.)
+    ! call parse_input_variable(rdmft_nread,"RDMFT_NREAD",INPUTunit,default=0.d0)
+    ! call parse_input_variable(rdmft_nerror,"RDMFT_NERROR",INPUTunit,default=1.d-4)
+    ! call parse_input_variable(rdmft_ndelta,"RDMFT_NDELTA",INPUTunit,default=0.1d0)
+    ! call parse_input_variable(rdmft_phsym,"RDMFT_PHSYM",INPUTunit,default=.false.)
+    ! call parse_input_variable(rdmft_lrsym,"RDMFT_LRSYM",INPUTunit,default=.false.)
     call parse_input_variable(fileSig,"FILESIG",INPUTunit,default="LSigma.data")
     call parse_input_variable(fileSelf,"FILESELF",INPUTunit,default="LSelf.data")
-    call parse_input_variable(symmflag,"SYMMFLAG",INPUTunit,default=.false.)
+    ! call parse_input_variable(symmflag,"SYMMFLAG",INPUTunit,default=.false.)
     call parse_input_variable(pbcflag,"PBCFLAG",INPUTunit,default=.true.)
     call parse_input_variable(mix_type,"MIX_TYPE",INPUTunit,default=0)
 

@@ -139,10 +139,6 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
   !
   if(ed_verbose<2)call write_bath(dmft_bath,LOGfile)
   !
-  ! unit=free_unit()
-  ! open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".restart")
-  ! call write_bath(dmft_bath,unit)
-  ! close(unit)
   call save_bath(dmft_bath)
   !
   if(ed_verbose<3)call write_fit_result(ispin)
@@ -153,27 +149,32 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
 contains
   !
   subroutine write_fit_result(ispin)
-    complex(8)        :: fgand
+    complex(8)        :: fgand(Norb,Norb,Ldelta)
     integer           :: i,j,iorb,ispin
     real(8)           :: w
+    !
+    do i=1,Ldelta
+       w = Xdelta(i)
+       if(cg_scheme=='weiss')then
+          fgand(:,:,i) = g0and_bath_mats(ispin,ispin,xi*w,dmft_bath) ![Norb][Norb]
+       else
+          fgand(:,:,i) = delta_bath_mats(ispin,ispin,xi*w,dmft_bath)
+       endif
+    enddo
+    !
     do iorb=1,Norb
        suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
-       Gdelta(1,1:Ldelta) = fg(iorb,iorb,1:Ldelta)
-       fgand=zero
        unit=free_unit()
        open(unit,file="fit_delta"//reg(suffix)//".ed")
        do i=1,Ldelta
-          w = Xdelta(i)
-          if(cg_scheme=='weiss')then
-             fgand = weiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-          else
-             fgand = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-          endif
-          write(unit,"(5F24.15)")Xdelta(i),dimag(Gdelta(1,i)),dimag(fgand),dreal(Gdelta(1,i)),dreal(fgand)
+          write(unit,"(5F24.15)")Xdelta(i),&
+               dimag(fg(iorb,iorb,i)),dimag(fgand(iorb,iorb,i)),&
+               dreal(fg(iorb,iorb,i)),dreal(fgand(iorb,iorb,i))
        enddo
        close(unit)
     enddo
   end subroutine write_fit_result
+  !
 end subroutine chi2_fitgf_normal_normal
 
 
@@ -191,9 +192,12 @@ function chi2_delta_normal_normal(a) result(chi2)
   real(8)                      ::  chi2,w
   integer                      ::  i,iorb,ispin
   type(effective_bath)         ::  dmft_bath
+  !
   iorb=Orb_indx
   ispin=Spin_indx
+  !
   call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
+  !
   do i=1,Ldelta
      w = xdelta(i)
      g0(i)   = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
@@ -215,11 +219,12 @@ function grad_chi2_delta_normal_normal(a) result(dchi2)
   complex(8),dimension(Ldelta,size(a)) :: dg0
   integer                              :: i,j,iorb,ispin
   real(8)                              :: w
-  df=0d0
+  !
   iorb=Orb_indx
   ispin=Spin_indx
-  !push the array into a dmft_bath
+  !
   call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
+  !
   do i=1,Ldelta
      w        = Xdelta(i)
      g0(i)    = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
@@ -245,14 +250,12 @@ function chi2_weiss_normal_normal(a) result(chi2)
   complex(8),dimension(Ldelta) ::  g0
   real(8)                      ::  chi2,w
   integer                      ::  i,iorb,ispin
-  chi2 = 0d0 
-  iorb=Orb_indx
-  ispin=Spin_indx
-  !push the array into a dmft_bath
+  iorb  = Orb_indx
+  ispin = Spin_indx
   call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
   do i=1,Ldelta
      w      = Xdelta(i)
-     g0(i)  = weiss_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
+     g0(i)  = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
   enddo
   !
   chi2=sum(abs(Gdelta(1,:)-g0(:))**2/Wdelta(:))
