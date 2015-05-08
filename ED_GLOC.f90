@@ -364,11 +364,18 @@ contains
     do ispin=1,Nspin
        do iorb=1,Norb
           io = iorb + (ispin-1)*Norb
+          !
+          !SYMMETRIES in Matsubara-frequencies  [assuming a real order parameter]
+          !G22(iw) = -[G11[iw]]*
+          !G21(iw) =   G12[w]
           zeta_mats(1,1,io,io,:) = xi*wm(:) + xmu - Eloc_(io)
           zeta_mats(2,2,io,io,:) = xi*wm(:) - xmu + Eloc_(io)
           !
-          zeta_real(1,1,io,io,:) = dcmplx(wr(:),eps)                  + xmu - Eloc_(io)
-          zeta_real(2,2,io,io,:) = -conjg(dcmplx(wr(Lreal:1:-1),eps)) + xmu - Eloc_(io)
+          !SYMMETRIES in real-frequencies   [assuming a real order parameter]
+          !G22(w)  = -[G11[-w]]*
+          !G21(w)  =   G12[w]
+          zeta_real(1,1,io,io,:) = dcmplx(wr(:),eps)                  + xmu - Eloc_(io)    
+          zeta_real(2,2,io,io,:) = -conjg( dcmplx(wr(Lreal:1:-1),eps) + xmu - Eloc_(io) )
        enddo
     enddo
     do ispin=1,Nspin
@@ -377,6 +384,7 @@ contains
              do jorb=1,Norb
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
+                !
                 zeta_mats(1,1,io,jo,:) = zeta_mats(1,1,io,jo,:) - Smats(1,ispin,jspin,iorb,jorb,:)
                 zeta_mats(1,2,io,jo,:) = zeta_mats(1,2,io,jo,:) - Smats(2,ispin,jspin,iorb,jorb,:)
                 zeta_mats(2,1,io,jo,:) = zeta_mats(2,1,io,jo,:) - Smats(2,ispin,jspin,iorb,jorb,:)
@@ -384,8 +392,9 @@ contains
                 !
                 zeta_real(1,1,io,jo,:) = zeta_real(1,1,io,jo,:) - Sreal(1,ispin,jspin,iorb,jorb,:)
                 zeta_real(1,2,io,jo,:) = zeta_real(1,2,io,jo,:) - Sreal(2,ispin,jspin,iorb,jorb,:)
-                zeta_real(2,1,io,jo,:) = zeta_real(2,1,io,jo,:) - conjg(Sreal(2,ispin,jspin,iorb,jorb,Lreal:1:-1))
-                zeta_real(2,2,io,jo,:) = zeta_real(2,2,io,jo,:) - Sreal(1,ispin,jspin,iorb,jorb,Lreal:1:-1)
+                zeta_real(2,1,io,jo,:) = zeta_real(2,1,io,jo,:) - Sreal(2,ispin,jspin,iorb,jorb,:)
+                zeta_real(2,2,io,jo,:) = zeta_real(2,2,io,jo,:) + conjg(Sreal(1,ispin,jspin,iorb,jorb,Lreal:1:-1))
+                !
              enddo
           enddo
        enddo
