@@ -374,11 +374,17 @@ contains
           do iorb=1,Norb
              io = iorb + (ispin-1)*Norb
              js = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
+             !SYMMETRIES in Matsubara-frequencies  [assuming a real order parameter]
+             !G22(iw) = -[G11[iw]]*
+             !G21(iw) =   G12[w]
              zeta_mats(1,1,ilat,io,io,:) = xi*wm(:)          + xmu - Eloc_(js)
              zeta_mats(2,2,ilat,io,io,:) = xi*wm(:)          - xmu + Eloc_(js)
              !
+             !SYMMETRIES in real-frequencies   [assuming a real order parameter]
+             !G22(w)  = -[G11[-w]]*
+             !G21(w)  =   G12[w]             
              zeta_real(1,1,ilat,io,io,:) = dcmplx(wr(:),eps) + xmu - Eloc_(js)
-             zeta_real(2,2,ilat,io,io,:) = -conjg(dcmplx(wr(Lreal:1:-1),eps)) + xmu - Eloc_(js)
+             zeta_real(2,2,ilat,io,io,:) = -conjg( dcmplx(wr(Lreal:1:-1),eps) + xmu - Eloc_(js) )
           enddo
        enddo
        do ispin=1,Nspin
@@ -394,8 +400,8 @@ contains
                    !
                    zeta_real(1,1,ilat,io,jo,:) = zeta_real(1,1,ilat,io,jo,:) - Sreal(1,ilat,ispin,jspin,iorb,jorb,:)
                    zeta_real(1,2,ilat,io,jo,:) = zeta_real(1,2,ilat,io,jo,:) - Sreal(2,ilat,ispin,jspin,iorb,jorb,:)
-                   zeta_real(2,1,ilat,io,jo,:) = zeta_real(2,1,ilat,io,jo,:) - conjg(Sreal(2,ilat,ispin,jspin,iorb,jorb,Lreal:1:-1))
-                   zeta_real(2,2,ilat,io,jo,:) = zeta_real(2,2,ilat,io,jo,:) - Sreal(1,ilat,ispin,jspin,iorb,jorb,Lreal:1:-1)
+                   zeta_real(2,1,ilat,io,jo,:) = zeta_real(2,1,ilat,io,jo,:) - Sreal(2,ilat,ispin,jspin,iorb,jorb,:)
+                   zeta_real(2,2,ilat,io,jo,:) = zeta_real(2,2,ilat,io,jo,:) + conjg(Sreal(1,ilat,ispin,jspin,iorb,jorb,Lreal:1:-1))
                 enddo
              enddo
           enddo
