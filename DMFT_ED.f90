@@ -12,6 +12,9 @@ MODULE DMFT_ED
        impSreal    ,&
        impSAreal   ,&
        ed_dens     ,&
+       indep_list  ,&
+       map_lat2ind ,&
+       map_ind2lat ,&
        ED_MPI_ID,ED_MPI_SIZE,ED_MPI_ERR
 
   USE ED_AUX_FUNX, only:&

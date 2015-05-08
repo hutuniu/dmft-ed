@@ -356,7 +356,7 @@ contains
   subroutine get_sigma_print_gf_superc
     integer                                               :: i,j,ispin,unit(12),iorb,jorb
     complex(8)                                            :: iw
-    complex(8),allocatable,dimension(:)                   :: det
+    complex(8)                                            :: det_mats(Lmats),det_real(Lreal)
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats)     :: impG0mats,impF0mats,invG0mats,invF0mats,invGmats,invFmats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal)     :: impG0real,impF0real,invG0real,invF0real,invGreal,invFreal
     complex(8),dimension(2*Nspin*Norb,2*Nspin*Norb)       :: invGimp
@@ -391,13 +391,13 @@ contains
        enddo
        !Get Gimp^-1
        do iorb=1,Norb
-          det  =  abs(impGmats(ispin,ispin,iorb,iorb,:))**2 + (impFmats(ispin,ispin,iorb,iorb,:))**2
-          invGmats(ispin,ispin,iorb,iorb,:) = conjg(impGmats(ispin,ispin,iorb,iorb,:))/det
-          invFmats(ispin,ispin,iorb,iorb,:) = impFmats(ispin,ispin,iorb,iorb,:)/det
+          det_mats  =  abs(impGmats(ispin,ispin,iorb,iorb,:))**2 + (impFmats(ispin,ispin,iorb,iorb,:))**2
+          invGmats(ispin,ispin,iorb,iorb,:) = conjg(impGmats(ispin,ispin,iorb,iorb,:))/det_mats
+          invFmats(ispin,ispin,iorb,iorb,:) = impFmats(ispin,ispin,iorb,iorb,:)/det_mats
           !
-          det  = impGreal(ispin,ispin,iorb,iorb,:)*conjg(impGreal(ispin,ispin,iorb,iorb,Lreal:1:-1)) + impFreal(ispin,ispin,iorb,iorb,:)**2
-          invGreal(ispin,ispin,iorb,iorb,:) =  conjg(impGreal(ispin,ispin,iorb,iorb,Lreal:1:-1))/det(:)
-          invFreal(ispin,ispin,iorb,iorb,:) =  impFreal(ispin,ispin,iorb,iorb,:)/det(:)
+          det_real  = impGreal(ispin,ispin,iorb,iorb,:)*conjg(impGreal(ispin,ispin,iorb,iorb,Lreal:1:-1)) + impFreal(ispin,ispin,iorb,iorb,:)**2
+          invGreal(ispin,ispin,iorb,iorb,:) =  conjg(impGreal(ispin,ispin,iorb,iorb,Lreal:1:-1))/det_real(:)
+          invFreal(ispin,ispin,iorb,iorb,:) =  impFreal(ispin,ispin,iorb,iorb,:)/det_real(:)
        enddo
        !Get Sigma functions: Sigma= G0^-1 - G^-1
        impSmats=zero
@@ -414,9 +414,11 @@ contains
        !Get G0and:
        do i=1,Lmats
           impG0mats(ispin,ispin,:,:,i) = g0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
+          impF0mats(ispin,ispin,:,:,i) = f0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
        enddo
        do i=1,Lreal
           impG0real(ispin,ispin,:,:,i) = g0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
+          impF0real(ispin,ispin,:,:,i) = f0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
        enddo
        !
        !
@@ -484,9 +486,11 @@ contains
        !Get G0and:
        do i=1,Lmats
           impG0mats(ispin,ispin,:,:,i) = g0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
+          impF0mats(ispin,ispin,:,:,i) = f0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
        enddo
        do i=1,Lreal
           impG0real(ispin,ispin,:,:,i) = g0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
+          impF0real(ispin,ispin,:,:,i) = f0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
        enddo
        !
        !

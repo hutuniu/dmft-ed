@@ -106,7 +106,10 @@ MODULE ED_VARS_GLOBAL
 
   !Symmetry operations
   !=========================================================
-  integer,allocatable,dimension(:)            :: Ineq_sites_List
+  integer,allocatable,dimension(:)            :: indep_list
+  integer,dimension(:),allocatable   :: map_lat2ind
+  integer,dimension(:,:),allocatable :: map_ind2lat
+
 
 
   !OBSOLETE (to be removed associated to build_tight_binding_2dsquare)
