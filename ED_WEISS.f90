@@ -467,7 +467,7 @@ contains
                 !
                 Smats_site(io,jo,:)          = Smats(1,ispin,jspin,iorb,jorb,:)
                 Smats_site(io,jo+Nso,:)      = Smats(2,ispin,jspin,iorb,jorb,:)
-                Smats_site(io+Nso,jo+Nso,:)  = Smats(2,ispin,jspin,iorb,jorb,:)
+                Smats_site(io+Nso,jo,:)      = Smats(2,ispin,jspin,iorb,jorb,:)
                 Smats_site(io+Nso,jo+Nso,:)  =-conjg(Smats(1,ispin,jspin,iorb,jorb,:))
              enddo
           enddo
@@ -649,7 +649,7 @@ contains
                 !
                 Smats_site(io,jo,:)          = Smats(1,ispin,jspin,iorb,jorb,:)
                 Smats_site(io,jo+Nso,:)      = Smats(2,ispin,jspin,iorb,jorb,:)
-                Smats_site(io+Nso,jo+Nso,:)  = Smats(2,ispin,jspin,iorb,jorb,:)
+                Smats_site(io+Nso,jo,:)      = Smats(2,ispin,jspin,iorb,jorb,:)
                 Smats_site(io+Nso,jo+Nso,:)  =-conjg(Smats(1,ispin,jspin,iorb,jorb,:))
              enddo
           enddo

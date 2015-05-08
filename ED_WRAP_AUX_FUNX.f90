@@ -236,6 +236,7 @@ contains
           end do
        end if
     end do
+    write(*,*) Nlat
     !
     Nindep=i_ind
     ! (remember: each site is connected with Nsymm sites (+ 1 = identity)) !
@@ -255,6 +256,10 @@ contains
     if(mpiID==0) close(unit)
     !+-  build maps -+!
     !
+    
+    write(*,*) "NINDEP",Nindep
+    write(*,*) indep_list
+
     do i_ind=1,Nindep
        map_lat2ind(indep_list(i_ind))=i_ind
        do isymm=1,Nsymm

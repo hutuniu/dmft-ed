@@ -3,16 +3,18 @@
   ! WITH APPLIED ELECTRIC FIELD.
   ! AUTHORS: G.Mazza & A.Amaricci @ SISSA - 2014
   !###############################################################!
-  include "SQUARE_LATTICE.f90"
+!  include "SQUARE_LATTICE.f90"
   program ed_slab
     USE DMFT_ED
     USE SCIFOR
     USE DMFT_TOOLS
     !
     USE DMFT_VECTORS
-    USE SQUARE_LATTICE
+ !   USE SQUARE_LATTICE
     !
-    USE MPI
+#ifdef _MPI_INEQ
+  USE MPI
+#endif
     implicit none
     !
     complex(8),allocatable,dimension(:,:) :: Smats,Sreal !self_energies
@@ -63,7 +65,7 @@
     real(8),allocatable,dimension(:)      :: docc_check,docc_check_
     real(8)                               :: ncheck,xmu_,kz
     integer                               :: i,is,js,iloop
-    integer                               :: Nb(2),Nx,Lk,ik,ix,iy,Nkz
+    integer                               :: Nb(2),Nx,Lk,ik,ix,iy,Nkz,Nk
     integer                               :: ilat,i_ind,isymm,check_maps,iorb,jorb,ispin,iorb_,jorb_
     integer,dimension(2)                  :: unit
     integer                               :: tmp_unit,i1,i2
@@ -71,6 +73,15 @@
     character(len=5)                      :: tmp_suffix
     logical                               :: symmetry_flag,mu_ph,embedd
     type(vect2D),allocatable,dimension(:) :: kVect
+
+    !<- supply the departure of SQUARE_LATTICE.f90
+    type(vect2D)                          :: ai,aj,bi,bj
+    integer,dimension(:),allocatable      :: ik2ix,ik2iy
+    integer,dimension(:,:),allocatable    :: kindex
+    real(8)                               :: peso,kx,ky
+    real(8),dimension(:),allocatable      :: kxgrid,kygrid
+    !>
+    
     !<DEBUG 
     real(8),dimension(:),allocatable          :: wm,wr,eii
     real(8),dimension(:,:),allocatable        :: nii,dii ![Nlat][Norb]/[4]
@@ -83,15 +94,14 @@
     !>DEBUG
 
 
-
-    !+---------+!
+#ifdef _MPI_INEQ
     ! START MPI !
-    !+---------+!
     call MPI_INIT(mpiERR)
     call MPI_COMM_RANK(MPI_COMM_WORLD,mpiID,mpiERR)
     call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
     write(*,"(A,I4,A,I4,A)")'Processor ',mpiID,' of ',mpiSIZE,' is alive'
     call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+#endif
 
     !+--------------------+!
     ! READ INPUT VARIABLES !
@@ -118,16 +128,67 @@
     !+-----------------------------+!
     Nlat = Nside
     !
-    Lk   = square_lattice_dimension(Nx)
+    
+    ! Nk = Nx/2+1
+    ! Lk = Nk*(Nk+1)/2    
+    ! ai=1.d0*Xver       ; aj=1.d0*Yver
+    ! bi=(pi2/1.d0)*Xver ; bj=(pi2/1.d0)*Yver    
+    ! allocate(epsik(Lk),wt(Lk),kVect(Lk),hk_symm(Lk))
+    ! allocate(kindex(0:Nk,0:Nk))
+    ! allocate(ik2ix(Lk),ik2iy(Lk))    
+    ! ik=0
+    ! do ix=0,Nx/2
+    !    do iy=0,ix          
+    !       ik=ik+1
+    !       Kx=dble(ix)/dble(Nx)
+    !       Ky=dble(iy)/dble(Nx)
+    !       ik2ix(ik)=ix
+    !       ik2iy(ik)=iy
+    !       kVect(ik)=Kx*bi + Ky*bj - pi*Vone 
+    !       kindex(ix,iy)=ik
+    !       if (ix==0) then
+    !          peso=1.d0       !center
+    !       elseif(ix==Nx/2) then
+    !          if (iy==0) then
+    !             peso=2.d0    ! point (pi,0)
+    !          elseif(iy==Nx/2) then 
+    !             peso=1.d0    ! corner 
+    !          else
+    !             peso=4.d0    ! border
+    !          endif
+    !       else
+    !          if (iy==ix) then
+    !             peso=4.d0    ! diagonal
+    !          elseif (iy==0) then
+    !             peso=4.d0    ! x-axis
+    !          else
+    !             peso=8.d0    ! all other points
+    !          endif
+    !       endif
+    !       wt(ik)=peso/dble(Nx**2)
+    !    enddo
+    ! enddo    
+    ! do ik=1,Lk
+    !    ix=ik2ix(ik)
+    !    iy=ik2iy(ik)
+    !    epsik(ik)=-2*ts*( dcos(kVect(ik)%x) + dcos(kVect(ik)%y) )
+    ! enddo
+    
+    allocate(kxgrid(Nx),kygrid(Nx))
+    kxgrid = linspace(0.d0,pi,Nx)
+    kygrid = linspace(0.d0,pi,Nx)
+    Lk = Nx*Nx
     allocate(epsik(Lk),wt(Lk),kVect(Lk),hk_symm(Lk))
-    wt   = square_lattice_structure(Lk,Nx)
-    epsik= square_lattice_dispersion_array(Lk,ts)
-    call get_free_dos(epsik,wt)
-    do ik=1,Lk
-       ix=ik2ix(ik)
-       iy=ik2iy(ik)
-       kVect(ik) = sl_kgrid(ix,iy)
+    wt = 1.d0/dble(Lk)    
+    ik=0
+    do ix=1,Nx
+       do iy=1,Nx
+          ik = ik + 1
+          epsik(ik) = -2*ts*( dcos(kxgrid(ix)) + dcos(kygrid(iy)) )
+       end do
     end do
+    
+    call get_free_dos(epsik,wt)    
     Nkz=20
     allocate(epsik_embedd(Nkz))
     kz=0.d0
@@ -135,7 +196,6 @@
        kz = kz + pi*dble(ik)/dble(Nkz+1)
        epsik_embedd(ik) = -2.d0*ts*cos(kz)
     end do
-
     !
     call get_k_hamiltonian_ft(kVect)
     !
@@ -280,40 +340,40 @@
 
 
     !<DEBUG TO BE REMOVED TEST EKIN
-    allocate(Sigma_tmp(Nlat,Norb,Norb,Lmats))
-    allocate(Hloc_tmp(Nlat,Norb,Norb))
-    Sigma_mats=zero
-    esite=0d0
-    Eint=0.d0
-    Ekin=0.d0
-    Epot=0.d0
-    Epot=sum(esite)/dble(Nlat)
-    !do ispin=1,Nspin
-    Eout=ed_kinetic_energy_lattice(Hk,wt,Sigma_mats)
-    !end do
-    Ekin=Eout(1)!sum(Eout)
-    Eint=Ekin+Epot
-    unit_=free_unit()
-    open(unit_,file='internal_energy.data')
-    write(unit_,'(10(F18.10))') Eint,Ekin,Epot,Eint-xmu*sum(nii)/dble(Nlat)
-    close(unit_)
-    !if we substract again H_loc from Hk the kinetic energy 
-    !as calculated below lack of the term Tr(Hloc.Gk)=Eloc (Eknot)
-    !thus the two numbers have to be different.
-    forall(ik=1:Lk)Hk(:,:,ik) = Hk(:,:,ik) - H_loc
-    Ekin=0.d0
-    Epot=0.d0
-    Epot=sum(esite)/dble(Nlat)
-    do ispin=1,Nspin
-       Sigma_tmp=Sigma_mats(:,ispin,ispin,:,:,:)
-       Hloc_tmp=Hloc(:,ispin,ispin,:,:)
-       Ekin=Ekin+ kinetic_energy_lattice_OLD(Hk,Wt,Hloc_tmp,Sigma_tmp)
-    end do
-    Eint=Ekin+Epot
-    unit_=free_unit()
-    open(unit_,file='internal_energy2.data')
-    write(unit_,'(10(F18.10))') Eint,Ekin,Epot,Eint-xmu*sum(nii)/dble(Nlat)
-    close(unit_)
+    ! allocate(Sigma_tmp(Nlat,Norb,Norb,Lmats))
+    ! allocate(Hloc_tmp(Nlat,Norb,Norb))
+    ! Sigma_mats=zero
+    ! esite=0d0
+    ! Eint=0.d0
+    ! Ekin=0.d0
+    ! Epot=0.d0
+    ! Epot=sum(esite)/dble(Nlat)
+    ! !do ispin=1,Nspin
+    ! Eout=ed_kinetic_energy_lattice(Hk,wt,Sigma_mats)
+    ! !end do
+    ! Ekin=Eout(1)!sum(Eout)
+    ! Eint=Ekin+Epot
+    ! unit_=free_unit()
+    ! open(unit_,file='internal_energy.data')
+    ! write(unit_,'(10(F18.10))') Eint,Ekin,Epot,Eint-xmu*sum(nii)/dble(Nlat)
+    ! close(unit_)
+    ! !if we substract again H_loc from Hk the kinetic energy 
+    ! !as calculated below lack of the term Tr(Hloc.Gk)=Eloc (Eknot)
+    ! !thus the two numbers have to be different.
+    ! forall(ik=1:Lk)Hk(:,:,ik) = Hk(:,:,ik) - H_loc
+    ! Ekin=0.d0
+    ! Epot=0.d0
+    ! Epot=sum(esite)/dble(Nlat)
+    ! do ispin=1,Nspin
+    !    Sigma_tmp=Sigma_mats(:,ispin,ispin,:,:,:)
+    !    Hloc_tmp=Hloc(:,ispin,ispin,:,:)
+    !    Ekin=Ekin+ kinetic_energy_lattice_OLD(Hk,Wt,Hloc_tmp,Sigma_tmp)
+    ! end do
+    ! Eint=Ekin+Epot
+    ! unit_=free_unit()
+    ! open(unit_,file='internal_energy2.data')
+    ! write(unit_,'(10(F18.10))') Eint,Ekin,Epot,Eint-xmu*sum(nii)/dble(Nlat)
+    ! close(unit_)
     !>DEBUG
 
     !+-------------+!
@@ -369,9 +429,9 @@
              end if
           end do
           ! Compute local GFs
-          !<DEBUG  comment
-          call ed_get_gloc_lattice(Hk,Wt,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,hk_symm=hk_symm)
-          !>DEBUG
+          !+-(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)-+!
+          !call rdmft_get_gloc_mb(Hk,wt,Hloc,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,hk_symm)
+          call ed_get_gloc_lattice(Hk,Wt,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,1,hk_symm=hk_symm)
           ! Dump GLoc onto  independent sites GLoc
           do i_ind=1,Nindep
              ilat=indep_list(i_ind)
@@ -381,7 +441,8 @@
           ! Get Weiss fields
           !<DEBUG  comment
           !call rdmft_get_weiss_field_mb(Nindep,Gloc_mats_,Sigma_mats_,Delta_bath_,Hloc_)        
-          call ed_get_weiss_lattice(Gloc_mats_,Sigma_mats_,Delta_bath_,Hloc_)        
+          !Nsites,Gloc,Smats,Weiss,Hloc
+          call ed_get_weiss_lattice(Nindep,Gloc_mats_,Sigma_mats_,Delta_bath_,Hloc_)        
           !>DEBUG
           ! Fit baths
           !<DEBUG  comment
@@ -398,7 +459,9 @@
           ! check convergence
           docc_check_=sum(dsite_,2)
           if(mpiID==0) converged = check_convergence_local(docc_check_,dmft_error,Nsuccess,nloop,id=0,file="error.err")
+#ifdef _MPI_INEQ
           call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
+#endif
           ! Reshuffle baths to full slab and compute quantities at convergency
           if(converged) then            
              allocate(tmpBath(Nb(1),Nb(2)))
@@ -424,7 +487,8 @@
              esite = ed_get_epot_lattice(Nlat)
              call ed_get_sigma_matsubara_lattice(Sigma_mats,Nlat)
              call ed_get_sigma_real_lattice(Sigma_real,Nlat)
-             call ed_get_gloc_lattice(Hk,Wt,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,hk_symm=hk_symm)    
+             call ed_get_gloc_lattice(Hk,Wt,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,1,hk_symm=hk_symm)
+             !call ed_get_gloc_lattice(Hk,Wt,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,hk_symm=hk_symm)    
              !>DEBUG
           end if
 
@@ -454,12 +518,14 @@
           !    call rdmft_get_gloc_embedd(Hk,wt,Hloc,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,epsik_embedd,hk_symm=hk_symm)
           ! else
           !<DEBUG  comment
-          call ed_get_gloc_lattice(Hk,Wt,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,hk_symm=hk_symm)    
+          !call ed_get_gloc_lattice(Hk,Wt,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,hk_symm=hk_symm)    
+          call ed_get_gloc_lattice(Hk,Wt,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,1,hk_symm=hk_symm)
           !>DEBUG
           ! end if
           !<DEBUG  comment
           ! Compute Weiss fields (or hybridization functions)
-          call ed_get_weiss_lattice(Gloc_mats,Sigma_mats,Delta_bath,Hloc)
+          !call ed_get_weiss_lattice(Nindep,Gloc_mats_,Sigma_mats_,Delta_bath_,Hloc_)        
+          call ed_get_weiss_lattice(Nlat,Gloc_mats,Sigma_mats,Delta_bath,Hloc)
           !>DEBUG
           !<DEBUG  comment
           ! fit baths and mix result with old baths
@@ -476,8 +542,10 @@
           if(mpiID==0) then
              if(nread/=0.d0) call search_chemical_potential(xmu,ncheck,converged)
           end if
+#ifdef _MPI_INEQ
           call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
           call MPI_BCAST(xmu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpiERR)
+#endif
           xmu=wmixing*xmu + (1.d0-wmixing)*xmu_
        end if
        call print_out_mb(converged)
@@ -626,19 +694,19 @@
          !<DEBUG use the old routine from GIacomo which re-add Hloc by hand to H(k)
          !       as we now work with a compelte H(k) (which include local terms)
          !       we just set Hloc_tmp to zero
-         Ekin=0.d0
-         Epot=0.d0
-         Epot=sum(esite)/dble(Nlat)
-         do ispin=1,Nspin
-            Sigma_tmp=Sigma_mats(:,ispin,ispin,:,:,:)
-            Hloc_tmp=0d0!Hloc(:,ispin,ispin,:,:)
-            Ekin=Ekin+ kinetic_energy_lattice_OLD(Hk,Wt,Hloc_tmp,Sigma_tmp)
-         end do
-         Eint=Ekin+Epot
-         unit=free_unit()
-         open(unit,file='internal_energy2.data')
-         write(unit,'(10(F18.10))') Eint,Ekin,Epot,Eint-xmu*sum(nii)/dble(Nlat)
-         close(unit)
+         ! Ekin=0.d0
+         ! Epot=0.d0
+         ! Epot=sum(esite)/dble(Nlat)
+         ! do ispin=1,Nspin
+         !    Sigma_tmp=Sigma_mats(:,ispin,ispin,:,:,:)
+         !    Hloc_tmp=0d0!Hloc(:,ispin,ispin,:,:)
+         !    Ekin=Ekin+ kinetic_energy_lattice_OLD(Hk,Wt,Hloc_tmp,Sigma_tmp)
+         ! end do
+         ! Eint=Ekin+Epot
+         ! unit=free_unit()
+         ! open(unit,file='internal_energy2.data')
+         ! write(unit,'(10(F18.10))') Eint,Ekin,Epot,Eint-xmu*sum(nii)/dble(Nlat)
+         ! close(unit)
          !>DEBUG
       end if
 

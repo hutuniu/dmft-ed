@@ -100,6 +100,7 @@ MODULE DMFT_ED
 
   USE ED_WEISS,    only:  ed_get_weiss
   USE ED_WRAP_WEISS,only: ed_get_weiss_lattice
+  !USE ED_WRAP_WEISS,only: ed_get_weiss_lattice_hloc,ed_get_weiss_lattice_eloc
 
 
   USE ED_ENERGY, only:    ed_kinetic_energy
