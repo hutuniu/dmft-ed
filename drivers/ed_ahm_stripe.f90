@@ -7,6 +7,7 @@ program ed_stripe
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
+  USE DMFT_VECTORS
 #ifdef _MPI_INEQ
   USE MPI
 #endif
@@ -19,20 +20,12 @@ program ed_stripe
   complex(8),allocatable                :: Gmats(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
   complex(8),allocatable                :: Greal(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
   complex(8),allocatable                :: Delta(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-  
+
   complex(8),allocatable                :: Smats_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
   complex(8),allocatable                :: Sreal_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lreal]
   complex(8),allocatable                :: Gmats_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
   complex(8),allocatable                :: Greal_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lreal]
   complex(8),allocatable                :: Delta_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
-  !<DEBUG
-  ! complex(8),allocatable,dimension(:,:,:) :: Gmats_1b          !(2,Nlat,Lmats)
-  ! complex(8),allocatable,dimension(:,:,:) :: Gmats_1b_         !(2,Nindep,Lmats)         
-  ! complex(8),allocatable,dimension(:,:,:) :: Smats_1b          !(2,Nlat,Lmats)
-  ! complex(8),allocatable,dimension(:,:,:) :: Smats_1b_         !(2,Nindep,Lmats)         
-  ! complex(8),allocatable,dimension(:,:,:) :: Delta_1b          !(2,Nlat,Lmats)
-  ! complex(8),allocatable,dimension(:,:,:) :: Delta_1b_         !(2,Nindep,Lmats)       
-  !DEBUG>
 
   real(8),allocatable,dimension(:,:,:)    :: bath,bath_old
   real(8),allocatable,dimension(:,:,:)    :: bath_,bath_old_
@@ -44,17 +37,17 @@ program ed_stripe
   complex(8),allocatable :: Hk(:,:,:)              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
 
   real(8) :: ts
-  real(8),allocatable,dimension(:,:)        :: Usite
+  real(8),allocatable,dimension(:,:)      :: Usite,Usite_
   real(8),allocatable,dimension(:,:)      :: Uij,Unodes
 
   logical                                 :: converged
   real(8)                                 :: Uamplitude
   real(8)                                 :: r,wmixing
-  real(8),allocatable,dimension(:)        :: epsik,wt,k_grid
-  logical,allocatable,dimension(:)        :: hk_symm  
+  real(8),allocatable,dimension(:)        :: epsik,wt,k_grid,epsik_,wt_
+  logical,allocatable,dimension(:)        :: hk_symm,hk_symm_
   integer                                 :: Uperiod,Nperiod
   integer                                 :: i,is,iloop,ik
-  integer                                 :: Nb(2),Nx,Lk
+  integer                                 :: Nb(2),Lk
   integer                                 :: Nrow,Ncol
   integer                                 :: row,col,ilat,i_ind
 
@@ -62,6 +55,14 @@ program ed_stripe
   logical                                 :: pbc_row,pbc_col
   logical                                 :: symmetry_flag
   integer                                 :: symmetry_type
+
+
+  !
+  integer :: Xperiod,Yperiod
+  integer :: N_Xperiod,N_Yperiod
+  logical :: Xpbc,Ypbc
+  integer :: Nx,Ny,ix,iy
+  !
 
   !+---------+!
   ! START MPI !
@@ -77,13 +78,14 @@ program ed_stripe
   !+- READ INPUT VARIABLES +-!
   !+------------------------+!
   call parse_input_variable(ts,"TS","inputRDMFT.in",default=0.5d0)
-  call parse_input_variable(Nrow,"Nrow","inputRDMFT.in",default=4)
-  call parse_input_variable(Uperiod,"U_PERIOD","inputRDMFT.in",default=10,comment='Period of the Interaction modulation (lattice sites units)')
-  call parse_input_variable(Nperiod,"NU_PERIOD","inputRDMFT.in",default=1,comment='Number of periods contained in the stripe')
+  call parse_input_variable(Xperiod,"Xperiod","inputRDMFT.in",default=10,comment='periodicity along X-dir (lattice sites units)')
+  call parse_input_variable(N_Xperiod,"N_Xperiod","inputRDMFT.in",default=10,comment='Number of periods along X-direction')
+  call parse_input_variable(Yperiod,"Yperiod","inputRDMFT.in",default=1,comment='periodicity along Y-dir (lattice sites units)')
+  call parse_input_variable(N_Yperiod,"N_Yperiod","inputRDMFT.in",default=10,comment='Number of periods along Y-direction')
   call parse_input_variable(wmixing,"WMIXING","inputRDMFT.in",default=1.d0)
   call parse_input_variable(Uamplitude,"Uamplitude","inputRDMFT.in",default=0.d0)
-  call parse_input_variable(pbc_row,"PBC_ROW","inputRDMFT.in",default=.true.)
-  call parse_input_variable(pbc_col,"PBC_COL","inputRDMFT.in",default=.false.)
+  call parse_input_variable(Xpbc,"XPBC","inputRDMFT.in",default=.true.)
+  call parse_input_variable(Ypbc,"YPBC","inputRDMFT.in",default=.true.)
   call parse_input_variable(symmetry_flag,"REFLECTION_SYMM","inputRDMFT.in",default=.true.,comment='Set lattice reflection symmetry')  
   !
   call ed_read_input("inputRDMFT.in")
@@ -92,37 +94,82 @@ program ed_stripe
   !+-----------------------------+!
   !+- BUILD LATTICE HAMILTONIAN -+!
   !+-----------------------------+!
-  Ncol = Uperiod
-  Nlat = Nrow*Ncol
   !
   !call get_lattice_hamiltonian(Nrow,Ncol,pbc_row=pbc_row,pbc_col=pbc_col)
   !
-  unit=free_unit()
-  open(unit,file='k_grid.lattice')
-  Lk=Nperiod
-  allocate(wt(Lk),epsik(Lk),k_grid(Lk),hk_symm(Lk))
-  do ik=1,Lk
-     k_grid(ik) = 2*pi/dble(Lk)*dble(ik-1)
-     epsik(ik) = 2.d0*cos(k_grid(ik))
-     wt(ik) = 1.d0/dble(Lk)
-     write(unit,'(6(F18.10))') dble(ik),k_grid(ik),epsik(ik),wt(ik)
-  end do
-  close(unit)
-  call get_k_hamiltonian_stripe(Nrow,Ncol,pbc_row,pbc_col,k_grid)
+
+  !<DEBUG
+  ! Ncol = Xperiod
+  ! Nrow = Yperiod
+  ! Nlat = Nrow*Ncol
+  ! pbc_row = .false.
+  ! pbc_col = .false.
+  ! unit=free_unit()
+  ! open(unit,file='k_grid.lattice')
+  ! Lk=N_Xperiod
+  ! allocate(wt_(Lk),epsik_(Lk),k_grid(Lk),hk_symm_(Lk))
+  ! do ik=1,Lk
+  !    k_grid(ik) = 2*pi/dble(Lk)*dble(ik-1)
+  !    epsik_(ik) = 2.d0*cos(k_grid(ik))
+  !    wt_(ik) = 1.d0/dble(Lk)
+  !    write(unit,'(6(F18.10))') dble(ik),k_grid(ik),epsik_(ik),wt_(ik)
+  ! end do
+  ! close(unit)
+  ! call get_k_hamiltonian_stripe(Nrow,Ncol,pbc_row,pbc_col,k_grid)  
+  ! do ik=1,Lk
+  !    write(401,*)
+  !    write(401,*) ik
+  !    write(401,*)
+  !    write(*,*) ik,Lk,N_Xperiod,N_Yperiod
+  !    do ilat=1,Nlat
+  !       write(401,'(40(F7.2))') dreal(Hk(ilat,:,ik))
+  !    end do
+  ! end do
+  !DEBUG>
+  
+  Nx=Xperiod*N_Xperiod
+  Ny=Yperiod*N_Yperiod
+  Lk = N_Xperiod*N_Yperiod
+  !+- CONSTRAINTS ON INPUTS -+!
+  if(Xperiod==1.and.N_Xperiod>1) Xpbc=.true.
+  if(Yperiod==1.and.N_Yperiod>1) Ypbc=.true.
+  !+-------------------------+!
+  allocate(wt(Lk),hk_symm(Lk))
+  call  get_Hk_2dsquare(Nx,Xpbc,Ny,Ypbc,Xperiod,Yperiod,Hk)
+  wt=1.d0/dble(Lk)
+  Nlat=size(Hk,1)
+  
+  !<DEBUG
+  ! do ik=1,Lk
+  !    write(400,*)
+  !    write(400,*) ik
+  !    write(400,*)
+  !    write(*,*) ik,Lk,N_Xperiod,N_Yperiod
+  !    do ilat=1,Nlat
+  !       write(400,'(40(F7.2))') dreal(Hk(ilat,:,ik))
+  !    end do
+  ! end do
+  !>DEBUG
+
 
   !+-------------------------+!
   !+- BUILD LATTICE DETAILS -+!
   !+-------------------------+!
-  allocate(Usite(Nlat,Norb),Uij(Ncol,Nrow))
+  allocate(Usite(Nlat,Norb),Uij(Xperiod,Yperiod))
   Usite=Uloc(1)
+  Uperiod = Xperiod
   if(mpiID==0) open(unit,file='Unodes.lattice')
-  do row=0,Nrow-1
-     do col=0,Ncol-1
-        ilat = col + row*Ncol + 1
-        if(Uperiod.gt.1) Usite(ilat,:) = Usite(ilat,:) + Uamplitude*dsin(2.d0*pi*dble(col)/dble(Uperiod))
-        Uij(col+1,row+1) = Usite(ilat,1)
-        if(abs(dsin(2.d0*pi*dble(col)/dble(Uperiod)))<1.d-10) then
-           if(mpiID==0) write(unit,*) dble(col+1),dble(row+1)
+  ! do ix=1,Xperiod
+  !    do iy=1,Yperiod
+  do iy=1,Yperiod
+     do ix=1,Xperiod
+        !ilat = iy + (ix-1)*Yperiod 
+        ilat = ix + (iy-1)*Xperiod 
+        if(Uperiod.gt.1) Usite(ilat,:) = Usite(ilat,:) + Uamplitude*dsin(2.d0*pi*dble(ix-1)/dble(Uperiod))
+        Uij(ix,iy) = Usite(ilat,1)
+        write(*,*) Usite(ilat,1),ilat
+        if(abs(dsin(2.d0*pi*dble(ix)/dble(Uperiod)))<1.d-10) then
+           if(mpiID==0) write(unit,*) dble(ix),dble(iy)
         end if
      end do
   end do
@@ -155,19 +202,11 @@ program ed_stripe
   allocate(Greal(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   ! Impurity-bath hybritizations
   allocate(Delta(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-
-  !<DEBUG
-  ! allocate(Gmats_1b(2,Nlat,Lmats))
-  ! allocate(Smats_1b(2,Nlat,Lmats))
-  ! allocate(Delta_1b(2,Nlat,Lmats))
-  !DEBUG>
-
-
   !
   call  ed_init_solver_lattice(bath)
   Hloc=0.d0
-  !call init_lattice_baths(bath)
-
+  !
+  if(Yperiod==1) symmetry_flag=.false.
   if(symmetry_flag) then     
      Nsymm=1
      call get_independent_sites(reflect)
@@ -188,20 +227,14 @@ program ed_stripe
      allocate(Greal_(2,Nindep,Nspin,Nspin,Norb,Norb,Lreal))
      ! Impurity-bath hybritizations
      allocate(Delta_(2,Nindep,Nspin,Nspin,Norb,Norb,Lmats))
-
-     !<DEBUG
-     ! allocate(Gmats_1b_(2,Nindep,Lmats))
-     ! allocate(Smats_1b_(2,Nindep,Lmats))
-     ! allocate(Delta_1b_(2,Nindep,Lmats))
-     !DEBUG>
-
+     
+     allocate(Usite_(Nindep,1))
      do i_ind=1,Nindep
+        Usite_(i_ind,:) = Usite_(indep_list(i_ind),:)
         bath_(i_ind,:,:) = bath(indep_list(i_ind),:,:)
         Hloc_(i_ind,:,:,:,:) = Hloc(indep_list(i_ind),:,:,:,:)
      end do
   end if
-
-
 
 
   !+-------------+!
@@ -220,7 +253,7 @@ program ed_stripe
            enddo
         endif
         bath_old_=bath_
-        call ed_solve_lattice(bath_,Hloc_,Uloc_ii=Usite)
+        call ed_solve_lattice(bath_,Hloc_,Uloc_ii=Usite_)
         nii_ = ed_get_dens_lattice(Nindep,1)
         dii_ = ed_get_docc_lattice(Nindep,1)
         eii_ = ed_get_epot_lattice(Nindep)
@@ -246,30 +279,21 @@ program ed_stripe
            ilat=indep_list(i_ind)
            Gmats_(:,i_ind,:,:,:,:,:)=Gmats(:,ilat,:,:,:,:,:)
            Greal_(:,i_ind,:,:,:,:,:)=Greal(:,ilat,:,:,:,:,:)
-        end do        
-        !<DEBUG
-        ! do i_ind=1,Nindep
-        !    do i=1,Lmats
-        !       Gmats_1b_(:,i_ind,i)=Gmats_(:,i_ind,1,1,1,1,i)
-        !       Smats_1b_(:,i_ind,i)=Smats_(:,i_ind,1,1,1,1,i)
-        !    end do
-        ! end do
-        ! ilat=1
-        ! do i=1,Lmats
-        !    write(500,'(10(F18.10))') wm(i),Smats_1b_(1,ilat,i),Smats_(1,ilat,1,1,1,1,i)
-        !    write(501,'(10(F18.10))') wm(i),Gmats_1b_(1,ilat,i),Gmats_(1,ilat,1,1,1,1,i)
-        ! end do
-        ! Delta_1b_=zero
-        ! call ed_get_weiss_lattice(Nindep,Gmats_1b_,Smats_1b_,Delta_1b_)        
-        !DEBUG>
+        end do
+        !
         call ed_get_weiss_lattice(Nindep,Gmats_,Smats_,Delta_,Hloc_)                        
         call ed_chi2_fitgf_lattice(bath_,Delta_,Hloc_)
         !
         bath_=wmixing*bath_ + (1.d0-wmixing)*bath_old_
         !
      else
+        if(rdmft_phsym)then
+           do i=1,Nlat
+              call ph_symmetrize_bath(bath(i,:,:))
+           enddo
+        endif
         bath_old=bath
-        call ed_solve_lattice(bath,Hloc)
+        call ed_solve_lattice(bath,Hloc,Uloc_ii=Usite)
         nii = ed_get_dens_lattice(Nlat,1)
         dii = ed_get_docc_lattice(Nlat,1)
         eii = ed_get_epot_lattice(Nlat)
@@ -285,11 +309,6 @@ program ed_stripe
         call ed_chi2_fitgf_lattice(bath,Delta,Hloc)
         !
         bath=wmixing*bath + (1.d0-wmixing)*bath_old
-        if(rdmft_phsym)then
-           do i=1,Nlat
-              call ph_symmetrize_bath(bath(i,:,:))
-           enddo
-        endif
      end if
      !
      if(mpiID==0) converged = check_convergence_local(dii,dmft_error,Nsuccess,nloop,id=0,file="error.err")
@@ -307,13 +326,11 @@ program ed_stripe
   !+******************************************************************+!
   !+******************************************************************+!
   !+******************************************************************+!
-
 CONTAINS
-
   !+----------------------+!
   !+- AUXILIARY ROUTINES -+!
   !+----------------------+!
-  ! print-out 
+  
   subroutine print_sc_out(converged)
     integer                              :: i,j,is,row,col
     real(8)                              :: nimp,phi,ccdw,docc
@@ -452,6 +469,247 @@ CONTAINS
 
 
 
+  subroutine  get_Hk_2dsquare(Nx,Xpbc,Ny,Ypbc,Lx,Ly,Hk_lat)
+    implicit none
+    integer                  :: Nx,Ny
+    integer                  :: Lx,Ly
+    logical                  :: Xpbc,Ypbc
+    real(8),allocatable      :: kxgrid(:),kygrid(:),kxgrid_(:),kygrid_(:)    
+    real(8),allocatable      :: epsik(:)
+    real(8),allocatable      :: Hlat(:,:)
+    integer                 ::ik,Nx_,Ny_,Nlat_,Nlat_sub,Lk_,Lk
+    integer                  :: ilat,jlat,ilat_,jlat_
+    integer                  :: ix_,iy_,ix_sub,iy_sub,ilat_sub,jlat_sub
+
+    integer,allocatable      :: map_lattice_new2old_(:,:,:)
+    integer,allocatable      :: map_lattice_new2old(:,:)
+    integer,allocatable      :: map_lattice_old2new_sites(:),map_lattice_old2new_sublat(:)
+    real(8),allocatable      :: thop_lattice(:,:,:,:)
+    type(vect2D),allocatable :: Rlat_(:),kVect_(:)
+    complex(8),allocatable   :: Hk_lat(:,:,:)
+    complex(8)               :: psi_ki,psi_kj
+    !
+    if(mod(Nx,Lx)/=0) stop "wrong X-periodicity"
+    if(mod(Ny,Ly)/=0) stop "wrong Y-periodicity"
+
+    
+    !+- STEP-1: build the lattice hamiltonian using FT of the energy-momentum dispersion with the right boundary conditions.
+    allocate(kxgrid(Nx),kygrid(Ny))    
+    if(Xpbc) then
+       kxgrid = linspace(0.d0,2.d0*pi,Nx,istart=.true.,iend=.false.)
+    else
+       kxgrid = linspace(0.d0,pi,Nx,istart=.false.,iend=.false.)
+    end if
+    if(Ypbc) then
+       kygrid = linspace(0.d0,2.d0*pi,Ny,istart=.true.,iend=.false.)
+    else
+       kygrid = linspace(0.d0,pi,Ny,istart=.false.,iend=.false.)  
+    end if
+    Nlat=Nx*Ny; Lk = Nx*Ny; allocate(epsik(Lk))
+    ik=0
+    do ix=1,Nx
+       do iy=1,Ny
+          ik = ik + 1
+          epsik(ik) = -2*ts*( dcos(kxgrid(ix)) + dcos(kygrid(iy)))
+       end do
+    end do
+    allocate(Hlat(Nlat,Nlat))
+    call k2latticeFT(kxgrid,Xpbc,kygrid,Ypbc,epsik,Hlat)        
+    !+- STEP-2: build the hopping matrices for a lattice of different periodicity -+!
+    !           1 <= Lx =< Nx  ; 1 <= Ly =< Ny            !
+    Nx_=Nx/Lx;Ny_=Ny/Ly    
+    Nlat_=Nx_*Ny_;Nlat_sub=Lx*Ly    
+    allocate(Rlat_(Nlat_))
+    allocate(map_lattice_new2old(Nlat_,Nlat_sub),map_lattice_new2old_(Nlat_,Lx,Ly))
+    allocate(map_lattice_old2new_sites(Nlat),map_lattice_old2new_sublat(Nlat))
+    allocate(thop_lattice(Nlat_,Nlat_,Nlat_sub,Nlat_sub))    
+    do ix_=1,Nx_
+       do iy_=1,Ny_
+          ilat_=square_lattice_stride(ix_,iy_,Nx_)        
+          Rlat_(ilat_)%x= dble(ix_)*dble(Lx)
+          Rlat_(ilat_)%y= dble(iy_)*dble(Ly)
+          do ix_sub=1,Lx
+             do iy_sub=1,Ly
+                ilat_sub = square_lattice_stride(ix_sub,iy_sub,Lx)              
+                ix = (ix_-1)*Lx+ix_sub
+                iy = (iy_-1)*Ly+iy_sub
+                ilat = square_lattice_stride(ix,iy,Nx)
+                map_lattice_new2old_(ilat_,ix_sub,iy_sub) = ilat
+                map_lattice_new2old(ilat_,ilat_sub) = ilat
+                map_lattice_old2new_sites(ilat) = ilat_
+                map_lattice_old2new_sublat(ilat) = ilat_sub
+             end do
+          end do
+       end do
+    end do
+    thop_lattice=0.d0
+    do ilat_=1,Nlat_
+       do jlat_=1,Nlat_
+          do ilat_sub=1,Nlat_sub
+             do jlat_sub=1,Nlat_sub
+                ilat=map_lattice_new2old(ilat_,ilat_sub)
+                jlat=map_lattice_new2old(jlat_,jlat_sub)
+                thop_lattice(ilat_,jlat_,ilat_sub,jlat_sub) = Hlat(ilat,jlat)
+             end do
+          end do
+       end do
+    end do
+    !
+    !+- STEP 3 -+! 
+    !   build-up the new momentum grid corresponding to the periodicity (Lx,Ly)
+    Lk_ =Nx_*Ny_;allocate(kxgrid_(Nx_),kygrid_(Ny_),kVect_(Lk_))
+    if(Xpbc) then
+       kxgrid_ = linspace(0.d0,2.d0*pi/dble(Lx),Nx_,istart=.true.,iend=.false.)
+    else
+       kxgrid_ = linspace(0.d0,pi/dble(Lx),Nx_,istart=.false.,iend=.false.)
+    end if
+    if(Ypbc) then
+       kygrid_ = linspace(0.d0,2.d0*pi/dble(Ly),Ny_,istart=.true.,iend=.false.)
+    else
+       kygrid_ = linspace(0.d0,pi/dble(Ly),Ny_,istart=.false.,iend=.false.)
+    end if
+    ik=0
+    do ix_=1,Nx_
+       do iy_=1,Ny_
+          ik=ik+1
+          kVect_(ik)%x=kxgrid_(ix_)
+          kVect_(ik)%y=kygrid_(iy_)
+       end do
+    end do
+    !+- STEP 4 -+! 
+    !   For each (ilat_sub,jlat_sub) transform back thop_lattice(:,:,ilat_sub,jlat_sub) to momentum space
+    if(allocated(Hk_lat)) deallocate(Hk_lat)
+    allocate(Hk_lat(Nlat_sub,Nlat_sub,Lk_))
+    do ik=1,Lk_
+       Hk_lat(:,:,ik) = 0.d0
+       do ilat_=1,Nlat_
+          do jlat_=1,Nlat_
+             !
+             psi_ki=1.d0
+             psi_kj=1.d0             
+             if(Xpbc) then
+                psi_ki=psi_ki*sqrt(1.d0/dble(Nx_))*exp(-xi*kVect_(ik)%x*Rlat_(ilat_)%x)
+                psi_kj=psi_kj*sqrt(1.d0/dble(Nx_))*exp(-xi*kVect_(ik)%x*Rlat_(jlat_)%x)
+             else
+                psi_ki=psi_ki*sqrt(2.d0/dble(Nx_+1))*sin(kVect_(ik)%x*Rlat_(ilat_)%x)
+                psi_kj=psi_kj*sqrt(2.d0/dble(Nx_+1))*sin(kVect_(ik)%x*Rlat_(jlat_)%x)
+             end if
+             if(Ypbc) then
+                psi_ki=psi_ki*sqrt(1.d0/dble(Ny_))*exp(-xi*kVect_(ik)%y*Rlat_(ilat_)%y)
+                psi_kj=psi_kj*sqrt(1.d0/dble(Ny_))*exp(-xi*kVect_(ik)%y*Rlat_(jlat_)%y)
+             else
+                psi_ki=psi_ki*sqrt(2.d0/dble(Ny_+1))*sin(kVect_(ik)%y*Rlat_(ilat_)%y)
+                psi_kj=psi_kj*sqrt(2.d0/dble(Ny_+1))*sin(kVect_(ik)%y*Rlat_(jlat_)%y)
+             end if
+             Hk_lat(:,:,ik) = Hk_lat(:,:,ik) + thop_lattice(ilat_,jlat_,:,:)*psi_kj*conjg(psi_ki)
+          end do
+       end do
+    end do
+
+    unit=free_unit()
+    open(unit,file="hk_symmetric_points")
+    Hk_symm=.true.
+    do ik=1,Lk_
+       do ilat_sub=1,Nlat_sub
+          do jlat_sub=1,Nlat_sub
+             if(Hk(ilat_sub,jlat_sub,ik) /= Hk(jlat_sub,ilat_sub,ik)) Hk_symm(ik)=.false.
+          end do
+       end do
+       if(Hk_symm(ik)) write(unit,'(4(F18.10))') kVect_(ik)%x,kVect_(ik)%y
+    end do
+  end subroutine get_Hk_2dsquare
+
+
+
+  subroutine k2latticeFT(kx_grid,Xpbc,ky_grid,Ypbc,epsik,Hlat) 
+    real(8)                     :: kx_grid(:),ky_grid(:)
+    logical                     :: Xpbc,Ypbc
+    real(8)                     :: epsik(size(kx_grid)*size(ky_grid))
+    real(8)                     :: Hlat(size(kx_grid)*size(ky_grid),size(kx_grid)*size(ky_grid))
+    !
+    type(vect2D),allocatable   :: kgrid(:),Rlat(:)
+    integer                     :: Nx,Ny
+    !    complex(8),dimension(Nx,Ny) :: Hk
+    !type(vect2D),dimension(:),allocatable   :: 
+
+    real(8) :: arg,test
+    complex(8) :: psi_ki,psi_kj
+    integer :: i,j,ilat,jlat,ill,ill_
+    integer :: Lk,Nlat    
+    !
+    integer,allocatable :: stride_ill2ij(:)
+    real(8),allocatable :: Hlat_tmp(:,:)
+    !
+    Nx=size(kx_grid);Ny=size(ky_grid);Nlat = Nx*Ny;Lk=Nlat
+    allocate(Rlat(Nlat),kgrid(Lk))
+    !+- build lattice vectors -+!
+    ik=0
+    do i=1,Nx
+       do j=1,Ny
+          ik=ik+1
+          kgrid(ik)%x=kx_grid(i)
+          kgrid(ik)%y=ky_grid(j)          
+          ilat=(j-1)*Nx+i
+          Rlat(ilat)%x = dble(i)
+          Rlat(ilat)%y = dble(j)
+       end do
+    end do
+    !+-------------------------+!
+    allocate(Hlat_tmp(Nlat,Nlat))
+    write(LOGfile,*) "Building full Real-space hamiltonian from Fourier transform."
+    if(mpiID==0)call start_timer
+    do ill=1+mpiID,Nlat*Nlat,mpiSIZE
+       ilat=mod(ill-1,Nlat)+1
+       jlat=(ill-1)/Nlat+1
+       Hlat_tmp(ilat,jlat) = 0.d0
+       do ik=1,Lk
+          !
+          psi_ki=1.d0
+          psi_kj=1.d0             
+          if(Xpbc) then
+             psi_ki=psi_ki*sqrt(1.d0/dble(Nx))*exp(xi*kgrid(ik)%x*Rlat(ilat)%x)
+             psi_kj=psi_kj*sqrt(1.d0/dble(Nx))*exp(xi*kgrid(ik)%x*Rlat(jlat)%x)
+          else
+             psi_ki=psi_ki*sqrt(2.d0/dble(Nx+1))*sin(kgrid(ik)%x*Rlat(ilat)%x)
+             psi_kj=psi_kj*sqrt(2.d0/dble(Nx+1))*sin(kgrid(ik)%x*Rlat(jlat)%x)
+          end if
+          if(Ypbc) then
+             psi_ki=psi_ki*sqrt(1.d0/dble(Ny))*exp(xi*kgrid(ik)%y*Rlat(ilat)%y)
+             psi_kj=psi_kj*sqrt(1.d0/dble(Ny))*exp(xi*kgrid(ik)%y*Rlat(jlat)%y)
+          else
+             psi_ki=psi_ki*sqrt(2.d0/dble(Ny+1))*sin(kgrid(ik)%y*Rlat(ilat)%y)
+             psi_kj=psi_kj*sqrt(2.d0/dble(Ny+1))*sin(kgrid(ik)%y*Rlat(jlat)%y)
+          end if
+          !
+          Hlat_tmp(ilat,jlat) = Hlat_tmp(ilat,jlat) + epsik(ik)*psi_ki*conjg(psi_kj)
+       end do
+       !if(mpiID==0) write(*,*) ill,Nlat*Nlat
+       if(mpiID==0)call eta(ill,Nlat*Nlat,unit=LOGfile)
+    end do
+    if(mpiId==0) call stop_timer
+    ! write(*,*) size(Hlat_tmp,1),size(Hlat_tmp,2)
+    ! write(*,*) size(Hlat,1),size(Hlat,2)
+
+#ifdef _MPI_INEQ
+    call MPI_ALLREDUCE(Hlat_tmp,Hlat,Nlat*Nlat,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+    Hlat=Hlat_tmp
+#endif
+  end subroutine k2latticeFT
+
+
+  function square_lattice_stride(ix,iy,Ncol) result(ilat) 
+    integer :: ix,iy,Ncol 
+    integer :: ilat
+    ilat = (iy-1)*Ncol + ix
+    return
+  end function square_lattice_stride
+
+
+
+
+
+  !!!!!!!!! OBSOLETE !!!!!!!!
   ! build Hk
   subroutine get_k_hamiltonian_stripe(Nrow,Ncol,pbc_col,pbc_row,k_grid)
     integer               :: Nrow
@@ -581,14 +839,14 @@ CONTAINS
 
     unit=free_unit()
     open(unit,file="hk_symmetric_points")
-    Hk_symm=.true.
+    Hk_symm_=.true.
     do ik=1,Lk
        do i=1,Nlat
           do j=1,Nlat
-             if(Hk(i,j,ik) /= Hk(j,i,ik)) Hk_symm(ik)=.false.
+             if(Hk(i,j,ik) /= Hk(j,i,ik)) Hk_symm_(ik)=.false.
           end do
        end do
-       if(Hk_symm(ik)) write(unit,'(4(F18.10))') k_grid(ik)
+       if(Hk_symm_(ik)) write(unit,'(4(F18.10))') k_grid(ik)
     end do
   end subroutine get_k_hamiltonian_stripe
 
