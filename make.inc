@@ -1,9 +1,10 @@
 #COMPILER (PARALLEL IF FPP_INEQ or FPP_ED ARE SET)
 FC=mpif90
 PLAT=intel
+#PLAT=gnu
 #PRECOMPILATION FLAG (leave blank for serial code)
 #this is the flag for the inequivalent parallelism [MPI_INEQ]
-FPP_INEQ=
+FPP_INEQ=MPI_INEQ
 #this is the flag for the ed parallelism [MPI]
 FPP_ED=
 
