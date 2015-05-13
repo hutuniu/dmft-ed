@@ -20,9 +20,9 @@ endif
 #CHOOSE LINKING OPTIONS:
 #if you intend to use mkl:
 #MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
-#ARGS=-ldmftt -lscifor $(MKLARGS) -lminpack -larpack -lparpack 
+#ARGS=-ldmftt -lscifor $(MKLARGS)  -larpack -lparpack 
 #ELSE:
-ARGS=  -ldmftt -lscifor -lfftpack -llapack -lblas -lminpack -larpack -lparpack
+ARGS=  -ldmftt -lscifor -lfftpack -llapack -lblas  -larpack -lparpack
 
 #REVISION SOFTWARE GIT:
 REV=$(shell git rev-parse HEAD)

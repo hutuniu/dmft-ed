@@ -234,27 +234,32 @@ contains
   subroutine allocate_bath(dmft_bath_)
     type(effective_bath) :: dmft_bath_
     if(dmft_bath_%status)call deallocate_bath(dmft_bath_)
-    allocate(dmft_bath_%v(Nspin,Norb,Nbath))
+    !
     select case(bath_type)
     case default
-       allocate(dmft_bath_%e(Nspin,Norb,Nbath))        !local energies of the bath
        !
        select case(ed_mode)
-       case default                                    !normal [N,Sz]
-          !
-       case ("superc")                                 !superc [Sz] 
-          allocate(dmft_bath_%d(Nspin,Norb,Nbath))     !local SC order parameters the bath  
+       case default                                 !normal [N,Sz]
+          allocate(dmft_bath_%e(Nspin,Norb,Nbath))  !local energies of the bath
+          allocate(dmft_bath_%v(Nspin,Norb,Nbath))
+       case ("superc")                              !superc [Sz] 
+          allocate(dmft_bath_%e(Nspin,Norb,Nbath))  !local energies of the bath
+          allocate(dmft_bath_%d(Nspin,Norb,Nbath))  !local SC order parameters the bath
+          allocate(dmft_bath_%v(Nspin,Norb,Nbath))
        end select
        !
     case('hybrid')
-       allocate(dmft_bath_%e(Nspin,1,Nbath))           !local energies of the bath
        !
        select case(ed_mode)
-       case default                                    !normal  [N,Sz]
-          !
-       case ("superc")                                 !superc  [Sz]
-          allocate(dmft_bath_%d(Nspin,1,Nbath))        !local SC order parameters the bath
+       case default                                 !normal  [N,Sz]
+          allocate(dmft_bath_%e(Nspin,1,Nbath))     !local energies of the bath
+          allocate(dmft_bath_%v(Nspin,Norb,Nbath))
+       case ("superc")                              !superc  [Sz]
+          allocate(dmft_bath_%e(Nspin,1,Nbath))     !local energies of the bath
+          allocate(dmft_bath_%d(Nspin,1,Nbath))     !local SC order parameters the bath
+          allocate(dmft_bath_%v(Nspin,Norb,Nbath))
        end select
+       !
     end select
     dmft_bath_%status=.true.
   end subroutine allocate_bath
@@ -266,8 +271,8 @@ contains
   subroutine deallocate_bath(dmft_bath_)
     type(effective_bath) :: dmft_bath_
     if(allocated(dmft_bath_%e))deallocate(dmft_bath_%e)
-    if(allocated(dmft_bath_%v))deallocate(dmft_bath_%v)
     if(allocated(dmft_bath_%d))deallocate(dmft_bath_%d)
+    if(allocated(dmft_bath_%v))deallocate(dmft_bath_%v)
     dmft_bath_%status=.false.
   end subroutine deallocate_bath
 
@@ -281,66 +286,68 @@ contains
   ! - chi2 bath
   !+-------------------------------------------------------------------+
   function get_bath_size() result(bath_size)
-    integer :: dims(2)
     integer :: bath_size
-    dims(1)=Nspin
     select case(bath_type)
     case default
        !
        select case(ed_mode)
        case default
-          !(e [spin][Norb][Nbath] + v [spin][Norb][Nbath])
-          dims(2) = 2*Norb*Nbath
+          !( e [Nspin][Norb][Nbath] + v [Nspin][Norb][Nbath] )
+          bath_size = Nspin*Norb*Nbath + Nspin*Norb*Nbath
        case ("superc")
-          !(e [spin][Norb][Nbath] + v [spin][Norb][Nbath] + d [spin][Norb][Nbath])
-          dims(2) = 3*Norb*Nbath
+          !( e [Nspin][Norb][Nbath] + d [Nspin][Norb][Nbath] + v [Nspin][Norb][Nbath] )
+          bath_size = Nspin*Norb*Nbath + Nspin*Norb*Nbath + Nspin*Norb*Nbath
        end select
        !
     case('hybrid')
        !
        select case(ed_mode)
        case default
-          !(e [spin][1][Nbath] + v [spin][Norb][Nbath])
-          dims(2) = (Norb+1)*Nbath
+          !(e [Nspin][1][Nbath] + v [Nspin][Norb][Nbath] )
+          bath_size = Nspin*Nbath + Nspin*Norb*Nbath
        case ("superc")
-          !(e [spin][1][Nbath] + v [spin][Norb][Nbath] + d [spin][1][Nbath])
-          dims(2) = (Norb+2)*Nbath
+          !(e [Nspin][1][Nbath] + d [Nspin][1][Nbath] + v [Nspin][Norb][Nbath] )
+          bath_size = Nspin*Nbath + Nspin*Nbath + Nspin*Norb*Nbath
        end select
        !
     end select
-    bath_size=dims(1)*dims(2)
+    !
   end function get_bath_size
 
   function get_chi2_bath_size() result(bath_size)
-    integer :: bath_size,Ntrue
+    integer :: bath_size
+    !
     select case(bath_type)
     case default
+       !
        select case(ed_mode)
-       case default
-          !E_{ 1,\a}(k) [   1 ][  \a][Nbath]
-          !V_{ 1,\a}(k) [   1 ][  \a][Nbath]
-          Ntrue = 2*Nbath 
-       case ("superc")
-          !E_{ 1,\a}(k) [   1 ][  \a][Nbath]
-          !D_{ 1,\a}(k) [   1 ][  \a][Nbath]
-          !V_{ 1,\a}(k) [   1 ][  \a][Nbath]
-          !Nhel = 1
-          Ntrue = 3*Nbath 
+       case default             !per spin/per orb
+          !E_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+          !V_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+          bath_size = Nbath + Nbath
+       case ("superc")          !per spin/per orb
+          !E_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+          !D_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+          !V_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+          bath_size = Nbath + Nbath + Nbath
        end select
+       !
     case('hybrid')
+       !
        select case(ed_mode)
        case default
-          !E_{ 1, 1}(k) [   1 ][  1 ][Nbath]
-          !V_{ 1,\a}(k) [   1 ][Norb][Nbath]
-          Ntrue = (Norb+1)*Nbath
+          !E_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
+          !V_{\s,:}(:)  [ 1 ][ Norb][Nbath]
+          bath_size = Nbath + Norb*Nbath
        case ("superc")
-          !E_{ 1, 1}(k) [   1 ][  1 ][Nbath]
-          !D_{ 1, 1}(k) [   1 ][  1 ][Nbath]
-          !V_{ 1,\a}(k) [   1 ][Norb][Nbath]
-          Ntrue = (Norb+2)*Nbath
+          !E_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
+          !D_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
+          !V_{\s,:}(:)  [ 1 ][ Norb][Nbath]
+          bath_size = Nbath + Nbath + Norb*Nbath
        end select
+       !
     end select
-    bath_size = Ntrue
+    !
   end function get_chi2_bath_size
 
 
@@ -356,62 +363,29 @@ contains
   !+-------------------------------------------------------------------+
   function check_bath_dimension(bath_) result(bool)
     real(8),dimension(:) :: bath_
-    integer              :: N1_,N2_,Ntrue
+    integer              :: Ntrue
     logical              :: bool
-    ! N1_=size(bath_,1)
-    ! N2_=size(bath_,2)
-    select case(bath_type)
-    case default
-       select case(ed_mode)
-       case default
-          Ntrue = 2*Norb*Nbath
-       case ("superc")
-          Ntrue = 3*Norb*Nbath
-       end select
-    case('hybrid')
-       select case(ed_mode)
-       case default
-          Ntrue = (Norb+1)*Nbath
-       case ("superc")
-          Ntrue = (Norb+2)*Nbath
-       end select
-    end select
-    !bool = (N1_ == Nspin).AND.(N2_ == Ntrue)
-    bool = (size(bath_) == Nspin*Ntrue)
+    !
+    Ntrue = get_bath_size()
+    !
+    bool  = (size(bath_) == Ntrue)
+    !
   end function check_bath_dimension
 
   function check_chi2_bath_dimension(a) result(bool)
     real(8),dimension(:),intent(in) :: a
     integer                         :: Ntrue
     logical                         :: bool
-    select case(bath_type)
-    case default
-       select case(ed_mode)
-       case default
-          !E_{ 1,\a}(k) [   1 ][  \a][Nbath]
-          !V_{ 1,\a}(k) [   1 ][  \a][Nbath]
-          Ntrue = 2*Nbath 
-       case ("superc")
-          !E_{ 1,\a}(k) [   1 ][  \a][Nbath]
-          !D_{ 1,\a}(k) [   1 ][  \a][Nbath]
-          !V_{ 1,\a}(k) [   1 ][  \a][Nbath]
-          Ntrue = 3*Nbath 
-       end select
-    case('hybrid')
-       select case(ed_mode)
-       case default
-          !E_{ 1, 1}(k) [   1 ][  1 ][Nbath]
-          !V_{ 1,\a}(k) [   1 ][Norb][Nbath]
-          Ntrue = (Norb+1)*Nbath
-       case ("superc")
-          !E_{ 1, 1}(k) [   1 ][  1 ][Nbath]
-          !D_{ 1, 1}(k) [   1 ][  1 ][Nbath]
-          !V_{ 1,\a}(k) [   1 ][Norb][Nbath]
-          Ntrue = (Norb+2)*Nbath
-       end select
-    end select
-    bool = (size(a)==Ntrue)
+    !
+    Ntrue = get_chi2_bath_size()
+    !
+    bool  = (size(a) == Ntrue)
+    !
   end function check_chi2_bath_dimension
+
+
+
+
 
 
 
@@ -432,6 +406,10 @@ contains
     !update some entries. This way you can restart even 
     !from different Ns calculation, this is better than 
     !start from a complete guess
+    !
+    !This is valid for all ed_modes: normal,superc,nonsu2
+    !
+    !Get energies:
     dmft_bath_%e(:,:,1)    =-hwband_
     dmft_bath_%e(:,:,Nbath)= hwband_
     Nh=Nbath/2
@@ -451,12 +429,12 @@ contains
           dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de
        enddo
     endif
+    !Get spin-keep yhbridizations
     do i=1,Nbath
        dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))
     enddo
-    if(ed_mode=="superc")then
-       dmft_bath_%d(:,:,:)=deltasc
-    endif
+    !Get SC amplitudes
+    if(ed_mode=="superc")dmft_bath_%d(:,:,:)=deltasc
     !
     !Read from file if exist:
     !
@@ -465,21 +443,28 @@ contains
        if(ED_MPI_ID==0)write(LOGfile,"(A)")'Reading bath from file'//trim(Hfile)//trim(ed_file_suffix)//".restart"
        unit = free_unit()
        flen = file_length(trim(Hfile)//trim(ed_file_suffix)//".restart")
+       !
        open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".restart")
        read(unit,*)
+       !
        select case(bath_type)
        case default
           !
           select case(ed_mode)
           case default
              do i=1,min(flen,Nbath)
-                read(unit,*)((dmft_bath_%e(ispin,iorb,i),&
-                     dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                read(unit,*)((&
+                     dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
              enddo
           case ("superc")
              do i=1,min(flen,Nbath)
-                read(unit,*)((dmft_bath_%e(ispin,iorb,i),dmft_bath_%d(ispin,iorb,i),&
-                     dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                read(unit,*)((&
+                     dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%d(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
              enddo
           end select
           !
@@ -488,13 +473,22 @@ contains
           select case(ed_mode)
           case default
              do i=1,min(flen,Nbath)
-                read(unit,*)(dmft_bath_%e(ispin,1,i),&
-                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                read(unit,*)(&
+                     dmft_bath_%e(ispin,1,i),&
+                     (&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),&
+                     ispin=1,Nspin)
              enddo
           case ("superc")
              do i=1,min(flen,Nbath)
-                read(unit,*)(dmft_bath_%e(ispin,1,i),dmft_bath_%d(ispin,1,i),&
-                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                read(unit,*)(&
+                     dmft_bath_%e(ispin,1,i),&
+                     dmft_bath_%d(ispin,1,i),&
+                     (&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),&
+                     ispin=1,Nspin)
              enddo
           end select
           !
@@ -526,19 +520,29 @@ contains
           select case(ed_mode)
           case default
              write(unit_,"(90(A21,1X))")&
-                  (("#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-                  "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
+                  ((&
+                  "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  iorb=1,Norb),ispin=1,Nspin)
              do i=1,Nbath
-                write(unit_,"(90(F21.12,1X))")((dmft_bath_%e(ispin,iorb,i),&
-                     dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                write(unit_,"(90(F21.12,1X))")((&
+                     dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
              enddo
           case ("superc")
              write(unit_,"(90(A21,1X))")&
-                  (("#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),"#Dk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-                  "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
+                  ((&
+                  "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  "Dk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)) ,&
+                  "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+                  iorb=1,Norb),ispin=1,Nspin)
              do i=1,Nbath
-                write(unit_,"(90(F21.12,1X))")((dmft_bath_%e(ispin,iorb,i),dmft_bath_%d(ispin,iorb,i),&
-                     dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                write(unit_,"(90(F21.12,1X))")((&
+                     dmft_bath_%e(ispin,iorb,i),&
+                     dmft_bath_%d(ispin,iorb,i),&
+                     dmft_bath_%v(ispin,iorb,i),&
+                     iorb=1,Norb),ispin=1,Nspin)
              enddo
           end select
           !
@@ -546,24 +550,37 @@ contains
           !
           select case(ed_mode)
           case default
-             write(unit_,"(90(A21,1X))")("#Ek_s"//reg(txtfy(ispin)),&
-                  ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
+             write(unit_,"(90(A21,1X))")(&
+                  "#Ek_s"//reg(txtfy(ispin)),&
+                  ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),&
+                  ispin=1,Nspin)
              do i=1,Nbath
-                write(unit_,"(90(F21.12,1X))")( dmft_bath_%e(ispin,1,i),&
-                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                write(unit_,"(90(F21.12,1X))")(&
+                     dmft_bath_%e(ispin,1,i),&
+                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),&
+                     ispin=1,Nspin)
              enddo
           case ("superc")
-             write(unit_,"(90(A21,1X))")("#Ek_s"//reg(txtfy(ispin)),"#Dk_s"//reg(txtfy(ispin)),&
-                  ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),ispin=1,Nspin)
+             write(unit_,"(90(A21,1X))")(&
+                  "#Ek_s"//reg(txtfy(ispin)),&
+                  "Dk_s"//reg(txtfy(ispin)) ,&
+                  ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),&
+                  ispin=1,Nspin)
              do i=1,Nbath
-                write(unit_,"(90(F21.12,1X))")( dmft_bath_%e(ispin,1,i),dmft_bath_%d(ispin,1,i),&
-                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),ispin=1,Nspin)
+                write(unit_,"(90(F21.12,1X))")(&
+                     dmft_bath_%e(ispin,1,i),&
+                     dmft_bath_%d(ispin,1,i),&
+                     (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),&
+                     ispin=1,Nspin)
              enddo
           end select
           !
        end select
     endif
   end subroutine write_bath
+
+
+
 
 
 
@@ -632,8 +649,7 @@ contains
   subroutine set_bath(bath_,dmft_bath_)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
-    integer                :: i,iorb,ispin,stride,io
-    integer                :: ei(2),vi(2),di(2)
+    integer                :: i,iorb,jorb,ispin,jspin,stride,io
     logical                :: check
     if(.not.dmft_bath_%status)stop "SET_BATH: bath not allocated"
     check = check_bath_dimension(bath_)
@@ -757,12 +773,12 @@ contains
   subroutine copy_bath(dmft_bath_,bath_)
     type(effective_bath)   :: dmft_bath_
     real(8),dimension(:)   :: bath_
-    integer                :: iorb,ispin,stride,io,i
-    integer                :: ei(2),vi(2),di(2)
+    integer                :: iorb,jorb,ispin,jspin,stride,io,i
     logical                :: check
     if(.not.dmft_bath_%status)stop "COPY_BATH: bath not allocated"
     check=check_bath_dimension(bath_)
     if(.not.check)stop "copy_bath: wrong bath dimensions"
+    !
     select case(bath_type)
     case default
        !
@@ -1016,45 +1032,43 @@ contains
     type(effective_bath) :: dmft_bath
     real(8),dimension(:) :: array
     integer,optional     :: ispin,iorb
-    integer              :: ispin_,iorb_,i_,io_,ihel_,jhel_,stride_
+    integer              :: ispin_,jspin_,iorb_,i_,io_,stride_
     logical              :: check
+    !
     ispin_=1;if(present(ispin))ispin_=ispin
     iorb_ =1;if(present(iorb)) iorb_ =iorb
+    !
     check = check_chi2_bath_dimension(array)
-    if(.not.check) stop "dmft_bath2array error: size[array] is incorrect"
+    if(.not.check) stop "dmft_bath2chi2_bath error: size[array] is incorrect"
+    !
     select case(bath_type)
     case default
        select case(ed_mode)
-       case default
+       case default             !per spin/ per orb
           !2*Nbath == Nbath + Nbath
-          !Nbath:
           stride_=0
           do i_=1,Nbath
              io_ = stride_ + i_
              array(io_) = dmft_bath%e(ispin_,iorb_,i_)
           enddo
-          !Nbath:
           stride_=Nbath
           do i_=1,Nbath
              io_ = stride_ + i_
              array(io_) = dmft_bath%v(ispin_,iorb_,i_)
           enddo
           !
-       case ("superc")
+       case ("superc")          !per spin/ per orb
           !3*Nbath == Nbath + Nbath + Nbath
-          !Nbath:
           stride_=0
           do i_=1,Nbath
              io_ = stride_ + i_
              array(io_) = dmft_bath%e(ispin_,iorb_,i_)
           enddo
-          !Nbath:
           stride_=Nbath
           do i_=1,Nbath
              io_ = stride_ + i_
              array(io_) = dmft_bath%d(ispin_,iorb_,i_)
           enddo
-          !Nbath:
           stride_=2*Nbath
           do i_=1,Nbath
              io_ = stride_ + i_
@@ -1065,16 +1079,14 @@ contains
        !
     case ("hybrid")
        !
-       select case(ed_mode)
+       select case(ed_mode)     !per spin
        case default
-          !(Norb+1)*Nbath = Nbath + Norb*Nbath
-          !Nbath:
+          !Nbath + Norb*Nbath
           stride_=0
           do i_=1,Nbath
              io_ = stride_ + i_
              array(io_) = dmft_bath%e(ispin_,1,i_)
           enddo
-          !Norb*Nbath:
           stride_=Nbath
           do iorb_=1,Norb
              do i_=1,Nbath
@@ -1083,21 +1095,18 @@ contains
              enddo
           enddo
           !
-       case ("superc")
-          !(Norb+2)*Nbath = Nbath + Nbath + Norb*Nbath
-          !Nbath:
+       case ("superc")          !per spin
+          !Nbath + Nbath + Norb*Nbath
           stride_=0
           do i_=1,Nbath
              io_ = stride_ + i_
              array(io_) = dmft_bath%e(ispin_,1,i_)
           enddo
-          !Nbath:
           stride_=Nbath
           do i_=1,Nbath
              io_ = stride_ + i_
              array(io_) = dmft_bath%d(ispin_,1,i_)
           enddo
-          !Norb*Nbath
           stride_=2*Nbath
           do iorb_=1,Norb
              do i_=1,Nbath
@@ -1120,46 +1129,44 @@ contains
     real(8),dimension(:) :: array
     type(effective_bath) :: dmft_bath
     integer,optional     :: ispin,iorb
-    integer              :: ispin_,iorb_,i_,io_,ihel_,jhel_,stride_
+    integer              :: ispin_,jspin_,iorb_,i_,io_,stride_
     logical              :: check
+    !
     ispin_=1;if(present(ispin))ispin_=ispin
     iorb_ =1;if(present(iorb)) iorb_ =iorb
+    !
     check = check_chi2_bath_dimension(array)
-    if(.not.check) stop "dmft_bath2array error: size[array] is incorrect"
+    if(.not.check) stop "chi2_bath2dmft_bath error: size[array] is incorrect"
+    !
     select case(bath_type)
     case default
        !
-       select case(ed_mode)
+       select case(ed_mode)     !per spin / per orb
        case default
-          !2*Nbath == Nbath + Nbath
-          !Nbath:
+          !Nbath + Nbath
           stride_=0
           do i_=1,Nbath
              io_ = stride_ + i_
              dmft_bath%e(ispin_,iorb_,i_) = array(io_)
           enddo
-          !Nbath:
           stride_=Nbath
           do i_=1,Nbath
              io_ = stride_ + i_
              dmft_bath%v(ispin_,iorb_,i_) = array(io_)
           enddo
           !
-       case ("superc")
-          !3*Nbath == Nbath + Nbath + Nbath
-          !Nbath:
+       case ("superc")          !per spin / per orb
+          !Nbath + Nbath + Nbath
           stride_=0
           do i_=1,Nbath
              io_ = stride_ + i_
              dmft_bath%e(ispin_,iorb_,i_) = array(io_)
           enddo
-          !Nbath:
           stride_=Nbath
           do i_=1,Nbath
              io_ = stride_ + i_
              dmft_bath%d(ispin_,iorb_,i_) = array(io_)
           enddo
-          !Nbath:
           stride_=2*Nbath
           do i_=1,Nbath
              io_ = stride_ + i_
@@ -1170,16 +1177,14 @@ contains
        !
     case ("hybrid")
        !
-       select case(ed_mode)
+       select case(ed_mode)     !per spin
        case default
-          !(Norb+1)*Nbath = Nbath + Norb*Nbath
-          !Nbath:
+          !Nbath + Norb*Nbath
           stride_=0
           do i_=1,Nbath
              io_ = stride_ + i_
              dmft_bath%e(ispin_,1,i_) = array(io_) 
           enddo
-          !Norb*Nbath:
           stride_=Nbath
           do iorb_=1,Norb
              do i_=1,Nbath
@@ -1188,21 +1193,18 @@ contains
              enddo
           enddo
           !
-       case ("superc")
-          !(Norb+2)*Nbath = Nbath + Nbath + Norb*Nbath
-          !Nbath:
+       case ("superc")    !per spin
+          !Nbath + Nbath + Norb*Nbath
           stride_=0
           do i_=1,Nbath
              io_ = stride_ + i_
              dmft_bath%e(ispin_,1,i_) = array(io_)
           enddo
-          !Nbath:
           stride_=Nbath
           do i_=1,Nbath
              io_ = stride_ + i_
              dmft_bath%d(ispin_,1,i_) = array(io_) 
           enddo
-          !Norb*Nbath
           stride_=2*Nbath
           do iorb_=1,Norb
              do i_=1,Nbath

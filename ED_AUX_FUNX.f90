@@ -81,12 +81,10 @@ contains
     Nlevels  = 2*Ns
     Nhilbert = 2**Nlevels
     !
-    nup=Ns/2
-    ndw=Ns-nup
     select case(ed_mode)
     case default
        Nsectors = (Ns+1)*(Ns+1)
-       dim_sector_max=get_normal_sector_dimension(nup,ndw)
+       dim_sector_max=get_normal_sector_dimension(nup=Ns/2,ndw=Ns-Ns/2)
     case ("superc")
        Nsectors = Nlevels+1        !sz=-Ns:Ns=2*Ns+1=Nlevels+1
        dim_sector_max=get_superc_sector_dimension(0)
@@ -189,7 +187,7 @@ contains
     if(nerr < dmft_error) nerr=dmft_error
     if(ed_mode=="superc")then
        if(Nspin>1)stop "SC+AFM ERROR." 
-       if(Norb>1)stop "SC Multi-Band IS NOT TESTED. remove this line in ED_AUX_FUNX to proceed.."
+       if(Norb>1)stop "SC Multi-Band IS NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
        if(ed_type=='c')stop "SC with Hermitian H NOT IMPLEMENTED."
        if(ed_twin)stop  "SC + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
     endif
