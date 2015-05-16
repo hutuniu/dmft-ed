@@ -17,7 +17,7 @@
 MODULE ED_CHI2FIT
   USE SF_CONSTANTS
   USE SF_OPTIMIZE, only:fmin_cg,fmin_cgplus,fmin_cgminimize
-  USE SF_LINALG,   only:matrix_inverse
+  USE SF_LINALG,   only:eye,inv
   USE SF_IOTOOLS,  only:reg,free_unit,txtfy
   USE SF_ARRAYS,   only:arange
   USE ED_INPUT_VARS
@@ -91,9 +91,6 @@ contains
           !
        case ("superc")
           stop "chi2_fitgf ERROR: ed_mode=superc but only NORMAL component is provided"
-          ! write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=superc but only NORMAL component provided"
-          ! call sleep(1)
-          ! call chi2_fitgf_normal_normal(fg(ispin_,ispin_,:,:,:),bath,ispin_)
           !
        end select
        !
@@ -104,9 +101,6 @@ contains
           !
        case ("superc")
           stop "chi2_fitgf ERROR: ed_mode=superc but only NORMAL component is provided"
-          ! write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=superc but only NORMAL component provided"
-          ! call sleep(1)
-          ! call chi2_fitgf_hybrid_normal(fg(ispin_,ispin_,:,:,:),bath,ispin_)
           !
        end select
     end select
@@ -147,9 +141,6 @@ contains
        select case(ed_mode)
        case default
           stop "chi2_fitgf ERROR: ed_mode=normal but NORMAL & ANOMAL components provided. Fitting only the NORMAL."
-          ! write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=normal but NORMAL & ANOMAL components provided. Fitting only the NORMAL."
-          ! call sleep(1)
-          ! call chi2_fitgf_normal_normal(fg(1,ispin_,ispin_,:,:,:),bath,ispin_)
           !
        case ("superc")
           call chi2_fitgf_normal_superc(fg(:,ispin_,ispin_,:,:,:),bath,ispin_)
@@ -160,9 +151,6 @@ contains
        select case(ed_mode)
        case default
           stop "chi2_fitgf ERROR: ed_mode=normal but NORMAL & ANOMAL components provided. Fitting only the NORMAL."
-          ! write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=normal but NORMAL & ANOMAL components provided. Fitting only NORMAL."
-          ! call sleep(1)
-          ! call chi2_fitgf_hybrid_normal(fg(1,ispin_,ispin_,:,:,:),bath,ispin_)
           !
        case ("superc")
           stop "chi2_fitgf ERROR: ed_mode=superc and bath_type=hybrid is not yet implemented."

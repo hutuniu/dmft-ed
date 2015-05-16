@@ -10,7 +10,7 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
   complex(8),intent(in)                       :: x
   type(effective_bath)                        :: dmft_bath_
   complex(8),dimension(Nspin,Nspin,Norb,Norb) :: G0and
-  integer                                     :: iorb,jorb,ispin,jspin
+  integer                                     :: iorb,jorb,ispin,jspin,io,jo,Nso
   complex(8)                                  :: det
   complex(8)                                  :: fg,delta,ff,fdelta
   complex(8),dimension(:,:),allocatable       :: fgorb,zeta
@@ -20,6 +20,7 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
      !
      select case(ed_mode)
      case default
+        !
         do ispin=1,Nspin
            do iorb=1,Norb
               delta = delta_bath_mats(ispin,ispin,iorb,iorb,x,dmft_bath_)
@@ -29,6 +30,7 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
         enddo
         !
      case ("superc")
+        !
         do ispin=1,Nspin
            do iorb=1,Norb
               delta =  delta_bath_mats(ispin,ispin,iorb,iorb,x,dmft_bath_)
@@ -42,18 +44,18 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
         !
      end select
      !
+     !
   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
+     !
      !
      select case(ed_mode)
      case default
+        !
         allocate(fgorb(Norb,Norb),zeta(Norb,Norb))
         G0and=zero
         do ispin=1,Nspin         !Spin diagonal
-           zeta = zero
            fgorb= zero
-           do iorb=1,Norb
-              zeta(iorb,iorb) = x + xmu
-           enddo
+           zeta = (x+xmu)*eye(Norb)
            do iorb=1,Norb
               do jorb=1,Norb
                  fgorb(iorb,jorb) = zeta(iorb,jorb)-impHloc(ispin,ispin,iorb,jorb)-delta_bath_mats(ispin,ispin,iorb,jorb,x,dmft_bath_)
@@ -65,6 +67,7 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
         deallocate(fgorb,zeta)
         !
      case ("superc")
+        !
         allocate(fgorb(2*Norb,2*Norb),zeta(2*Norb,2*Norb))
         G0and = zero
         do ispin=1,Nspin

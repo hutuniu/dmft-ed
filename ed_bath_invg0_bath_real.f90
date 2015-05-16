@@ -8,18 +8,23 @@
 !NORMAL:
 function invg0_bath_real_main(x,dmft_bath_) result(G0and)
   complex(8),intent(in)                       :: x
+  real(8)                                     :: w,eta
   type(effective_bath)                        :: dmft_bath_
   complex(8),dimension(Nspin,Nspin,Norb,Norb) :: G0and
-  integer                                     :: iorb,jorb,ispin,jspin
+  integer                                     :: iorb,jorb,ispin,jspin,io,jo,Nso
   complex(8)                                  :: det
   complex(8)                                  :: fg,fg11,fg22,delta,ff,fdelta
   complex(8),dimension(:,:),allocatable       :: fgorb,zeta
+  !
+  w  = dreal(x)
+  eta= dimag(x)
   !
   select case(bath_type)
   case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
      !
      select case(ed_mode)
      case default
+        !
         do ispin=1,Nspin
            do iorb=1,Norb
               delta = delta_bath_real(ispin,ispin,iorb,iorb,x,dmft_bath_)
@@ -29,6 +34,7 @@ function invg0_bath_real_main(x,dmft_bath_) result(G0and)
         enddo
         !
      case ("superc")
+        !
         do ispin=1,Nspin
            do iorb=1,Norb
               fg22  =conjg(-x + xmu - impHloc(ispin,ispin,iorb,iorb) -  delta_bath_real(ispin,ispin,iorb,iorb,-x,dmft_bath_))
@@ -42,44 +48,40 @@ function invg0_bath_real_main(x,dmft_bath_) result(G0and)
      !
      select case(ed_mode)
      case default
-        allocate(fgorb(Norb,Norb),zeta(Norb,Norb))
+        !
+        allocate(zeta(Norb,Norb))
         G0and=zero
-        do ispin=1,Nspin
-           fgorb= zero
+        do ispin=1,Nspin         !Spin diagonal
            zeta = (x+xmu)*eye(Norb)
            do iorb=1,Norb
               do jorb=1,Norb
-                 fgorb(iorb,jorb) = zeta(iorb,jorb)-impHloc(ispin,ispin,iorb,jorb)-delta_bath_real(ispin,ispin,iorb,jorb,x,dmft_bath_)
+                 G0and(ispin,ispin,iorb,jorb) = zeta(iorb,jorb)-impHloc(ispin,ispin,iorb,jorb)-delta_bath_real(ispin,ispin,iorb,jorb,x,dmft_bath_)
               enddo
            enddo
-           G0and(ispin,ispin,:,:)=fgorb
         enddo
-        deallocate(fgorb,zeta)
+        deallocate(zeta)
         !
      case ("superc")
-        allocate(fgorb(2*Norb,2*Norb),zeta(2*Norb,2*Norb))
+        !
+        allocate(zeta(Norb,Norb))
         G0and = zero
         do ispin=1,Nspin
            zeta = zero
-           fgorb= zero
            do iorb=1,Norb
-              zeta(iorb,iorb)           = x + xmu
-              zeta(iorb+Norb,iorb+Norb) = -conjg(-x) + xmu
+              zeta(iorb,iorb)  =   dcmplx(w,eta) + xmu
            enddo
            do iorb=1,Norb
               do jorb=1,Norb
-                 fgorb(iorb,jorb)           = zeta(iorb,jorb)           - impHloc(ispin,ispin,iorb,jorb)  - delta_bath_real(ispin,ispin,iorb,jorb,x,dmft_bath_)
-                 fgorb(iorb,jorb+Norb)      = zeta(iorb,jorb+Norb)                                        - fdelta_bath_real(ispin,ispin,iorb,jorb,x,dmft_bath_)
-                 fgorb(iorb+Norb,jorb)      = zeta(iorb+Norb,jorb)                                        - fdelta_bath_real(ispin,ispin,iorb,jorb,x,dmft_bath_)
-                 fgorb(iorb+Norb,jorb+Norb) = zeta(iorb+Norb,jorb+Norb) + impHloc(ispin,ispin,iorb,jorb)  + conjg(delta_bath_real(ispin,ispin,iorb,jorb,-x,dmft_bath_))
+                 G0and(ispin,ispin,iorb,jorb) = zeta(iorb,jorb) - impHloc(ispin,ispin,iorb,jorb)  - delta_bath_real(ispin,ispin,iorb,jorb,x,dmft_bath_)
               enddo
            enddo
-           G0and(ispin,ispin,:,:) = fgorb(1:Norb,1:Norb)
         enddo
-        deallocate(fgorb,zeta)
+        deallocate(zeta)
         !
      end select
+     !
   end select
+  !
 end function invg0_bath_real_main
 
 
@@ -92,7 +94,6 @@ function invg0_bath_real_ispin_jspin(ispin,jspin,x,dmft_bath_) result(G0out)
   G0and = invg0_bath_real_main(x,dmft_bath_)
   G0out = G0and(ispin,jspin,:,:)
 end function invg0_bath_real_ispin_jspin
-
 
 function invg0_bath_real_ispin_jspin_iorb_jorb(ispin,jspin,iorb,jorb,x,dmft_bath_) result(G0out)
   integer,intent(in)                          :: iorb,jorb,ispin,jspin
@@ -181,8 +182,7 @@ function invf0_bath_real_main(x,dmft_bath_) result(F0and)
      case ("superc")
         do ispin=1,Nspin
            do iorb=1,Norb
-              ff    =                                                - fdelta_bath_real(ispin,ispin,iorb,iorb,x,dmft_bath_)
-              F0and(ispin,ispin,iorb,iorb) = ff
+              F0and(ispin,ispin,iorb,iorb) = -fdelta_bath_real(ispin,ispin,iorb,iorb,x,dmft_bath_)
            enddo
         enddo
      end select
@@ -194,25 +194,13 @@ function invf0_bath_real_main(x,dmft_bath_) result(F0and)
         stop "Invf0_bath_real error: called with ed_mode=normal, bath_type=hybrid"
         !
      case ("superc")
-        allocate(fgorb(2*Norb,2*Norb),zeta(2*Norb,2*Norb))
         do ispin=1,Nspin
-           zeta = zero
-           fgorb= zero
-           do iorb=1,Norb
-              zeta(iorb,iorb)           = x + xmu
-              zeta(iorb+Norb,iorb+Norb) = -conjg(-x) + xmu
-           enddo
            do iorb=1,Norb
               do jorb=1,Norb
-                 fgorb(iorb,jorb)           = zeta(iorb,jorb)           - impHloc(ispin,ispin,iorb,jorb)  - delta_bath_real(ispin,ispin,iorb,jorb,x,dmft_bath_)
-                 fgorb(iorb,jorb+Norb)      = zeta(iorb,jorb+Norb)                                        - fdelta_bath_real(ispin,ispin,iorb,jorb,x,dmft_bath_)
-                 fgorb(iorb+Norb,jorb)      = zeta(iorb+Norb,jorb)                                        - fdelta_bath_real(ispin,ispin,iorb,jorb,x,dmft_bath_)
-                 fgorb(iorb+Norb,jorb+Norb) = zeta(iorb+Norb,jorb+Norb) + impHloc(ispin,ispin,iorb,jorb)  + conjg(delta_bath_real(ispin,ispin,iorb,jorb,-x,dmft_bath_))
+                 F0and(ispin,ispin,iorb,jorb) = -fdelta_bath_real(ispin,ispin,iorb,jorb,x,dmft_bath_)
               enddo
            enddo
-           F0and(ispin,ispin,:,:) = fgorb(iorb+Norb,jorb+Norb)
         enddo
-        deallocate(fgorb,zeta)
         !
      end select
      !

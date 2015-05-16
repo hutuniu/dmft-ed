@@ -34,6 +34,10 @@ MODULE ED_GREENS_FUNCTIONS
   !=========================================================
   real(8),dimension(:),allocatable           :: wm,tau,wr,vm
 
+  !Non-interacting GF
+  !=========================================================
+  complex(8),allocatable,dimension(:,:,:,:,:):: impG0mats,impG0real
+  complex(8),allocatable,dimension(:,:,:,:,:):: impF0mats,impF0real
 
   !AUX GF
   !=========================================================
@@ -78,6 +82,15 @@ contains
     impSAmats = zero
     impSAreal = zero
     !
+    if(.not.allocated(impG0mats)) allocate(impG0mats(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(impF0mats)) allocate(impF0mats(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(impG0real)) allocate(impG0real(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(impF0real)) allocate(impF0real(Nspin,Nspin,Norb,Norb,Lreal))
+    impG0mats=zero
+    impF0mats=zero
+    impG0real=zero
+    impF0real=zero
+    !
     if(.not.allocated(GFpoles))   allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
     if(.not.allocated(GFweights)) allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
     GFpoles=zero
@@ -86,10 +99,12 @@ contains
     select case(ed_mode)
     case default
        call build_gf_normal()
-       call get_sigma_print_gf_normal()
+       call get_sigma_normal()
+       call print_gf_normal()
     case ("superc")
        call build_gf_superc()
-       call get_sigma_print_gf_superc()
+       call get_sigma_superc()
+       call print_gf_superc()
     end select
     !
     if(allocated(wm))deallocate(wm)
@@ -98,6 +113,10 @@ contains
     if(allocated(wr))deallocate(wr)
     if(allocated(GFpoles))deallocate(GFpoles)
     if(allocated(GFweights))deallocate(GFweights)
+    if(allocated(impG0mats))deallocate(impG0mats)
+    if(allocated(impF0mats))deallocate(impF0mats)
+    if(allocated(impG0real))deallocate(impG0real)
+    if(allocated(impF0real))deallocate(impF0real)
   end subroutine buildgf_impurity
   !+------------------------------------------------------------------+
   !                    GREEN'S FUNCTIONS 
@@ -140,33 +159,18 @@ contains
 
 
   !+------------------------------------------------------------------+
-  !PURPOSE  : Print normal Green's functions
+  !PURPOSE  : Build the Self-energy functions, NORMAL case
   !+------------------------------------------------------------------+
-  subroutine get_sigma_print_gf_normal
+  subroutine get_sigma_normal
     integer                                           :: i,j,ispin,isign,unit(7),iorb,jorb
     complex(8)                                        :: fg0
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats,invG0mats,invGmats
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real,invG0real,invGreal
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: invG0mats,invGmats
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: invG0real,invGreal
     complex(8),dimension(Norb,Norb)                   :: invGimp,impG0
-    character(len=20)                                 :: suffix
-    integer,dimension(:),allocatable                  :: getIorb,getJorb
-    integer                                           :: totNorb,l
     !
     select case(bath_type)
        !
-       !
-       !
     case default                !Diagonal in both spin and orbital
-       !
-       allocate(getIorb(Norb),getJorb(Norb))
-       l=0
-       do iorb=1,Norb
-          L=l+1
-          getIorb(l)=iorb
-          getJorb(l)=iorb
-       enddo
-       totNorb=l
-       if(totNorb/=Norb)stop "get_sigma_print_gf_normal error counting the orbitals"
        !
        !Get G0^-1
        do i=1,Lmats
@@ -200,22 +204,8 @@ contains
        enddo
        !
        !
-       !
     case ('hybrid')             !Diagonal in spin only. Full Orbital structure
        !
-       !
-       !
-       allocate(getIorb(Norb*(Norb+1)/2),getJorb(Norb*(Norb+1)/2))
-       l=0
-       do iorb=1,Norb
-          do jorb=iorb,Norb
-             l=l+1
-             getIorb(l)=iorb
-             getJorb(l)=jorb
-          enddo
-       enddo
-       totNorb=l
-       if(totNorb/=(Norb*(Norb+1)/2))stop "get_sigma_print_gf_normal error counting the orbitals"
        !
        !Get G0^-1
        do i=1,Lmats
@@ -257,8 +247,181 @@ contains
        !
     end select
     !!
+  end subroutine get_sigma_normal
+
+
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Print Superconducting Green's functions
+  !+------------------------------------------------------------------+
+  subroutine get_sigma_superc
+    integer                                               :: i,j,ispin,unit(12),iorb,jorb
+    complex(8)                                            :: iw
+    complex(8)                                            :: det_mats(Lmats),det_real(Lreal)
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats)     :: invG0mats,invF0mats,invGmats,invFmats
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal)     :: invG0real,invF0real,invGreal,invFreal
+    complex(8),dimension(2*Nspin*Norb,2*Nspin*Norb)       :: invGimp
+    !
+    select case(bath_type)
+       !
+       !
+    case default
+       !      
+       !Get G0^-1,F0^-1
+       ispin=1
+       do i=1,Lmats
+          invG0mats(ispin,ispin,:,:,i) = invg0_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
+          invF0mats(ispin,ispin,:,:,i) = invf0_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
+       enddo
+       do i=1,Lreal
+          invG0real(ispin,ispin,:,:,i) = invg0_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
+          invF0real(ispin,ispin,:,:,i) = invf0_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
+       enddo
+       !Get Gimp^-1
+       do iorb=1,Norb
+          det_mats  =  abs(impGmats(ispin,ispin,iorb,iorb,:))**2 + (impFmats(ispin,ispin,iorb,iorb,:))**2
+          invGmats(ispin,ispin,iorb,iorb,:) = conjg(impGmats(ispin,ispin,iorb,iorb,:))/det_mats
+          invFmats(ispin,ispin,iorb,iorb,:) = impFmats(ispin,ispin,iorb,iorb,:)/det_mats
+          !
+          det_real  = impGreal(ispin,ispin,iorb,iorb,:)*conjg(impGreal(ispin,ispin,iorb,iorb,Lreal:1:-1)) + impFreal(ispin,ispin,iorb,iorb,:)**2
+          invGreal(ispin,ispin,iorb,iorb,:) =  conjg(impGreal(ispin,ispin,iorb,iorb,Lreal:1:-1))/det_real(:)
+          invFreal(ispin,ispin,iorb,iorb,:) =  impFreal(ispin,ispin,iorb,iorb,:)/det_real(:)
+       enddo
+       !Get Sigma functions: Sigma= G0^-1 - G^-1
+       impSmats=zero
+       impSAmats=zero
+       impSreal=zero
+       impSAreal=zero
+       do iorb=1,Norb
+          impSmats(ispin,ispin,iorb,iorb,:)  = invG0mats(ispin,ispin,iorb,iorb,:) - invGmats(ispin,ispin,iorb,iorb,:)
+          impSAmats(ispin,ispin,iorb,iorb,:) = invF0mats(ispin,ispin,iorb,iorb,:) - invFmats(ispin,ispin,iorb,iorb,:)
+          !
+          impSreal(ispin,ispin,iorb,iorb,:)  = invG0real(ispin,ispin,iorb,iorb,:) - invGreal(ispin,ispin,iorb,iorb,:)
+          impSAreal(ispin,ispin,iorb,iorb,:) = invF0real(ispin,ispin,iorb,iorb,:) - invFreal(ispin,ispin,iorb,iorb,:)
+       enddo
+       !Get G0and:
+       do i=1,Lmats
+          impG0mats(ispin,ispin,:,:,i) = g0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
+          impF0mats(ispin,ispin,:,:,i) = f0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
+       enddo
+       do i=1,Lreal
+          impG0real(ispin,ispin,:,:,i) = g0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
+          impF0real(ispin,ispin,:,:,i) = f0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
+       enddo
+       !
+       !
+    case ("hybrid")
+       !
+       !
+       !Get G0^-1,F0^-1
+       ispin=1
+       do i=1,Lmats
+          invG0mats(ispin,ispin,:,:,i) = invg0_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
+          invF0mats(ispin,ispin,:,:,i) = invf0_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
+       enddo
+       do i=1,Lreal
+          invG0real(ispin,ispin,:,:,i) = invg0_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
+          invF0real(ispin,ispin,:,:,i) = invf0_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
+       enddo
+       !Get Gimp^-1
+       do i=1,Lmats
+          invGimp=zero
+          invGimp(1:Norb,1:Norb)               = impGmats(ispin,ispin,iorb,jorb,i)
+          invGimp(1:Norb,Norb+1:2*Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
+          invGimp(Norb+1:2*Norb,1:Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
+          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGmats(ispin,ispin,iorb,jorb,i))
+          call inv(invGimp)
+          invGmats(ispin,ispin,:,:,i) = invGimp(1:Norb,1:Norb)
+          invFmats(ispin,ispin,:,:,i) = invGimp(1:Norb,Norb+1:2*Norb)
+       enddo
+       do i=1,Lreal
+          invGimp=zero
+          invGimp(1:Norb,1:Norb)               = impGreal(ispin,ispin,iorb,jorb,i)
+          invGimp(1:Norb,Norb+1:2*Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
+          invGimp(Norb+1:2*Norb,1:Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
+          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGreal(ispin,ispin,iorb,jorb,Lreal-i+1))
+          call inv(invGimp)
+          invGreal(ispin,ispin,:,:,i) =  invGimp(1:Norb,1:Norb)
+          invFreal(ispin,ispin,:,:,i) =  invGimp(1:Norb,Norb+1:2*Norb)
+       enddo
+       !Get Sigma functions: Sigma= G0^-1 - G^-1
+       impSmats=zero
+       impSAmats=zero
+       impSreal=zero
+       impSAreal=zero
+       !
+       impSmats(ispin,ispin,:,:,:)  = invG0mats(ispin,ispin,:,:,:) - invGmats(ispin,ispin,:,:,:)
+       impSAmats(ispin,ispin,:,:,:) = invF0mats(ispin,ispin,:,:,:) - invFmats(ispin,ispin,:,:,:)
+       !
+       impSreal(ispin,ispin,:,:,:)  = invG0real(ispin,ispin,:,:,:) - invGreal(ispin,ispin,:,:,:)
+       impSAreal(ispin,ispin,:,:,:) = invF0real(ispin,ispin,:,:,:) - invFreal(ispin,ispin,:,:,:)
+       !
+       !Get G0and:
+       do i=1,Lmats
+          impG0mats(ispin,ispin,:,:,i) = g0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
+          impF0mats(ispin,ispin,:,:,i) = f0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
+       enddo
+       do i=1,Lreal
+          impG0real(ispin,ispin,:,:,i) = g0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
+          impF0real(ispin,ispin,:,:,i) = f0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
+       enddo
+       !
+       !
+    end select
     !!
-    !!
+  end subroutine get_sigma_superc
+
+
+
+
+
+
+
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Print Green's functions, NORMAL case
+  !+------------------------------------------------------------------+
+  subroutine print_gf_normal
+    integer                                           :: i,j,ispin,isign,unit(7),iorb,jorb
+    character(len=20)                                 :: suffix
+    integer,dimension(:),allocatable                  :: getIorb,getJorb
+    integer                                           :: totNorb,l
+    !
+    select case(bath_type)
+       !
+    case default                !Diagonal in both spin and orbital
+       !
+       allocate(getIorb(Norb),getJorb(Norb))
+       l=0
+       do iorb=1,Norb
+          L=l+1
+          getIorb(l)=iorb
+          getJorb(l)=iorb
+       enddo
+       totNorb=l
+       if(totNorb/=Norb)stop "get_sigma_print_gf_normal error counting the orbitals"
+       !
+    case ('hybrid')             !Diagonal in spin only. Full Orbital structure
+       !
+       allocate(getIorb(Norb*(Norb+1)/2),getJorb(Norb*(Norb+1)/2))
+       l=0
+       do iorb=1,Norb
+          do jorb=iorb,Norb
+             l=l+1
+             getIorb(l)=iorb
+             getJorb(l)=jorb
+          enddo
+       enddo
+       totNorb=l
+       if(totNorb/=(Norb*(Norb+1)/2))stop "get_sigma_print_gf_normal error counting the orbitals"
+       !
+    end select
     !!
     !!
     !Print the impurity functions:
@@ -339,27 +502,18 @@ contains
       endif
     end subroutine close_units
     !
-  end subroutine get_sigma_print_gf_normal
+  end subroutine print_gf_normal
 
 
 
 
 
-
-
-
-
-  
   !+------------------------------------------------------------------+
-  !PURPOSE  : Print Superconducting Green's functions
+  !PURPOSE  : Print Green's functions, SUPERConducting case
   !+------------------------------------------------------------------+
-  subroutine get_sigma_print_gf_superc
+  subroutine print_gf_superc
     integer                                               :: i,j,ispin,unit(12),iorb,jorb
     complex(8)                                            :: iw
-    complex(8)                                            :: det_mats(Lmats),det_real(Lreal)
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats)     :: impG0mats,impF0mats,invG0mats,invF0mats,invGmats,invFmats
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal)     :: impG0real,impF0real,invG0real,invF0real,invGreal,invFreal
-    complex(8),dimension(2*Nspin*Norb,2*Nspin*Norb)       :: invGimp
     character(len=20)                                     :: suffix
     integer,dimension(:),allocatable                      :: getIorb,getJorb
     integer                                               :: totNorb,l
@@ -379,49 +533,6 @@ contains
        totNorb=l
        if(totNorb/=Norb)stop "get_sigma_print_gf_superc error counting the orbitals"
        !
-       !Get G0^-1,F0^-1
-       ispin=1
-       do i=1,Lmats
-          invG0mats(ispin,ispin,:,:,i) = invg0_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
-          invF0mats(ispin,ispin,:,:,i) = invf0_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
-       enddo
-       do i=1,Lreal
-          invG0real(ispin,ispin,:,:,i) = invg0_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
-          invF0real(ispin,ispin,:,:,i) = invf0_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
-       enddo
-       !Get Gimp^-1
-       do iorb=1,Norb
-          det_mats  =  abs(impGmats(ispin,ispin,iorb,iorb,:))**2 + (impFmats(ispin,ispin,iorb,iorb,:))**2
-          invGmats(ispin,ispin,iorb,iorb,:) = conjg(impGmats(ispin,ispin,iorb,iorb,:))/det_mats
-          invFmats(ispin,ispin,iorb,iorb,:) = impFmats(ispin,ispin,iorb,iorb,:)/det_mats
-          !
-          det_real  = impGreal(ispin,ispin,iorb,iorb,:)*conjg(impGreal(ispin,ispin,iorb,iorb,Lreal:1:-1)) + impFreal(ispin,ispin,iorb,iorb,:)**2
-          invGreal(ispin,ispin,iorb,iorb,:) =  conjg(impGreal(ispin,ispin,iorb,iorb,Lreal:1:-1))/det_real(:)
-          invFreal(ispin,ispin,iorb,iorb,:) =  impFreal(ispin,ispin,iorb,iorb,:)/det_real(:)
-       enddo
-       !Get Sigma functions: Sigma= G0^-1 - G^-1
-       impSmats=zero
-       impSAmats=zero
-       impSreal=zero
-       impSAreal=zero
-       do iorb=1,Norb
-          impSmats(ispin,ispin,iorb,iorb,:)  = invG0mats(ispin,ispin,iorb,iorb,:) - invGmats(ispin,ispin,iorb,iorb,:)
-          impSAmats(ispin,ispin,iorb,iorb,:) = invF0mats(ispin,ispin,iorb,iorb,:) - invFmats(ispin,ispin,iorb,iorb,:)
-          !
-          impSreal(ispin,ispin,iorb,iorb,:)  = invG0real(ispin,ispin,iorb,iorb,:) - invGreal(ispin,ispin,iorb,iorb,:)
-          impSAreal(ispin,ispin,iorb,iorb,:) = invF0real(ispin,ispin,iorb,iorb,:) - invFreal(ispin,ispin,iorb,iorb,:)
-       enddo
-       !Get G0and:
-       do i=1,Lmats
-          impG0mats(ispin,ispin,:,:,i) = g0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
-          impF0mats(ispin,ispin,:,:,i) = f0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
-       enddo
-       do i=1,Lreal
-          impG0real(ispin,ispin,:,:,i) = g0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
-          impF0real(ispin,ispin,:,:,i) = f0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
-       enddo
-       !
-       !
        !
     case ("hybrid")
        !
@@ -440,62 +551,7 @@ contains
        if(totNorb/=(Norb*(Norb+1)/2))stop "get_sigma_print_gf_superc error counting the orbitals"
        !
        !
-       !Get G0^-1,F0^-1
-       ispin=1
-       do i=1,Lmats
-          invG0mats(ispin,ispin,:,:,i) = invg0_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
-          invF0mats(ispin,ispin,:,:,i) = invf0_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
-       enddo
-       do i=1,Lreal
-          invG0real(ispin,ispin,:,:,i) = invg0_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
-          invF0real(ispin,ispin,:,:,i) = invf0_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
-       enddo
-       !Get Gimp^-1
-       do i=1,Lmats
-          invGimp=zero
-          invGimp(1:Norb,1:Norb)               = impGmats(ispin,ispin,iorb,jorb,i)
-          invGimp(1:Norb,Norb+1:2*Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,1:Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGmats(ispin,ispin,iorb,jorb,i))
-          call inv(invGimp)
-          invGmats(ispin,ispin,:,:,i) = invGimp(1:Norb,1:Norb)
-          invFmats(ispin,ispin,:,:,i) = invGimp(1:Norb,Norb+1:2*Norb)
-       enddo
-       do i=1,Lreal
-          invGimp=zero
-          invGimp(1:Norb,1:Norb)               = impGreal(ispin,ispin,iorb,jorb,i)
-          invGimp(1:Norb,Norb+1:2*Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,1:Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGreal(ispin,ispin,iorb,jorb,Lreal-i+1))
-          call inv(invGimp)
-          invGreal(ispin,ispin,:,:,i) =  invGimp(1:Norb,1:Norb)
-          invFreal(ispin,ispin,:,:,i) =  invGimp(1:Norb,Norb+1:2*Norb)
-       enddo
-       !Get Sigma functions: Sigma= G0^-1 - G^-1
-       impSmats=zero
-       impSAmats=zero
-       impSreal=zero
-       impSAreal=zero
-       !
-       impSmats(ispin,ispin,:,:,:)  = invG0mats(ispin,ispin,:,:,:) - invGmats(ispin,ispin,:,:,:)
-       impSAmats(ispin,ispin,:,:,:) = invF0mats(ispin,ispin,:,:,:) - invFmats(ispin,ispin,:,:,:)
-       !
-       impSreal(ispin,ispin,:,:,:)  = invG0real(ispin,ispin,:,:,:) - invGreal(ispin,ispin,:,:,:)
-       impSAreal(ispin,ispin,:,:,:) = invF0real(ispin,ispin,:,:,:) - invFreal(ispin,ispin,:,:,:)
-       !
-       !Get G0and:
-       do i=1,Lmats
-          impG0mats(ispin,ispin,:,:,i) = g0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
-          impF0mats(ispin,ispin,:,:,i) = f0and_bath_mats(ispin,ispin,xi*wm(i),dmft_bath)
-       enddo
-       do i=1,Lreal
-          impG0real(ispin,ispin,:,:,i) = g0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
-          impF0real(ispin,ispin,:,:,i) = f0and_bath_real(ispin,ispin,wr(i)+xi*eps,dmft_bath)
-       enddo
-       !
-       !
     end select
-    !!
     !!
     !!
     !!
@@ -611,19 +667,12 @@ contains
       endif
     end subroutine close_units
     !
-  end subroutine get_sigma_print_gf_superc
-
-
-
-
-
-
-
+  end subroutine print_gf_superc
 
 
 
   !+------------------------------------------------------------------+
-  !PURPOSE  : 
+  !PURPOSE  : print the spin Susceptibility \chi_spin
   !+------------------------------------------------------------------+
   subroutine print_chi_spin
     integer                               :: i,j,iorb

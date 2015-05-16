@@ -1,3 +1,17 @@
+!##################################################################
+! THE CALCULATION OF THE \chi^2 FUNCTIONS USE PROCEDURES FURTHER 
+! BELOW TO EVALUATE INDEPENDENTLY THE ANDERSON MODEL:
+!  - DELTA, 
+!  -\GRAD DELTA
+!  - G0
+! THE LATTER ARE ADAPTED FROM THE PROCEDURES:
+! DELTA_BATH_MATS
+! GRAD_DELTA_BATH_MATS
+! G0 BATH_MATS
+! FOR, YOU NEED TO DECOMPOSE THE a INPUT ARRAY INTO ELEMENTS.
+!##################################################################
+
+
 !+-------------------------------------------------------------+
 !PURPOSE  : Chi^2 interface for Irreducible bath normal phase
 !+-------------------------------------------------------------+
@@ -6,12 +20,10 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
   real(8),dimension(:),intent(inout) :: bath_
   integer                            :: ispin
   real(8),dimension(:),allocatable   :: array_bath
-  integer                            :: iter,stride_spin,stride_orb,ifirst,ilast,i,j,iorb,Asize
+  integer                            :: iter,stride,iorb,i,io,j,Asize
   real(8)                            :: chi
   logical                            :: check
   type(effective_bath)               :: dmft_bath
-  complex(8)                         :: fgand
-  real(8)                            :: w
   character(len=20)                  :: suffix
   integer                            :: unit
   !
@@ -43,10 +55,10 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
   call allocate_bath(dmft_bath)
   call set_bath(bath_,dmft_bath)
   !
-  call allocate_bath(chi2_bath)
-  call set_bath(bath_,chi2_bath)
-  !
-  Asize = get_chi2_bath_size()
+  !Asize = get_chi2_bath_size()
+  !E_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+  !V_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+  Asize = Nbath + Nbath
   allocate(array_bath(Asize))
   !
   do iorb=1,Norb
@@ -55,7 +67,17 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
      !
      Gdelta(1,1:Ldelta) = fg(iorb,iorb,1:Ldelta)
      !
-     call dmft_bath2chi2_bath(dmft_bath,array_bath,ispin,iorb)
+     !Nbath + Nbath
+     stride = 0
+     do i=1,Nbath
+        io = stride + i
+        array_bath(io) = dmft_bath%e(ispin,iorb,i)
+     enddo
+     stride = Nbath
+     do i=1,Nbath
+        io = stride + i
+        array_bath(io) = dmft_bath%v(ispin,iorb,i)
+     enddo
      !
      select case(cg_method)     !0=NR-CG[default]; 1=CG-MINIMIZE; 2=CG+
      case default
@@ -133,16 +155,22 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
         close(unit)
      endif
      !
-     call chi2_bath2dmft_bath(array_bath,dmft_bath,ispin,iorb)
+     !Nbath + Nbath
+     stride = 0
+     do i=1,Nbath
+        io = stride + i
+        dmft_bath%e(ispin,iorb,i) = array_bath(io) 
+     enddo
+     stride = Nbath
+     do i=1,Nbath
+        io = stride + i
+        dmft_bath%v(ispin,iorb,i) = array_bath(io)
+     enddo
      !
   enddo
   !
   if(ed_verbose<2)call write_bath(dmft_bath,LOGfile)
   !
-  ! unit=free_unit()
-  ! open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".restart")
-  ! call write_bath(dmft_bath,unit)
-  ! close(unit)
   call save_bath(dmft_bath)
   !
   if(ed_verbose<3)call write_fit_result(ispin)
@@ -182,24 +210,22 @@ end subroutine chi2_fitgf_normal_normal
 
 
 
+
+!##################################################################
+! THESE PROCEDURES EVALUATES THE \chi^2 FUNCTIONS TO MINIMIZE. 
+!##################################################################
 !+-------------------------------------------------------------+
 !PURPOSE: Evaluate the \chi^2 distance of \Delta_Anderson function.
 !+-------------------------------------------------------------+
 function chi2_delta_normal_normal(a) result(chi2)
   real(8),dimension(:)         ::  a
-  complex(8),dimension(Ldelta) ::  g0
-  real(8)                      ::  chi2,w
-  integer                      ::  i,iorb,ispin
+  real(8)                      ::  chi2
+  complex(8),dimension(Ldelta) ::  Delta
   type(effective_bath)         ::  dmft_bath
-  iorb=Orb_indx
-  ispin=Spin_indx
-  call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
-  do i=1,Ldelta
-     w = xdelta(i)
-     g0(i)   = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
-  enddo
   !
-  chi2=sum(abs(Gdelta(1,:)-g0(:))**2/Wdelta(:))
+  Delta = delta_normal_normal(a)
+  !
+  chi2=sum(abs(Gdelta(1,:)-Delta(:))**2/Wdelta(:))
   !
 end function chi2_delta_normal_normal
 
@@ -211,24 +237,15 @@ function grad_chi2_delta_normal_normal(a) result(dchi2)
   real(8),dimension(:)                 :: a
   real(8),dimension(size(a))           :: dchi2
   real(8),dimension(size(a))           :: df
-  complex(8),dimension(Ldelta)         :: g0
-  complex(8),dimension(Ldelta,size(a)) :: dg0
-  integer                              :: i,j,iorb,ispin
-  real(8)                              :: w
-  df=0d0
-  iorb=Orb_indx
-  ispin=Spin_indx
-  !push the array into a dmft_bath
-  call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
-  do i=1,Ldelta
-     w        = Xdelta(i)
-     g0(i)    = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
-     dg0(i,:) = grad_delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath,size(a))
-  enddo
+  complex(8),dimension(Ldelta)         :: Delta
+  complex(8),dimension(Ldelta,size(a)) :: dDelta
+  integer                              :: j
+  Delta   = delta_normal_normal(a)
+  dDelta  = grad_delta_normal_normal(a)
   !
   do j=1,size(a)
-     df(j)=sum( dreal(Gdelta(1,:)-g0(:))*dreal(dg0(:,j))/Wdelta(:) ) + &
-          sum(  dimag(Gdelta(1,:)-g0(:))*dimag(dg0(:,j))/Wdelta(:) )
+     df(j)=sum( dreal(Gdelta(1,:)-Delta(:))*dreal(dDelta(:,j))/Wdelta(:) ) + &
+          sum(  dimag(Gdelta(1,:)-Delta(:))*dimag(dDelta(:,j))/Wdelta(:) )
   enddo
   !
   dchi2 = -2.d0*df
@@ -242,20 +259,133 @@ end function grad_chi2_delta_normal_normal
 !+-------------------------------------------------------------+
 function chi2_weiss_normal_normal(a) result(chi2)
   real(8),dimension(:)         ::  a
-  complex(8),dimension(Ldelta) ::  g0
+  complex(8),dimension(Ldelta) ::  g0and
   real(8)                      ::  chi2,w
-  integer                      ::  i,iorb,ispin
-  chi2 = 0d0 
-  iorb=Orb_indx
-  ispin=Spin_indx
-  !push the array into a dmft_bath
-  call chi2_bath2dmft_bath(a,chi2_bath,ispin,iorb)
-  do i=1,Ldelta
-     w      = Xdelta(i)
-     g0(i)  = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,chi2_bath)
-  enddo
   !
-  chi2=sum(abs(Gdelta(1,:)-g0(:))**2/Wdelta(:))
+  g0and  = g0and_normal_normal(a)
+  !
+  chi2=sum(abs(Gdelta(1,:)-g0and(:))**2/Wdelta(:))
   !
 end function chi2_weiss_normal_normal
+
+
+
+
+
+!##################################################################
+! THESE PROCEDURES EVALUATES THE 
+! - \delta
+! - \grad \delta
+! - g0
+! FUNCTIONS. 
+!##################################################################
+
+function delta_normal_normal(a) result(Delta)
+  real(8),dimension(:)         :: a
+  complex(8),dimension(Ldelta) :: Delta
+  integer                      :: i,io,stride
+  real(8),dimension(Nbath)     :: eps,vps
+  !
+  !\Delta_{aa} = \sum_k [ V_{a}(k) * V_{a}(k)/(iw_n - E_{a}(k)) ]
+  !
+  stride = 0
+  do i=1,Nbath
+     io = stride + i
+     eps(i) = a(io) 
+  enddo
+  stride = Nbath
+  do i=1,Nbath
+     io = stride + i
+     vps(i) = a(io)
+  enddo
+  !
+  do i=1,Ldelta
+     Delta(i) = sum( vps(:)*vps(:)/(xi*Xdelta(i) - eps(:)) )
+  enddo
+end function delta_normal_normal
+
+
+function grad_delta_normal_normal(a) result(dDelta)
+  real(8),dimension(:)                 :: a
+  complex(8),dimension(Ldelta,size(a)) :: dDelta
+  integer                              :: i,k,ik,io,stride
+  real(8),dimension(Nbath)             :: eps,vps
+  complex(8)                           :: iw
+  !
+  !
+  !\grad_{E_{a}(k)} \Delta_{bb}^{rr} = [ V_{a}(k)*V_{a}(k) / ( iw_n - E_{a}(k) )**2 ]
+  !
+  !\grad_{V_{a}(k)} \Delta_{bb}^{rr} = [ 2*V_{a}(k) / ( iw_n - E_{a}(k) ) ]
+  !
+  stride = 0
+  do i=1,Nbath
+     io = stride + i
+     eps(i) = a(io) 
+  enddo
+  stride = Nbath
+  do i=1,Nbath
+     io = stride + i
+     vps(i) = a(io)
+  enddo
+  !
+  do k=1,Nbath
+     ik = stride + k
+     dDelta(:,ik) = vps(k)*vps(k)/(xi*Xdelta(:) - eps(k))**2
+  enddo
+  stride=Nbath
+  do k=1,Nbath
+     ik = stride + k
+     dDelta(:,ik) = 2d0*vps(k)/(xi*Xdelta(:) - eps(k))
+  enddo
+end function grad_delta_normal_normal
+
+function g0and_normal_normal(a) result(G0and)
+  real(8),dimension(:)         :: a
+  complex(8),dimension(Ldelta) :: G0and,Delta
+  integer                      :: i,io,iorb,ispin,stride
+  real(8),dimension(Nbath)     :: eps,vps
+  !
+  iorb   = Orb_indx
+  ispin  = Spin_indx
+  !
+  stride = 0
+  do i=1,Nbath
+     io = stride + i
+     eps(i) = a(io) 
+  enddo
+  stride = Nbath
+  do i=1,Nbath
+     io = stride + i
+     vps(i) = a(io)
+  enddo
+  !
+  do i=1,Ldelta
+     Delta(i) = sum( vps(:)*vps(:)/(xi*Xdelta(i) - eps(:)) )
+  enddo
+  G0and(:)  = xi*Xdelta(:) + xmu - impHloc(ispin,ispin,iorb,iorb) - Delta(:)
+  G0and(:)  = one/G0and(:)
+  !
+end function g0and_normal_normal
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

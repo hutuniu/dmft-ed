@@ -18,38 +18,41 @@ function delta_bath_real_main(x,dmft_bath_) result(Delta)
      !
      select case(ed_mode)
      case default
+        !
+        !\Delta_{aa} = \sum_k [ V_{a}(k) * V_{a}(k)/(w+i\h - E_{a}(k)) ]
         do ispin=1,Nspin
            do iorb=1,Norb
               eps = dmft_bath_%e(ispin,iorb,1:Nbath)
               vps = dmft_bath_%v(ispin,iorb,1:Nbath)
-              !\Delta_{aa} = \sum_k [ V_{a}(k) * V_{a}(k)/(w+i\h - E_{a}(k)) ]
               Delta(ispin,ispin,iorb,iorb) = sum( vps(:)*vps(:)/(x - eps(:)) )
            enddo
         enddo
         !
      case ("superc")
+        !
+        !\Delta_{aa}^{ss} = - \sum_k [ V_{a}(k) * V_{a}(k) * (w+i\h + E_{a}(k)) / Den(k) ]
         do ispin=1,Nspin
            do iorb=1,Norb
               eps = dmft_bath_%e(ispin,iorb,1:Nbath)
               dps = dmft_bath_%d(ispin,iorb,1:Nbath)
               vps = dmft_bath_%v(ispin,iorb,1:Nbath)
-              ! Den(k) = (w+i\h)*(-w-i\h) + E_{a}(k)**2 + \Delta_{a}(k)**2
-              forall(k=1:Nbath)den(k) =  x*(-x) + eps(k)**2 + dps(k)**2
-              !\Delta_{aa}^{ss} = - \sum_k [ V_{a}(k) * V_{a}(k) * (w+i\h + E_{a}(k)) / Den(k) ]
+              forall(k=1:Nbath)den(k) =  x*(-x) + eps(k)**2 + dps(k)**2 !den(k) = (w+i\h)*(-w-i\h) + E_{a}(k)**2 + \Delta_{a}(k)**2
               Delta(ispin,ispin,iorb,iorb) = -sum( vps(:)*vps(:)*(x + eps(:))/den(:) )
            enddo
         enddo
         !
      end select
      !
+     !
   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
+     !
      !
      select case(ed_mode)
      case default
+        !\Delta_{ab} = \sum_k [ V_{a}(k) * V_{b}(k)/(w+i\h  - E(k)) ]
         do ispin=1,Nspin
            eps  = dmft_bath_%e(ispin,1     ,1:Nbath)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
-           !\Delta_{ab} = \sum_k [ V_{a}(k) * V_{b}(k)/(w+i\h  - E(k)) ]
            do iorb=1,Norb
               do jorb=1,Norb
                  Delta(ispin,ispin,iorb,jorb) = sum( vops(iorb,:)*vops(jorb,:)/(x - eps(:)) )
@@ -58,13 +61,13 @@ function delta_bath_real_main(x,dmft_bath_) result(Delta)
         enddo
         !
      case ("superc")
+        !
+        !\Delta_{ab} = - \sum_k [ V_{a}(k) * V_{b}(k) * (w+i\h + E(k)) / Den(k) ]
         do ispin=1,Nspin
            eps  = dmft_bath_%e(ispin,1      ,1:Nbath)
            dps  = dmft_bath_%d(ispin,1      ,1:Nbath)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
-           ! Den(k) = ((w+i\h)*(-w-i\h) + E(k)**2 + \D(k)**2
-           forall(k=1:Nbath)den(k) =  x*(-x) + eps(k)**2 + dps(k)**2
-           !\Delta_{ab} = - \sum_k [ V_{a}(k) * V_{b}(k) * (w+i\h + E(k)) / Den(k) ]
+           forall(k=1:Nbath)den(k) =  x*(-x) + eps(k)**2 + dps(k)**2 !den(k) = ((w+i\h)*(-w-i\h) + E(k)**2 + \D(k)**2
            do iorb=1,Norb
               do jorb=1,Norb
                  Delta(ispin,ispin,iorb,jorb) = -sum( vops(iorb,:)*vops(jorb,:)*(x + eps(:))/Den(:) )
@@ -186,14 +189,14 @@ function fdelta_bath_real_main(x,dmft_bath_) result(Fdelta)
         stop "Fdelta_bath_real error: called with ed_mode=normal, bath_type=normal"
         !
      case ("superc")
+        !
+        !\FDelta_{aa} = \sum_k [ \Delta_{a}(k) * V_{a}(k) * V_{a}(k)  / Den(k) ]
         do ispin=1,Nspin
            do iorb=1,Norb
               eps = dmft_bath_%e(ispin,iorb,1:Nbath)
               dps = dmft_bath_%d(ispin,iorb,1:Nbath)
               vps = dmft_bath_%v(ispin,iorb,1:Nbath)
-              ! Den(k) = (w+i\h)*(-w-i\h) + E_{a}(k)**2 + \D_{a}(k)**2
-              forall(k=1:Nbath)den(k) =  x*(-x) + eps(k)**2 + dps(k)**2
-              !\FDelta_{aa} = \sum_k [ \Delta_{a}(k) * V_{a}(k) * V_{a}(k)  / Den(k) ]
+              forall(k=1:Nbath)den(k) =  x*(-x) + eps(k)**2 + dps(k)**2 !den(k) = (w+i\h)*(-w-i\h) + E_{a}(k)**2 + \D_{a}(k)**2
               Fdelta(ispin,ispin,iorb,iorb) = sum( dps(:)*vps(:)*vps(:)/Den(:) )
            enddo
         enddo
@@ -207,13 +210,13 @@ function fdelta_bath_real_main(x,dmft_bath_) result(Fdelta)
         stop "Fdelta_bath_real error: called with ed_mode=normal, bath_type=hybrid"
         !
      case ("superc")
+        !
+        !\FDelta_{ab} = - \sum_k [ \Delta(k) * V_{a}(k) * V_{b}(k) / Den(k) ]
         do ispin=1,Nspin
            eps  = dmft_bath_%e(ispin,1     ,1:Nbath)
            dps  = dmft_bath_%d(ispin,1     ,1:Nbath)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
-           ! Den(k) = (w+i\h)*(-w-i\h) + E_{a}(k)**2 + \D_{a}(k)**2
-           forall(k=1:Nbath)den(k) =  x*(-x) + eps(k)**2 + dps(k)**2
-           !\FDelta_{ab} = - \sum_k [ \Delta(k) * V_{a}(k) * V_{b}(k) / Den(k) ]
+           forall(k=1:Nbath)den(k) =  x*(-x) + eps(k)**2 + dps(k)**2 !den(k) = (w+i\h)*(-w-i\h) + E_{a}(k)**2 + \D_{a}(k)**2
            do iorb=1,Norb
               do jorb=1,Norb
                  Fdelta(ispin,ispin,iorb,jorb) = -sum( dps(:)*vops(iorb,:)*vops(jorb,:)/Den(:) )

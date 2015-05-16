@@ -1,3 +1,17 @@
+!##################################################################
+! THE CALCULATION OF THE \chi^2 FUNCTIONS USE PROCEDURES FURTHER 
+! BELOW TO EVALUATE INDEPENDENTLY THE ANDERSON MODEL:
+!  - DELTA, 
+!  -\GRAD DELTA
+!  - G0
+! THE LATTER ARE ADAPTED FROM THE PROCEDURES:
+! DELTA_BATH_MATS
+! GRAD_DELTA_BATH_MATS
+! G0 BATH_MATS
+! FOR, YOU NEED TO DECOMPOSE THE a INPUT ARRAY INTO ELEMENTS.
+!##################################################################
+
+
 !+-------------------------------------------------------------+
 !PURPOSE  : Chi^2 interface for Hybrid bath normal phase
 !+-------------------------------------------------------------+
@@ -6,7 +20,7 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
   real(8),dimension(:),intent(inout)   :: bath_
   integer                              :: ispin
   real(8),dimension(:),allocatable     :: array_bath
-  integer                              :: iter,stride,ifirst,ilast,i,j,corb,l,Asize
+  integer                              :: iter,stride,i,io,j,corb,l,Asize
   integer                              :: iorb,jorb
   real(8)                              :: chi
   logical                              :: check
@@ -55,18 +69,29 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
      Wdelta=Xdelta
   end select
   !
+  Spin_indx=ispin
+  !
   call allocate_bath(dmft_bath)
   call set_bath(bath_,dmft_bath)
   !
-  call allocate_bath(chi2_bath)
-  call set_bath(bath_,chi2_bath)
-  !
-  Asize = get_chi2_bath_size()
+  !E_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
+  !V_{\s,:}(:)  [ 1 ][ Norb][Nbath]
+  Asize = Nbath + Norb*Nbath
   allocate(array_bath(Asize))
   !
-  Spin_indx=ispin
-  !
-  call dmft_bath2chi2_bath(dmft_bath,array_bath,ispin)
+  !Nbath + Norb*Nbath
+  stride = 0
+  do i=1,Nbath
+     io = stride + i
+     array_bath(io) = dmft_bath%e(ispin,1,i)
+  enddo
+  stride = Nbath
+  do iorb=1,Norb
+     do i=1,Nbath
+        io = stride + i + (iorb-1)*Nbath
+        array_bath(io) = dmft_bath%v(ispin,iorb,i)
+     enddo
+  enddo
   !
   select case(cg_method)     !0=NR-CG[default]; 1=CG-MINIMIZE; 2=CG+
   case default
@@ -143,14 +168,21 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
      close(unit)
   endif
   !
-  call chi2_bath2dmft_bath(array_bath,dmft_bath,ispin)
+  stride = 0
+  do i=1,Nbath
+     io = stride + i
+     dmft_bath%e(ispin,1,i) = array_bath(io)
+  enddo
+  stride = Nbath
+  do iorb=1,Norb
+     do i=1,Nbath
+        io = stride + i + (iorb-1)*Nbath
+        dmft_bath%v(ispin,iorb,i) = array_bath(io)
+     enddo
+  enddo
   !
   if(ed_verbose<2)call write_bath(dmft_bath,LOGfile)
   !
-  ! unit=free_unit()
-  ! open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".restart")
-  ! call write_bath(dmft_bath,unit)
-  ! close(unit)
   call save_bath(dmft_bath)
   !
   if(ed_verbose<3)call write_fit_result(ispin)
@@ -172,11 +204,7 @@ contains
        if(cg_scheme=='weiss')then
           gwf = g0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
        else
-          do l=1,Norb
-             do m=1,Norb
-                gwf(l,m) = delta_bath_mats(ispin,ispin,l,m,xi*w,dmft_bath)
-             enddo
-          enddo
+          gwf = delta_bath_mats(ispin,ispin,xi*w,dmft_bath)
        endif
        !
        do l=1,totNorb
@@ -205,25 +233,28 @@ end subroutine chi2_fitgf_hybrid_normal
 
 
 
+
+
+
+
+!##################################################################
+! THESE PROCEDURES EVALUATES THE \chi^2 FUNCTIONS TO MINIMIZE. 
+!##################################################################
 !+-------------------------------------------------------------+
 !PURPOSE: Evaluate the \chi^2 distance of \Delta_Anderson function.
 !+-------------------------------------------------------------+
 function chi2_delta_hybrid_normal(a) result(chi2)
   real(8),dimension(:)         :: a
+  real(8)                      :: chi2
   real(8),dimension(totNorb)   :: chi2_orb
-  complex(8),dimension(Ldelta) :: g0
-  real(8)                      :: chi2,w
-  integer                      :: i,l,iorb,jorb,ispin
-  ispin=Spin_indx
-  call chi2_bath2dmft_bath(a,chi2_bath,ispin)
+  complex(8),dimension(Ldelta) :: Delta
+  integer                      :: i,l,iorb,jorb
+  !
   do l=1,totNorb
      iorb=getIorb(l)
      jorb=getJorb(l)
-     do i=1,Ldelta
-        w = xdelta(i)
-        g0(i) = delta_bath_mats(ispin,ispin,iorb,jorb,xi*w,chi2_bath)
-     enddo
-     chi2_orb(l) = sum(abs(Gdelta(l,:)-g0(:))**2/Wdelta(:))
+     Delta = delta_hybrid_normal(iorb,jorb,a)
+     chi2_orb(l) = sum(abs(Gdelta(l,:)-Delta(:))**2/Wdelta(:))
   enddo
   !
   chi2=sum(chi2_orb)
@@ -238,25 +269,20 @@ function grad_chi2_delta_hybrid_normal(a) result(dchi2)
   real(8),dimension(:)                 :: a
   real(8),dimension(size(a))           :: dchi2
   real(8),dimension(totNorb,size(a))   :: df
-  complex(8),dimension(Ldelta)         :: g0
-  complex(8),dimension(Ldelta,size(a)) :: dg0
-  integer                              :: i,j,l,iorb,jorb,ispin
-  real(8)                              :: w
-  ispin=Spin_indx
-  call chi2_bath2dmft_bath(a,chi2_bath,ispin)
+  complex(8),dimension(Ldelta)         :: Delta
+  complex(8),dimension(Ldelta,size(a)) :: dDelta
+  integer                              :: i,j,l,iorb,jorb
+  !
   do l=1,totNorb
      iorb=getIorb(l)
      jorb=getJorb(l)
-     do i=1,Ldelta
-        w = xdelta(i)
-        g0(i)    = delta_bath_mats(ispin,ispin,iorb,jorb,xi*w,chi2_bath)
-        dg0(i,:) = grad_delta_bath_mats(ispin,ispin,iorb,jorb,xi*w,chi2_bath,size(a))
-     enddo
+     Delta  = delta_hybrid_normal(iorb,jorb,a)
+     dDelta = grad_delta_hybrid_normal(iorb,jorb,a)
      !
      do j=1,size(a)
         df(l,j)=&
-             sum( dreal(Gdelta(l,:)-g0(:))*dreal(dg0(:,j))/Wdelta(:) ) + &
-             sum( dimag(Gdelta(l,:)-g0(:))*dimag(dg0(:,j))/Wdelta(:) )
+             sum( dreal(Gdelta(l,:)-Delta(:))*dreal(dDelta(:,j))/Wdelta(:) ) + &
+             sum( dimag(Gdelta(l,:)-Delta(:))*dimag(dDelta(:,j))/Wdelta(:) )
      enddo
   enddo
   !
@@ -272,23 +298,143 @@ end function grad_chi2_delta_hybrid_normal
 function chi2_weiss_hybrid_normal(a) result(chi2)
   real(8),dimension(:)                   :: a
   real(8),dimension(totNorb)             :: chi2_orb
-  complex(8),dimension(Ldelta)           :: g0
-  complex(8),dimension(Norb,Norb,Ldelta) :: fgorb
-  real(8)                                :: chi2,w
-  integer                                :: i,l,iorb,jorb,ispin
-  ispin=Spin_indx
-  call chi2_bath2dmft_bath(a,chi2_bath,ispin)
-  do i=1,Ldelta
-     w    = Xdelta(i)
-     fgorb(:,:,i) = g0and_bath_mats(ispin,ispin,xi*w,chi2_bath)
-  enddo
+  complex(8),dimension(Norb,Norb,Ldelta) :: g0and
+  real(8)                                :: chi2
+  integer                                :: i,l,iorb,jorb
+  !
+  g0and(:,:,:) = g0and_hybrid_normal(a)
+  !
   do l=1,totNorb
      iorb=getIorb(l)
      jorb=getJorb(l)
-     chi2_orb(l) = sum(abs(Gdelta(l,:)-fgorb(iorb,jorb,:))**2/Wdelta(:))
+     chi2_orb(l) = sum(abs(Gdelta(l,:)-g0and(iorb,jorb,:))**2/Wdelta(:))
   enddo
   !
   chi2=sum(chi2_orb)
   !
 end function chi2_weiss_hybrid_normal
-!
+
+
+
+
+
+
+!##################################################################
+! THESE PROCEDURES EVALUATES THE 
+! - \delta
+! - \grad \delta
+! - g0
+! FUNCTIONS. 
+!##################################################################
+function delta_hybrid_normal(iorb,jorb,a) result(Delta)
+  integer                       :: iorb,jorb
+  real(8),dimension(:)          :: a
+  complex(8),dimension(Ldelta)  :: Delta
+  integer                       :: i,io,l,stride
+  real(8),dimension(Nbath)      :: eps
+  real(8),dimension(Norb,Nbath) :: vops
+  !
+  !\Delta_{ab} = \sum_k [ V_{a}(k) * V_{b}(k)/(iw_n - E(k)) ]
+  !
+  stride = 0
+  do i=1,Nbath
+     io = stride + i
+     eps(i)    = a(io)
+  enddo
+  stride = Nbath
+  do l=1,Norb
+     do i=1,Nbath
+        io = stride + i + (l-1)*Nbath
+        vops(l,i) = a(io)
+     enddo
+  enddo
+  !
+  do i=1,Ldelta
+     Delta(i) = sum( vops(iorb,:)*vops(jorb,:)/(xi*Xdelta(i) - eps(:)) )
+  enddo
+  !
+end function delta_hybrid_normal
+
+function grad_delta_hybrid_normal(iorb,jorb,a) result(dDelta)
+  integer                              :: iorb,jorb
+  real(8),dimension(:)                 :: a
+  complex(8),dimension(Ldelta,size(a)) :: dDelta
+  integer                              :: i,k,ik,l,io,stride
+  real(8),dimension(Nbath)             :: eps
+  real(8),dimension(Norb,Nbath)        :: vops
+  real(8),dimension(Norb,Norb)         :: delta_orb
+  !
+  !\grad_{E_{1}(k)} \Delta_{ab} = [ V_{a}(k)*V_{b}(k) / ( iw_n - E_{1}(k) )**2 ]
+  !
+  !\grad_{V_{g}(k)} \Delta_{ab} = [ \d(g,a)*V_{b}(k)+\d(g,b)*V_{a}(k) ] / ( iw_n - E_{1}(k) )
+  !
+  stride = 0
+  do i=1,Nbath
+     io = stride + i
+     eps(i)    = a(io)
+  enddo
+  stride = Nbath
+  do l=1,Norb
+     do i=1,Nbath
+        io = stride + i + (l-1)*Nbath
+        vops(l,i) = a(io)
+     enddo
+  enddo
+  !
+  delta_orb = eye(Norb)
+  !
+  stride = 0
+  do k=1,Nbath
+     ik = stride + k
+     dDelta(:,ik) = vops(iorb,k)*vops(jorb,k)/(xi*Xdelta(:) - eps(k))**2
+  enddo
+  stride = Nbath
+  do l=1,Norb
+     do k=1,Nbath
+        ik = stride + k + (l-1)*Nbath
+        dDelta(:,ik) = (delta_orb(l,iorb)*vops(jorb,k) + delta_orb(l,jorb)*vops(iorb,k))/(xi*Xdelta(:) - eps(k))
+     enddo
+  enddo
+  !
+end function grad_delta_hybrid_normal
+
+function g0and_hybrid_normal(a) result(G0and)
+  integer                                :: iorb,jorb
+  real(8),dimension(:)                   :: a
+  complex(8),dimension(Norb,Norb,Ldelta) :: G0and
+  complex(8),dimension(Norb,Norb)        :: zeta,fgorb,delta
+  integer                                :: i,io,l,m,stride,ispin
+  real(8),dimension(Nbath)               :: eps
+  real(8),dimension(Norb,Nbath)          :: vops
+  !
+  ispin  = Spin_indx
+  !
+  stride = 0
+  do i=1,Nbath
+     io = stride + i
+     eps(i)    = a(io)
+  enddo
+  stride = Nbath
+  do l=1,Norb
+     do i=1,Nbath
+        io = stride + i + (l-1)*Nbath
+        vops(l,i) = a(io)
+     enddo
+  enddo
+  !
+  do i=1,Ldelta
+     fgorb=zero
+     zeta = (xi*Xdelta(i)+xmu)*eye(Norb)
+     do l=1,Norb
+        Delta(l,l) = sum( vops(l,:)*vops(l,:)/(xi*Xdelta(i) - eps(:)) )
+        do m=l+1,Norb
+           Delta(l,m) = sum( vops(l,:)*vops(m,:)/(xi*Xdelta(i) - eps(:)) )
+           Delta(m,l) = sum( vops(m,:)*vops(l,:)/(xi*Xdelta(i) - eps(:)) )
+        enddo
+     enddo
+     fgorb(:,:) = zeta(:,:) - impHloc(ispin,ispin,:,:) - Delta(:,:)
+     call inv(fgorb)
+     G0and(:,:,i) = fgorb
+  enddo
+  !
+end function g0and_hybrid_normal

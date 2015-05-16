@@ -19,21 +19,22 @@ MODULE ED_BATH
   public :: allocate_bath              !INTERNAL (for effective_bath)
   public :: deallocate_bath            !INTERNAL (for effective_bath)
   public :: get_bath_size              !PUBLIC   (for user_bath)
-  public :: get_chi2_bath_size         !PUBLIC   (for chi2_bath)
   public :: check_bath_dimension       !PUBLIC   (for user_bath)
-  public :: check_chi2_bath_dimension  !INTERNAL (for chi2_bath)
   public :: init_bath_ed               !INTERNAL (for effective_bath)
   public :: write_bath                 !INTERNAL (for effective_bath)
   public :: save_bath                  !INTERNAL (for effective_bath)
   public :: set_bath                   !INTERNAL (for effective_bath)
   public :: copy_bath                  !INTERNAL (for effective_bath)
-  public :: dmft_bath2chi2_bath        !INTERNAL (for effective_bath / chi2_bath)
-  public :: chi2_bath2dmft_bath        !INTERNAL (for effective_bath / chi2_bath)
   public :: break_symmetry_bath        !PUBLIC   (for user_bath)
   public :: spin_symmetrize_bath       !PUBLIC   (for user_bath)
   public :: ph_symmetrize_bath         !PUBLIC   (for user_bath)
   public :: ph_trans_bath              !PUBLIC   (for user_bath)
   public :: enforce_normal_bath        !PUBLIC   (for user_bath)
+  !
+  ! public :: get_chi2_bath_size         !PUBLIC   (for chi2_bath)
+  ! public :: check_chi2_bath_dimension  !INTERNAL (for chi2_bath)
+  ! public :: dmft_bath2chi2_bath        !INTERNAL (for effective_bath / chi2_bath)
+  ! public :: chi2_bath2dmft_bath        !INTERNAL (for effective_bath / chi2_bath)
 
 
   !functions:
@@ -61,32 +62,6 @@ MODULE ED_BATH
   !
   public :: delta_bath_mats
   public :: fdelta_bath_mats
-
-
-  !\Nabla\Delta NORMAL hybridization function gradient Matsubara
-  !NORMAL
-  interface grad_delta_bath_mats
-     module procedure grad_delta_bath_mats_main
-     module procedure grad_delta_bath_mats_ispin_jspin
-     module procedure grad_delta_bath_mats_ispin_jspin_iorb_jorb
-     module procedure grad_delta_bath_mats_main_
-     module procedure grad_delta_bath_mats_ispin_jspin_
-     module procedure grad_delta_bath_mats_ispin_jspin_iorb_jorb_
-  end interface grad_delta_bath_mats
-  !
-  !ANOMALOUS
-  interface grad_fdelta_bath_mats
-     module procedure grad_fdelta_bath_mats_main
-     module procedure grad_fdelta_bath_mats_ispin_jspin
-     module procedure grad_fdelta_bath_mats_ispin_jspin_iorb_jorb
-     module procedure grad_fdelta_bath_mats_main_
-     module procedure grad_fdelta_bath_mats_ispin_jspin_
-     module procedure grad_fdelta_bath_mats_ispin_jspin_iorb_jorb_
-  end interface grad_fdelta_bath_mats
-  !
-  public :: grad_delta_bath_mats
-  public :: grad_fdelta_bath_mats
-
 
 
 
@@ -228,6 +203,8 @@ MODULE ED_BATH
 contains
 
 
+  
+
   !+-------------------------------------------------------------------+
   !PURPOSE  : Allocate the ED bath
   !+-------------------------------------------------------------------+
@@ -314,41 +291,41 @@ contains
     !
   end function get_bath_size
 
-  function get_chi2_bath_size() result(bath_size)
-    integer :: bath_size
-    !
-    select case(bath_type)
-    case default
-       !
-       select case(ed_mode)
-       case default             !per spin/per orb
-          !E_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
-          !V_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
-          bath_size = Nbath + Nbath
-       case ("superc")          !per spin/per orb
-          !E_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
-          !D_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
-          !V_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
-          bath_size = Nbath + Nbath + Nbath
-       end select
-       !
-    case('hybrid')
-       !
-       select case(ed_mode)
-       case default
-          !E_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
-          !V_{\s,:}(:)  [ 1 ][ Norb][Nbath]
-          bath_size = Nbath + Norb*Nbath
-       case ("superc")
-          !E_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
-          !D_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
-          !V_{\s,:}(:)  [ 1 ][ Norb][Nbath]
-          bath_size = Nbath + Nbath + Norb*Nbath
-       end select
-       !
-    end select
-    !
-  end function get_chi2_bath_size
+  ! function get_chi2_bath_size() result(bath_size)
+  !   integer :: bath_size
+  !   !
+  !   select case(bath_type)
+  !   case default
+  !      !
+  !      select case(ed_mode)
+  !      case default             !per spin/per orb
+  !         !E_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+  !         !V_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+  !         bath_size = Nbath + Nbath
+  !      case ("superc")          !per spin/per orb
+  !         !E_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+  !         !D_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+  !         !V_{\s,\a}(:)  [ 1 ][ 1 ][Nbath]
+  !         bath_size = Nbath + Nbath + Nbath
+  !      end select
+  !      !
+  !   case('hybrid')
+  !      !
+  !      select case(ed_mode)
+  !      case default
+  !         !E_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
+  !         !V_{\s,:}(:)  [ 1 ][ Norb][Nbath]
+  !         bath_size = Nbath + Norb*Nbath
+  !      case ("superc")
+  !         !E_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
+  !         !D_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
+  !         !V_{\s,:}(:)  [ 1 ][ Norb][Nbath]
+  !         bath_size = Nbath + Nbath + Norb*Nbath
+  !      end select
+  !      !
+  !   end select
+  !   !
+  ! end function get_chi2_bath_size
 
 
 
@@ -372,16 +349,16 @@ contains
     !
   end function check_bath_dimension
 
-  function check_chi2_bath_dimension(a) result(bool)
-    real(8),dimension(:),intent(in) :: a
-    integer                         :: Ntrue
-    logical                         :: bool
-    !
-    Ntrue = get_chi2_bath_size()
-    !
-    bool  = (size(a) == Ntrue)
-    !
-  end function check_chi2_bath_dimension
+  ! function check_chi2_bath_dimension(a) result(bool)
+  !   real(8),dimension(:),intent(in) :: a
+  !   integer                         :: Ntrue
+  !   logical                         :: bool
+  !   !
+  !   Ntrue = get_chi2_bath_size()
+  !   !
+  !   bool  = (size(a) == Ntrue)
+  !   !
+  ! end function check_chi2_bath_dimension
 
 
 
@@ -1024,233 +1001,24 @@ contains
 
 
 
-  !+-----------------------------------------------------------------------------+!
-  !PURPOSE: A procedure that transforms an effective_bath type 
-  ! into a simple array as used in the Chi**2 fit procedure.
-  !+-----------------------------------------------------------------------------+!
-  subroutine dmft_bath2chi2_bath(dmft_bath,array,ispin,iorb)
-    type(effective_bath) :: dmft_bath
-    real(8),dimension(:) :: array
-    integer,optional     :: ispin,iorb
-    integer              :: ispin_,jspin_,iorb_,i_,io_,stride_
-    logical              :: check
-    !
-    ispin_=1;if(present(ispin))ispin_=ispin
-    iorb_ =1;if(present(iorb)) iorb_ =iorb
-    !
-    check = check_chi2_bath_dimension(array)
-    if(.not.check) stop "dmft_bath2chi2_bath error: size[array] is incorrect"
-    !
-    select case(bath_type)
-    case default
-       select case(ed_mode)
-       case default             !per spin/ per orb
-          !2*Nbath == Nbath + Nbath
-          stride_=0
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             array(io_) = dmft_bath%e(ispin_,iorb_,i_)
-          enddo
-          stride_=Nbath
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             array(io_) = dmft_bath%v(ispin_,iorb_,i_)
-          enddo
-          !
-       case ("superc")          !per spin/ per orb
-          !3*Nbath == Nbath + Nbath + Nbath
-          stride_=0
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             array(io_) = dmft_bath%e(ispin_,iorb_,i_)
-          enddo
-          stride_=Nbath
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             array(io_) = dmft_bath%d(ispin_,iorb_,i_)
-          enddo
-          stride_=2*Nbath
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             array(io_) = dmft_bath%v(ispin_,iorb_,i_)
-          enddo
-          !
-       end select
-       !
-    case ("hybrid")
-       !
-       select case(ed_mode)     !per spin
-       case default
-          !Nbath + Norb*Nbath
-          stride_=0
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             array(io_) = dmft_bath%e(ispin_,1,i_)
-          enddo
-          stride_=Nbath
-          do iorb_=1,Norb
-             do i_=1,Nbath
-                io_ = stride_ + i_ + (iorb_-1)*Nbath
-                array(io_) = dmft_bath%v(ispin_,iorb_,i_)
-             enddo
-          enddo
-          !
-       case ("superc")          !per spin
-          !Nbath + Nbath + Norb*Nbath
-          stride_=0
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             array(io_) = dmft_bath%e(ispin_,1,i_)
-          enddo
-          stride_=Nbath
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             array(io_) = dmft_bath%d(ispin_,1,i_)
-          enddo
-          stride_=2*Nbath
-          do iorb_=1,Norb
-             do i_=1,Nbath
-                io_ = stride_ + i_ + (iorb_-1)*Nbath
-                array(io_) = dmft_bath%v(ispin_,iorb_,i_)
-             enddo
-          enddo
-          !
-       end select
-       !
-    end select
-  end subroutine dmft_bath2chi2_bath
 
 
-  !+-----------------------------------------------------------------------------+!
-  !PURPOSE: A procedure that transforms a simple array as used in the Chi**2 
-  ! fit procedure into an effective_bath type.
-  !+-----------------------------------------------------------------------------+!
-  subroutine chi2_bath2dmft_bath(array,dmft_bath,ispin,iorb)
-    real(8),dimension(:) :: array
-    type(effective_bath) :: dmft_bath
-    integer,optional     :: ispin,iorb
-    integer              :: ispin_,jspin_,iorb_,i_,io_,stride_
-    logical              :: check
-    !
-    ispin_=1;if(present(ispin))ispin_=ispin
-    iorb_ =1;if(present(iorb)) iorb_ =iorb
-    !
-    check = check_chi2_bath_dimension(array)
-    if(.not.check) stop "chi2_bath2dmft_bath error: size[array] is incorrect"
-    !
-    select case(bath_type)
-    case default
-       !
-       select case(ed_mode)     !per spin / per orb
-       case default
-          !Nbath + Nbath
-          stride_=0
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             dmft_bath%e(ispin_,iorb_,i_) = array(io_)
-          enddo
-          stride_=Nbath
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             dmft_bath%v(ispin_,iorb_,i_) = array(io_)
-          enddo
-          !
-       case ("superc")          !per spin / per orb
-          !Nbath + Nbath + Nbath
-          stride_=0
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             dmft_bath%e(ispin_,iorb_,i_) = array(io_)
-          enddo
-          stride_=Nbath
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             dmft_bath%d(ispin_,iorb_,i_) = array(io_)
-          enddo
-          stride_=2*Nbath
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             dmft_bath%v(ispin_,iorb_,i_) = array(io_)
-          enddo
-          !
-       end select
-       !
-    case ("hybrid")
-       !
-       select case(ed_mode)     !per spin
-       case default
-          !Nbath + Norb*Nbath
-          stride_=0
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             dmft_bath%e(ispin_,1,i_) = array(io_) 
-          enddo
-          stride_=Nbath
-          do iorb_=1,Norb
-             do i_=1,Nbath
-                io_ = stride_ + i_ + (iorb_-1)*Nbath
-                dmft_bath%v(ispin_,iorb_,i_) = array(io_) 
-             enddo
-          enddo
-          !
-       case ("superc")    !per spin
-          !Nbath + Nbath + Norb*Nbath
-          stride_=0
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             dmft_bath%e(ispin_,1,i_) = array(io_)
-          enddo
-          stride_=Nbath
-          do i_=1,Nbath
-             io_ = stride_ + i_
-             dmft_bath%d(ispin_,1,i_) = array(io_) 
-          enddo
-          stride_=2*Nbath
-          do iorb_=1,Norb
-             do i_=1,Nbath
-                io_ = stride_ + i_ + (iorb_-1)*Nbath
-                dmft_bath%v(ispin_,iorb_,i_) = array(io_)
-             enddo
-          enddo
-          !
-       end select
-       !
-    end select
-  end subroutine chi2_bath2dmft_bath
-
-
-
-
-
+  !##################################################################
+  !
+  !     DELTA FUNCTIONS
+  !     G0 FUNCTIONS
+  !     G0^{-1} FUNCTIONS
+  !
+  !##################################################################
   !+-------------------------------------------------------------------+
   !PURPOSE  : compute the hybridization function at a point x from
   ! type(effective_bath) :: dmft_bath
   ! OR
   ! real(8),dimension(:) :: bath_array
   !+-------------------------------------------------------------------+
-  ! DELTA_BATH_MATS:
-  include "ed_bath_delta_bath_mats.f90"
+  include "ed_bath_delta_bath_mats.f90"  ! DELTA_BATH_MATS:
+  include "ed_bath_delta_bath_real.f90"  ! DELTA_BATH_REAL:
 
-
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : compute the hybridization function at a point x from
-  ! type(effective_bath) :: dmft_bath
-  ! OR
-  ! real(8),dimension(:) :: bath_array
-  !+-------------------------------------------------------------------+
-  ! DELTA_BATH_REAL:
-  include "ed_bath_delta_bath_real.f90"
-
-
-  !+-------------------------------------------------------------------+
-  !PURPOSE  :  compute the gradient of the hybridization function
-  ! at a point x
-  ! type(effective_bath) :: dmft_bath
-  ! OR
-  ! real(8),dimension(:) :: bath_array
-  !+-------------------------------------------------------------------+
-  ! GRAD_DELTA_BATH_MATS:
-  include "ed_bath_grad_delta_bath_mats.f90"
 
 
   !+-------------------------------------------------------------------+
@@ -1259,8 +1027,8 @@ contains
   ! OR
   ! real(8),dimension(:) :: bath_array
   !+-------------------------------------------------------------------+
-  ! G0and_BATH_MATS:
-  include "ed_bath_g0and_bath_mats.f90"
+  include "ed_bath_g0and_bath_mats.f90"  ! G0and_BATH_MATS:
+  include "ed_bath_g0and_bath_real.f90"  ! G0and_BATH_REAL:
 
 
   !+-------------------------------------------------------------------+
@@ -1269,27 +1037,250 @@ contains
   ! OR
   ! real(8),dimension(:) :: bath_array
   !+-------------------------------------------------------------------+
-  ! invG0_BATH_MATS:
-  include "ed_bath_invg0_bath_mats.f90"
+  include "ed_bath_invg0_bath_mats.f90"  ! invG0_BATH_MATS:
+  include "ed_bath_invg0_bath_real.f90"  ! invG0_BATH_REAL:
 
 
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : compute the G0 function at a point x from
-  ! type(effective_bath) :: dmft_bath
-  ! OR
-  ! real(8),dimension(:) :: bath_array
-  !+-------------------------------------------------------------------+
-  ! G0and_BATH_REAL:
-  include "ed_bath_g0and_bath_real.f90"
 
 
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : compute the inverse G0 function at a point x from
-  ! type(effective_bath) :: dmft_bath
-  ! OR
-  ! real(8),dimension(:) :: bath_array
-  !+-------------------------------------------------------------------+
-  ! invG0_BATH_REAL:
-  include "ed_bath_invg0_bath_real.f90"
+
+
+
+
+
+
+
+
+
+
+
+  ! !+-------------------------------------------------------------------+
+  ! !PURPOSE  :  compute the gradient of the hybridization function
+  ! ! at a point x
+  ! ! type(effective_bath) :: dmft_bath
+  ! ! OR
+  ! ! real(8),dimension(:) :: bath_array
+  ! !+-------------------------------------------------------------------+
+  ! ! GRAD_DELTA_BATH_MATS:
+  ! include "ed_bath_grad_delta_bath_mats.f90"
+  ! !\Nabla\Delta NORMAL hybridization function gradient Matsubara
+  ! !NORMAL
+  ! interface grad_delta_bath_mats
+  !    module procedure grad_delta_bath_mats_main
+  !    module procedure grad_delta_bath_mats_ispin_jspin
+  !    module procedure grad_delta_bath_mats_ispin_jspin_iorb_jorb
+  !    module procedure grad_delta_bath_mats_main_
+  !    module procedure grad_delta_bath_mats_ispin_jspin_
+  !    module procedure grad_delta_bath_mats_ispin_jspin_iorb_jorb_
+  ! end interface grad_delta_bath_mats
+  ! !
+  ! !ANOMALOUS
+  ! interface grad_fdelta_bath_mats
+  !    module procedure grad_fdelta_bath_mats_main
+  !    module procedure grad_fdelta_bath_mats_ispin_jspin
+  !    module procedure grad_fdelta_bath_mats_ispin_jspin_iorb_jorb
+  !    module procedure grad_fdelta_bath_mats_main_
+  !    module procedure grad_fdelta_bath_mats_ispin_jspin_
+  !    module procedure grad_fdelta_bath_mats_ispin_jspin_iorb_jorb_
+  ! end interface grad_fdelta_bath_mats
+  ! !
+  ! public :: grad_delta_bath_mats
+  ! public :: grad_fdelta_bath_mats
+
+
+  ! !+-----------------------------------------------------------------------------+!
+  ! !PURPOSE: A procedure that transforms an effective_bath type 
+  ! ! into a simple array as used in the Chi**2 fit procedure.
+  ! !+-----------------------------------------------------------------------------+!
+  ! subroutine dmft_bath2chi2_bath(dmft_bath,array,ispin,iorb)
+  !   type(effective_bath) :: dmft_bath
+  !   real(8),dimension(:) :: array
+  !   integer,optional     :: ispin,iorb
+  !   integer              :: ispin_,jspin_,iorb_,i_,io_,stride_
+  !   logical              :: check
+  !   !
+  !   ispin_=1;if(present(ispin))ispin_=ispin
+  !   iorb_ =1;if(present(iorb)) iorb_ =iorb
+  !   !
+  !   check = check_chi2_bath_dimension(array)
+  !   if(.not.check) stop "dmft_bath2chi2_bath error: size[array] is incorrect"
+  !   !
+  !   select case(bath_type)
+  !   case default
+  !      select case(ed_mode)
+  !      case default             !per spin/ per orb
+  !         !2*Nbath == Nbath + Nbath
+  !         stride_=0
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            array(io_) = dmft_bath%e(ispin_,iorb_,i_)
+  !         enddo
+  !         stride_=Nbath
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            array(io_) = dmft_bath%v(ispin_,iorb_,i_)
+  !         enddo
+  !         !
+  !      case ("superc")          !per spin/ per orb
+  !         !3*Nbath == Nbath + Nbath + Nbath
+  !         stride_=0
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            array(io_) = dmft_bath%e(ispin_,iorb_,i_)
+  !         enddo
+  !         stride_=Nbath
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            array(io_) = dmft_bath%d(ispin_,iorb_,i_)
+  !         enddo
+  !         stride_=2*Nbath
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            array(io_) = dmft_bath%v(ispin_,iorb_,i_)
+  !         enddo
+  !         !
+  !      end select
+  !      !
+  !   case ("hybrid")
+  !      !
+  !      select case(ed_mode)     !per spin
+  !      case default
+  !         !Nbath + Norb*Nbath
+  !         stride_=0
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            array(io_) = dmft_bath%e(ispin_,1,i_)
+  !         enddo
+  !         stride_=Nbath
+  !         do iorb_=1,Norb
+  !            do i_=1,Nbath
+  !               io_ = stride_ + i_ + (iorb_-1)*Nbath
+  !               array(io_) = dmft_bath%v(ispin_,iorb_,i_)
+  !            enddo
+  !         enddo
+  !         !
+  !      case ("superc")          !per spin
+  !         !Nbath + Nbath + Norb*Nbath
+  !         stride_=0
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            array(io_) = dmft_bath%e(ispin_,1,i_)
+  !         enddo
+  !         stride_=Nbath
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            array(io_) = dmft_bath%d(ispin_,1,i_)
+  !         enddo
+  !         stride_=2*Nbath
+  !         do iorb_=1,Norb
+  !            do i_=1,Nbath
+  !               io_ = stride_ + i_ + (iorb_-1)*Nbath
+  !               array(io_) = dmft_bath%v(ispin_,iorb_,i_)
+  !            enddo
+  !         enddo
+  !         !
+  !      end select
+  !      !
+  !   end select
+  ! end subroutine dmft_bath2chi2_bath
+
+
+  ! !+-----------------------------------------------------------------------------+!
+  ! !PURPOSE: A procedure that transforms a simple array as used in the Chi**2 
+  ! ! fit procedure into an effective_bath type.
+  ! !+-----------------------------------------------------------------------------+!
+  ! subroutine chi2_bath2dmft_bath(array,dmft_bath,ispin,iorb)
+  !   real(8),dimension(:) :: array
+  !   type(effective_bath) :: dmft_bath
+  !   integer,optional     :: ispin,iorb
+  !   integer              :: ispin_,jspin_,iorb_,i_,io_,stride_
+  !   logical              :: check
+  !   !
+  !   ispin_=1;if(present(ispin))ispin_=ispin
+  !   iorb_ =1;if(present(iorb)) iorb_ =iorb
+  !   !
+  !   check = check_chi2_bath_dimension(array)
+  !   if(.not.check) stop "chi2_bath2dmft_bath error: size[array] is incorrect"
+  !   !
+  !   select case(bath_type)
+  !   case default
+  !      !
+  !      select case(ed_mode)     !per spin / per orb
+  !      case default
+  !         !Nbath + Nbath
+  !         stride_=0
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            dmft_bath%e(ispin_,iorb_,i_) = array(io_)
+  !         enddo
+  !         stride_=Nbath
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            dmft_bath%v(ispin_,iorb_,i_) = array(io_)
+  !         enddo
+  !         !
+  !      case ("superc")          !per spin / per orb
+  !         !Nbath + Nbath + Nbath
+  !         stride_=0
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            dmft_bath%e(ispin_,iorb_,i_) = array(io_)
+  !         enddo
+  !         stride_=Nbath
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            dmft_bath%d(ispin_,iorb_,i_) = array(io_)
+  !         enddo
+  !         stride_=2*Nbath
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            dmft_bath%v(ispin_,iorb_,i_) = array(io_)
+  !         enddo
+  !         !
+  !      end select
+  !      !
+  !   case ("hybrid")
+  !      !
+  !      select case(ed_mode)     !per spin
+  !      case default
+  !         !Nbath + Norb*Nbath
+  !         stride_=0
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            dmft_bath%e(ispin_,1,i_) = array(io_) 
+  !         enddo
+  !         stride_=Nbath
+  !         do iorb_=1,Norb
+  !            do i_=1,Nbath
+  !               io_ = stride_ + i_ + (iorb_-1)*Nbath
+  !               dmft_bath%v(ispin_,iorb_,i_) = array(io_) 
+  !            enddo
+  !         enddo
+  !         !
+  !      case ("superc")    !per spin
+  !         !Nbath + Nbath + Norb*Nbath
+  !         stride_=0
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            dmft_bath%e(ispin_,1,i_) = array(io_)
+  !         enddo
+  !         stride_=Nbath
+  !         do i_=1,Nbath
+  !            io_ = stride_ + i_
+  !            dmft_bath%d(ispin_,1,i_) = array(io_) 
+  !         enddo
+  !         stride_=2*Nbath
+  !         do iorb_=1,Norb
+  !            do i_=1,Nbath
+  !               io_ = stride_ + i_ + (iorb_-1)*Nbath
+  !               dmft_bath%v(ispin_,iorb_,i_) = array(io_)
+  !            enddo
+  !         enddo
+  !         !
+  !      end select
+  !      !
+  !   end select
+  ! end subroutine chi2_bath2dmft_bath
+
 
 END MODULE ED_BATH
