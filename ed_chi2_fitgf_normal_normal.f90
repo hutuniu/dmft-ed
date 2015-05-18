@@ -302,6 +302,7 @@ function delta_normal_normal(a) result(Delta)
   do i=1,Ldelta
      Delta(i) = sum( vps(:)*vps(:)/(xi*Xdelta(i) - eps(:)) )
   enddo
+  !
 end function delta_normal_normal
 
 
@@ -328,15 +329,17 @@ function grad_delta_normal_normal(a) result(dDelta)
      vps(i) = a(io)
   enddo
   !
+  stride = 0
   do k=1,Nbath
      ik = stride + k
      dDelta(:,ik) = vps(k)*vps(k)/(xi*Xdelta(:) - eps(k))**2
   enddo
-  stride=Nbath
+  stride = Nbath
   do k=1,Nbath
      ik = stride + k
      dDelta(:,ik) = 2d0*vps(k)/(xi*Xdelta(:) - eps(k))
   enddo
+  !
 end function grad_delta_normal_normal
 
 function g0and_normal_normal(a) result(G0and)

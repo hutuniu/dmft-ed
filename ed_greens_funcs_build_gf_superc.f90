@@ -14,16 +14,23 @@ subroutine build_gf_superc()
   !
   ispin=1                       !in this channel Nspin=2 is forbidden. check in ED_AUX_FUNX.
   do iorb=1,Norb
+     auxGmats=zero
+     auxGreal=zero
      if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G&F_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
      call lanc_build_gf_superc_d(iorb)
-  enddo
-  do iorb=1,Norb
+     !
      impGmats(ispin,ispin,iorb,iorb,:) = auxGmats(1,:) !this is G_{iorb,iorb} = G_{up,up;iorb,iorb}
      barGmats(                 iorb,:) = auxGmats(2,:) !this is \bar{G}_{iorb,iorb} = \bar{G}_{dw,dw;iorb,iorb}
      impGreal(ispin,ispin,iorb,iorb,:) = auxGreal(1,:)
      barGreal(                 iorb,:) = auxGreal(2,:)
-     impFmats(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGmats(3,:)-(one-xi)*auxGmats(1,:)-(one-xi)*auxGmats(2,:))
-     impFreal(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGreal(3,:)-(one-xi)*auxGreal(1,:)-(one-xi)*auxGreal(2,:))
+     impFmats(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGmats(3,:)-auxGmats(1,:)-auxGmats(2,:))
+     impFreal(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGreal(3,:)-auxGreal(1,:)-auxGreal(2,:))
+     ! UNCOMMENT THIS AND FOLLOING LINE MARKED WITH >ANOMAL TO USE THE MORE GENERAL ALGORITHM
+     ! FOR THE EVALUATION OF THE ANOMALOUS GF
+     ! >ANOMAL
+     ! impFmats(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGmats(3,:)-(one-xi)*auxGmats(1,:)-(one-xi)*auxGmats(2,:))
+     ! impFreal(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGreal(3,:)-(one-xi)*auxGreal(1,:)-(one-xi)*auxGreal(2,:))
+     ! <ANOMAL
   enddo
   !
   !now we add the other mixed/anomalous GF in for the bath_type="hybrid" case
@@ -297,87 +304,88 @@ subroutine lanc_build_gf_superc_d(iorb)
 
 
 
-
-     !EVALUATE [c^+_{up,iorb} + xi*c_{dw,iorb}]|gs> --> -xi*B_{iorb,iorb}
-     isz = getsz(isector)
-     if(isz<Ns)then
-        jsz   = isz+1
-        jsector = getsector(jsz,1)
-        jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3,I15)")'apply c^+_up + xi*c_dw:',getsz(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
-        call build_sector(jsector,HJmap)
-        cvinit=0.d0
-        do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(iorb)==0)then
-              call cdg(iorb,i,r,sgn)
-              j=binary_search(HJmap,r)
-              cvinit(j) = sgn*state_vec(m)
-           endif
-        enddo
-        do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(iorb+Ns)==1)then
-              call c(iorb+Ns,i,r,sgn)
-              j=binary_search(HJmap,r)
-              cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
-           endif
-        enddo
-        deallocate(HJmap)
-        norm2=dot_product(cvinit,cvinit)
-        cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
-        call ed_buildH_d(jsector)
-        call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,1,ichan=3)
-        deallocate(cvinit)
-        if(spH0%status)call sp_delete_matrix(spH0)
-     endif
-     !
-     !EVALUATE [c_{up,iorb} - xi*c^+_{dw,iorb}]|gs> --> -xi*B_{iorb,iorb}
-     isz = getsz(isector)
-     if(isz>-Ns)then
-        jsz   = isz-1
-        jsector = getsector(jsz,1)
-        jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)&
-             write(LOGfile,"(A23,I3,I15)")'apply c_up - xi*c^+_dw:',getsz(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
-        call build_sector(jsector,HJmap)
-        cvinit=0.d0
-        do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(iorb)==1)then
-              call c(iorb,i,r,sgn)
-              j=binary_search(HJmap,r)
-              cvinit(j) = sgn*state_vec(m)
-           endif
-        enddo
-        do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(iorb+Ns)==0)then
-              call cdg(iorb+Ns,i,r,sgn)
-              j=binary_search(HJmap,r)
-              cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
-           endif
-        enddo
-        deallocate(HJmap)
-        norm2=dot_product(cvinit,cvinit)
-        cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
-        call ed_buildH_d(jsector)
-        call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi**norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,ichan=3)
-        deallocate(cvinit)
-        if(spH0%status)call sp_delete_matrix(spH0)
-     endif
+     ! ! <ANOMAL
+     ! !EVALUATE [c^+_{up,iorb} + xi*c_{dw,iorb}]|gs> --> -xi*B_{iorb,iorb}
+     ! isz = getsz(isector)
+     ! if(isz<Ns)then
+     !    jsz   = isz+1
+     !    jsector = getsector(jsz,1)
+     !    jdim  = getdim(jsector)
+     !    if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3,I15)")'apply c^+_up + xi*c_dw:',getsz(jsector),jdim
+     !    allocate(HJmap(jdim),cvinit(jdim))
+     !    call build_sector(jsector,HJmap)
+     !    cvinit=0.d0
+     !    do m=1,idim
+     !       i=HImap(m)
+     !       call bdecomp(i,ib)
+     !       if(ib(iorb)==0)then
+     !          call cdg(iorb,i,r,sgn)
+     !          j=binary_search(HJmap,r)
+     !          cvinit(j) = sgn*state_vec(m)
+     !       endif
+     !    enddo
+     !    do m=1,idim
+     !       i=HImap(m)
+     !       call bdecomp(i,ib)
+     !       if(ib(iorb+Ns)==1)then
+     !          call c(iorb+Ns,i,r,sgn)
+     !          j=binary_search(HJmap,r)
+     !          cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
+     !       endif
+     !    enddo
+     !    deallocate(HJmap)
+     !    norm2=dot_product(cvinit,cvinit)
+     !    cvinit=cvinit/sqrt(norm2)
+     !    alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+     !    call ed_buildH_d(jsector)
+     !    call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
+     !    cnorm2=-xi*norm2
+     !    call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,1,ichan=3)
+     !    deallocate(cvinit)
+     !    if(spH0%status)call sp_delete_matrix(spH0)
+     ! endif
+     ! !
+     ! !EVALUATE [c_{up,iorb} - xi*c^+_{dw,iorb}]|gs> --> -xi*B_{iorb,iorb}
+     ! isz = getsz(isector)
+     ! if(isz>-Ns)then
+     !    jsz   = isz-1
+     !    jsector = getsector(jsz,1)
+     !    jdim  = getdim(jsector)
+     !    if(ed_verbose<1.AND.ED_MPI_ID==0)&
+     !         write(LOGfile,"(A23,I3,I15)")'apply c_up - xi*c^+_dw:',getsz(jsector),jdim
+     !    allocate(HJmap(jdim),cvinit(jdim))
+     !    call build_sector(jsector,HJmap)
+     !    cvinit=0.d0
+     !    do m=1,idim
+     !       i=HImap(m)
+     !       call bdecomp(i,ib)
+     !       if(ib(iorb)==1)then
+     !          call c(iorb,i,r,sgn)
+     !          j=binary_search(HJmap,r)
+     !          cvinit(j) = sgn*state_vec(m)
+     !       endif
+     !    enddo
+     !    do m=1,idim
+     !       i=HImap(m)
+     !       call bdecomp(i,ib)
+     !       if(ib(iorb+Ns)==0)then
+     !          call cdg(iorb+Ns,i,r,sgn)
+     !          j=binary_search(HJmap,r)
+     !          cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
+     !       endif
+     !    enddo
+     !    deallocate(HJmap)
+     !    norm2=dot_product(cvinit,cvinit)
+     !    cvinit=cvinit/sqrt(norm2)
+     !    alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+     !    call ed_buildH_d(jsector)
+     !    call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
+     !    cnorm2=-xi**norm2
+     !    call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,ichan=3)
+     !    deallocate(cvinit)
+     !    if(spH0%status)call sp_delete_matrix(spH0)
+     ! endif
+     ! ! <ANOMAL
      !
      nullify(state_vec)
      deallocate(HImap)

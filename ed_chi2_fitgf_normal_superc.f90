@@ -241,7 +241,7 @@ function chi2_delta_normal_superc(a) result(chi2)
   !
   Delta(:,:) = delta_normal_superc(a)
   !
-  chi2=sum(abs(Gdelta(1,:)-Delta(1,:))**2/Wdelta(:)) + sum(abs(Fdelta(1,:)-Delta(2,:))**2/Wdelta(:))
+  chi2=sum( abs(Gdelta(1,:)-Delta(1,:))**2/Wdelta(:) ) + sum( abs(Fdelta(1,:)-Delta(2,:))**2/Wdelta(:) )
   !
 end function chi2_delta_normal_superc
 
@@ -308,7 +308,7 @@ function delta_normal_superc(a) result(Delta)
   complex(8),dimension(2,Ldelta)  :: Delta
   integer                         :: i,k,io,stride
   real(8),dimension(Nbath)        :: eps,vps,dps
-  real(8),dimension(Ldelta,Nbath) :: Den
+  real(8),dimension(Nbath)        :: Den
   !
   !\Delta_{aa} = - \sum_k [ V_{a}(k) * V_{a}(k) * (iw_n + E_{a}(k)) / Den(k) ]
   !
@@ -328,12 +328,10 @@ function delta_normal_superc(a) result(Delta)
      vps(i) = a(io)
   enddo
   !
-  forall(i=1:Ldelta,k=1:Nbath)& !den(k) = (w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
-       Den(i,k) = Xdelta(i)**2 + eps(k)**2 + dps(k)**2 
-  !
   do i=1,Ldelta
-     Delta(1,i) = -sum( vps(:)*vps(:)*(xi*Xdelta(i) + eps(:))/Den(i,:) )
-     Delta(2,i) =  sum( dps(:)*vps(:)*vps(:)/Den(i,:) )
+     Den(:)     =  Xdelta(i)**2 + eps(:)**2 + dps(:)**2
+     Delta(1,i) = -sum( vps(:)*vps(:)*( xi*Xdelta(i) + eps(:) )/den(:) )
+     Delta(2,i) =  sum( dps(:)*vps(:)*vps(:)/den(:) )
   enddo
   !
 end function delta_normal_superc
@@ -376,37 +374,37 @@ function grad_delta_normal_superc(a) result(dDelta)
      vps(i) = a(io)
   enddo
   !
-  forall(i=1:Ldelta,k=1:Nbath)& !den(k) = (w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
-       Den(i,k) = Xdelta(i)**2 + eps(k)**2 + dps(k)**2 
+  !Den(k) = (w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
+  forall(i=1:Ldelta,k=1:Nbath)Den(i,k) = Xdelta(i)**2 + eps(k)**2 + dps(k)**2 
   !
-  stride=0
+  stride = 0
   do k=1,Nbath
      ik = stride + k
      dDelta(1,:,ik) = -vps(k)*vps(k)*(1d0/Den(:,k) - 2d0*eps(k)*( xi*Xdelta(:) + eps(k))/Den(:,k)**2)
   enddo
-  stride=Nbath
+  stride = Nbath
   do k=1,Nbath
      ik = stride + k
      dDelta(1,:,ik) = 2d0*vps(k)*vps(k)*dps(k)*( xi*Xdelta(:) + eps(k))/Den(:,k)**2
   enddo
-  stride=2*Nbath
+  stride = 2*Nbath
   do k=1,Nbath
      ik = stride + k
-     dDelta(1,:,ik) = 2d0*vps(k)*( xi*Xdelta(:) + eps(k))/Den(:,k)
+     dDelta(1,:,ik) = -2d0*vps(k)*( xi*Xdelta(:) + eps(k))/Den(:,k)
   enddo
   !
   !
-  stride=0
+  stride = 0
   do k=1,Nbath
      ik = stride + k
      dDelta(2,:,ik) = -2d0*vps(k)*vps(k)*eps(k)*dps(k)/Den(:,k)**2
   enddo
-  stride=Nbath
+  stride = Nbath
   do k=1,Nbath
      ik = stride + k
      dDelta(2,:,ik) = vps(k)*vps(k)*(1d0/Den(:,k) - 2d0*dps(k)*dps(k)/Den(:,k)**2)
   enddo
-  stride=2*Nbath
+  stride = 2*Nbath
   do k=1,Nbath
      ik = stride + k
      dDelta(2,:,ik) = 2d0*vps(k)*dps(k)/Den(:,k)
@@ -418,37 +416,14 @@ function g0and_normal_superc(a) result(G0and)
   real(8),dimension(:)            :: a
   complex(8),dimension(2,Ldelta)  :: G0and,Delta
   complex(8),dimension(Ldelta)    :: fg,ff,det
-  integer                         :: i,io,k,iorb,ispin,stride
-  real(8),dimension(Nbath)        :: eps,vps,dps
-  real(8),dimension(Ldelta,Nbath) :: Den
+  integer                         :: iorb,ispin
   !
   iorb   = Orb_indx
   ispin  = Spin_indx
   !
-  stride = 0
-  do i=1,Nbath
-     io = stride + i
-     eps(i) = a(io)
-  enddo
-  stride = Nbath
-  do i=1,Nbath
-     io = stride + i
-     dps(i) = a(io) 
-  enddo
-  stride = 2*Nbath
-  do i=1,Nbath
-     io = stride + i
-     vps(i) = a(io)
-  enddo
+  Delta    = delta_normal_superc(a)
   !
-  forall(i=1:Ldelta,k=1:Nbath)& !den(k) = (w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
-       Den(i,k) = Xdelta(i)**2 + eps(k)**2 + dps(k)**2 
-  !
-  do i=1,Ldelta
-     Delta(1,i) = -sum( vps(:)*vps(:)*(xi*Xdelta(i) + eps(:))/Den(i,:) )
-     Delta(2,i) =  sum( dps(:)*vps(:)*vps(:)/Den(i,:) )
-  enddo
-  fg(:)    = xi*Xdelta(i) + xmu - impHloc(ispin,ispin,iorb,iorb) -  Delta(1,:)
+  fg(:)    = xi*Xdelta(:) + xmu - impHloc(ispin,ispin,iorb,iorb) -  Delta(1,:)
   ff(:)    =                                                     -  Delta(2,:)
   det(:)   = abs(fg(:))**2 + ff(:)**2
   G0and(1,:) = conjg(fg(:))/det(:)
