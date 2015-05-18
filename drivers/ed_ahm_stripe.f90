@@ -321,7 +321,7 @@ program ed_stripe
 #ifdef _MPI_INEQ     
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
 #endif
-     call print_sc_out(converged)
+     if(mpiID==0)call print_sc_out(converged)
      if(mpiID==0)call end_loop()
   enddo
 #ifdef _MPI_INEQ
