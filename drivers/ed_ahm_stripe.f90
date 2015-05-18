@@ -136,9 +136,6 @@ program ed_stripe
   call  get_Hk_2dsquare(Nx,Xpbc,Ny,Ypbc,Xperiod,Yperiod,Hk)
   wt=1.d0/dble(Lk)
   Nlat=size(Hk,1)
-  !stop
-
-
   !<DEBUG
   ! do ik=1,Lk
   !    write(400,*)
@@ -316,8 +313,8 @@ program ed_stripe
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
      call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
 #endif
-     if(mpiID==0) call print_sc_out(converged)     
-     if(mpiID==0) call end_loop()
+     if(mpiID==0)call print_sc_out(converged)
+     if(mpiID==0)call end_loop()
   enddo
   call stripe_energy
   call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)

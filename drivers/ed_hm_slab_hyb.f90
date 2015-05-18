@@ -628,11 +628,6 @@
             call store_data("eneLocVSisite.data",esite_,(/(dble(i),i=1,Nlat)/))
          end if
 
-
-
-
-
-
          !WHEN CONVERGED IS ACHIEVED PLOT ADDITIONAL INFORMATION:
          if(converged)then
             nimp=0.d0
