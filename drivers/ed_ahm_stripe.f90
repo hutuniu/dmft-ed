@@ -141,8 +141,6 @@ program ed_stripe
   call  get_Hk_2dsquare(Nx,Xpbc,Ny,Ypbc,Xperiod,Yperiod,Hk)
   wt=1.d0/dble(Lk)
   Nlat=size(Hk,1)
-  stop
-
   
   !<DEBUG
   ! do ik=1,Lk
@@ -321,7 +319,7 @@ program ed_stripe
 #ifdef _MPI_INEQ     
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
 #endif
-     call print_sc_out(converged)
+     if(mpiID==0)call print_sc_out(converged)
      if(mpiID==0)call end_loop()
   enddo
 #ifdef _MPI_INEQ
