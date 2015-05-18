@@ -17,7 +17,7 @@ ifeq ($(PLAT),gnu)
 INCARGS=-I$(HOME)/opt/scifor/gnu/include -I$(HOME)/opt/dmft_tools/gnu/include
 FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 endif
-
+FFLAG += -assume nobuffered_stdout
 #CHOOSE LINKING OPTIONS:
 #if you intend to use mkl:
 #MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm

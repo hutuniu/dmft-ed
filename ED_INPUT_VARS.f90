@@ -1,7 +1,7 @@
 MODULE ED_INPUT_VARS
   USE SCIFOR_VERSION
   USE DMFT_PARSE_INPUT
-  USE ED_VARS_GLOBAL, only: ED_MPI_ID,mpiID
+  USE ED_VARS_GLOBAL !, only: ED_MPI_ID,mpiID
   implicit none
 
   !GIT VERSION
@@ -172,16 +172,16 @@ contains
     call substring_delete(Hfile,".restart")
     call substring_delete(Hfile,".ed")
     Ltau=max(int(beta),Ltau)
-    !
-    ! #ifdef _MPI
-    !     if(ED_MPI_ID==0)call save_input_file(INPUTunit)
-    ! #endif
+
+    if(ED_MPI_ID==0.AND.mpiID==0)call save_input_file(INPUTunit)
 #ifdef _MPI_INEQ
-    if(mpiID==0)call save_input_file(INPUTunit)
+    call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
 #endif
-    !if(ED_MPI_ID==0) call save_input_file(INPUTunit)
+#ifdef _MPI
+    call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
     !
-    call sf_version(revision)
+    if(ED_MPI_ID==0.AND.mpiID==0) call sf_version(revision)
   end subroutine ed_read_input
 
 

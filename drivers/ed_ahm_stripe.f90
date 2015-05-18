@@ -91,12 +91,7 @@ program ed_stripe
   !
   call ed_read_input("inputRDMFT.in")
   call set_store_size(1024)
-  
-  !stop
-  ! if there is a stop here the output
-  ! IS NOT-DETERMINISTIC!!!!!!!
-  
-  
+
 
   !+-----------------------------+!
   !+- BUILD LATTICE HAMILTONIAN -+!
@@ -129,7 +124,7 @@ program ed_stripe
   !    end do
   ! end do
   !DEBUG>
-  
+
   Nx=Xperiod*N_Xperiod
   Ny=Yperiod*N_Yperiod
   Lk = N_Xperiod*N_Yperiod
@@ -141,9 +136,9 @@ program ed_stripe
   call  get_Hk_2dsquare(Nx,Xpbc,Ny,Ypbc,Xperiod,Yperiod,Hk)
   wt=1.d0/dble(Lk)
   Nlat=size(Hk,1)
-  stop
+  !stop
 
-  
+
   !<DEBUG
   ! do ik=1,Lk
   !    write(400,*)
@@ -178,7 +173,7 @@ program ed_stripe
         end if
      end do
   end do
-  if(mpiID==0) call splot3d("Ustripe.ed",(/(dble(i),i=1,Ncol)/),(/(dble(i),i=1,Nrow)/),Uij)  
+  if(mpiID==0) call splot3d("Ustripe.ed",(/(dble(i),i=1,Xperiod)/),(/(dble(i),i=1,Yperiod)/),Uij)  
   if(mpiID==0) close(unit)  
 
 
@@ -232,7 +227,7 @@ program ed_stripe
      allocate(Greal_(2,Nindep,Nspin,Nspin,Norb,Norb,Lreal))
      ! Impurity-bath hybritizations
      allocate(Delta_(2,Nindep,Nspin,Nspin,Norb,Norb,Lmats))
-     
+
      allocate(Usite_(Nindep,1))
      do i_ind=1,Nindep
         Usite_(i_ind,:) = Usite_(indep_list(i_ind),:)
@@ -317,17 +312,16 @@ program ed_stripe
      end if
      !
      if(mpiID==0) converged = check_convergence_local(dii,dmft_error,Nsuccess,nloop,id=0,file="error.err")
-     !
 #ifdef _MPI_INEQ     
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
+     call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
 #endif
-     call print_sc_out(converged)
-     if(mpiID==0)call end_loop()
+     if(mpiID==0) call print_sc_out(converged)     
+     if(mpiID==0) call end_loop()
   enddo
-#ifdef _MPI_INEQ
+  call stripe_energy
   call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
   call MPI_FINALIZE(mpiERR)  
-#endif
   !+******************************************************************+!
   !+******************************************************************+!
   !+******************************************************************+!
@@ -335,9 +329,9 @@ CONTAINS
   !+----------------------+!
   !+- AUXILIARY ROUTINES -+!
   !+----------------------+!
-  
+
   subroutine print_sc_out(converged)
-    integer                              :: i,j,is,row,col
+    integer                              :: i,j,is,row,col,ilat,jlat
     real(8)                              :: nimp,phi,ccdw,docc
     real(8),dimension(Nlat)              :: cdwii,rii,sii,zii
     real(8),dimension(Nrow,Ncol)         :: dij,nij,cij,pij
@@ -356,118 +350,125 @@ CONTAINS
     complex(8),dimension(1,1,Nlat,Lmats) :: Sigma_tmp
     complex(8),dimension(1,1,Nlat,Lmats) :: SigmaA_tmp
 
-    if(mpiID==0)then
-       write(loop,"(I4)")iloop
-       !Get CDW "order parameter"
-       ! do is=1,Nlat
-       !    row=irow(is)
-       !    col=icol(is)
-       !    cdwii(is) = (-1.d0)**(row+col)*(nii(is)-1.d0)
-       ! enddo
-       nimp = sum(nii)/dble(Nlat)
-       phi  = sum(pii)/dble(Nlat)
-       docc = sum(dii)/dble(Nlat)
-       ccdw = sum(cdwii)/dble(Nlat)
-       print*,"<nimp>  =",nimp
-       print*,"<phi>   =",phi
-       print*,"<docc>  =",docc
-       print*,"<ccdw>  =",ccdw
-       call splot("nVSiloop.data",iloop,nimp,append=.true.)
-       call splot("phiVSiloop.data",iloop,phi,append=.true.)
-       call splot("doccVSiloop.data",iloop,docc,append=.true.)
-       call splot("ccdwVSiloop.data",iloop,ccdw,append=.true.)
-       call store_data("nVSisite.data",nii,(/(dble(i),i=1,Nlat)/))
-       call store_data("phiVSisite.data",pii,(/(dble(i),i=1,Nlat)/))
-       call store_data("doccVSisite.data",dii,(/(dble(i),i=1,Nlat)/))
+    !Get CDW "order parameter"
+    do is = 1,Nlat
+       ilat = mod(is-1,Nlat)+1
+       jlat = (is-1)/Nlat+1
+       cdwii(is) = (-1.d0)**(ilat+jlat)*(nii(is)-1.d0)
+       write(*,'(3I,F18.10,I)') is,ilat,jlat,cdwii(is),Nlat
+    end do
+    nimp = sum(nii)/dble(Nlat)
+    phi  = sum(pii)/dble(Nlat)
+    docc = sum(dii)/dble(Nlat)
+    ccdw = sum(cdwii)/dble(Nlat)
+    print*,"<nimp>  =",nimp
+    print*,"<phi>   =",phi
+    print*,"<docc>  =",docc
+    print*,"<ccdw>  =",ccdw
+    call splot("nVSiloop.data",iloop,nimp,append=.true.)
+    call splot("phiVSiloop.data",iloop,phi,append=.true.)
+    call splot("doccVSiloop.data",iloop,docc,append=.true.)
+    call splot("ccdwVSiloop.data",iloop,ccdw,append=.true.)
+    call store_data("nVSisite.data",nii,(/(dble(i),i=1,Nlat)/))
+    call store_data("phiVSisite.data",pii,(/(dble(i),i=1,Nlat)/))
+    call store_data("doccVSisite.data",dii,(/(dble(i),i=1,Nlat)/))
+    ! Plots at convergence
+    if(converged)then
+       ! GF & Sigma
+       call store_data("LDelta_iw.data",Delta(1,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
+       call store_data("LGamma_iw.data",Delta(2,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
+       call store_data("LG_iw.data",Gmats(1,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
+       call store_data("LF_iw.data",Gmats(2,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
+       call store_data("LG_realw.data",Greal(1,1:Nlat,1,1,1,1,1:Lreal),wr(1:Lreal))
+       call store_data("LF_realw.data",Greal(2,1:Nlat,1,1,1,1,1:Lreal),wr(1:Lreal))
+       call store_data("LSigma_iw.data",Smats(1,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
+       call store_data("LSelf_iw.data",Smats(2,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
+       call store_data("LSigma_realw.data",Sreal(1,1:Nlat,1,1,1,1,1:Lreal),wr(1:Lreal))
+       call store_data("LSelf_realw.data",Sreal(2,1:Nlat,1,1,1,1,1:Lreal),wr(1:Lreal))
+       ! Observables
+       do is=1,Nlat
+          cdwii(is) = (-1.d0)**(is)*(nii(is)-1.d0)
+          sii(is)   = dimag(Smats(1,is,1,1,1,1,1))-&
+               wm(1)*(dimag(Smats(1,is,1,1,1,1,2))-dimag(Smats(1,is,1,1,1,1,1)))/(wm(2)-wm(1))
+          rii(is)   = dimag(Gmats(1,is,1,1,1,1,1))-&
+               wm(1)*(dimag(Gmats(1,is,1,1,1,1,2))-dimag(Gmats(1,is,1,1,1,1,1)))/(wm(2)-wm(1))
+          zii(is)   = 1.d0/( 1.d0 + abs( dimag(Smats(1,is,1,1,1,1,1))/wm(1) ))
+       enddo
+       rii=abs(rii)
+       sii=abs(sii)
+       zii=abs(zii)
 
-       ! Plots at convergency
-       if(converged)then
-          ! GF & Sigma
-          call store_data("LDelta_iw.data",Delta(1,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
-          call store_data("LGamma_iw.data",Delta(2,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
-          call store_data("LG_iw.data",Gmats(1,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
-          call store_data("LF_iw.data",Gmats(2,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
-          call store_data("LG_realw.data",Greal(1,1:Nlat,1,1,1,1,1:Lreal),wr(1:Lreal))
-          call store_data("LF_realw.data",Greal(2,1:Nlat,1,1,1,1,1:Lreal),wr(1:Lreal))
-          call store_data("LSigma_iw.data",Smats(1,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
-          call store_data("LSelf_iw.data",Smats(2,1:Nlat,1,1,1,1,1:Lmats),wm(1:Lmats))
-          call store_data("LSigma_realw.data",Sreal(1,1:Nlat,1,1,1,1,1:Lreal),wr(1:Lreal))
-          call store_data("LSelf_realw.data",Sreal(2,1:Nlat,1,1,1,1,1:Lreal),wr(1:Lreal))
-          ! Observables
-          do is=1,Nlat
-             cdwii(is) = (-1.d0)**(is)*(nii(is)-1.d0)
-             sii(is)   = dimag(Smats(1,is,1,1,1,1,1))-&
-                  wm(1)*(dimag(Smats(1,is,1,1,1,1,2))-dimag(Smats(1,is,1,1,1,1,1)))/(wm(2)-wm(1))
-             rii(is)   = dimag(Gmats(1,is,1,1,1,1,1))-&
-                  wm(1)*(dimag(Gmats(1,is,1,1,1,1,2))-dimag(Gmats(1,is,1,1,1,1,1)))/(wm(2)-wm(1))
-             zii(is)   = 1.d0/( 1.d0 + abs( dimag(Smats(1,is,1,1,1,1,1))/wm(1) ))
-          enddo
-          rii=abs(rii)
-          sii=abs(sii)
-          zii=abs(zii)
-
-          units = free_units(6)
-          open(units(1),file='n_col.data')
-          open(units(2),file='docc_col.data')
-          open(units(3),file='phi_col.data')
-          open(units(4),file='n_row.data')
-          open(units(5),file='docc_row.data')
-          open(units(6),file='phi_row.data')
-          !
-          do col=1,Ncol
-             grid_y(col)=col
-             do row=1,Nrow
-                grid_x(row)  = row
-                i            = ij2site(row,col)
-                nij(row,col) = nii(i)
-                dij(row,col) = dii(i)
-                pij(row,col) = pii(i)
-             enddo
-          enddo
-          !
+       units = free_units(6)
+       open(units(1),file='n_col.data')
+       open(units(2),file='docc_col.data')
+       open(units(3),file='phi_col.data')
+       open(units(4),file='n_row.data')
+       open(units(5),file='docc_row.data')
+       open(units(6),file='phi_row.data')
+       !
+       do col=1,Ncol
+          grid_y(col)=col
           do row=1,Nrow
-             write(units(1),'(100(f18.10))') dble(row),nij(row,:)
-             write(units(2),'(100(f18.10))') dble(row),dij(row,:)
-             write(units(3),'(100(f18.10))') dble(row),pij(row,:)
-          end do
-          !
-          do col=1,Ncol
-             write(units(4),'(100(f18.10))') dble(col),nij(:,col)
-             write(units(5),'(100(f18.10))') dble(col),dij(:,col)
-             write(units(6),'(100(f18.10))') dble(col),pij(:,col)
-          end do
-          !
-          call store_data("cdwVSisite.data",cdwii,(/(dble(i),i=1,Nlat)/))
-          call store_data("rhoVSisite.data",rii,(/(dble(i),i=1,Nlat)/))
-          call store_data("sigmaVSisite.data",sii,(/(dble(i),i=1,Nlat)/))
-          call store_data("zetaVSisite.data",zii,(/(dble(i),i=1,Nlat)/))
-          call splot3d("3d_nVSij.data",grid_x,grid_y,nij)
-          call splot3d("3d_doccVSij.data",grid_x,grid_y,dij)
-          call splot3d("3d_phiVSij.data",grid_x,grid_y,pij)
-
-       end if
-    end if
-
-    if(converged) then
+             grid_x(row)  = row
+             i            = ij2site(row,col)
+             nij(row,col) = nii(i)
+             dij(row,col) = dii(i)
+             pij(row,col) = pii(i)
+          enddo
+       enddo
        !
-       Eint=0.d0
-       Ekin=0.d0
-       Epot=0.d0
-       Epot=sum(eii)/dble(Nlat)
-       Eout = ed_kinetic_energy_lattice(Hk,Wt,Smats(1,:,:,:,:,:,:),Smats(2,:,:,:,:,:,:))
-       Ekin = Eout(1)
-       Eint=Ekin+Epot
-       unit=free_unit()
-       if(mpiID==0) then
-          open(unit,file='internal_energy.data')
-          write(unit,'(10(F18.10))') Eint,Ekin,Epot
-          close(unit)
-       end if
+       do row=1,Nrow
+          write(units(1),'(100(f18.10))') dble(row),nij(row,:)
+          write(units(2),'(100(f18.10))') dble(row),dij(row,:)
+          write(units(3),'(100(f18.10))') dble(row),pij(row,:)
+       end do
        !
+       do col=1,Ncol
+          write(units(4),'(100(f18.10))') dble(col),nij(:,col)
+          write(units(5),'(100(f18.10))') dble(col),dij(:,col)
+          write(units(6),'(100(f18.10))') dble(col),pij(:,col)
+       end do
+       !
+       call store_data("cdwVSisite.data",cdwii,(/(dble(i),i=1,Nlat)/))
+       call store_data("rhoVSisite.data",rii,(/(dble(i),i=1,Nlat)/))
+       call store_data("sigmaVSisite.data",sii,(/(dble(i),i=1,Nlat)/))
+       call store_data("zetaVSisite.data",zii,(/(dble(i),i=1,Nlat)/))
+       call splot3d("3d_nVSij.data",grid_x,grid_y,nij)
+       call splot3d("3d_doccVSij.data",grid_x,grid_y,dij)
+       call splot3d("3d_phiVSij.data",grid_x,grid_y,pij)
     end if
-
+    
   end subroutine print_sc_out
 
+
+  subroutine stripe_energy
+    integer,dimension(6)                 :: units,N_min
+    real(8)                              :: Eint,Ekin,Epot,Eout(2)
+    complex(8),dimension(1,1,Nlat,Lmats) :: Sigma_tmp
+    complex(8),dimension(1,1,Nlat,Lmats) :: SigmaA_tmp
+    !
+    print*,""
+    Eint=0.d0
+    Ekin=0.d0
+    Epot=0.d0
+    Epot=sum(eii)/dble(Nlat)
+    Eout = ed_kinetic_energy_lattice(Hk,Wt,Smats(1,:,:,:,:,:,:),Smats(2,:,:,:,:,:,:))
+    Ekin = Eout(1)
+    Eint=Ekin+Epot
+    unit=free_unit()
+    if(mpiID==0) then
+       open(unit,file='internal_energy.data')
+       write(unit,'(10(F18.10))') Eint,Ekin,Epot
+       close(unit)
+    end if
+    !
+
+  end subroutine stripe_energy
+
+
+
+
+  
 
 
   subroutine  get_Hk_2dsquare(Nx,Xpbc,Ny,Ypbc,Lx,Ly,Hk_lat)
@@ -688,11 +689,7 @@ CONTAINS
        if(mpiID==0)call eta(ill,Nlat*Nlat,unit=LOGfile)
     end do
     if(mpiId==0) call stop_timer
-#ifdef _MPI_INEQ
     call MPI_ALLREDUCE(Hlat_tmp,Hlat,Nlat*Nlat,MPI_DOUBLE,MPI_SUM,MPI_COMM_WORLD,MPIerr)
-#else
-    Hlat=Hlat_tmp
-#endif
   end subroutine k2latticeFT
 
 
