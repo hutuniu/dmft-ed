@@ -165,22 +165,7 @@ contains
     call substring_delete(Hfile,".restart")
     call substring_delete(Hfile,".ed")
     Ltau=max(int(beta),Ltau)
-    !
-    ! #ifdef _MPI
-    !     if(ED_MPI_ID==0)call save_input_file(INPUTunit)
-    ! #endif
-    ! #ifdef _MPI_INEQ
-    !     if(mpiID==0)call save_input_file(INPUTunit)
-    ! #endif
-    !if(ED_MPI_ID==0) call save_input_file(INPUTunit)
-
     if(ED_MPI_ID==0.AND.mpiID==0)call save_input_file(INPUTunit)
-#ifdef _MPI_INEQ
-    call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
-#endif
-#ifdef _MPI
-    call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
     if(ED_MPI_ID==0.AND.mpiID==0)call sf_version(revision)
   end subroutine ed_read_input
 
