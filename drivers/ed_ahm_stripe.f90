@@ -52,7 +52,7 @@ program ed_stripe
   logical,allocatable,dimension(:)        :: hk_symm,hk_symm_
   integer                                 :: Uperiod,Nperiod
   integer                                 :: i,is,iloop,ik
-  integer                                 :: Nx,Lk
+  integer                                 :: Lk
   integer                                 :: Nb
   integer                                 :: Nrow,Ncol
   integer                                 :: row,col,ilat,i_ind
@@ -97,12 +97,12 @@ program ed_stripe
   !
   call ed_read_input("inputRDMFT.in")
   call set_store_size(1024)
-  
+
   !stop
   ! if there is a stop here the output
   ! IS NOT-DETERMINISTIC!!!!!!!
-  
-  
+
+
 
   !+-----------------------------+!
   !+- BUILD LATTICE HAMILTONIAN -+!
@@ -135,7 +135,7 @@ program ed_stripe
   !    end do
   ! end do
   !DEBUG>
-  
+
   Nx=Xperiod*N_Xperiod
   Ny=Yperiod*N_Yperiod
   Lk = N_Xperiod*N_Yperiod
@@ -147,9 +147,8 @@ program ed_stripe
   call  get_Hk_2dsquare(Nx,Xpbc,Ny,Ypbc,Xperiod,Yperiod,Hk)
   wt=1.d0/dble(Lk)
   Nlat=size(Hk,1)
-  stop
 
-  
+
   !<DEBUG
   ! do ik=1,Lk
   !    write(400,*)
@@ -242,7 +241,7 @@ program ed_stripe
      allocate(Greal_(2,Nindep,Nspin,Nspin,Norb,Norb,Lreal))
      ! Impurity-bath hybritizations
      allocate(Delta_(2,Nindep,Nspin,Nspin,Norb,Norb,Lmats))
-     
+
      allocate(Usite_(Nindep,1))
      do i_ind=1,Nindep
         !bath_(i_ind,:,:) = bath(indep_list(i_ind),:,:)
@@ -305,7 +304,8 @@ program ed_stripe
      else
         if(rdmft_phsym)then
            do i=1,Nlat
-              call ph_symmetrize_bath(bath(i,:,:))
+              ! call ph_symmetrize_bath(bath(i,:,:))
+              call ph_symmetrize_bath(bath(i,:))
            enddo
         endif
         bath_old=bath
@@ -352,7 +352,7 @@ CONTAINS
   !+----------------------+!
   !+- AUXILIARY ROUTINES -+!
   !+----------------------+!
-  
+
   subroutine print_sc_out(converged)
     integer                              :: i,j,is,row,col
     real(8)                              :: nimp,phi,ccdw,docc
@@ -510,7 +510,7 @@ CONTAINS
     if(mod(Nx,Lx)/=0) stop "wrong X-periodicity"
     if(mod(Ny,Ly)/=0) stop "wrong Y-periodicity"
 
-    
+
     !+- STEP-1: build the lattice hamiltonian using FT of the energy-momentum dispersion with the right boundary conditions.
     allocate(kxgrid(Nx),kygrid(Ny))    
     if(Xpbc) then
@@ -724,7 +724,7 @@ CONTAINS
 
 
 
-  !!!!!!!!! OBSOLETE !!!!!!!!
+!!!!!!!!! OBSOLETE !!!!!!!!
   ! build Hk
   subroutine get_k_hamiltonian_stripe(Nrow,Ncol,pbc_col,pbc_row,k_grid)
     integer               :: Nrow
