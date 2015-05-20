@@ -50,7 +50,7 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_diag_d
     integer             :: nup,ndw,isector,dim
-    integer             :: isect,izero,sz
+    integer             :: isect,izero,sz,nt
     integer             :: i,j,iter
     integer             :: numgs
     integer             :: Nitermax,Neigen,Nblock
@@ -82,6 +82,9 @@ contains
              case ("superc")
                 sz   = getsz(isector)
                 write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector)
+             case ("nonsu2")
+                nt   = getn(isector)
+                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15)")iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector)
              end select
           elseif(ed_verbose<2)then
              call eta(iter,count(twin_mask),LOGfile)
@@ -94,6 +97,8 @@ contains
           Tflag=Tflag.AND.(getnup(isector)/=getndw(isector))
        case ("superc")
           Tflag=Tflag.AND.(getsz(isector)/=0)
+       case("nonsu2")
+          Tflag=Tflag.AND.(getn(isector)/=Ns)
        end select
        dim      = getdim(isector)
        Neigen   = min(dim,neigen_sector(isector))
@@ -159,7 +164,7 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_diag_c
     integer                :: nup,ndw,isector,dim
-    integer                :: isect,izero,sz
+    integer                :: isect,izero,sz,nt
     integer                :: i,j,iter
     integer                :: numgs
     integer                :: Nitermax,Neigen,Nblock
@@ -191,6 +196,9 @@ contains
              case ("superc")
                 sz   = getsz(isector)
                 write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15)")iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector)
+             case ("nonsu2")
+                nt   = getn(isector)
+                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15)")iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector)
              end select
           elseif(ed_verbose<2)then
              call eta(iter,count(twin_mask),LOGfile)
@@ -203,6 +211,8 @@ contains
           Tflag=Tflag.AND.(getnup(isector)/=getndw(isector))
        case ("superc")
           Tflag=Tflag.AND.(getsz(isector)/=0)
+       case("nonsu2")
+          Tflag=Tflag.AND.(getn(isector)/=Ns)
        end select
        dim      = getdim(isector)
        Neigen   = min(dim,neigen_sector(isector))
@@ -280,6 +290,8 @@ contains
           write(unit,"(A)")"# i       E_i            exp(-(E-E0)/T)   nup ndw  Sect     Dim"
        case ("superc")
           write(unit,"(A)")"# i       E_i            exp(-(E-E0)/T)     Sz     Sect     Dim"
+       case ("nonsu2")
+          write(unit,"(A)")"# i       E_i            exp(-(E-E0)/T)      n     Sect     Dim"
        end select
        do istate=1,state_list%size
           Estate  = es_return_energy(state_list,istate)
@@ -288,10 +300,13 @@ contains
           case default
              nup   = getnup(isector)
              ndw   = getndw(isector)
-             write(unit,"(i3,f18.12,E18.9,1x,2i4,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),nup,ndw,isector,getdim(isector)
+             write(unit,"(i3,f18.12,E18.9,1x,2i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),nup,ndw,isector,getdim(isector)
           case("superc")
              sz   = getsz(isector)
              write(unit,"(i3,f18.12,E18.9,1x,i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),sz,isector,getdim(isector)
+          case("nonsu2")
+             n    = getn(isector)
+             write(unit,"(i3,f18.12,E18.9,1x,i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),n,isector,getdim(isector)
           end select
        enddo
     endif
@@ -348,6 +363,9 @@ contains
        case("superc")
           sz  = getsz(isector)
           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12,I4)")'Egs =',Egs,sz
+       case("nonsu2")
+          n  = getn(isector)
+          if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12,I4)")'Egs =',Egs,n
        end select
     enddo
     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12)")'Z   =',zeta_function

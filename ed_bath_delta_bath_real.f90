@@ -9,10 +9,14 @@ function delta_bath_real_main(x,dmft_bath_) result(Delta)
   complex(8),intent(in)                       :: x
   type(effective_bath)                        :: dmft_bath_
   complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Delta
-  integer                                     :: iorb,jorb,ispin,jspin,k
+  integer                                     :: iorb,jorb,ispin,jspin,k,ih
   complex(8),dimension(Nbath)                 :: den
   real(8),dimension(Nbath)                    :: eps,dps,vps
   real(8),dimension(Norb,Nbath)               :: vops
+  real(8),dimension(Nspin,Nbath)              :: hps
+  real(8),dimension(Nspin,Nspin,Nbath)        :: wps
+  real(8),dimension(Nspin,Nspin,Norb,Nbath)   :: wops
+  !
   select case(bath_type)
   case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
      !
@@ -38,6 +42,21 @@ function delta_bath_real_main(x,dmft_bath_) result(Delta)
               vps = dmft_bath_%v(ispin,iorb,1:Nbath)
               forall(k=1:Nbath)den(k) =  x*(-x) + eps(k)**2 + dps(k)**2 !den(k) = (w+i\h)*(-w-i\h) + E_{a}(k)**2 + \Delta_{a}(k)**2
               Delta(ispin,ispin,iorb,iorb) = -sum( vps(:)*vps(:)*(x + eps(:))/den(:) )
+           enddo
+        enddo
+        !
+     case ("nonsu2")
+        !
+        !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(w+i\h - H_{a}^{h}(k))]
+        do iorb=1,Norb
+           hps = dmft_bath_%e(        1:Nspin,iorb,1:Nbath)
+           wps = get_Whyb_matrix(dmft_bath_%v(1:Nspin,iorb,1:Nbath),dmft_bath_%u(1:Nspin,iorb,1:Nbath))
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 do ih=1,Nspin
+                    Delta(ispin,jspin,iorb,iorb) = Delta(ispin,jspin,iorb,iorb) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x - hps(ih,:)) )
+                 enddo
+              enddo
            enddo
         enddo
         !
@@ -71,6 +90,22 @@ function delta_bath_real_main(x,dmft_bath_) result(Delta)
            do iorb=1,Norb
               do jorb=1,Norb
                  Delta(ispin,ispin,iorb,jorb) = -sum( vops(iorb,:)*vops(jorb,:)*(x + eps(:))/Den(:) )
+              enddo
+           enddo
+        enddo
+     case ("nonsu2")
+        !
+        !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(w+i\h - H^{h}(k))]
+        hps  = dmft_bath_%e(        1:Nspin,1     ,1:Nbath)
+        wops = get_Whyb_matrix(dmft_bath_%v(1:Nspin,1:Norb,1:Nbath),dmft_bath_%u(1:Nspin,1:Norb,1:Nbath))
+        do iorb=1,Norb
+           do jorb=1,Norb
+              do ispin=1,Nspin
+                 do jspin=1,Nspin
+                    do ih=1,Nspin
+                       Delta(ispin,ispin,iorb,iorb) = Delta(ispin,ispin,iorb,iorb) + sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x - hps(ih,:)) )
+                    enddo
+                 enddo
               enddo
            enddo
         enddo
@@ -186,7 +221,7 @@ function fdelta_bath_real_main(x,dmft_bath_) result(Fdelta)
   case default                !normal: only _{aa} are allowed (no inter-orbital local mixing)
      select case(ed_mode)
      case default
-        stop "Fdelta_bath_real error: called with ed_mode=normal, bath_type=normal"
+        stop "Fdelta_bath_real error: called with ed_mode=normal/nonsu2, bath_type=normal"
         !
      case ("superc")
         !
@@ -207,7 +242,7 @@ function fdelta_bath_real_main(x,dmft_bath_) result(Fdelta)
      !
      select case(ed_mode)
      case default
-        stop "Fdelta_bath_real error: called with ed_mode=normal, bath_type=hybrid"
+        stop "Fdelta_bath_real error: called with ed_mode=normal/nonsu2, bath_type=hybrid"
         !
      case ("superc")
         !

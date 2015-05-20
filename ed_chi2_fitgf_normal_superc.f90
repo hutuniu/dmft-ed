@@ -93,22 +93,11 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
      case default
         select case (cg_scheme)
         case ("weiss")
-           call fmin_cg(array_bath,&
-                chi2_weiss_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol  ,&
-                istop=cg_stop ,&
-                eps=cg_eps)
+           call fmin_cg(array_bath,chi2_weiss_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
         case ("delta")
-           call fmin_cg(array_bath,&
-                chi2_delta_normal_superc,&
-                grad_chi2_delta_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol  ,&
-                istop=cg_stop ,&
-                eps=cg_eps)
+           call fmin_cg(array_bath,chi2_delta_normal_superc,grad_chi2_delta_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
         case default
            stop "chi2_fitgf_normal_superc error: cg_scheme != [weiss,delta]"
         end select
@@ -116,17 +105,11 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
      case (1)
         select case (cg_scheme)
         case ("weiss")
-           call fmin_cgminimize(array_bath,&
-                chi2_weiss_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgminimize(array_bath,chi2_weiss_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case ("delta")
-           call fmin_cgminimize(array_bath,&
-                chi2_delta_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgminimize(array_bath,chi2_delta_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case default
            stop "chi2_fitgf_normal_superc error: cg_scheme != [weiss,delta]"
         end select
@@ -134,18 +117,11 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
      case (2)
         select case (cg_scheme)
         case ("weiss")
-           call fmin_cgplus(array_bath,&
-                chi2_weiss_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgplus(array_bath,chi2_weiss_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case ("delta")
-           call fmin_cgplus(array_bath,&
-                chi2_delta_normal_superc,&
-                grad_chi2_delta_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgplus(array_bath,chi2_delta_normal_superc,grad_chi2_delta_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case default
            stop "chi2_fitgf_normal_superc error: cg_scheme != [weiss,delta]"
         end select
@@ -193,16 +169,20 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
 contains
   !
   subroutine write_fit_result(ispin)
-    complex(8)        :: fgand(2),det
-    integer           :: i,j,iorb,ispin
+    complex(8)        :: fgand(2)
+    integer           :: i,j,iorb,ispin,gunit,funit
     real(8)           :: w
     do iorb=1,Norb
-       suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
+       !
        Gdelta(1,1:Ldelta) = fg(1,iorb,iorb,1:Ldelta)
        Fdelta(1,1:Ldelta) = fg(2,iorb,iorb,1:Ldelta)
-       fgand=zero
-       unit=free_unit()
-       open(unit,file="fit_delta"//reg(suffix)//".ed")
+       !
+       suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
+       gunit=free_unit()
+       funit=free_unit()
+       open(gunit,file="fit_delta"//reg(suffix)//".ed")
+       open(funit,file="fit_fdelta"//reg(suffix)//".ed")
+       !
        do i=1,Ldelta
           w = Xdelta(i)
           if(cg_scheme=='weiss')then
@@ -212,10 +192,12 @@ contains
              fgand(1) = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
              fgand(2) = fdelta_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
           endif
-          write(unit,"(10F24.15)")Xdelta(i),dimag(Gdelta(1,i)),dimag(fgand(1)),dreal(Gdelta(1,i)),dreal(fgand(1)), &
-               dimag(Fdelta(1,i)),dimag(fgand(2)),dreal(Fdelta(1,i)),dreal(fgand(2))
+          write(gunit,"(10F24.15)")Xdelta(i),dimag(Gdelta(1,i)),dimag(fgand(1)),dreal(Gdelta(1,i)),dreal(fgand(1))
+          write(funit,"(10F24.15)")Xdelta(i),dimag(Fdelta(1,i)),dimag(fgand(2)),dreal(Fdelta(1,i)),dreal(fgand(2))
        enddo
-       close(unit)
+       !
+       close(gunit)
+       close(funit)
     enddo
   end subroutine write_fit_result
 end subroutine chi2_fitgf_normal_superc
@@ -237,11 +219,10 @@ function chi2_delta_normal_superc(a) result(chi2)
   real(8),dimension(:)           ::  a
   real(8)                        ::  chi2
   complex(8),dimension(2,Ldelta) ::  Delta
-  integer                        ::  i
   !
   Delta(:,:) = delta_normal_superc(a)
   !
-  chi2=sum( abs(Gdelta(1,:)-Delta(1,:))**2/Wdelta(:) ) + sum( abs(Fdelta(1,:)-Delta(2,:))**2/Wdelta(:) )
+  chi2 = sum( abs(Gdelta(1,:)-Delta(1,:))**2/Wdelta(:) ) + sum( abs(Fdelta(1,:)-Delta(2,:))**2/Wdelta(:) )
   !
 end function chi2_delta_normal_superc
 
@@ -255,7 +236,7 @@ function grad_chi2_delta_normal_superc(a) result(dchi2)
   real(8),dimension(size(a))             ::  df
   complex(8),dimension(2,Ldelta)         ::  Delta
   complex(8),dimension(2,Ldelta,size(a)) ::  dDelta
-  integer                                ::  i,j
+  integer                                ::  j
   !
   Delta(:,:)    = delta_normal_superc(a)
   dDelta(:,:,:) = grad_delta_normal_superc(a)

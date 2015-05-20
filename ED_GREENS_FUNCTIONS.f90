@@ -105,6 +105,10 @@ contains
        call build_gf_superc()
        call get_sigma_superc()
        call print_gf_superc()
+    case ("nonsu2")
+       call build_gf_nonsu2()
+       call get_sigma_nonsu2()
+       call print_gf_nonsu2()
     end select
     !
     if(allocated(wm))deallocate(wm)
@@ -123,6 +127,7 @@ contains
   !+------------------------------------------------------------------+
   include 'ed_greens_funcs_build_gf_normal.f90'
   include 'ed_greens_funcs_build_gf_superc.f90'
+  include 'ed_greens_funcs_build_gf_nonsu2.f90'
 
 
 
@@ -255,7 +260,7 @@ contains
 
 
   !+------------------------------------------------------------------+
-  !PURPOSE  : Print Superconducting Green's functions
+  !PURPOSE  : Build the Self-energy functions, SUPERC case
   !+------------------------------------------------------------------+
   subroutine get_sigma_superc
     integer                                               :: i,j,ispin,unit(12),iorb,jorb
@@ -377,6 +382,118 @@ contains
 
 
 
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Build the Self-energy functions, NONSU2 case
+  !+------------------------------------------------------------------+
+  subroutine get_sigma_nonsu2
+    integer                                           :: i,j,isign,unit(7),iorb,jorb,ispin,jspin,io,jo
+    complex(8)                                        :: fg0
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats,invG0mats
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real,invG0real
+    complex(8),dimension(Nspin,Nspin)                 :: invGimp
+    character(len=20)                                 :: suffix
+    !
+    !Get G0^-1
+    impG0mats=zero
+    impG0real=zero
+    do i=1,Lmats
+       invG0mats(:,:,:,:,i)=invg0_bath_mats(xi*wm(i),dmft_bath)       
+    enddo
+    do i=1,Lreal
+       invG0real(:,:,:,:,i)=invg0_bath_real(dcmplx(wr(i),eps),dmft_bath)
+    enddo
+    !
+    select case(bath_type)
+    case default
+       !
+       !Get Gimp^-1
+       !Get Sigma functions: Sigma= G0^-1 - G^-1
+       do iorb=1,Norb
+          do i=1,Lmats
+             invGimp(:,:) = impGmats(:,:,iorb,iorb,i)
+             call inv(invGimp) !<--- get [G_{imp}]^-1
+             impSmats(:,:,iorb,iorb,i) = invG0mats(:,:,iorb,iorb,i) - invGimp(:,:) !<-- calG0_imp^-1 - Gimp^-1
+          enddo
+          !
+          do i=1,Lreal
+             invGimp(:,:) = impGreal(:,:,iorb,iorb,i)
+             call inv(invGimp) !<--- get [G_{imp}]^-1
+             impSreal(:,:,iorb,iorb,i) = invG0real(:,:,iorb,iorb,i) - invGimp(:,:) !<-- calG0_imp^-1 - Gimp^-1
+          enddo
+       enddo
+       !
+    case ("hybrid")
+       !
+       !Get Gimp^-1
+       !Get Sigma functions: Sigma= G0^-1 - G^-1
+       do i=1,Lmats
+          !
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ispin-1)*Norb
+                      jo = jorb + (jspin-1)*Norb
+                      invGimp(io,jo) = impGmats(ispin,jspin,iorb,jorb,i)
+                   enddo
+                enddo
+             enddo
+          enddo
+          !
+          call inv(invGimp) !<--- get [G_{imp}]^-1
+          !
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ispin-1)*Norb
+                      jo = jorb + (jspin-1)*Norb
+                      impSmats(ispin,jspin,iorb,jorb,i) = invG0mats(ispin,jspin,iorb,jorb,i) - invGimp(io,jo) !<-- calG0_imp^-1 - Gimp^-1
+                   enddo
+                enddo
+             enddo
+          enddo
+       enddo
+       !
+       do i=1,Lreal
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ispin-1)*Norb
+                      jo = jorb + (jspin-1)*Norb
+                      invGimp(io,jo) = impGreal(ispin,jspin,iorb,jorb,i)
+                   enddo
+                enddo
+             enddo
+          enddo
+          !
+          call inv(invGimp) !<--- get [G_{imp}]^-1
+          !
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ispin-1)*Norb
+                      jo = jorb + (jspin-1)*Norb
+                      impSreal(ispin,jspin,iorb,jorb,i) = invG0real(ispin,jspin,iorb,jorb,i) - invGimp(io,jo) !<-- calG0_imp^-1 - Gimp^-1
+                   enddo
+                enddo
+             enddo
+          enddo
+       enddo
+       !
+    end select
+    !
+    !Get G0and:
+    do i=1,Lmats
+       impG0mats(:,:,:,:,i) = g0and_bath_mats(xi*wm(i),dmft_bath)
+    enddo
+    do i=1,Lreal
+       impG0real(:,:,:,:,i) = g0and_bath_real(xi*wm(i),dmft_bath)
+    enddo
+    !
+  end subroutine get_sigma_nonsu2
 
 
 
@@ -394,10 +511,9 @@ contains
     integer                                           :: totNorb,l
     !
     select case(bath_type)
-       !
     case default                !Diagonal in both spin and orbital
-       !
-       allocate(getIorb(Norb),getJorb(Norb))
+       totNorb=Norb
+       allocate(getIorb(totNorb),getJorb(totNorb))
        l=0
        do iorb=1,Norb
           L=l+1
@@ -405,11 +521,9 @@ contains
           getJorb(l)=iorb
        enddo
        totNorb=l
-       if(totNorb/=Norb)stop "get_sigma_print_gf_normal error counting the orbitals"
-       !
     case ('hybrid')             !Diagonal in spin only. Full Orbital structure
-       !
-       allocate(getIorb(Norb*(Norb+1)/2),getJorb(Norb*(Norb+1)/2))
+       totNorb=Norb*(Norb+1)/2
+       allocate(getIorb(totNorb),getJorb(totNorb))
        l=0
        do iorb=1,Norb
           do jorb=iorb,Norb
@@ -418,10 +532,10 @@ contains
              getJorb(l)=jorb
           enddo
        enddo
-       totNorb=l
-       if(totNorb/=(Norb*(Norb+1)/2))stop "get_sigma_print_gf_normal error counting the orbitals"
-       !
     end select
+    if(l/=totNorb)stop "print_gf_normal error counting the orbitals"
+    !!
+    !!
     !!
     !!
     !Print the impurity functions:
@@ -519,26 +633,18 @@ contains
     integer                                               :: totNorb,l
     !
     select case(bath_type)
-       !
-       !
     case default
-       !
+       totNorb=Norb
        allocate(getIorb(Norb),getJorb(Norb))
        l=0
        do iorb=1,Norb
-          L=l+1
+          l=l+1
           getIorb(l)=iorb
           getJorb(l)=iorb
        enddo
-       totNorb=l
-       if(totNorb/=Norb)stop "get_sigma_print_gf_superc error counting the orbitals"
-       !
-       !
     case ("hybrid")
-       !
-       !
-       !
-       allocate(getIorb(Norb*(Norb+1)/2),getJorb(Norb*(Norb+1)/2))
+       totNorb=Norb*(Norb+1)/2
+       allocate(getIorb(totNorb),getJorb(totNorb))
        l=0
        do iorb=1,Norb
           do jorb=iorb,Norb
@@ -547,11 +653,8 @@ contains
              getJorb(l)=jorb
           enddo
        enddo
-       totNorb=l
-       if(totNorb/=(Norb*(Norb+1)/2))stop "get_sigma_print_gf_superc error counting the orbitals"
-       !
-       !
     end select
+    if(l/=totNorb)stop "print_gf_superc error counting the orbitals"
     !!
     !!
     !!
@@ -672,7 +775,150 @@ contains
 
 
   !+------------------------------------------------------------------+
-  !PURPOSE  : print the spin Susceptibility \chi_spin
+  !PURPOSE  : Print nonSU2 Green's functions
+  !+------------------------------------------------------------------+
+  subroutine print_gf_nonsu2
+    integer                          :: i,j,isign,unit(7),iorb,jorb,ispin,jspin,io,jo
+    integer,dimension(:),allocatable :: getIorb,getJorb,getIspin,getJspin
+    integer                          :: totNso,totNorb,totNspin,l,s
+    character(len=20)                :: suffix
+    !
+    select case(bath_type)
+    case default
+       totNorb =Norb
+       totNspin=Nspin*(Nspin+1)/2
+       totNso  =totNorb*totNspin
+       allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
+       l=0
+       do iorb=1,Norb
+          do ispin=1,Nspin
+             do jspin=ispin,Nspin
+                l=l+1
+                getIorb(l)=iorb
+                getIspin(l)=ispin
+                getJorb(l)=iorb
+                getJspin(l)=jspin
+             enddo
+          enddo
+       enddo
+    case ("hybrid")
+       totNorb =Norb*(Norb+1)/2
+       totNspin=Nspin*(Nspin+1)/2
+       totNso  =totNorb*totNspin
+       allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
+       l=0
+       do iorb=1,Norb
+          do jorb=iorb,Norb
+             do ispin=1,Nspin
+                do jspin=ispin,Nspin
+                   l=l+1
+                   getIorb(l)=iorb
+                   getIspin(l)=ispin
+                   getJorb(l)=iorb
+                   getJspin(l)=jspin
+                enddo
+             enddo
+          enddo
+       enddo
+    end select
+    if(l/=totNso)stop "print_gf_nonsu2 error counting the spin-orbitals"
+    !!
+    !!
+    !!
+    !!PRINT OUT GF:
+    if(ED_MPI_ID==0)then
+       do l=1,totNorb
+          iorb=getIorb(l)
+          jorb=getJorb(l)
+          ispin=getIspin(l)
+          jspin=getJspin(l)
+          !
+          suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_r"//reg(txtfy(jspin))
+          call open_units(reg(suffix))
+          if(ed_verbose<4)then
+             do i=1,Lmats
+                write(unit(1),"(F26.15,6(F26.15))")wm(i),dimag(impSmats(ispin,jspin,iorb,jorb,i)),dreal(impSmats(ispin,jspin,iorb,jorb,i))
+             enddo
+             do i=1,Lreal
+                write(unit(2),"(F26.15,6(F26.15))")wr(i),dimag(impSreal(ispin,jspin,iorb,jorb,i)),dreal(impSreal(ispin,jspin,iorb,jorb,i))
+             enddo
+             do isign=1,2
+                do i=1,lanc_nGFiter
+                   write(unit(3),"(6(F26.15,1x))")GFpoles(ispin,jspin,iorb,iorb,isign,i),GFweights(ispin,jspin,iorb,iorb,isign,i)
+                enddo
+             enddo
+          endif
+          !
+          if(ed_verbose<2)then
+             do i=1,Lmats
+                write(unit(4),"(F26.15,6(F26.15))")wm(i),dimag(impGmats(ispin,jspin,iorb,jorb,i)),dreal(impGmats(ispin,jspin,iorb,jorb,i))
+             enddo
+             do i=1,Lreal
+                write(unit(5),"(F26.15,6(F26.15))")wr(i),dimag(impGreal(ispin,jspin,iorb,jorb,i)),dreal(impGreal(ispin,jspin,iorb,jorb,i))
+             enddo
+          endif
+          !
+          if(ed_verbose<1)then
+             do i=1,Lmats
+                write(unit(6),"(F26.15,6(F26.15))")wm(i),dimag(impG0mats(ispin,jspin,iorb,jorb,i)),dreal(impG0mats(ispin,jspin,iorb,jorb,i))
+             enddo
+             do i=1,Lreal
+                write(unit(7),"(F26.15,6(F26.15))")wr(i),dimag(impG0real(ispin,jspin,iorb,jorb,i)),dreal(impG0real(ispin,jspin,iorb,jorb,i))
+             enddo
+          endif
+          call close_units()
+       enddo
+    endif
+    !
+  contains
+    !
+    subroutine open_units(string)
+      character(len=*) :: string
+      unit=free_units(size(unit))
+      if(ed_verbose<4)then
+         open(unit(1),file="impSigma"//string//"_iw"//reg(ed_file_suffix)//".ed")
+         open(unit(2),file="impSigma"//string//"_realw"//reg(ed_file_suffix)//".ed")
+         open(unit(3),file="Gpoles_weights"//string//reg(ed_file_suffix)//".ed")
+      endif
+      if(ed_verbose<2)then
+         open(unit(4),file="impG"//string//"_iw"//reg(ed_file_suffix)//".ed")
+         open(unit(5),file="impG"//string//"_realw"//reg(ed_file_suffix)//".ed")
+      endif
+      if(ed_verbose<1)then
+         open(unit(6),file="impG0"//string//"_iw"//reg(ed_file_suffix)//".ed")
+         open(unit(7),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
+      endif
+    end subroutine open_units
+    !
+    subroutine close_units()
+      if(ed_verbose<4)then
+         close(unit(1))
+         close(unit(2))
+         close(unit(3))
+      endif
+      if(ed_verbose<2)then
+         close(unit(4))
+         close(unit(5))
+      endif
+      if(ed_verbose<1)then
+         close(unit(6))
+         close(unit(7))
+      endif
+    end subroutine close_units
+    !
+  end subroutine print_gf_nonsu2
+
+
+
+
+
+
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : 
   !+------------------------------------------------------------------+
   subroutine print_chi_spin
     integer                               :: i,j,iorb

@@ -83,22 +83,11 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
      case default
         select case (cg_scheme)
         case ("weiss")
-           call fmin_cg(array_bath,&
-                chi2_weiss_normal_normal,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol  ,&
-                istop=cg_stop ,&
-                eps=cg_eps)
+           call fmin_cg(array_bath,chi2_weiss_normal_normal,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
         case ("delta")
-           call fmin_cg(array_bath,&
-                chi2_delta_normal_normal,&
-                grad_chi2_delta_normal_normal,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol  ,&
-                istop=cg_stop ,&
-                eps=cg_eps)
+           call fmin_cg(array_bath,chi2_delta_normal_normal,grad_chi2_delta_normal_normal,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
         case default
            stop "chi2_fitgf_normal_normal error: cg_scheme != [weiss,delta]"
         end select
@@ -106,17 +95,11 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
      case (1)
         select case (cg_scheme)
         case ("weiss")
-           call fmin_cgminimize(array_bath,&
-                chi2_weiss_normal_normal,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgminimize(array_bath,chi2_weiss_normal_normal,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case ("delta")
-           call fmin_cgminimize(array_bath,&
-                chi2_delta_normal_normal,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgminimize(array_bath,chi2_delta_normal_normal,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case default
            stop "chi2_fitgf_normal_normal error: cg_scheme != [weiss,delta]"
         end select
@@ -124,18 +107,11 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
      case (2)
         select case (cg_scheme)
         case ("weiss")
-           call fmin_cgplus(array_bath,&
-                chi2_weiss_normal_normal,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgplus(array_bath,chi2_weiss_normal_normal,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case ("delta")
-           call fmin_cgplus(array_bath,&
-                chi2_delta_normal_normal,&
-                grad_chi2_delta_normal_normal,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgplus(array_bath,chi2_delta_normal_normal,grad_chi2_delta_normal_normal,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case default
            stop "chi2_fitgf_normal_normal error: cg_scheme != [weiss,delta]"
         end select
@@ -221,7 +197,6 @@ function chi2_delta_normal_normal(a) result(chi2)
   real(8),dimension(:)         ::  a
   real(8)                      ::  chi2
   complex(8),dimension(Ldelta) ::  Delta
-  type(effective_bath)         ::  dmft_bath
   !
   Delta = delta_normal_normal(a)
   !
@@ -240,6 +215,7 @@ function grad_chi2_delta_normal_normal(a) result(dchi2)
   complex(8),dimension(Ldelta)         :: Delta
   complex(8),dimension(Ldelta,size(a)) :: dDelta
   integer                              :: j
+  !
   Delta   = delta_normal_normal(a)
   dDelta  = grad_delta_normal_normal(a)
   !
@@ -345,28 +321,14 @@ end function grad_delta_normal_normal
 function g0and_normal_normal(a) result(G0and)
   real(8),dimension(:)         :: a
   complex(8),dimension(Ldelta) :: G0and,Delta
-  integer                      :: i,io,iorb,ispin,stride
-  real(8),dimension(Nbath)     :: eps,vps
+  integer                      :: i,io,iorb,ispin
   !
   iorb   = Orb_indx
   ispin  = Spin_indx
   !
-  stride = 0
-  do i=1,Nbath
-     io = stride + i
-     eps(i) = a(io) 
-  enddo
-  stride = Nbath
-  do i=1,Nbath
-     io = stride + i
-     vps(i) = a(io)
-  enddo
-  !
-  do i=1,Ldelta
-     Delta(i) = sum( vps(:)*vps(:)/(xi*Xdelta(i) - eps(:)) )
-  enddo
-  G0and(:)  = xi*Xdelta(:) + xmu - impHloc(ispin,ispin,iorb,iorb) - Delta(:)
-  G0and(:)  = one/G0and(:)
+  Delta(:) = delta_normal_normal(a)
+  G0and(:) = xi*Xdelta(:) + xmu - impHloc(ispin,ispin,iorb,iorb) - Delta(:)
+  G0and(:) = one/G0and(:)
   !
 end function g0and_normal_normal
 

@@ -10,9 +10,12 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
   complex(8),intent(in)                       :: x
   type(effective_bath)                        :: dmft_bath_
   complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Delta
-  integer                                     :: iorb,jorb,ispin,jspin,k
+  integer                                     :: iorb,jorb,ispin,jspin,ih,k
   real(8),dimension(Nbath)                    :: eps,dps,vps,den
   real(8),dimension(Norb,Nbath)               :: vops
+  real(8),dimension(Nspin,Nbath)              :: hps
+  real(8),dimension(Nspin,Nspin,Nbath)        :: wps
+  real(8),dimension(Nspin,Nspin,Norb,Nbath)   :: wops
   !
   Delta=zero
   !
@@ -44,6 +47,21 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
            enddo
         enddo
         !
+     case ("nonsu2")
+        !
+        !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(iw_n - H_{a}^{h}(k))]
+        do iorb=1,Norb
+           hps = dmft_bath_%e(1:Nspin,iorb,1:Nbath)
+           wps = get_Whyb_matrix(dmft_bath_%v(1:Nspin,iorb,1:Nbath),dmft_bath_%u(1:Nspin,iorb,1:Nbath))
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 do ih=1,Nspin
+                    Delta(ispin,jspin,iorb,iorb) = Delta(ispin,jspin,iorb,iorb) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x - hps(ih,:)) )
+                 enddo
+              enddo
+           enddo
+        enddo
+        !
      end select
      !
   case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
@@ -66,13 +84,30 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
         !
         !\Delta_{ab} = - \sum_k [ V_{a}(k) * V_{b}(k) * (iw_n + E(k)) / Den(k) ]
         do ispin=1,Nspin
-           eps  = dmft_bath_%e(ispin,1      ,1:Nbath)
-           dps  = dmft_bath_%d(ispin,1      ,1:Nbath)
+           eps  = dmft_bath_%e(ispin,1     ,1:Nbath)
+           dps  = dmft_bath_%d(ispin,1     ,1:Nbath)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
            forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2 ! den(k) = w_n**2 + E(k)**2 + \D(k)**2
            do iorb=1,Norb
               do jorb=1,Norb
                  Delta(ispin,ispin,iorb,jorb) = -sum( vops(iorb,:)*vops(jorb,:)*(x + eps(:))/den(:) )
+              enddo
+           enddo
+        enddo
+        !
+     case ("nonsu2")
+        !
+        !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(iw_n - H^{h}(k))]
+        hps  = dmft_bath_%e(1:Nspin,1     ,1:Nbath)
+        wops = get_Whyb_matrix(dmft_bath_%v(1:Nspin,1:Norb,1:Nbath),dmft_bath_%u(1:Nspin,1:Norb,1:Nbath))
+        do iorb=1,Norb
+           do jorb=1,Norb
+              do ispin=1,Nspin
+                 do jspin=1,Nspin
+                    do ih=1,Nspin
+                       Delta(ispin,jspin,iorb,jorb) = Delta(ispin,jspin,iorb,jorb) + sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x - hps(ih,:)) )
+                    enddo
+                 enddo
               enddo
            enddo
         enddo
@@ -178,7 +213,7 @@ function fdelta_bath_mats_main(x,dmft_bath_) result(Fdelta)
      !
      select case(ed_mode)
      case default
-        stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=normal"
+        stop "Fdelta_bath_mats error: called with ed_mode=normal/nonsu2, bath_type=normal"
         !
      case ("superc")
         !
@@ -189,8 +224,7 @@ function fdelta_bath_mats_main(x,dmft_bath_) result(Fdelta)
               eps = dmft_bath_%e(ispin,iorb,1:Nbath)
               dps = dmft_bath_%d(ispin,iorb,1:Nbath)
               vps = dmft_bath_%v(ispin,iorb,1:Nbath)
-              ! Den(k) = (w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
-              forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2
+              forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2 ! Den(k) = w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
               Fdelta(ispin,ispin,iorb,iorb) = sum( dps(:)*vps(:)*vps(:)/den(:) )
            enddo
         enddo
@@ -201,7 +235,7 @@ function fdelta_bath_mats_main(x,dmft_bath_) result(Fdelta)
      !
      select case(ed_mode)
      case default
-        stop "Fdelta_bath_mats error: called with ed_mode=normal, bath_type=hybrid"
+        stop "Fdelta_bath_mats error: called with ed_mode=normal/nonsu2, bath_type=hybrid"
         !
      case ("superc")
         !
@@ -210,7 +244,7 @@ function fdelta_bath_mats_main(x,dmft_bath_) result(Fdelta)
            eps  = dmft_bath_%e(ispin,1     ,1:Nbath)
            dps  = dmft_bath_%d(ispin,1     ,1:Nbath)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
-           forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2 !den(k) = w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
+           forall(k=1:Nbath)den(k) = dimag(x)**2 + eps(k)**2 + dps(k)**2 !Den(k) = w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
            do iorb=1,Norb
               do jorb=1,Norb
                  Fdelta(ispin,ispin,iorb,jorb) = -sum( dps(:)*vops(iorb,:)*vops(jorb,:)/den(:) )

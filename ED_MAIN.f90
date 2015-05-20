@@ -147,6 +147,8 @@ contains
           call setup_pointers_normal
        case ("superc")
           call setup_pointers_superc
+       case ("nonsu2")
+          call setup_pointers_nonsu2
        end select
     endif
     call deallocate_bath(dmft_bath)

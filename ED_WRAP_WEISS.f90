@@ -6,7 +6,8 @@ module ED_WRAP_WEISS
   USE SF_LINALG,    only:matrix_inverse,matrix_inverse_sym,matrix_diagonalize,matrix_inverse_gj
   implicit none
   private
-  
+
+
   interface ed_get_weiss_lattice
      module procedure &
           ed_get_weiss_field_normal_eloc,   &
@@ -23,7 +24,8 @@ module ED_WRAP_WEISS
           ed_get_weiss_field_superc_hloc_mb
   end interface ed_get_weiss_lattice
   public :: ed_get_weiss_lattice
-  
+
+
   real(8),dimension(:),allocatable        :: wm
 
 contains
@@ -391,20 +393,20 @@ contains
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
                    !
-                   zeta_site(io,jo,:)            = zeta_site(io,jo,:)         - Smats(1,ilat,ispin,jspin,iorb,jorb,:)
-                   zeta_site(io,jo+Nso,:)        =-Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-                   zeta_site(io+Nso,jo,:)        =-Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-                   zeta_site(io+Nso,jo+Nso,:)    = zeta_site(io+Nso,jo+Nso,:) + conjg(Smats(1,ilat,ispin,jspin,iorb,jorb,:))
+                   zeta_site(io,jo,:)           = zeta_site(io,jo,:)         - Smats(1,ilat,ispin,jspin,iorb,jorb,:)
+                   zeta_site(io,jo+Nso,:)       =-Smats(2,ilat,ispin,jspin,iorb,jorb,:)
+                   zeta_site(io+Nso,jo,:)       =-Smats(2,ilat,ispin,jspin,iorb,jorb,:)
+                   zeta_site(io+Nso,jo+Nso,:)   = zeta_site(io+Nso,jo+Nso,:) + conjg(Smats(1,ilat,ispin,jspin,iorb,jorb,:))
                    !
-                   invGloc_site(io,jo,:)         = Gloc(1,ilat,ispin,jspin,iorb,jorb,:)
-                   invGloc_site(io,jo+Nso,:)     = Gloc(2,ilat,ispin,jspin,iorb,jorb,:)
-                   invGloc_site(io+Nso,jo,:)     = Gloc(2,ilat,ispin,jspin,iorb,jorb,:)
-                   invGloc_site(io+Nso,jo+Nso,:) =-conjg(Gloc(1,ilat,ispin,jspin,iorb,jorb,:))
+                   invGloc_site(io,jo,:)        = Gloc(1,ilat,ispin,jspin,iorb,jorb,:)
+                   invGloc_site(io,jo+Nso,:)    = Gloc(2,ilat,ispin,jspin,iorb,jorb,:)
+                   invGloc_site(io+Nso,jo,:)    = Gloc(2,ilat,ispin,jspin,iorb,jorb,:)
+                   invGloc_site(io+Nso,jo+Nso,:)=-conjg(Gloc(1,ilat,ispin,jspin,iorb,jorb,:))
                    !
-                   Smats_site(io,jo,:)           = Smats(1,ilat,ispin,jspin,iorb,jorb,:)
-                   Smats_site(io,jo+Nso,:)       = Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-                   Smats_site(io+Nso,jo,:)       = Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-                   Smats_site(io+Nso,jo+Nso,:)   =-conjg(Smats(1,ilat,ispin,jspin,iorb,jorb,:))
+                   Smats_site(io,jo,:)          = Smats(1,ilat,ispin,jspin,iorb,jorb,:)
+                   Smats_site(io,jo+Nso,:)      = Smats(2,ilat,ispin,jspin,iorb,jorb,:)
+                   Smats_site(io+Nso,jo,:)      = Smats(2,ilat,ispin,jspin,iorb,jorb,:)
+                   Smats_site(io+Nso,jo+Nso,:)  =-conjg(Smats(1,ilat,ispin,jspin,iorb,jorb,:))
                 enddo
              enddo
           enddo
@@ -537,20 +539,20 @@ contains
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
                    !
-                   zeta_site(io,jo,:)            = zeta_site(io,jo,:)         - Smats(1,ilat,ispin,jspin,iorb,jorb,:)
-                   zeta_site(io,jo+Nso,:)        =-Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-                   zeta_site(io+Nso,jo,:)        =-Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-                   zeta_site(io+Nso,jo+Nso,:)    = zeta_site(io+Nso,jo+Nso,:) + conjg(Smats(1,ilat,ispin,jspin,iorb,jorb,:))
+                   zeta_site(io,jo,:)           = zeta_site(io,jo,:)         - Smats(1,ilat,ispin,jspin,iorb,jorb,:)
+                   zeta_site(io,jo+Nso,:)       =-Smats(2,ilat,ispin,jspin,iorb,jorb,:)
+                   zeta_site(io+Nso,jo,:)       =-Smats(2,ilat,ispin,jspin,iorb,jorb,:)
+                   zeta_site(io+Nso,jo+Nso,:)   = zeta_site(io+Nso,jo+Nso,:) + conjg(Smats(1,ilat,ispin,jspin,iorb,jorb,:))
                    !
-                   invGloc_site(io,jo,:)         = Gloc(1,ilat,ispin,jspin,iorb,jorb,:)
-                   invGloc_site(io,jo+Nso,:)     = Gloc(2,ilat,ispin,jspin,iorb,jorb,:)
-                   invGloc_site(io+Nso,jo,:)     = Gloc(2,ilat,ispin,jspin,iorb,jorb,:)
-                   invGloc_site(io+Nso,jo+Nso,:) =-conjg(Gloc(1,ilat,ispin,jspin,iorb,jorb,:))
+                   invGloc_site(io,jo,:)        = Gloc(1,ilat,ispin,jspin,iorb,jorb,:)
+                   invGloc_site(io,jo+Nso,:)    = Gloc(2,ilat,ispin,jspin,iorb,jorb,:)
+                   invGloc_site(io+Nso,jo,:)    = Gloc(2,ilat,ispin,jspin,iorb,jorb,:)
+                   invGloc_site(io+Nso,jo+Nso,:)=-conjg(Gloc(1,ilat,ispin,jspin,iorb,jorb,:))
                    !
-                   Smats_site(io,jo,:)           = Smats(1,ilat,ispin,jspin,iorb,jorb,:)
-                   Smats_site(io,jo+Nso,:)       = Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-                   Smats_site(io+Nso,jo,:)       = Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-                   Smats_site(io+Nso,jo+Nso,:)   =-conjg(Smats(1,ilat,ispin,jspin,iorb,jorb,:))
+                   Smats_site(io,jo,:)          = Smats(1,ilat,ispin,jspin,iorb,jorb,:)
+                   Smats_site(io,jo+Nso,:)      = Smats(2,ilat,ispin,jspin,iorb,jorb,:)
+                   Smats_site(io+Nso,jo,:)      = Smats(2,ilat,ispin,jspin,iorb,jorb,:)
+                   Smats_site(io+Nso,jo+Nso,:)  =-conjg(Smats(1,ilat,ispin,jspin,iorb,jorb,:))
                 enddo
              enddo
           enddo
@@ -589,9 +591,6 @@ contains
              enddo
           enddo
        enddo
-
-
-
     end do mpi_site_loop
 #ifdef _MPI_INEQ
     call MPI_ALLREDUCE(Weiss_tmp,Weiss,size(Weiss),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
