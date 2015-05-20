@@ -96,7 +96,7 @@ subroutine chi2_fitgf_hybrid_superc(fg,bath_,ispin)
      io = stride + i
      array_bath(io)    = dmft_bath%d(ispin,1,i)
   enddo
-  stride = 2*Nbath
+  stride = Nbath + Nbath
   do iorb=1,Norb
      do i=1,Nbath
         io = stride + i + (iorb-1)*Nbath
@@ -108,22 +108,11 @@ subroutine chi2_fitgf_hybrid_superc(fg,bath_,ispin)
   case default
      select case (cg_scheme)
      case ("weiss")
-        call fmin_cg(array_bath,&
-             chi2_weiss_hybrid_superc,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol  ,&
-             istop=cg_stop ,&
-             eps=cg_eps)
+        call fmin_cg(array_bath,chi2_weiss_hybrid_superc,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
      case ("delta")
-        call fmin_cg(array_bath,&
-             chi2_delta_hybrid_superc,&
-             grad_chi2_delta_hybrid_superc,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol  ,&
-             istop=cg_stop ,&
-             eps=cg_eps)
+        call fmin_cg(array_bath,chi2_delta_hybrid_superc,grad_chi2_delta_hybrid_superc,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
      case default
         stop "chi2_fitgf_normal_superc error: cg_scheme != [weiss,delta]"
      end select
@@ -131,17 +120,11 @@ subroutine chi2_fitgf_hybrid_superc(fg,bath_,ispin)
   case (1)
      select case (cg_scheme)
      case ("weiss")
-        call fmin_cgminimize(array_bath,&
-             chi2_weiss_hybrid_superc,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol)
+        call fmin_cgminimize(array_bath,chi2_weiss_hybrid_superc,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol)
      case ("delta")
-        call fmin_cgminimize(array_bath,&
-             chi2_delta_hybrid_superc,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol)
+        call fmin_cgminimize(array_bath,chi2_delta_hybrid_superc,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol)
      case default
         stop "chi2_fitgf_normal_superc error: cg_scheme != [weiss,delta]"
      end select
@@ -149,18 +132,11 @@ subroutine chi2_fitgf_hybrid_superc(fg,bath_,ispin)
   case (2)
      select case (cg_scheme)
      case ("weiss")
-        call fmin_cgplus(array_bath,&
-             chi2_weiss_hybrid_superc,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol)
+        call fmin_cgplus(array_bath,chi2_weiss_hybrid_superc,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol)
      case ("delta")
-        call fmin_cgplus(array_bath,&
-             chi2_delta_hybrid_superc,&
-             grad_chi2_delta_hybrid_superc,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol)
+        call fmin_cgplus(array_bath,chi2_delta_hybrid_superc,grad_chi2_delta_hybrid_superc,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol)
      case default
         stop "chi2_fitgf_hybrid_superc error: cg_scheme != [weiss,delta]"
      end select
@@ -211,26 +187,19 @@ subroutine chi2_fitgf_hybrid_superc(fg,bath_,ispin)
 contains
   !
   subroutine write_fit_result(ispin)
-    integer                              :: i,j,l,m,iorb,jorb,ispin,jspin
-    real(8)                              :: w
-    complex(8),dimension(2,Norb,Norb)    :: gwf
-    complex(8),dimension(totNorb,Ldelta) :: fgand,ffand
+    integer                                :: i,j,l,m,iorb,jorb,ispin,jspin
+    integer                                :: gunit,funit
+    real(8)                                :: w
+    complex(8),dimension(Norb,Norb,Ldelta) :: fgand,ffand
     do i=1,Ldelta
        w=Xdelta(i)
        if(cg_scheme=='weiss')then
-          gwf(1,:,:) = g0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
-          gwf(2,:,:) = f0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
+          fgand(:,:,i) = g0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
+          ffand(:,:,i) = f0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
        else
-          gwf(1,:,:) = delta_bath_mats(ispin,ispin,xi*w,dmft_bath)
-          gwf(2,:,:) = fdelta_bath_mats(ispin,ispin,xi*w,dmft_bath)
+          fgand(:,:,i) = delta_bath_mats(ispin,ispin,xi*w,dmft_bath)
+          ffand(:,:,i) = fdelta_bath_mats(ispin,ispin,xi*w,dmft_bath)
        endif
-       !
-       do l=1,totNorb
-          iorb=getIorb(l)
-          jorb=getJorb(l)
-          fgand(l,i)=gwf(1,iorb,jorb)
-          ffand(l,i)=gwf(2,iorb,jorb)
-       enddo
        !
     enddo
     !
@@ -238,14 +207,17 @@ contains
        iorb=getIorb(l)
        jorb=getJorb(l)
        suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//reg(ed_file_suffix)
-       unit=free_unit()
-       open(unit,file="fit_delta"//reg(suffix)//".ed")
+       gunit=free_unit()
+       funit=free_unit()
+       open(gunit,file="fit_delta"//reg(suffix)//".ed")
+       open(funit,file="fit_fdelta"//reg(suffix)//".ed")
        do i=1,Ldelta
-          write(unit,"(10F24.15)")Xdelta(i),&
-               dimag(Gdelta(l,i)),dimag(fgand(l,i)),&
-               dreal(Gdelta(l,i)),dreal(fgand(l,i)),&
-               dimag(Fdelta(l,i)),dimag(ffand(l,i)),&
-               dreal(Fdelta(l,i)),dreal(ffand(l,i))
+          write(gunit,"(10F24.15)")Xdelta(i),&
+               dimag(Gdelta(l,i)),dimag(fgand(iorb,jorb,i)),&
+               dreal(Gdelta(l,i)),dreal(fgand(iorb,jorb,i))
+          write(funit,"(10F24.15)")Xdelta(i),&
+               dimag(Fdelta(l,i)),dimag(ffand(iorb,jorb,i)),&
+               dreal(Fdelta(l,i)),dreal(ffand(iorb,jorb,i))
        enddo
        close(unit)
     enddo
@@ -264,21 +236,20 @@ end subroutine chi2_fitgf_hybrid_superc
 !         in the SUPERCONDUCTING case.
 !+-------------------------------------------------------------+
 function chi2_delta_hybrid_superc(a) result(chi2)
-  real(8),dimension(:)           :: a
-  real(8)                        :: chi2
-  real(8),dimension(totNorb)     :: chi_orb
-  complex(8),dimension(2,Ldelta) :: Delta
-  integer                        ::  i,l,iorb,jorb
+  real(8),dimension(:)                     :: a
+  real(8)                                  :: chi2
+  real(8),dimension(totNorb)               :: chi_orb
+  complex(8),dimension(2,Norb,Norb,Ldelta) :: Delta
+  integer                                  ::  i,l,iorb,jorb
   !  
+  Delta = delta_hybrid_superc(a)
+  !
   do l=1,totNorb
      iorb=getIorb(l)
      jorb=getJorb(l)
-     !
-     Delta(:,:) = delta_hybrid_superc(iorb,jorb,a)
-     !
      chi_orb(l) = &
-          sum(abs(Gdelta(l,:)-Delta(1,:))**2/Wdelta(:)) + &
-          sum(abs(Fdelta(l,:)-Delta(2,:))**2/Wdelta(:))
+          sum(abs(Gdelta(l,:)-Delta(1,iorb,jorb,:))**2/Wdelta(:)) + &
+          sum(abs(Fdelta(l,:)-Delta(2,iorb,jorb,:))**2/Wdelta(:))
   enddo
   !
   chi2=sum(chi_orb)
@@ -290,26 +261,26 @@ end function chi2_delta_hybrid_superc
 ! function in the SUPERCONDUCTING case.
 !+-------------------------------------------------------------+
 function grad_chi2_delta_hybrid_superc(a) result(dchi2)
-  real(8),dimension(:)                   ::  a
-  real(8),dimension(size(a))             ::  dchi2
-  real(8),dimension(totNorb,size(a))     ::  df
-  complex(8),dimension(2,Ldelta)         ::  Delta
-  complex(8),dimension(2,Ldelta,size(a)) ::  dDelta
-  integer                                ::  i,j,l,iorb,jorb
-  real(8)                                ::  w
+  real(8),dimension(:)                             ::  a
+  real(8),dimension(size(a))                       ::  dchi2
+  real(8),dimension(totNorb,size(a))               ::  df
+  complex(8),dimension(2,Norb,Norb,Ldelta)         ::  Delta
+  complex(8),dimension(2,Norb,Norb,Ldelta,size(a)) ::  dDelta
+  integer                                          ::  i,j,l,iorb,jorb
+  !
+  Delta  = delta_hybrid_superc(a)
+  dDelta = grad_delta_hybrid_superc(a)
   !
   do l=1,totNorb
      iorb=getIorb(l)
      jorb=getJorb(l)
-     Delta(:,:)    = delta_hybrid_superc(iorb,jorb,a)
-     dDelta(:,:,:) = grad_delta_hybrid_superc(iorb,jorb,a)
      !
      do j=1,size(a)
         df(l,j)=&
-             sum( dreal(Gdelta(l,:)-Delta(1,:))*dreal(dDelta(1,:,j))/Wdelta(:) ) + &
-             sum( dimag(Gdelta(l,:)-Delta(1,:))*dimag(dDelta(1,:,j))/Wdelta(:) ) + &
-             sum( dreal(Fdelta(l,:)-Delta(2,:))*dreal(dDelta(2,:,j))/Wdelta(:) ) + &
-             sum( dimag(Fdelta(l,:)-Delta(2,:))*dimag(dDelta(2,:,j))/Wdelta(:) )
+             sum( dreal(Gdelta(l,:)-Delta(1,iorb,jorb,:))*dreal(dDelta(1,iorb,jorb,:,j))/Wdelta(:) ) + &
+             sum( dimag(Gdelta(l,:)-Delta(1,iorb,jorb,:))*dimag(dDelta(1,iorb,jorb,:,j))/Wdelta(:) ) + &
+             sum( dreal(Fdelta(l,:)-Delta(2,iorb,jorb,:))*dreal(dDelta(2,iorb,jorb,:,j))/Wdelta(:) ) + &
+             sum( dimag(Fdelta(l,:)-Delta(2,iorb,jorb,:))*dimag(dDelta(2,iorb,jorb,:,j))/Wdelta(:) )
      enddo
      !
   enddo
@@ -331,7 +302,7 @@ function chi2_weiss_hybrid_superc(a) result(chi2)
   real(8)                                  ::  chi2
   integer                                  ::  i,l,iorb,jorb
   !
-  g0and(:,:,:,:)  = g0and_hybrid_superc(a)
+  g0and = g0and_hybrid_superc(a)
   !
   do l=1,totNorb
      iorb=getIorb(l)
@@ -358,14 +329,14 @@ end function chi2_weiss_hybrid_superc
 ! - g0
 ! FUNCTIONS. 
 !##################################################################
-function delta_hybrid_superc(iorb,jorb,a) result(Delta)
-  integer                         :: iorb,jorb
-  real(8),dimension(:)            :: a
-  complex(8),dimension(2,Ldelta)  :: Delta
-  integer                         :: i,io,k,l,stride
-  real(8),dimension(Nbath)        :: eps,dps
-  real(8),dimension(Norb,Nbath)   :: vops
-  real(8),dimension(Ldelta,Nbath) :: Den
+function delta_hybrid_superc(a) result(Delta)
+  real(8),dimension(:)                     :: a
+  complex(8),dimension(2,Norb,Norb,Ldelta) :: Delta
+  integer                                  :: iorb,jorb
+  integer                                  :: i,io,k,l,stride
+  real(8),dimension(Nbath)                 :: eps,dps
+  real(8),dimension(Norb,Nbath)            :: vops
+  real(8),dimension(Ldelta,Nbath)          :: Den
   !
   !\Delta_{ab} = - \sum_k [ V_{a}(k) * V_{b}(k) * (iw_n + E(k)) / Den(k) ]
   !
@@ -393,21 +364,31 @@ function delta_hybrid_superc(iorb,jorb,a) result(Delta)
        Den(i,k) = Xdelta(i)**2 + eps(k)**2 + dps(k)**2 
   !
   do i=1,Ldelta
-     Delta(1,i) = -sum( vops(iorb,:)*vops(jorb,:)*(xi*Xdelta(i) + eps(:))/Den(i,:) )
-     Delta(2,i) = -sum( dps(:)*vops(iorb,:)*vops(jorb,:)/Den(i,:) )
+     do iorb=1,Norb
+        Delta(1,iorb,iorb,i) = -sum( vops(iorb,:)*vops(iorb,:)*(xi*Xdelta(i) + eps(:))/Den(i,:) )
+        !
+        Delta(2,iorb,iorb,i) = -sum( dps(:)*vops(iorb,:)*vops(iorb,:)/Den(i,:) )
+        do jorb=iorb+1,Norb
+           Delta(1,iorb,jorb,i) = -sum( vops(iorb,:)*vops(jorb,:)*(xi*Xdelta(i) + eps(:))/Den(i,:) )
+           Delta(1,jorb,iorb,i) = -sum( vops(jorb,:)*vops(iorb,:)*(xi*Xdelta(i) + eps(:))/Den(i,:) )
+           !
+           Delta(2,iorb,jorb,i) = -sum( dps(:)*vops(iorb,:)*vops(jorb,:)/Den(i,:) )
+           Delta(2,jorb,iorb,i) = -sum( dps(:)*vops(jorb,:)*vops(iorb,:)/Den(i,:) )
+        enddo
+     enddo
   enddo
   !
 end function delta_hybrid_superc
 
-function grad_delta_hybrid_superc(iorb,jorb,a) result(dDelta)
-  integer                                :: iorb,jorb
-  real(8),dimension(:)                   :: a
-  complex(8),dimension(2,Ldelta,size(a)) :: dDelta
-  integer                                :: i,k,io,ik,l,stride
-  real(8),dimension(Nbath)               :: eps,dps
-  real(8),dimension(Norb,Nbath)          :: vops
-  real(8),dimension(Ldelta,Nbath)        :: Den
-  real(8),dimension(Norb,Norb)           :: delta_orb
+function grad_delta_hybrid_superc(a) result(dDelta)
+  real(8),dimension(:)                             :: a
+  complex(8),dimension(2,Norb,Norb,Ldelta,size(a)) :: dDelta
+  integer                                          :: iorb,jorb
+  integer                                          :: i,k,io,ik,l,stride
+  real(8),dimension(Nbath)                         :: eps,dps
+  real(8),dimension(Norb,Nbath)                    :: vops
+  real(8),dimension(Ldelta,Nbath)                  :: Den
+  real(8),dimension(Norb,Norb)                     :: delta_orb
   !
   !\grad_{E_{1}(k)} \Delta_{ab} = -V_{a}(k)*V_{b}(k)*[ 1/den(k) - 2*E(k)*(iw_n + E(k))/den(k)**2 ]
   !
@@ -445,97 +426,57 @@ function grad_delta_hybrid_superc(iorb,jorb,a) result(dDelta)
   !
   delta_orb = eye(Norb)
   !
-  stride=0
-  do k=1,Nbath
-     ik = stride + k
-     dDelta(1,:,ik) = -vops(iorb,k)*vops(jorb,k)*(1d0/Den(:,k) - 2d0*eps(k)*( xi*Xdelta(:) + eps(k))/Den(:,k)**2)
-  enddo
-  stride=Nbath
-  do k=1,Nbath
-     ik = stride + k
-     dDelta(1,:,ik) = 2d0*vops(iorb,k)*vops(jorb,k)*dps(k)*(xi*Xdelta(:) + eps(k))/Den(:,k)**2
-  enddo
-  stride=2*Nbath
-  do l=1,Norb
-     do k=1,Nbath
-        ik = stride + k + (l-1)*Nbath
-        dDelta(1,:,ik) = (delta_orb(l,iorb)*vops(jorb,k) + delta_orb(l,jorb)*vops(iorb,k))*(xi*Xdelta(:) + eps(k))/Den(:,k)
-     enddo
-  enddo
-  !
-  !
-  stride=0
-  do k=1,Nbath
-     ik = stride + k
-     dDelta(2,:,ik) = -2d0*vops(iorb,k)*vops(jorb,k)*eps(k)*dps(k)/Den(:,k)**2
-  enddo
-  stride=Nbath
-  do k=1,Nbath
-     ik = stride + k
-     dDelta(2,:,ik) = vops(iorb,k)*vops(jorb,k)*( 1d0/Den(:,k) - 2d0*dps(k)*dps(k)/Den(:,k)**2 )
-  enddo
-  stride=2*Nbath
-  do l=1,Norb
-     do k=1,Nbath
-        ik = stride + k + (l-1)*Nbath
-        dDelta(2,:,ik) = (delta_orb(l,iorb)*vops(jorb,k) + delta_orb(l,jorb)*vops(iorb,k))*dps(k)/Den(:,k)
+  do iorb=1,Norb
+     do jorb=1,Norb
+        !
+        stride=0
+        do k=1,Nbath
+           ik = stride + k
+           dDelta(1,iorb,jorb,:,ik) = -vops(iorb,k)*vops(jorb,k)*(1d0/Den(:,k) - 2d0*eps(k)*( xi*Xdelta(:) + eps(k))/Den(:,k)**2)
+           dDelta(2,iorb,jorb,:,ik) = -2d0*vops(iorb,k)*vops(jorb,k)*eps(k)*dps(k)/Den(:,k)**2
+        enddo
+        stride=Nbath
+        do k=1,Nbath
+           ik = stride + k
+           dDelta(1,iorb,jorb,:,ik) = 2d0*vops(iorb,k)*vops(jorb,k)*dps(k)*(xi*Xdelta(:) + eps(k))/Den(:,k)**2
+           dDelta(2,iorb,jorb,:,ik) = vops(iorb,k)*vops(jorb,k)*( 1d0/Den(:,k) - 2d0*dps(k)*dps(k)/Den(:,k)**2 )
+        enddo
+        stride=2*Nbath
+        do l=1,Norb
+           do k=1,Nbath
+              ik = stride + k + (l-1)*Nbath
+              dDelta(1,iorb,jorb,:,ik) = (delta_orb(l,iorb)*vops(jorb,k) + delta_orb(l,jorb)*vops(iorb,k))*(xi*Xdelta(:) + eps(k))/Den(:,k)
+              dDelta(2,iorb,jorb,:,ik) = (delta_orb(l,iorb)*vops(jorb,k) + delta_orb(l,jorb)*vops(iorb,k))*dps(k)/Den(:,k)
+           enddo
+        enddo
+        !
      enddo
   enddo
   !
 end function grad_delta_hybrid_superc
 
 function g0and_hybrid_superc(a) result(G0and)
-  integer                                  :: iorb,jorb
   real(8),dimension(:)                     :: a
-  complex(8),dimension(2,Norb,Norb,Ldelta) :: G0and
-  complex(8),dimension(2,Norb,Norb)        :: zeta,delta
+  complex(8),dimension(2,Norb,Norb,Ldelta) :: G0and,Delta
+  complex(8),dimension(2,Norb,Norb)        :: zeta
   complex(8),dimension(2*Norb,2*Norb)      :: fgorb
-  integer                                  :: i,k,io,l,m,stride,ispin
-  real(8),dimension(Nbath)                 :: eps,dps
-  real(8),dimension(Norb,Nbath)            :: vops
-  real(8),dimension(Ldelta,Nbath)          :: Den
+  integer                                  :: i,k,ispin
   !
   ispin  = Spin_indx
   !
-  stride = 0
-  do i=1,Nbath 
-     io = stride + i
-     eps(i) = a(io)
-  enddo
-  stride = Nbath
-  do i=1,Nbath 
-     io = stride + i
-     dps(i) = a(io)
-  enddo
-  stride = 2*Nbath
-  do l=1,Norb
-     do i=1,Nbath
-        io = stride + i + (l-1)*Nbath
-        vops(l,i) = a(io)
-     enddo
-  enddo
-  !
-  forall(i=1:Ldelta,k=1:Nbath)& !den(k) = (w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
-       Den(i,k) = Xdelta(i)**2 + eps(k)**2 + dps(k)**2 
+  Delta = delta_hybrid_superc(a)
   !
   do i=1,Ldelta
      fgorb=zero
      zeta(1,:,:) = (xi*Xdelta(i)+xmu)*eye(Norb)
      zeta(2,:,:) = (xi*Xdelta(i)-xmu)*eye(Norb)
-     do l=1,Norb
-        do m=1,Norb
-           Delta(1,l,m) = -sum( vops(l,:)*vops(m,:)*(xi*Xdelta(i) + eps(:))/Den(i,:) )
-           Delta(2,l,m) = -sum( dps(:)*vops(l,:)*vops(m,:)/Den(i,:) )
-        enddo
-     enddo
-     fgorb(1:Norb,1:Norb)                     = zeta(1,:,:) - impHloc(ispin,ispin,:,:)  - Delta(1,:,:)
-     fgorb(1:Norb,Norb+1:Norb+Norb)           =                                         - Delta(2,:,:)
-     fgorb(Norb+1:Norb+Norb,1:Norb)           =                                         - Delta(2,:,:)
-     fgorb(Norb+1:Norb+Norb,Norb+1:Norb+Norb) = zeta(2,:,:) + impHloc(ispin,ispin,:,:)  + conjg(Delta(1,:,:))
-     !
+     fgorb(1:Norb,1:Norb)                     = zeta(1,:,:) - impHloc(ispin,ispin,:,:)  - Delta(1,:,:,i)
+     fgorb(1:Norb,Norb+1:Norb+Norb)           =                                         - Delta(2,:,:,i)
+     fgorb(Norb+1:Norb+Norb,1:Norb)           =                                         - Delta(2,:,:,i)
+     fgorb(Norb+1:Norb+Norb,Norb+1:Norb+Norb) = zeta(2,:,:) + impHloc(ispin,ispin,:,:)  + conjg( Delta(1,:,:,i) )
      call inv(fgorb)
      G0and(1,:,:,i) = fgorb(1:Norb,1:Norb)
-     G0and(2,:,:,i) = fgorb(Norb+1:Norb+Norb,Norb+1:Norb+Norb)
+     G0and(2,:,:,i) = fgorb(1:Norb,Norb+1:Norb+Norb)
   enddo
   !
 end function g0and_hybrid_superc

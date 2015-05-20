@@ -42,6 +42,7 @@ MODULE ED_AUX_FUNX
   !
   public :: setup_pointers_normal
   public :: setup_pointers_superc
+  public :: setup_pointers_nonsu2
   public :: build_sector
   public :: bdecomp
   public :: bjoin
@@ -88,6 +89,9 @@ contains
     case ("superc")
        Nsectors = Nlevels+1        !sz=-Ns:Ns=2*Ns+1=Nlevels+1
        dim_sector_max=get_superc_sector_dimension(0)
+    case("nonsu2")
+       Nsectors = Nlevels+1        !n=0:2*Ns=2*Ns+1=Nlevels+1
+       dim_sector_max=get_nonsu2_sector_dimension(Ns)
     end select
     !
     if(ED_MPI_ID==0)then
@@ -138,12 +142,14 @@ contains
 
     allocate(impIndex(Norb,2))
     allocate(getdim(Nsectors),twin_mask(Nsectors))
-    allocate(getnup(Nsectors),getndw(Nsectors),getsz(Nsectors))
+    allocate(getnup(Nsectors),getndw(Nsectors),getsz(Nsectors),getn(Nsectors))
     select case(ed_mode)
     case default
        allocate(getsector(0:Ns,0:Ns))
     case ("superc")
        allocate(getsector(-Ns:Ns,1))
+    case ("nonsu2")
+       allocate(getsector(0:Nlevels,1))
     end select
     allocate(getCsector(2,Nsectors))
     allocate(getCDGsector(2,Nsectors))
@@ -190,6 +196,11 @@ contains
        if(Norb>1)stop "SC Multi-Band IS NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
        if(ed_type=='c')stop "SC with Hermitian H NOT IMPLEMENTED."
        if(ed_twin)stop  "SC + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
+    endif
+    if(ed_mode=="nonsu2")then
+       !if(bath_type/="hybrid")stop "nonSU2 code is developed for Hybridized bath."
+       if(Nspin/=2)stop "NONSU2 with Nspin!=2 IS NOT ALLOWED. To enfore PM use ed_sym_spin=T."
+       if(ed_twin)stop  "NONSU2 + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
     endif
     !#############################################################################################
 
@@ -528,6 +539,72 @@ contains
     enddo
   end subroutine setup_pointers_superc
 
+  !
+  !NON SU(2) SYMMETRIC
+  !
+  subroutine setup_pointers_nonsu2
+    integer                          :: i,dim,isector,jsector
+    integer                          :: in,jn,iorb,jorb
+    integer,dimension(:),allocatable :: imap
+    integer,dimension(:),allocatable :: invmap
+    if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
+    if(ED_MPI_ID==0)call start_timer
+    isector=0
+    do in=0,Nlevels
+       isector=isector+1
+       getsector(in,1)=isector
+       getn(isector)=in
+       dim = get_nonsu2_sector_dimension(in)
+       getdim(isector)=dim
+       neigen_sector(isector) = min(dim,lanc_nstates_sector)
+    enddo
+    twin_mask=.true.
+    !<TODO 
+    !build the twin sector statements in the non-SU2 channel.
+    !>TODO
+    if(ED_MPI_ID==0)call stop_timer
+
+    do in=1,Norb
+       impIndex(in,1)=in
+       impIndex(in,2)=in+Ns
+    enddo
+
+    select case(bath_type)
+    case default
+       do i=1,Nbath
+          do iorb=1,Norb
+             getBathStride(iorb,i) = Norb + (iorb-1)*Nbath + i
+          enddo
+       enddo
+    case ('hybrid')
+       do i=1,Nbath
+          getBathStride(:,i)      = Norb + i
+       enddo
+    end select
+
+
+    getCsector=0
+    !c_{up,dw}
+    do isector=1,Nsectors
+       in=getn(isector);if(in==0)cycle
+       jn=in-1
+       jsector=getsector(jn,1)
+       getCsector(1,isector)=jsector
+       getCsector(2,isector)=jsector
+    enddo
+
+    getCDGsector=0
+    !cdg_{up,dw}
+    do isector=1,Nsectors
+       in=getn(isector);if(in==Nlevels)cycle
+       jn=in+1
+       jsector=getsector(jn,1)
+       getCDGsector(1,isector)=jsector
+       getCDGsector(2,isector)=jsector
+    enddo
+  end subroutine setup_pointers_nonsu2
+
+
 
 
 
@@ -553,6 +630,14 @@ contains
        dim=dim + 2**(Nb-2*i)*binomial(ns,Nb-2*i)*binomial(ns-Nb+2*i,i)
     enddo
   end function get_superc_sector_dimension
+  !NONSU2
+  function get_nonsu2_sector_dimension(n) result(dim)
+    integer :: n
+    integer :: dim
+    dim=binomial(2*Ns,n)
+  end function get_nonsu2_sector_dimension
+
+
 
 
 
@@ -564,8 +649,8 @@ contains
   !|ImpUP,BathUP>|ImpDW,BathDW >
   !+------------------------------------------------------------------+
   subroutine build_sector(isector,map)
-    integer              :: i,j,isector,iup,idw,mz,dim
-    integer              :: nup,ndw,sz
+    integer              :: i,j,isector,iup,idw,mz,dim,in
+    integer              :: nup,ndw,sz,nt
     integer              :: ivec(Nlevels)
     integer,dimension(:) :: map
     if(size(map)/=getdim(isector))stop "error in build_sector: wrong dimension of map"
@@ -584,13 +669,23 @@ contains
           endif
        enddo
     case ("superc")
-       sz = getsz(isector)
+       sz = getSz(isector)
        do i=1,Nhilbert
           call bdecomp(i,ivec)
           mz = sum(ivec(1:Ns)) - sum(ivec(Ns+1:2*Ns))
           if(mz==sz)then
              dim             = dim+1 !count the states in the sector (n_up,n_dw)
              map(dim)        = i       !build the map to full space states
+          endif
+       enddo
+    case ("nonsu2")
+       nt = getN(isector)
+       do i=1,Nhilbert
+          call bdecomp(i,ivec)
+          in = sum(ivec)
+          if(in==nt)then
+             dim      = dim+1
+             map(dim) = i
           endif
        enddo
     end select
@@ -700,6 +795,7 @@ contains
   !
   ! normal: j=|{dw}>|{up}>  , nup --> ndw
   ! superc: j=|{dw}>|{up}>  , sz  --> -sz
+  ! nonsu2: j=|{!up}>|{!dw}>, n   --> 2*Ns-n
   !+------------------------------------------------------------------+
   function flip_state(m) result(j)
     integer :: m
@@ -721,6 +817,10 @@ contains
        !sz-->-sz: |111>|000>[sz=3-0=3] -->|000>|111>[sz=0-3=-3]
        foo(1:Ns)     =Ivec(Ns+1:2*Ns)
        foo(Ns+1:2*Ns)=Ivec(1:Ns)
+    case ("nonsu2")
+       !Exchange Occupied sites (1) with Empty sites (0)
+       where(ivec==1)foo=0
+       where(ivec==0)foo=1
     end select
     call bjoin(foo,j)
   end function flip_state
@@ -745,6 +845,9 @@ contains
     case ("superc")
        isz=getsz(isector)
        jsector=getsector(-isz,1)
+    case("nonsu2")
+       in=getn(isector)
+       jsector=getsector(Nlevels-in,1)
     end select
   end function get_twin_sector
 
