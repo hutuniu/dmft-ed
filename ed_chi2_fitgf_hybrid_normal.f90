@@ -97,22 +97,11 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
   case default
      select case (cg_scheme)
      case ("weiss")
-        call fmin_cg(array_bath,&
-             chi2_weiss_hybrid_normal,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol  ,&
-             istop=cg_stop ,&
-             eps=cg_eps)
+        call fmin_cg(array_bath,chi2_weiss_hybrid_normal,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
      case ("delta")
-        call fmin_cg(array_bath,&
-             chi2_delta_hybrid_normal,&
-             grad_chi2_delta_hybrid_normal,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol  ,&
-             istop=cg_stop ,&
-             eps=cg_eps)
+        call fmin_cg(array_bath,chi2_delta_hybrid_normal,grad_chi2_delta_hybrid_normal,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
      case default
         stop "chi2_fitgf_hybrid_normal error: cg_scheme != [weiss,delta]"
      end select
@@ -120,17 +109,11 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
   case (1)
      select case (cg_scheme)
      case ("weiss")
-        call fmin_cgminimize(array_bath,&
-             chi2_weiss_hybrid_normal,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol)
+        call fmin_cgminimize(array_bath,chi2_weiss_hybrid_normal,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol)
      case ("delta")
-        call fmin_cgminimize(array_bath,&
-             chi2_delta_hybrid_normal,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol)
+        call fmin_cgminimize(array_bath,chi2_delta_hybrid_normal,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol)
      case default
         stop "chi2_fitgf_hybrid_normal error: cg_scheme != [weiss,delta]"
      end select
@@ -138,18 +121,11 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
   case (2)
      select case (cg_scheme)
      case ("weiss")
-        call fmin_cgplus(array_bath,&
-             chi2_weiss_hybrid_normal,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol)
+        call fmin_cgplus(array_bath,chi2_weiss_hybrid_normal,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol)
      case ("delta")
-        call fmin_cgplus(array_bath,&
-             chi2_delta_hybrid_normal,&
-             grad_chi2_delta_hybrid_normal,&
-             iter,chi,&
-             itmax=cg_niter,&
-             ftol=cg_Ftol)
+        call fmin_cgplus(array_bath,chi2_delta_hybrid_normal,grad_chi2_delta_hybrid_normal,&
+             iter,chi,itmax=cg_niter,ftol=cg_Ftol)
      case default
         stop "chi2_fitgf_hybrid_normal error: cg_scheme != [weiss,delta]"
      end select
@@ -195,25 +171,14 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
 contains
   !
   subroutine write_fit_result(ispin)
-    integer                              :: i,j,l,m,iorb,jorb,ispin,jspin
-    real(8)                              :: w
-    complex(8),dimension(Norb,Norb)      :: gwf
-    complex(8),dimension(totNorb,Ldelta) :: fgand
-    do i=1,Ldelta
-       w=Xdelta(i)
-       if(cg_scheme=='weiss')then
-          gwf = g0and_bath_mats(ispin,ispin,xi*w,dmft_bath)
-       else
-          gwf = delta_bath_mats(ispin,ispin,xi*w,dmft_bath)
-       endif
-       !
-       do l=1,totNorb
-          iorb=getIorb(l)
-          jorb=getJorb(l)
-          fgand(l,i)=gwf(iorb,jorb)
-       enddo
-       !
-    enddo
+    integer                                :: i,j,l,m,iorb,jorb,ispin,jspin
+    real(8)                                :: w
+    complex(8),dimension(Norb,Norb,Ldelta) :: fgand
+    if(cg_scheme=='weiss')then
+       fgand(:,:,:) = g0and_bath_mats(ispin,ispin,xi*Xdelta(:),dmft_bath)
+    else
+       fgand(:,:,:) = delta_bath_mats(ispin,ispin,xi*Xdelta(:),dmft_bath)
+    endif
     !
     do l=1,totNorb
        iorb=getIorb(l)
@@ -222,8 +187,9 @@ contains
        unit=free_unit()
        open(unit,file="fit_delta"//reg(suffix)//".ed")
        do i=1,Ldelta
-          write(unit,"(5F24.15)")Xdelta(i),dimag(Gdelta(l,i)),dimag(fgand(l,i)),&
-               dreal(Gdelta(l,i)),dreal(fgand(l,i))
+          write(unit,"(5F24.15)")Xdelta(i),&
+               dimag(Gdelta(l,i)),dimag(fgand(iorb,jorb,i)),&
+               dreal(Gdelta(l,i)),dreal(fgand(iorb,jorb,i))
        enddo
        close(unit)
     enddo
@@ -244,17 +210,18 @@ end subroutine chi2_fitgf_hybrid_normal
 !PURPOSE: Evaluate the \chi^2 distance of \Delta_Anderson function.
 !+-------------------------------------------------------------+
 function chi2_delta_hybrid_normal(a) result(chi2)
-  real(8),dimension(:)         :: a
-  real(8)                      :: chi2
-  real(8),dimension(totNorb)   :: chi2_orb
-  complex(8),dimension(Ldelta) :: Delta
-  integer                      :: i,l,iorb,jorb
+  real(8),dimension(:)                   :: a
+  real(8)                                :: chi2
+  real(8),dimension(totNorb)             :: chi2_orb
+  complex(8),dimension(Norb,Norb,Ldelta) :: Delta
+  integer                                :: i,l,iorb,jorb
+  !
+  Delta = delta_hybrid_normal(a)
   !
   do l=1,totNorb
      iorb=getIorb(l)
      jorb=getJorb(l)
-     Delta = delta_hybrid_normal(iorb,jorb,a)
-     chi2_orb(l) = sum(abs(Gdelta(l,:)-Delta(:))**2/Wdelta(:))
+     chi2_orb(l) = sum(abs(Gdelta(l,:)-Delta(iorb,jorb,:))**2/Wdelta(:))
   enddo
   !
   chi2=sum(chi2_orb)
@@ -266,23 +233,24 @@ end function chi2_delta_hybrid_normal
 ! \Delta_Anderson function.
 !+-------------------------------------------------------------+
 function grad_chi2_delta_hybrid_normal(a) result(dchi2)
-  real(8),dimension(:)                 :: a
-  real(8),dimension(size(a))           :: dchi2
-  real(8),dimension(totNorb,size(a))   :: df
-  complex(8),dimension(Ldelta)         :: Delta
-  complex(8),dimension(Ldelta,size(a)) :: dDelta
-  integer                              :: i,j,l,iorb,jorb
+  real(8),dimension(:)                           :: a
+  real(8),dimension(size(a))                     :: dchi2
+  real(8),dimension(totNorb,size(a))             :: df
+  complex(8),dimension(Norb,Norb,Ldelta)         :: Delta
+  complex(8),dimension(Norb,Norb,Ldelta,size(a)) :: dDelta
+  integer                                        :: i,j,l,iorb,jorb
+  !
+  Delta  = delta_hybrid_normal(a)
+  dDelta = grad_delta_hybrid_normal(a)
   !
   do l=1,totNorb
      iorb=getIorb(l)
      jorb=getJorb(l)
-     Delta  = delta_hybrid_normal(iorb,jorb,a)
-     dDelta = grad_delta_hybrid_normal(iorb,jorb,a)
      !
      do j=1,size(a)
         df(l,j)=&
-             sum( dreal(Gdelta(l,:)-Delta(:))*dreal(dDelta(:,j))/Wdelta(:) ) + &
-             sum( dimag(Gdelta(l,:)-Delta(:))*dimag(dDelta(:,j))/Wdelta(:) )
+             sum( dreal(Gdelta(l,:)-Delta(iorb,jorb,:))*dreal(dDelta(iorb,jorb,:,j))/Wdelta(:) ) + &
+             sum( dimag(Gdelta(l,:)-Delta(iorb,jorb,:))*dimag(dDelta(iorb,jorb,:,j))/Wdelta(:) )
      enddo
   enddo
   !
@@ -326,13 +294,13 @@ end function chi2_weiss_hybrid_normal
 ! - g0
 ! FUNCTIONS. 
 !##################################################################
-function delta_hybrid_normal(iorb,jorb,a) result(Delta)
-  integer                       :: iorb,jorb
-  real(8),dimension(:)          :: a
-  complex(8),dimension(Ldelta)  :: Delta
-  integer                       :: i,io,l,stride
-  real(8),dimension(Nbath)      :: eps
-  real(8),dimension(Norb,Nbath) :: vops
+function delta_hybrid_normal(a) result(Delta)
+  real(8),dimension(:)                   :: a
+  complex(8),dimension(Norb,Norb,Ldelta) :: Delta
+  integer                                :: iorb,jorb
+  integer                                :: i,io,l,stride
+  real(8),dimension(Nbath)               :: eps
+  real(8),dimension(Norb,Nbath)          :: vops
   !
   !\Delta_{ab} = \sum_k [ V_{a}(k) * V_{b}(k)/(iw_n - E(k)) ]
   !
@@ -350,19 +318,25 @@ function delta_hybrid_normal(iorb,jorb,a) result(Delta)
   enddo
   !
   do i=1,Ldelta
-     Delta(i) = sum( vops(iorb,:)*vops(jorb,:)/(xi*Xdelta(i) - eps(:)) )
+     do iorb=1,Norb
+        Delta(iorb,iorb,i) = sum( vops(iorb,:)*vops(iorb,:)/(xi*Xdelta(i) - eps(:)) )
+        do jorb=iorb+1,Norb
+           Delta(iorb,jorb,i) = sum( vops(iorb,:)*vops(jorb,:)/(xi*Xdelta(i) - eps(:)) )
+           Delta(jorb,iorb,i) = sum( vops(jorb,:)*vops(iorb,:)/(xi*Xdelta(i) - eps(:)) )
+        enddo
+     enddo
   enddo
   !
 end function delta_hybrid_normal
 
-function grad_delta_hybrid_normal(iorb,jorb,a) result(dDelta)
-  integer                              :: iorb,jorb
-  real(8),dimension(:)                 :: a
-  complex(8),dimension(Ldelta,size(a)) :: dDelta
-  integer                              :: i,k,ik,l,io,stride
-  real(8),dimension(Nbath)             :: eps
-  real(8),dimension(Norb,Nbath)        :: vops
-  real(8),dimension(Norb,Norb)         :: delta_orb
+function grad_delta_hybrid_normal(a) result(dDelta)
+  real(8),dimension(:)                           :: a
+  complex(8),dimension(Norb,Norb,Ldelta,size(a)) :: dDelta
+  integer                                        :: iorb,jorb
+  integer                                        :: i,k,ik,l,io,stride
+  real(8),dimension(Nbath)                       :: eps
+  real(8),dimension(Norb,Nbath)                  :: vops
+  real(8),dimension(Norb,Norb)                   :: delta_orb
   !
   !\grad_{E_{1}(k)} \Delta_{ab} = [ V_{a}(k)*V_{b}(k) / ( iw_n - E_{1}(k) )**2 ]
   !
@@ -383,56 +357,39 @@ function grad_delta_hybrid_normal(iorb,jorb,a) result(dDelta)
   !
   delta_orb = eye(Norb)
   !
-  stride = 0
-  do k=1,Nbath
-     ik = stride + k
-     dDelta(:,ik) = vops(iorb,k)*vops(jorb,k)/(xi*Xdelta(:) - eps(k))**2
-  enddo
-  stride = Nbath
-  do l=1,Norb
-     do k=1,Nbath
-        ik = stride + k + (l-1)*Nbath
-        dDelta(:,ik) = (delta_orb(l,iorb)*vops(jorb,k) + delta_orb(l,jorb)*vops(iorb,k))/(xi*Xdelta(:) - eps(k))
+  do iorb=1,Norb
+     do jorb=1,Norb
+        stride = 0
+        do k=1,Nbath
+           ik = stride + k
+           dDelta(iorb,jorb,:,ik) = vops(iorb,k)*vops(jorb,k)/(xi*Xdelta(:) - eps(k))**2
+        enddo
+        stride = Nbath
+        do l=1,Norb
+           do k=1,Nbath
+              ik = stride + k + (l-1)*Nbath
+              dDelta(iorb,jorb,:,ik) = (delta_orb(l,iorb)*vops(jorb,k) + delta_orb(l,jorb)*vops(iorb,k))/(xi*Xdelta(:) - eps(k))
+           enddo
+        enddo
      enddo
   enddo
   !
 end function grad_delta_hybrid_normal
 
 function g0and_hybrid_normal(a) result(G0and)
-  integer                                :: iorb,jorb
   real(8),dimension(:)                   :: a
-  complex(8),dimension(Norb,Norb,Ldelta) :: G0and
-  complex(8),dimension(Norb,Norb)        :: zeta,fgorb,delta
-  integer                                :: i,io,l,m,stride,ispin
-  real(8),dimension(Nbath)               :: eps
-  real(8),dimension(Norb,Nbath)          :: vops
+  complex(8),dimension(Norb,Norb,Ldelta) :: G0and,Delta
+  complex(8),dimension(Norb,Norb)        :: zeta,fgorb
+  integer                                :: i,ispin
   !
   ispin  = Spin_indx
   !
-  stride = 0
-  do i=1,Nbath
-     io = stride + i
-     eps(i)    = a(io)
-  enddo
-  stride = Nbath
-  do l=1,Norb
-     do i=1,Nbath
-        io = stride + i + (l-1)*Nbath
-        vops(l,i) = a(io)
-     enddo
-  enddo
+  Delta = delta_hybrid_normal(a)
   !
   do i=1,Ldelta
      fgorb=zero
      zeta = (xi*Xdelta(i)+xmu)*eye(Norb)
-     do l=1,Norb
-        Delta(l,l) = sum( vops(l,:)*vops(l,:)/(xi*Xdelta(i) - eps(:)) )
-        do m=l+1,Norb
-           Delta(l,m) = sum( vops(l,:)*vops(m,:)/(xi*Xdelta(i) - eps(:)) )
-           Delta(m,l) = sum( vops(m,:)*vops(l,:)/(xi*Xdelta(i) - eps(:)) )
-        enddo
-     enddo
-     fgorb(:,:) = zeta(:,:) - impHloc(ispin,ispin,:,:) - Delta(:,:)
+     fgorb(:,:)   = zeta(:,:) - impHloc(ispin,ispin,:,:) - Delta(:,:,i)
      call inv(fgorb)
      G0and(:,:,i) = fgorb
   enddo

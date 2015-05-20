@@ -40,8 +40,8 @@ MODULE ED_CHI2FIT
   complex(8),dimension(:,:),allocatable :: Gdelta
   complex(8),dimension(:,:),allocatable :: Fdelta
   real(8),dimension(:),allocatable      :: Xdelta,Wdelta
-  integer                               :: totNorb
-  integer,dimension(:),allocatable      :: getIorb,getJorb
+  integer                               :: totNorb,totNspin,totNso
+  integer,dimension(:),allocatable      :: getIorb,getJorb,getIspin,getJspin
   integer                               :: Orb_indx,Spin_indx
   type(effective_bath)                  :: chi2_bath
 
@@ -85,22 +85,43 @@ contains
     !
     select case(bath_type)
     case default
+       !
        select case(ed_mode)
-       case default
+       case ("normal")
+          !
           call chi2_fitgf_normal_normal(fg(ispin_,ispin_,:,:,:),bath,ispin_)
           !
-       case ("superc")
-          stop "chi2_fitgf ERROR: ed_mode=superc but only NORMAL component is provided"
+       case ("nonsu2")
+          !
+          if(present(ispin))then
+             write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=nonsu2 but only ONE spin orientation required. disregarded"
+             call sleep(1)
+          endif
+          call chi2_fitgf_normal_nonsu2(fg(:,:,:,:,:),bath)
+          !
+       case default
+          !
+          stop "chi2_fitgf ERROR: ed_mode!=normal/nonsu2 but only NORMAL component is provided"
           !
        end select
        !
     case ("hybrid")
        select case(ed_mode)
-       case default
+       case ("normal")
+          !
           call chi2_fitgf_hybrid_normal(fg(ispin_,ispin_,:,:,:),bath,ispin_)
           !
-       case ("superc")
-          stop "chi2_fitgf ERROR: ed_mode=superc but only NORMAL component is provided"
+       case ("nonsu2")
+          !
+          if(present(ispin))then
+             write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=nonsu2 but only ONE spin orientation required. disregarded"
+             call sleep(1)
+          endif
+          call chi2_fitgf_hybrid_nonsu2(fg(:,:,:,:,:),bath)
+          !
+       case default
+          !
+          stop "chi2_fitgf ERROR: ed_mode!=normal/nonsu2 but only NORMAL component is provided"
           !
        end select
     end select
@@ -111,6 +132,7 @@ contains
     !marks the ends of the cycle of the 1st DMFT loop.
     trim_state_list=.true.
   end subroutine chi2_fitgf_generic_normal
+
 
   !SUPERC:
   subroutine chi2_fitgf_generic_superc(fg,bath,ispin)
@@ -139,22 +161,25 @@ contains
     select case(bath_type)
     case default
        select case(ed_mode)
-       case default
-          stop "chi2_fitgf ERROR: ed_mode=normal but NORMAL & ANOMAL components provided. Fitting only the NORMAL."
-          !
        case ("superc")
+          !
           call chi2_fitgf_normal_superc(fg(:,ispin_,ispin_,:,:,:),bath,ispin_)
+          !
+       case default
+          !
+          stop "chi2_fitgf ERROR: ed_mode=normal/nonsu2 but NORMAL & ANOMAL components provided."
           !
        end select
        !
     case ("hybrid")
        select case(ed_mode)
-       case default
-          stop "chi2_fitgf ERROR: ed_mode=normal but NORMAL & ANOMAL components provided. Fitting only the NORMAL."
-          !
        case ("superc")
-          stop "chi2_fitgf ERROR: ed_mode=superc and bath_type=hybrid is not yet implemented."
-          stop 'Error: Hybrid bath + SC is not implemented yet: ask the developer...'
+          !
+          call chi2_fitgf_hybrid_superc(fg(:,ispin_,ispin_,:,:,:),bath,ispin_)
+          !
+       case default
+          !
+          stop "chi2_fitgf ERROR: ed_mode=normal/nonsu2 but NORMAL & ANOMAL components provided. Fitting only the NORMAL."
           !
        end select
     end select
@@ -165,6 +190,9 @@ contains
     !marks the ends of the cycle of the 1st DMFT loop.
     trim_state_list=.true.
   end subroutine chi2_fitgf_generic_superc
+
+
+
 
 
   !ADDITIONAL INTERFACES:
@@ -205,16 +233,15 @@ contains
   !normal ED_bath
   include "ed_chi2_fitgf_normal_normal.f90"
   include "ed_chi2_fitgf_normal_superc.f90"
+  include "ed_chi2_fitgf_normal_nonsu2.f90"
 
   !hybrid ED_bath
   include "ed_chi2_fitgf_hybrid_normal.f90"  
   include "ed_chi2_fitgf_hybrid_superc.f90"  
+  include "ed_chi2_fitgf_hybrid_nonsu2.f90"  
   !*****************************************************************************
   !*****************************************************************************
   !*****************************************************************************
   !*****************************************************************************
-
-
-
 
 end MODULE ED_CHI2FIT
