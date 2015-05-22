@@ -2,6 +2,7 @@
 ##$ use mpif90 for parallel compiler
 FC=mpif90
 
+
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
