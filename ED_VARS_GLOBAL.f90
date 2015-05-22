@@ -43,6 +43,7 @@ MODULE ED_VARS_GLOBAL
   integer,allocatable,dimension(:)            :: getdim
   integer,allocatable,dimension(:)            :: getNup,getNdw
   integer,allocatable,dimension(:)            :: getSz
+  integer,allocatable,dimension(:)            :: getN
   logical,allocatable,dimension(:)            :: twin_mask
 
   !Effective Bath used in the ED code (this is opaque to user)

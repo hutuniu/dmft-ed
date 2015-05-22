@@ -27,7 +27,7 @@ EXE=ed_hm_bethe
 #INHOMO
 #EXE=ed_ahm_disorder
 #EXE=ed_hm_slab_hyb
-EXE=ed_ahm_stripe
+#EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
 

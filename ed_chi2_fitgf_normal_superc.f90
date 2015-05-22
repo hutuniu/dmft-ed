@@ -41,7 +41,7 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
   allocate(Xdelta(Ldelta))
   allocate(Wdelta(Ldelta))
   !
-  Xdelta = pi/beta*(2*arange(1,Ldelta)-1)
+  Xdelta = pi/beta*dble(2*arange(1,Ldelta)-1)
   !
   select case(Cg_weight)
   case default
@@ -93,22 +93,11 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
      case default
         select case (cg_scheme)
         case ("weiss")
-           call fmin_cg(array_bath,&
-                chi2_weiss_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol  ,&
-                istop=cg_stop ,&
-                eps=cg_eps)
+           call fmin_cg(array_bath,chi2_weiss_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
         case ("delta")
-           call fmin_cg(array_bath,&
-                chi2_delta_normal_superc,&
-                grad_chi2_delta_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol  ,&
-                istop=cg_stop ,&
-                eps=cg_eps)
+           call fmin_cg(array_bath,chi2_delta_normal_superc,grad_chi2_delta_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
         case default
            stop "chi2_fitgf_normal_superc error: cg_scheme != [weiss,delta]"
         end select
@@ -116,17 +105,11 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
      case (1)
         select case (cg_scheme)
         case ("weiss")
-           call fmin_cgminimize(array_bath,&
-                chi2_weiss_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgminimize(array_bath,chi2_weiss_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case ("delta")
-           call fmin_cgminimize(array_bath,&
-                chi2_delta_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgminimize(array_bath,chi2_delta_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case default
            stop "chi2_fitgf_normal_superc error: cg_scheme != [weiss,delta]"
         end select
@@ -134,18 +117,11 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
      case (2)
         select case (cg_scheme)
         case ("weiss")
-           call fmin_cgplus(array_bath,&
-                chi2_weiss_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgplus(array_bath,chi2_weiss_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case ("delta")
-           call fmin_cgplus(array_bath,&
-                chi2_delta_normal_superc,&
-                grad_chi2_delta_normal_superc,&
-                iter,chi,&
-                itmax=cg_niter,&
-                ftol=cg_Ftol)
+           call fmin_cgplus(array_bath,chi2_delta_normal_superc,grad_chi2_delta_normal_superc,&
+                iter,chi,itmax=cg_niter,ftol=cg_Ftol)
         case default
            stop "chi2_fitgf_normal_superc error: cg_scheme != [weiss,delta]"
         end select
@@ -193,29 +169,33 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
 contains
   !
   subroutine write_fit_result(ispin)
-    complex(8)        :: fgand(2),det
-    integer           :: i,j,iorb,ispin
+    complex(8)        :: fgand(2,Ldelta)
+    integer           :: i,j,iorb,ispin,gunit,funit
     real(8)           :: w
     do iorb=1,Norb
-       suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
+       !
        Gdelta(1,1:Ldelta) = fg(1,iorb,iorb,1:Ldelta)
        Fdelta(1,1:Ldelta) = fg(2,iorb,iorb,1:Ldelta)
-       fgand=zero
-       unit=free_unit()
-       open(unit,file="fit_delta"//reg(suffix)//".ed")
+       !
+       if(cg_scheme=='weiss')then
+          fgand(1,:) = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*Xdelta(:),dmft_bath)
+          fgand(2,:) = f0and_bath_mats(ispin,ispin,iorb,iorb,xi*Xdelta(:),dmft_bath)
+       else
+          fgand(1,:) = delta_bath_mats(ispin,ispin,iorb,iorb,xi*Xdelta(:),dmft_bath)
+          fgand(2,:) = fdelta_bath_mats(ispin,ispin,iorb,iorb,xi*Xdelta(:),dmft_bath)
+       endif
+       !
+       suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
+       gunit=free_unit()
+       open(gunit,file="fit_delta"//reg(suffix)//".ed")
+       funit=free_unit()
+       open(funit,file="fit_fdelta"//reg(suffix)//".ed")
        do i=1,Ldelta
-          w = Xdelta(i)
-          if(cg_scheme=='weiss')then
-             fgand(1) = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-             fgand(2) = f0and_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-          else
-             fgand(1) = delta_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-             fgand(2) = fdelta_bath_mats(ispin,ispin,iorb,iorb,xi*w,dmft_bath)
-          endif
-          write(unit,"(10F24.15)")Xdelta(i),dimag(Gdelta(1,i)),dimag(fgand(1)),dreal(Gdelta(1,i)),dreal(fgand(1)), &
-               dimag(Fdelta(1,i)),dimag(fgand(2)),dreal(Fdelta(1,i)),dreal(fgand(2))
+          write(gunit,"(10F24.15)")Xdelta(i),dimag(Gdelta(1,i)),dimag(fgand(1,i)),dreal(Gdelta(1,i)),dreal(fgand(1,i))
+          write(funit,"(10F24.15)")Xdelta(i),dimag(Fdelta(1,i)),dimag(fgand(2,i)),dreal(Fdelta(1,i)),dreal(fgand(2,i))
        enddo
-       close(unit)
+       close(gunit)
+       close(funit)
     enddo
   end subroutine write_fit_result
 end subroutine chi2_fitgf_normal_superc
@@ -226,9 +206,69 @@ end subroutine chi2_fitgf_normal_superc
 
 
 
-!##################################################################
-! THESE PROCEDURES EVALUATES THE \chi^2 FUNCTIONS TO MINIMIZE. 
-!##################################################################
+!+-------------------------------------------------------------+
+!PURPOSE: Evaluate the \chi^2 distance of G_0 function 
+!         in the SUPERCONDUCTING case.
+! The gradient is not evaluated.
+! NORMAL bath.
+! SPIN & ORBITAL DIAGONAL
+!+-------------------------------------------------------------+
+function chi2_weiss_normal_superc(a) result(chi2)
+  real(8),dimension(:)           ::  a
+  complex(8),dimension(2,Ldelta) ::  g0
+  real(8)                        ::  chi2
+  integer                        ::  i
+  do i=1,Ldelta
+     g0(:,i)   = fg_weiss_irred_sc(xdelta(i),a)
+  enddo
+  chi2 =        sum(abs(Gdelta(1,:)-g0(1,:))**2/Wdelta(:))
+  chi2 = chi2 + sum(abs(Fdelta(1,:)-g0(2,:))**2/Wdelta(:))
+end function chi2_weiss_normal_superc
+
+! the \Delta_Anderson function used in \chi^2 and d\chi^2
+! \Delta = \sum_l V_l^2/(iw-e_l)
+!+-------------------------------------------------------------+
+function fg_delta_irred_sc(w,a) result(gg)
+  real(8)                      :: w
+  real(8),dimension(:)         :: a
+  real(8),dimension(size(a)/3) :: eps,vps,dps
+  complex(8)                   :: gg(2),delta(2),x
+  integer                      :: i,Nb
+  Nb=size(a)/3
+  eps=a(1:Nb)
+  dps=a(Nb+1:2*Nb)
+  vps=a(2*Nb+1:3*Nb)
+  gg = zero
+  x = xi*w
+  gg(1) = -sum(vps(:)**2*(x+eps(:))/(dimag(x)**2+eps(:)**2+dps(:)**2))
+  gg(2) =  sum(dps(:)*vps(:)**2/(dimag(x)**2+eps(:)**2+dps(:)**2))
+end function fg_delta_irred_sc
+
+! the non interacting GF (~ inverse weiss field) 
+!+-------------------------------------------------------------+
+function fg_weiss_irred_sc(w,a) result(gg)
+  real(8)                      :: w
+  real(8),dimension(:)         :: a
+  complex(8)                   :: gg(2),g0(2),delta(2),det
+  integer                      :: i,iorb,ispin
+  ispin = Spin_indx
+  iorb  = Orb_indx
+  delta = fg_delta_irred_sc(w,a)
+  g0(1) = xi*w + xmu - impHloc(ispin,ispin,iorb,iorb) - delta(1)
+  g0(2) = -delta(2)
+  det   = abs(g0(1))**2 + (g0(2))**2
+  gg(1) = conjg(g0(1))/det
+  gg(2) = g0(2)/det
+end function fg_weiss_irred_sc
+
+
+
+
+
+
+! !##################################################################
+! ! THESE PROCEDURES EVALUATES THE \chi^2 FUNCTIONS TO MINIMIZE. 
+! !##################################################################
 !+-------------------------------------------------------------+
 !PURPOSE: Evaluate the \chi^2 distance of \Delta_Anderson function 
 !         in the SUPERCONDUCTING case.
@@ -237,11 +277,10 @@ function chi2_delta_normal_superc(a) result(chi2)
   real(8),dimension(:)           ::  a
   real(8)                        ::  chi2
   complex(8),dimension(2,Ldelta) ::  Delta
-  integer                        ::  i
   !
   Delta(:,:) = delta_normal_superc(a)
   !
-  chi2=sum( abs(Gdelta(1,:)-Delta(1,:))**2/Wdelta(:) ) + sum( abs(Fdelta(1,:)-Delta(2,:))**2/Wdelta(:) )
+  chi2 = sum( abs(Gdelta(1,:)-Delta(1,:))**2/Wdelta(:) ) + sum( abs(Fdelta(1,:)-Delta(2,:))**2/Wdelta(:) )
   !
 end function chi2_delta_normal_superc
 
@@ -255,7 +294,7 @@ function grad_chi2_delta_normal_superc(a) result(dchi2)
   real(8),dimension(size(a))             ::  df
   complex(8),dimension(2,Ldelta)         ::  Delta
   complex(8),dimension(2,Ldelta,size(a)) ::  dDelta
-  integer                                ::  i,j
+  integer                                ::  j
   !
   Delta(:,:)    = delta_normal_superc(a)
   dDelta(:,:,:) = grad_delta_normal_superc(a)
@@ -272,21 +311,22 @@ function grad_chi2_delta_normal_superc(a) result(dchi2)
   !
 end function grad_chi2_delta_normal_superc
 
-!+-------------------------------------------------------------+
-!PURPOSE: Evaluate the \chi^2 distance for G_0 function 
-!         in the SUPERCONDUCTING case.
-!+-------------------------------------------------------------+
-function chi2_weiss_normal_superc(a) result(chi2)
-  real(8),dimension(:)           ::  a
-  complex(8),dimension(2,Ldelta) ::  g0and
-  real(8)                        ::  chi2
-  !
-  g0and(:,:)  = g0and_normal_superc(a)
-  !
-  chi2 =        sum(abs(Gdelta(1,:)-g0and(1,:))**2/Wdelta(:))
-  chi2 = chi2 + sum(abs(Fdelta(1,:)-g0and(2,:))**2/Wdelta(:))
-  !
-end function chi2_weiss_normal_superc
+! !+-------------------------------------------------------------+
+! !PURPOSE: Evaluate the \chi^2 distance for G_0 function 
+! !         in the SUPERCONDUCTING case.
+! !+-------------------------------------------------------------+
+! function chi2_weiss_normal_superc(a) result(chi2)
+!   real(8),dimension(:)           ::  a
+!   complex(8),dimension(2,Ldelta) ::  g0and
+!   real(8)                        ::  chi2
+!   chi2=0d0
+!   !
+!   g0and(:,:)  = g0and_normal_superc(a)
+!   !
+!   chi2 =        sum(abs(Gdelta(1,:)-g0and(1,:))**2/Wdelta(:))
+!   chi2 = chi2 + sum(abs(Fdelta(1,:)-g0and(2,:))**2/Wdelta(:))
+!   !
+! end function chi2_weiss_normal_superc
 
 
 
@@ -415,7 +455,8 @@ end function grad_delta_normal_superc
 function g0and_normal_superc(a) result(G0and)
   real(8),dimension(:)            :: a
   complex(8),dimension(2,Ldelta)  :: G0and,Delta
-  complex(8),dimension(Ldelta)    :: fg,ff,det
+  real(8),dimension(Ldelta)       :: det
+  complex(8),dimension(Ldelta)    :: fg,ff
   integer                         :: iorb,ispin
   !
   iorb   = Orb_indx

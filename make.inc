@@ -2,6 +2,7 @@
 FC=mpif90
 PLAT=intel
 
+
 #PRECOMPILATION FLAG (leave blank for serial code)
 #this is the flag for the inequivalent parallelism [MPI_INEQ]
 FPP_INEQ=MPI_INEQ
@@ -25,6 +26,7 @@ endif
 #ARGS=-ldmftt -lscifor $(MKLARGS) -larpack -lparpack 
 #ELSE:
 ARGS=  -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas  -larpack -lparpack
+
 
 #REVISION SOFTWARE GIT:
 REV=$(shell git rev-parse HEAD)
