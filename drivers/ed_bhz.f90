@@ -22,8 +22,8 @@ program ed_bhz
   integer                :: iloop,Lk,Nso
   logical                :: converged
   !Bath:
-  integer                :: Nb(2)
-  real(8),allocatable    :: Bath(:,:),Bath_(:,:)
+  integer                :: Nb
+  real(8),allocatable    :: Bath(:),Bath_(:)
   !The local hybridization function:
   complex(8),allocatable :: Delta(:,:,:,:,:)
   complex(8),allocatable :: Smats(:,:,:,:,:),Sreal(:,:,:,:,:)
@@ -40,7 +40,8 @@ program ed_bhz
   character(len=32)      :: hkfile
   logical                :: spinsym,getak,getdeltaw,getpoles
   type(finter_type)      :: finter_func
-
+  !
+  real(8),dimension(2)   :: Eout
 #ifdef _MPI
   call MPI_INIT(ED_MPI_ERR)
   call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
@@ -96,8 +97,8 @@ program ed_bhz
 
   !Setup solver
   Nb=get_bath_size()
-  allocate(Bath(Nb(1),Nb(2)))
-  allocate(Bath_(Nb(1),Nb(2)))
+  allocate(Bath(Nb))
+  allocate(Bath_(Nb))
   call ed_init_solver(bath)
   call set_hloc(j2so(bhzHloc))
 
@@ -120,9 +121,9 @@ program ed_bhz
      !Fit the new bath, starting from the old bath + the supplied delta
      call ed_chi2_fitgf(delta(1,1,:,:,:),bath,ispin=1)
      if(.not.spinsym)then
-        call ed_chi2_fitgf(delta(2,2,:,:,:),bath(:,:),ispin=2)
+        call ed_chi2_fitgf(delta(2,2,:,:,:),bath,ispin=2)
      else
-        call spin_symmetrize_bath(bath(:,:))
+        call spin_symmetrize_bath(bath,save=.true.)
      endif
 
      !MIXING:
@@ -136,8 +137,8 @@ program ed_bhz
      if(ED_MPI_ID==0)call end_loop
   enddo
 
-  call ed_kinetic_energy(Hk,Wtk,Smats)
-
+  Eout = ed_kinetic_energy(Hk,Wtk,Smats)
+  print*,Eout
 
 #ifdef _MPI
   call MPI_FINALIZE(ED_MPI_ERR)
@@ -344,13 +345,13 @@ contains
        enddo
     endif
     deallocate(gloc)
-    !Get Kinetic Energy too
-    allocate(Smats(Nso,Nso,Lmats))
-    do i=1,Lmats
-       Smats(:,:,i)=so2j(impSmats(:,:,:,:,i),Nso)
-    enddo
-    call ed_kinetic_energy(Hk,wtk,Smats)
-    deallocate(Smats)
+    ! !Get Kinetic Energy too
+    ! allocate(Smats(Nso,Nso,Lmats))
+    ! do i=1,Lmats
+    !    Smats(:,:,i)=so2j(impSmats(:,:,:,:,i),Nso)
+    ! enddo
+    ! call ed_kinetic_energy(Hk,wtk,Smats)
+    ! deallocate(Smats)
   end subroutine get_delta
 
 

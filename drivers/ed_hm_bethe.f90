@@ -11,17 +11,17 @@ program lancED
   USE MPI
 #endif
   implicit none
-  integer                :: iloop,Nb(2)
+  integer                :: iloop,Nb
   logical                :: converged
   real(8)                :: wband,ts
   !Bath:
-  real(8),allocatable    :: Bath(:,:),Bath_(:,:)
+  real(8),allocatable    :: Bath(:),Bath_(:)
   !The local hybridization function:
   complex(8),allocatable :: Delta(:,:,:)
   character(len=16)      :: finput
   integer                :: M
-  real(8)                :: alpha,K,wmixing
-  real(8),allocatable    :: Hk(:),wt(:)
+  real(8)                :: alpha,K,wmixing,Eout(2)
+  real(8),allocatable    :: He(:),Wte(:)
   real(8),allocatable    :: Gtau(:)
 
 #ifdef _MPI
@@ -47,8 +47,8 @@ program lancED
 
   !setup solver
   Nb=get_bath_size()
-  allocate(bath(Nb(1),Nb(2)))
-  allocate(bath_(Nb(1),Nb(2)))
+  allocate(bath(Nb))
+  allocate(bath_(Nb))
   call ed_init_solver(bath)
 
   !DMFT loop
@@ -77,13 +77,9 @@ program lancED
      call end_loop
   enddo
 
-  ! K = get_energy(1000)
-  ! print*,K
-  ! call get_ed_energy(1000)
-
-  allocate(wt(500),Hk(500))
-  call bethe_lattice(wt,Hk,500,1.d0)
-  call ed_kinetic_energy(Hk,wt,impSmats(1,1,1,1,:))
+  ! allocate(Wte(500),He(500))
+  ! call bethe_lattice(Wte,He,500,1d0)
+  ! Eout = ed_kinetic_energy(one*He,Wte,impSmats(1,1,1,1,:))
 
 contains
 

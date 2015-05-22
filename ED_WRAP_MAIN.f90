@@ -159,18 +159,18 @@ contains
   ! PURPOSE: allocate and initialize lattice baths -+!
   !+-----------------------------------------------------------------------------+!
   subroutine ed_init_solver_lattice(bath)
-    real(8),dimension(:,:,:) :: bath
-    integer                  :: ilat,Nineq
-    logical                  :: check_dim
-    character(len=5)         :: tmp_suffix
+    real(8),dimension(:,:) :: bath ![Nlat][:]
+    integer                :: ilat,Nineq
+    logical                :: check_dim
+    character(len=5)       :: tmp_suffix
     Nineq = size(bath,1)
     if(Nineq > Nlat)stop "init_lattice_bath error: size[bath,1] > Nlat"
     do ilat=1,Nineq
-       check_dim = check_bath_dimension(bath(ilat,:,:))
+       check_dim = check_bath_dimension(bath(ilat,:))
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
        write(tmp_suffix,'(I4.4)') ilat
        ed_file_suffix="_site"//trim(tmp_suffix)
-       call ed_init_solver(bath(ilat,:,:))
+       call ed_init_solver(bath(ilat,:))
     end do
 #ifdef _MPI_INEQ
     call MPI_Barrier(MPI_COMM_WORLD,mpiERR)
@@ -185,13 +185,13 @@ contains
   ! lattice site using ED. 
   !-------------------------------------------------------------------------------------------
   subroutine ed_solve_impurity_sites_eloc(bath,Eloc,Uloc_ii,Ust_ii,Jh_ii)
-    real(8)                  :: bath(:,:,:)                                     ![Nlat][Nb(1)][Nb(2)==Nspin]
-    real(8),optional         :: Eloc(size(bath,1)*Norb*Nspin)                   !A compact version of Hloc_ilat
+    real(8)                  :: bath(:,:)                       ![Nlat][Nb]
+    real(8),optional         :: Eloc(size(bath,1)*Norb*Nspin)   !A compact version of Hloc_ilat
     real(8),optional         :: Uloc_ii(size(bath,1),Norb)
     real(8),optional         :: Ust_ii(size(bath,1))
     real(8),optional         :: Jh_ii(size(bath,1))
     !MPI 
-    real(8)                  :: bath_tmp(size(bath,2),size(bath,3))
+    real(8)                  :: bath_tmp(size(bath,2))
     complex(8)               :: Smats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)               :: Sreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
     complex(8)               :: SAmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
@@ -211,7 +211,9 @@ contains
     logical                  :: check_dim
     character(len=5)         :: tmp_suffix
     complex(8)               :: Hloc(Nspin,Nspin,Norb,Norb)
+    !
     Nsites=size(bath,1)
+    !
     !Allocate the local static observarbles global to the module
     !One can retrieve these values from suitable routines later on
     if(allocated(nii))deallocate(nii)
@@ -251,7 +253,7 @@ contains
     !
     !Check the dimensions of the bath are ok:
     do ilat=1+mpiID,Nsites,mpiSIZE
-       check_dim = check_bath_dimension(bath(ilat,:,:))
+       check_dim = check_bath_dimension(bath(ilat,:))
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
     end do
     Smatsii  = zero ; Smats_tmp  = zero
@@ -292,7 +294,7 @@ contains
        call set_Hloc(Hloc)
        !
        !Solve the impurity problem for the ilat-th site
-       call ed_solve(bath(ilat,:,:))
+       call ed_solve(bath(ilat,:))
        Smats_tmp(ilat,:,:,:,:,:)  = impSmats(:,:,:,:,:)
        Sreal_tmp(ilat,:,:,:,:,:)  = impSreal(:,:,:,:,:)
        SAmats_tmp(ilat,:,:,:,:,:) = impSAmats(:,:,:,:,:)
@@ -348,13 +350,13 @@ contains
   !-------------------------------- HLOC  -------------------------------------
   subroutine ed_solve_impurity_sites_hloc(bath,Hloc,Uloc_ii,Ust_ii,Jh_ii)
     !inputs
-    real(8)                  :: bath(:,:,:) ![Nlat][Nb(1)][Nb(2) ==Nspin]
+    real(8)                  :: bath(:,:) ![Nlat][Nb]
     complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
     real(8),optional         :: Uloc_ii(size(bath,1),Norb)
     real(8),optional         :: Ust_ii(size(bath,1))
     real(8),optional         :: Jh_ii(size(bath,1))
     !MPI  auxiliary vars
-    real(8)                  :: bath_tmp(size(bath,2),size(bath,3))
+    real(8)                  :: bath_tmp(size(bath,2))
     complex(8)               :: Smats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)               :: Sreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
     complex(8)               :: SAmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
@@ -375,8 +377,10 @@ contains
     integer                  :: Nb1,Nb2
     logical                  :: check_dim
     character(len=5)         :: tmp_suffix
+    !
     ! Check dimensions !
     Nsites=size(bath,1)
+    !
     !Allocate the local static observarbles global to the module
     !One can retrieve these values from suitable routines later on
     if(allocated(nii))deallocate(nii)
@@ -416,7 +420,7 @@ contains
     !
     !Check the dimensions of the bath are ok:
     do ilat=1+mpiID,Nsites,mpiSIZE
-       check_dim = check_bath_dimension(bath(ilat,:,:))
+       check_dim = check_bath_dimension(bath(ilat,:))
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
     end do
     Smatsii  = zero ; Smats_tmp  = zero
@@ -449,7 +453,7 @@ contains
        call set_Hloc(Hloc(ilat,:,:,:,:))
        ! 
        !Solve the impurity problem for the ilat-th site
-       call ed_solve(bath(ilat,:,:))
+       call ed_solve(bath(ilat,:))
        Smats_tmp(ilat,:,:,:,:,:)  = impSmats(:,:,:,:,:)
        Sreal_tmp(ilat,:,:,:,:,:)  = impSreal(:,:,:,:,:)
        SAmats_tmp(ilat,:,:,:,:,:) = impSAmats(:,:,:,:,:)

@@ -3,16 +3,16 @@ program ed_ahm_bethe
   USE DMFT_TOOLS
   USE DMFT_ED
   implicit none
-  integer                :: iloop,Nb(2),Lk
-  logical                :: converged
-  real(8)                :: wband,ts,wmixing
+  integer                          :: iloop,Nb,Lk
+  logical                          :: converged
+  real(8)                          :: wband,ts,wmixing
   !Bath:
-  real(8),allocatable    :: Bath(:,:),BathOld(:,:)
+  real(8),allocatable,dimension(:) :: Bath,BathOld
   !The local hybridization function:
-  complex(8),allocatable :: Delta(:,:,:,:)
-  character(len=16)      :: finput,fhloc
-  logical :: phsym,normal_bath
-  real(8),allocatable    :: Hk(:),wt(:)
+  complex(8),allocatable           :: Delta(:,:,:,:)
+  character(len=16)                :: finput,fhloc
+  logical                          :: phsym,normal_bath
+  real(8),allocatable              :: Hk(:),wt(:)
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.conf')
   call parse_input_variable(wmixing,"wmixing",finput,default=1.d0,comment="Mixing bath parameter")
@@ -28,10 +28,9 @@ program ed_ahm_bethe
 
   !setup solver
   Nb=get_bath_size()
-  allocate(bath(Nb(1),Nb(2)))
-  allocate(bathold(Nb(1),Nb(2)))
+  allocate(bath(Nb))
+  allocate(bathold(Nb))
   call ed_init_solver(bath)
-
 
   !DMFT loop
   iloop=0;converged=.false.
@@ -45,10 +44,11 @@ program ed_ahm_bethe
      !Get the Weiss field/Delta function to be fitted (user defined)
      call get_delta_bethe
 
+
      !Perform the SELF-CONSISTENCY by fitting the new bath
      call ed_chi2_fitgf(delta,bath,ispin=1)
-     if(phsym)call ph_symmetrize_bath(bath)
-     if(normal_bath)call enforce_normal_bath(bath)
+     if(phsym)call ph_symmetrize_bath(bath,save=.true.)
+     if(normal_bath)call enforce_normal_bath(bath,save=.true.)
 
      !MIXING:
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*BathOld

@@ -27,7 +27,7 @@ contains
     real(8),dimension(:,:),allocatable :: Hredux
     integer                            :: isector
     integer,dimension(:),allocatable   :: Hmap    !map of the Sector S to Hilbert space H
-    integer,dimension(Ntot)            :: ib
+    integer,dimension(Nlevels)         :: ib
     integer                            :: mpiQ,mpiR                
     integer                            :: dim,iup,idw
     integer                            :: i,j,m,ms,iorb,jorb,ispin,impi,ishift
@@ -71,7 +71,7 @@ contains
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
     !this part is identical between d_ and c_ codes.
-    include "ed_build_hamiltonian.f90"
+    include "ed_hamiltonian_build_h.f90"
     !-----------------------------------------------!
     !
     deallocate(Hmap)
@@ -99,7 +99,7 @@ contains
     complex(8),dimension(:,:),allocatable :: Hredux
     integer                               :: isector
     integer,dimension(:),allocatable      :: Hmap    !map of the Sector S to Hilbert space H
-    integer,dimension(Ntot)               :: ib
+    integer,dimension(Nlevels)            :: ib
     integer                               :: mpiQ,mpiR                
     integer                               :: dim,iup,idw
     integer                               :: i,j,m,ms,iorb,jorb,ispin,impi,ishift
@@ -146,7 +146,7 @@ contains
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
     !this part is identical between d_ and c_ codes.
-    include "ed_build_hamiltonian.f90"
+    include "ed_hamiltonian_build_h.f90"
     !-----------------------------------------------!
     !
     deallocate(Hmap)
