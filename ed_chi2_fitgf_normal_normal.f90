@@ -163,13 +163,14 @@ contains
     do iorb=1,Norb
        suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
        Gdelta(1,1:Ldelta) = fg(iorb,iorb,1:Ldelta)
+       unit=free_unit()
        if(cg_scheme=='weiss')then
+          open(unit,file="fit_weiss"//reg(suffix)//".ed")
           fgand = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*Xdelta(:),dmft_bath)
        else
+          open(unit,file="fit_delta"//reg(suffix)//".ed")
           fgand = delta_bath_mats(ispin,ispin,iorb,iorb,xi*Xdelta(:),dmft_bath)
        endif
-       unit=free_unit()
-       open(unit,file="fit_delta"//reg(suffix)//".ed")
        do i=1,Ldelta
           write(unit,"(5F24.15)")Xdelta(i),dimag(Gdelta(1,i)),dimag(fgand(i)),dreal(Gdelta(1,i)),dreal(fgand(i))
        enddo

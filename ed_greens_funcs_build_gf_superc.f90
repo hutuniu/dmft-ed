@@ -25,7 +25,7 @@ subroutine build_gf_superc()
      barGreal(                 iorb,:) = auxGreal(2,:)
      impFmats(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGmats(3,:)-auxGmats(1,:)-auxGmats(2,:))
      impFreal(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGreal(3,:)-auxGreal(1,:)-auxGreal(2,:))
-     ! UNCOMMENT THIS AND FOLLOING LINE MARKED WITH >ANOMAL TO USE THE MORE GENERAL ALGORITHM
+     ! UNCOMMENT THIS AND FOLLOWING LINES MARKED WITH >ANOMAL TO USE THE MORE GENERAL ALGORITHM
      ! FOR THE EVALUATION OF THE ANOMALOUS GF
      ! >ANOMAL
      ! impFmats(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGmats(3,:)-(one-xi)*auxGmats(1,:)-(one-xi)*auxGmats(2,:))

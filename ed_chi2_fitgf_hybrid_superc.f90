@@ -203,10 +203,17 @@ contains
        iorb=getIorb(l)
        jorb=getJorb(l)
        suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//reg(ed_file_suffix)
-       gunit=free_unit()
-       funit=free_unit()
-       open(gunit,file="fit_delta"//reg(suffix)//".ed")
-       open(funit,file="fit_fdelta"//reg(suffix)//".ed")
+       if(cg_scheme=='weiss')then
+          gunit=free_unit()
+          open(gunit,file="fit_weiss"//reg(suffix)//".ed")
+          funit=free_unit()
+          open(funit,file="fit_fweiss"//reg(suffix)//".ed")
+       else
+          gunit=free_unit()
+          open(gunit,file="fit_delta"//reg(suffix)//".ed")
+          funit=free_unit()
+          open(funit,file="fit_fdelta"//reg(suffix)//".ed")
+       endif
        do i=1,Ldelta
           write(gunit,"(10F24.15)")Xdelta(i),&
                dimag(Gdelta(l,i)),dimag(fgand(iorb,jorb,i)),&
@@ -215,7 +222,8 @@ contains
                dimag(Fdelta(l,i)),dimag(ffand(iorb,jorb,i)),&
                dreal(Fdelta(l,i)),dreal(ffand(iorb,jorb,i))
        enddo
-       close(unit)
+       close(gunit)
+       close(funit)
     enddo
   end subroutine write_fit_result
 end subroutine chi2_fitgf_hybrid_superc

@@ -105,6 +105,9 @@ contains
        call build_gf_superc()
        call get_sigma_superc()
        call print_gf_superc()
+       !<DEBUG 
+       !call get_sigma_print_gf_superc()
+       !>DEBUG
     case ("nonsu2")
        call build_gf_nonsu2()
        call get_sigma_nonsu2()
@@ -233,7 +236,6 @@ contains
     impG0real(:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),dmft_bath)
     !!
   end subroutine get_sigma_normal
-
 
 
 
@@ -943,6 +945,178 @@ contains
     tau(0:)= linspace(0.d0,beta,Ltau+1)
   end subroutine allocate_grids
 
+
+
+
+  ! !<DEBUG
+  ! !+------------------------------------------------------------------+
+  ! !PURPOSE  : Print Superconducting Green's functions
+  ! !+------------------------------------------------------------------+
+  ! subroutine get_sigma_print_gf_superc
+  !   integer                                        :: i,j,ispin,unit(12),iorb,jorb
+  !   complex(8)                                     :: iw
+  !   complex(8),allocatable,dimension(:)            :: det
+  !   complex(8),allocatable,dimension(:,:)          :: fg0,fg,sigma
+  !   complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats,impF0mats
+  !   complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real,impF0real
+  !   character(len=20)                              :: suffix
+  !   !
+  !   !Diagonal in both spin and orbital
+  !   !this is ensured by the special *per impurity" bath structure
+  !   !no intra-orbital hoopings
+  !   !THIS IS SUPERCONDUCTING CASE
+  !   allocate(fg0(2,Lmats),fg(2,Lmats),det(Lmats))
+  !   do ispin=1,Nspin
+  !      do iorb=1,Norb
+  !         det     =  abs(impGmats(ispin,ispin,iorb,iorb,:))**2 + (impFmats(ispin,ispin,iorb,iorb,:))**2
+  !         fg(1,:) =  conjg(impGmats(ispin,ispin,iorb,iorb,:))/det
+  !         fg(2,:) =  impFmats(ispin,ispin,iorb,iorb,:)/det
+  !         fg0(1,:) = xi*wm(:)+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_mats(ispin,ispin,iorb,iorb,xi*wm(:),dmft_bath)
+  !         fg0(2,:) = -fdelta_bath_mats(ispin,ispin,iorb,iorb,xi*wm(:),dmft_bath)
+  !         !
+  !         impSmats(ispin,ispin,iorb,iorb,:)= fg0(1,:) - fg(1,:)
+  !         impSAmats(ispin,ispin,iorb,iorb,:)= fg0(2,:) - fg(2,:)
+  !         det     =  abs(fg0(1,:))**2 + (fg0(2,:))**2
+  !         impG0mats(ispin,ispin,iorb,iorb,:) = conjg(fg0(1,:))/det
+  !         impF0mats(ispin,ispin,iorb,iorb,:) = fg0(2,:)/det
+  !      enddo
+  !   enddo
+  !   deallocate(fg0,fg,det)
+  !   allocate(fg0(2,Lreal),fg(2,Lreal),det(Lreal))
+  !   do ispin=1,Nspin
+  !      do iorb=1,Norb
+  !         do i=1,Lreal
+  !            iw=dcmplx(wr(i),eps)
+  !            !TESTS SHOWS THAT THIS VERSION GIVES THE SAME RESULTS AS THE UNCOMMENTED LINES
+  !            ! det(i)  = impGreal(ispin,ispin,iorb,iorb,i)*conjg(impGreal(ispin,ispin,iorb,iorb,Lreal+1-i)) + &
+  !            !      impFreal(ispin,ispin,iorb,iorb,i)*conjg(impFreal(ispin,ispin,iorb,iorb,Lreal+1-i))
+  !            ! fg(1,i) =  conjg(impGreal(ispin,ispin,iorb,iorb,Lreal+1-i))/det(i)
+  !            ! fg(2,i) =  conjg(impFreal(ispin,ispin,iorb,iorb,Lreal+1-i))/det(i)
+  !            det(i)  = -impGreal(ispin,ispin,iorb,iorb,i)*conjg(impGreal(ispin,ispin,iorb,iorb,Lreal+1-i)) - &
+  !                 impFreal(ispin,ispin,iorb,iorb,i)*impFreal(ispin,ispin,iorb,iorb,i)
+  !            fg(1,i) =  -conjg(impGreal(ispin,ispin,iorb,iorb,Lreal+1-i))/det(i)
+  !            fg(2,i) =  -impFreal(ispin,ispin,iorb,iorb,i)/det(i)
+  !         enddo
+  !         fg0(1,:) =  wr(:)+xmu-impHloc(ispin,ispin,iorb,iorb)-delta_bath_real(ispin,ispin,iorb,iorb,dcmplx(wr(:),eps),dmft_bath)
+  !         fg0(2,:) = -fdelta_bath_real(ispin,ispin,iorb,iorb,dcmplx(wr(:),eps),dmft_bath)
+  !         !
+  !         impSreal(ispin,ispin,iorb,iorb,:) = fg0(1,:) - fg(1,:)
+  !         impSAreal(ispin,ispin,iorb,iorb,:)= fg0(2,:) - fg(2,:)
+  !         do i=1,Lreal
+  !            det(i)     =  -fg0(1,i)*conjg(fg0(1,Lreal+1-i)) - fg0(2,i)*fg0(2,i)
+  !            impG0real(ispin,ispin,iorb,iorb,i) = -conjg(fg0(1,Lreal+1-i))/det(i)
+  !            impF0real(ispin,ispin,iorb,iorb,i) = -fg0(2,i)/det(i)
+  !         enddo
+  !      enddo
+  !   enddo
+  !   deallocate(fg0,fg,det)
+  !   !
+  !   if(ED_MPI_ID==0)then
+  !      do iorb=1,Norb
+  !         suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))
+  !         call open_units(reg(suffix))
+  !         if(ed_verbose<4)then
+  !            do i=1,Lmats
+  !               write(unit(1),"(F26.15,6(F26.15))")wm(i),&
+  !                    (dimag(impSmats(ispin,ispin,iorb,iorb,i)),dreal(impSmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !            do i=1,Lmats
+  !               write(unit(2),"(F26.15,6(F26.15))")wm(i),&
+  !                    (dimag(impSAmats(ispin,ispin,iorb,iorb,i)),dreal(impSAmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !            do i=1,Lreal
+  !               write(unit(3),"(F26.15,6(F26.15))")wr(i),&
+  !                    (dimag(impSreal(ispin,ispin,iorb,iorb,i)),dreal(impSreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !            do i=1,Lreal
+  !               write(unit(4),"(F26.15,6(F26.15))")wr(i),&
+  !                    (dimag(impSAreal(ispin,ispin,iorb,iorb,i)),dreal(impSAreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !         endif
+  !         if(ed_verbose<2)then
+  !            do i=1,Lmats
+  !               write(unit(5),"(F26.15,6(F26.15))")wm(i),&
+  !                    (dimag(impGmats(ispin,ispin,iorb,iorb,i)),dreal(impGmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !            do i=1,Lmats
+  !               write(unit(6),"(F26.15,6(F26.15))")wm(i),&
+  !                    (dimag(impFmats(ispin,ispin,iorb,iorb,i)),dreal(impFmats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !            do i=1,Lreal
+  !               write(unit(7),"(F26.15,6(F26.15))")wr(i),&
+  !                    (dimag(impGreal(ispin,ispin,iorb,iorb,i)),dreal(impGreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !            do i=1,Lreal
+  !               write(unit(8),"(F26.15,6(F26.15))")wr(i),&
+  !                    (dimag(impFreal(ispin,ispin,iorb,iorb,i)),dreal(impFreal(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !         endif
+  !         if(ed_verbose<1)then
+  !            do i=1,Lmats
+  !               write(unit(9),"(F26.15,6(F26.15))")wm(i),&
+  !                    (dimag(impG0mats(ispin,ispin,iorb,iorb,i)),dreal(impG0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !            do i=1,Lmats
+  !               write(unit(10),"(F26.15,6(F26.15))")wm(i),&
+  !                    (dimag(impF0mats(ispin,ispin,iorb,iorb,i)),dreal(impF0mats(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !            do i=1,Lreal
+  !               write(unit(11),"(F26.15,6(F26.15))")wr(i),&
+  !                    (dimag(impG0real(ispin,ispin,iorb,iorb,i)),dreal(impG0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !            do i=1,Lreal
+  !               write(unit(12),"(F26.15,6(F26.15))")wr(i),&
+  !                    (dimag(impF0real(ispin,ispin,iorb,iorb,i)),dreal(impF0real(ispin,ispin,iorb,iorb,i)),ispin=1,Nspin)
+  !            enddo
+  !         endif
+  !         call close_units
+  !      enddo
+  !   endif
+  ! contains
+  !   subroutine open_units(string)
+  !     character(len=*) :: string
+  !     unit=free_units(size(unit))
+  !     if(ed_verbose<4)then
+  !        open(unit(1),file="impSigma"//string//"_iw"//reg(ed_file_suffix)//".ed")
+  !        open(unit(2),file="impSelf"//string//"_iw"//reg(ed_file_suffix)//".ed")
+  !        open(unit(3),file="impSigma"//string//"_realw"//reg(ed_file_suffix)//".ed")
+  !        open(unit(4),file="impSelf"//string//"_realw"//reg(ed_file_suffix)//".ed")
+  !     endif
+  !     if(ed_verbose<2)then
+  !        open(unit(5),file="impG"//string//"_iw"//reg(ed_file_suffix)//".ed")
+  !        open(unit(6),file="impF"//string//"_iw"//reg(ed_file_suffix)//".ed")
+  !        open(unit(7),file="impG"//string//"_realw"//reg(ed_file_suffix)//".ed")
+  !        open(unit(8),file="impF"//string//"_realw"//reg(ed_file_suffix)//".ed")
+  !     endif
+  !     if(ed_verbose<1)then
+  !        open(unit(9),file="impG0"//string//"_iw"//reg(ed_file_suffix)//".ed")
+  !        open(unit(10),file="impF0"//string//"_iw"//reg(ed_file_suffix)//".ed")
+  !        open(unit(11),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
+  !        open(unit(12),file="impF0"//string//"_realw"//reg(ed_file_suffix)//".ed")
+  !     endif
+  !   end subroutine open_units
+  !   subroutine close_units()
+  !     if(ed_verbose<4)then
+  !        close(unit(1))
+  !        close(unit(2))
+  !        close(unit(3))
+  !        close(unit(4))
+  !     endif
+  !     if(ed_verbose<2)then
+  !        close(unit(5))
+  !        close(unit(6))
+  !        close(unit(7))
+  !        close(unit(8))
+  !     endif
+  !     if(ed_verbose<1)then
+  !        close(unit(9))
+  !        close(unit(10))
+  !        close(unit(11))
+  !        close(unit(12))
+  !     endif
+  !   end subroutine close_units
+  ! end subroutine get_sigma_print_gf_superc
+  ! !>DEBUG
 
 
 

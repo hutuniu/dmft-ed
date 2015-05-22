@@ -44,6 +44,7 @@ program ed_ahm_bethe
      !Get the Weiss field/Delta function to be fitted (user defined)
      call get_delta_bethe
 
+
      !Perform the SELF-CONSISTENCY by fitting the new bath
      call ed_chi2_fitgf(delta,bath,ispin=1)
      if(phsym)call ph_symmetrize_bath(bath,save=.true.)

@@ -12,7 +12,6 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
   complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: Delta
   integer                                             :: i,iorb,jorb,ispin,jspin,ih,k,L
   real(8),dimension(Nbath)                            :: eps,dps,vps
-  real(8),dimension(size(x),Nbath)                    :: den
   real(8),dimension(Norb,Nbath)                       :: vops
   real(8),dimension(Nspin,Nbath)                      :: hps
   real(8),dimension(Nspin,Nspin,Nbath)                :: wps
@@ -47,9 +46,8 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
               eps = dmft_bath_%e(ispin,iorb,1:Nbath)
               dps = dmft_bath_%d(ispin,iorb,1:Nbath)
               vps = dmft_bath_%v(ispin,iorb,1:Nbath)
-              forall(i=1:L,k=1:Nbath)den(i,k) = dimag(x(i))**2 + eps(k)**2 + dps(k)**2 !den(k) = w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
               do i=1,L
-                 Delta(ispin,ispin,iorb,iorb,i) = -sum( vps(:)*vps(:)*(x(i) + eps(:))/den(i,:) )
+                 Delta(ispin,ispin,iorb,iorb,i) = -sum( vps(:)*vps(:)*(x(i) + eps(:))/(dimag(x(i))**2 + eps(:)**2 + dps(:)**2) )
               enddo
            enddo
         enddo
@@ -94,10 +92,9 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
            eps  = dmft_bath_%e(ispin,1     ,1:Nbath)
            dps  = dmft_bath_%d(ispin,1     ,1:Nbath)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
-           forall(i=1:L,k=1:Nbath)den(i,k) = dimag(x(i))**2 + eps(k)**2 + dps(k)**2 ! den(k) = w_n**2 + E(k)**2 + \D(k)**2
            do iorb=1,Norb
               do jorb=1,Norb
-                 Delta(ispin,ispin,iorb,jorb,i) = -sum( vops(iorb,:)*vops(jorb,:)*(x(i) + eps(:))/den(i,:) )
+                 Delta(ispin,ispin,iorb,jorb,i) = -sum( vops(iorb,:)*vops(jorb,:)*(x(i) + eps(:))/(dimag(x(i))**2 + eps(:)**2 + dps(:)**2) )
               enddo
            enddo
         enddo
@@ -210,7 +207,6 @@ function fdelta_bath_mats_main(x,dmft_bath_) result(Fdelta)
   integer                                             :: iorb,ispin,jorb,jspin
   real(8),dimension(Norb,Norb)                        :: delta_orb
   real(8),dimension(Nbath)                            :: eps,dps,vps
-  real(8),dimension(size(x),Nbath)                    :: den
   real(8),dimension(Norb,Nbath)                       :: vops
   integer                                             :: i,k,L
   !
@@ -234,9 +230,8 @@ function fdelta_bath_mats_main(x,dmft_bath_) result(Fdelta)
               eps = dmft_bath_%e(ispin,iorb,1:Nbath)
               dps = dmft_bath_%d(ispin,iorb,1:Nbath)
               vps = dmft_bath_%v(ispin,iorb,1:Nbath)
-              forall(i=1:L,k=1:Nbath)den(i,k) = dimag(x(i))**2 + eps(k)**2 + dps(k)**2 ! Den(k) = w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
               do i=1,L
-                 Fdelta(ispin,ispin,iorb,iorb,i) = sum( dps(:)*vps(:)*vps(:)/den(i,:) )
+                 Fdelta(ispin,ispin,iorb,iorb,i) = sum( dps(:)*vps(:)*vps(:)/(dimag(x(i))**2 + eps(:)**2 + dps(:)**2) )
               enddo
            enddo
         enddo
@@ -256,11 +251,10 @@ function fdelta_bath_mats_main(x,dmft_bath_) result(Fdelta)
            eps  = dmft_bath_%e(ispin,1     ,1:Nbath)
            dps  = dmft_bath_%d(ispin,1     ,1:Nbath)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
-           forall(i=1:L,k=1:Nbath)den(i,k) = dimag(x(i))**2 + eps(k)**2 + dps(k)**2 ! Den(k) = w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
            do iorb=1,Norb
               do jorb=1,Norb
                  do i=1,L
-                    Fdelta(ispin,ispin,iorb,jorb,i) = -sum( dps(:)*vops(iorb,:)*vops(jorb,:)/den(i,:) )
+                    Fdelta(ispin,ispin,iorb,jorb,i) = -sum( dps(:)*vops(iorb,:)*vops(jorb,:)/(dimag(x(i))**2 + eps(:)**2 + dps(:)**2) )
                  enddo
               enddo
            enddo

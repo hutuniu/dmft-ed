@@ -174,18 +174,24 @@ contains
     integer                                :: i,j,l,m,iorb,jorb,ispin,jspin
     real(8)                                :: w
     complex(8),dimension(Norb,Norb,Ldelta) :: fgand
+
     if(cg_scheme=='weiss')then
        fgand(:,:,:) = g0and_bath_mats(ispin,ispin,xi*Xdelta(:),dmft_bath)
     else
        fgand(:,:,:) = delta_bath_mats(ispin,ispin,xi*Xdelta(:),dmft_bath)
     endif
     !
+
     do l=1,totNorb
        iorb=getIorb(l)
        jorb=getJorb(l)
        suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//reg(ed_file_suffix)
        unit=free_unit()
-       open(unit,file="fit_delta"//reg(suffix)//".ed")
+       if(cg_scheme=='weiss')then
+          open(unit,file="fit_weiss"//reg(suffix)//".ed")
+       else
+          open(unit,file="fit_delta"//reg(suffix)//".ed")
+       endif
        do i=1,Ldelta
           write(unit,"(5F24.15)")Xdelta(i),&
                dimag(Gdelta(l,i)),dimag(fgand(iorb,jorb,i)),&

@@ -210,7 +210,12 @@ contains
           jspin = getJspin(s)
           suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_r"//reg(txtfy(jspin))//reg(ed_file_suffix)
           unit=free_unit()
-          open(unit,file="fit_delta"//reg(suffix)//".ed")
+          if(cg_scheme=='weiss')then
+             open(unit,file="fit_weiss"//reg(suffix)//".ed")
+          else
+             open(unit,file="fit_delta"//reg(suffix)//".ed")
+          endif
+          !
           do i=1,Ldelta
              w = Xdelta(i)
              write(unit,"(5F24.15)")Xdelta(i),&
@@ -221,6 +226,7 @@ contains
        enddo
     enddo
   end subroutine write_fit_result
+  !
 end subroutine chi2_fitgf_normal_nonsu2
 
 

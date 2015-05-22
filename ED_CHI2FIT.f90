@@ -45,6 +45,7 @@ MODULE ED_CHI2FIT
   integer                               :: Orb_indx,Spin_indx
   type(effective_bath)                  :: chi2_bath
 
+
 contains
 
 

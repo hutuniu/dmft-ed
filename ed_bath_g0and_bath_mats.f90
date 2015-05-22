@@ -41,7 +41,7 @@ function g0and_bath_mats_main(x,dmft_bath_) result(G0and)
            do iorb=1,Norb
               fg(:)  = x(:) + xmu - impHloc(ispin,ispin,iorb,iorb) -  Delta(ispin,ispin,iorb,iorb,:)
               ff(:)  =                                             - Fdelta(ispin,ispin,iorb,iorb,:)
-              det(:) = abs(fg(:))**2 + ff(:)**2
+              det(:) = abs(fg(:))**2 + ff(:)*ff(:)
               G0and(ispin,ispin,iorb,iorb,:) = conjg(fg(:))/det(:)
            enddo
         enddo
@@ -266,7 +266,7 @@ function f0and_bath_mats_main(x,dmft_bath_) result(F0and)
            do iorb=1,Norb
               fg(:) = x(:) + xmu - impHloc(ispin,ispin,iorb,iorb) -  Delta(ispin,ispin,iorb,iorb,:)
               ff(:) =                                              - Fdelta(ispin,ispin,iorb,iorb,:)
-              det(:)= abs(fg(:))**2 + ff(:)**2
+              det(:)= abs(fg(:))**2 + ff(:)*ff(:)
               F0and(ispin,ispin,iorb,iorb,:) = ff(:)/det(:)
            enddo
         enddo

@@ -186,10 +186,17 @@ contains
        endif
        !
        suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
-       gunit=free_unit()
-       open(gunit,file="fit_delta"//reg(suffix)//".ed")
-       funit=free_unit()
-       open(funit,file="fit_fdelta"//reg(suffix)//".ed")
+       if(cg_scheme=='weiss')then
+          gunit=free_unit()
+          open(gunit,file="fit_weiss"//reg(suffix)//".ed")
+          funit=free_unit()
+          open(funit,file="fit_fweiss"//reg(suffix)//".ed")
+       else
+          gunit=free_unit()
+          open(gunit,file="fit_delta"//reg(suffix)//".ed")
+          funit=free_unit()
+          open(funit,file="fit_fdelta"//reg(suffix)//".ed")
+       endif
        do i=1,Ldelta
           write(gunit,"(10F24.15)")Xdelta(i),dimag(Gdelta(1,i)),dimag(fgand(1,i)),dreal(Gdelta(1,i)),dreal(fgand(1,i))
           write(funit,"(10F24.15)")Xdelta(i),dimag(Fdelta(1,i)),dimag(fgand(2,i)),dreal(Fdelta(1,i)),dreal(fgand(2,i))
@@ -200,66 +207,6 @@ contains
   end subroutine write_fit_result
 end subroutine chi2_fitgf_normal_superc
 
-
-
-
-
-
-
-!+-------------------------------------------------------------+
-!PURPOSE: Evaluate the \chi^2 distance of G_0 function 
-!         in the SUPERCONDUCTING case.
-! The gradient is not evaluated.
-! NORMAL bath.
-! SPIN & ORBITAL DIAGONAL
-!+-------------------------------------------------------------+
-function chi2_weiss_normal_superc(a) result(chi2)
-  real(8),dimension(:)           ::  a
-  complex(8),dimension(2,Ldelta) ::  g0
-  real(8)                        ::  chi2
-  integer                        ::  i
-  do i=1,Ldelta
-     g0(:,i)   = fg_weiss_irred_sc(xdelta(i),a)
-  enddo
-  chi2 =        sum(abs(Gdelta(1,:)-g0(1,:))**2/Wdelta(:))
-  chi2 = chi2 + sum(abs(Fdelta(1,:)-g0(2,:))**2/Wdelta(:))
-end function chi2_weiss_normal_superc
-
-! the \Delta_Anderson function used in \chi^2 and d\chi^2
-! \Delta = \sum_l V_l^2/(iw-e_l)
-!+-------------------------------------------------------------+
-function fg_delta_irred_sc(w,a) result(gg)
-  real(8)                      :: w
-  real(8),dimension(:)         :: a
-  real(8),dimension(size(a)/3) :: eps,vps,dps
-  complex(8)                   :: gg(2),delta(2),x
-  integer                      :: i,Nb
-  Nb=size(a)/3
-  eps=a(1:Nb)
-  dps=a(Nb+1:2*Nb)
-  vps=a(2*Nb+1:3*Nb)
-  gg = zero
-  x = xi*w
-  gg(1) = -sum(vps(:)**2*(x+eps(:))/(dimag(x)**2+eps(:)**2+dps(:)**2))
-  gg(2) =  sum(dps(:)*vps(:)**2/(dimag(x)**2+eps(:)**2+dps(:)**2))
-end function fg_delta_irred_sc
-
-! the non interacting GF (~ inverse weiss field) 
-!+-------------------------------------------------------------+
-function fg_weiss_irred_sc(w,a) result(gg)
-  real(8)                      :: w
-  real(8),dimension(:)         :: a
-  complex(8)                   :: gg(2),g0(2),delta(2),det
-  integer                      :: i,iorb,ispin
-  ispin = Spin_indx
-  iorb  = Orb_indx
-  delta = fg_delta_irred_sc(w,a)
-  g0(1) = xi*w + xmu - impHloc(ispin,ispin,iorb,iorb) - delta(1)
-  g0(2) = -delta(2)
-  det   = abs(g0(1))**2 + (g0(2))**2
-  gg(1) = conjg(g0(1))/det
-  gg(2) = g0(2)/det
-end function fg_weiss_irred_sc
 
 
 
@@ -311,22 +258,22 @@ function grad_chi2_delta_normal_superc(a) result(dchi2)
   !
 end function grad_chi2_delta_normal_superc
 
-! !+-------------------------------------------------------------+
-! !PURPOSE: Evaluate the \chi^2 distance for G_0 function 
-! !         in the SUPERCONDUCTING case.
-! !+-------------------------------------------------------------+
-! function chi2_weiss_normal_superc(a) result(chi2)
-!   real(8),dimension(:)           ::  a
-!   complex(8),dimension(2,Ldelta) ::  g0and
-!   real(8)                        ::  chi2
-!   chi2=0d0
-!   !
-!   g0and(:,:)  = g0and_normal_superc(a)
-!   !
-!   chi2 =        sum(abs(Gdelta(1,:)-g0and(1,:))**2/Wdelta(:))
-!   chi2 = chi2 + sum(abs(Fdelta(1,:)-g0and(2,:))**2/Wdelta(:))
-!   !
-! end function chi2_weiss_normal_superc
+!+-------------------------------------------------------------+
+!PURPOSE: Evaluate the \chi^2 distance for G_0 function 
+!         in the SUPERCONDUCTING case.
+!+-------------------------------------------------------------+
+function chi2_weiss_normal_superc(a) result(chi2)
+  real(8),dimension(:)           ::  a
+  complex(8),dimension(2,Ldelta) ::  g0and
+  real(8)                        ::  chi2
+  chi2=0d0
+  !
+  g0and(:,:)  = g0and_normal_superc(a)
+  !
+  chi2 =        sum(abs(Gdelta(1,:)-g0and(1,:))**2/Wdelta(:))
+  chi2 = chi2 + sum(abs(Fdelta(1,:)-g0and(2,:))**2/Wdelta(:))
+  !
+end function chi2_weiss_normal_superc
 
 
 
@@ -342,7 +289,6 @@ end function grad_chi2_delta_normal_superc
 ! - g0
 ! FUNCTIONS. 
 !##################################################################
-
 function delta_normal_superc(a) result(Delta)
   real(8),dimension(:)            :: a
   complex(8),dimension(2,Ldelta)  :: Delta
@@ -369,13 +315,11 @@ function delta_normal_superc(a) result(Delta)
   enddo
   !
   do i=1,Ldelta
-     Den(:)     =  Xdelta(i)**2 + eps(:)**2 + dps(:)**2
-     Delta(1,i) = -sum( vps(:)*vps(:)*( xi*Xdelta(i) + eps(:) )/den(:) )
-     Delta(2,i) =  sum( dps(:)*vps(:)*vps(:)/den(:) )
+     Delta(1,i) = -sum( vps(:)*vps(:)*( xi*Xdelta(i) + eps(:) )/(Xdelta(i)**2 + eps(:)**2 + dps(:)**2) )
+     Delta(2,i) =  sum( dps(:)*vps(:)*vps(:)/(Xdelta(i)**2 + eps(:)**2 + dps(:)**2) )
   enddo
   !
 end function delta_normal_superc
-
 
 function grad_delta_normal_superc(a) result(dDelta)
   real(8),dimension(:)                   :: a
@@ -471,3 +415,64 @@ function g0and_normal_superc(a) result(G0and)
   G0and(2,:) = ff(:)/det(:)
   !
 end function g0and_normal_superc
+
+
+! !<DEBUG 
+! !+-------------------------------------------------------------+
+! !PURPOSE: Evaluate the \chi^2 distance of G_0 function 
+! !         in the SUPERCONDUCTING case.
+! ! The gradient is not evaluated.
+! ! NORMAL bath.
+! ! SPIN & ORBITAL DIAGONAL
+! !+-------------------------------------------------------------+
+! function chi2_weiss_normal_superc(a) result(chi2)
+!   real(8),dimension(:)           ::  a
+!   complex(8),dimension(2,Ldelta) ::  g0
+!   real(8)                        ::  chi2
+!   integer                        ::  i
+!   do i=1,Ldelta
+!      g0(:,i)   = fg_weiss_irred_sc(xdelta(i),a)
+!   enddo
+!   chi2 =        sum(abs(Gdelta(1,:)-g0(1,:))**2/Wdelta(:))
+!   chi2 = chi2 + sum(abs(Fdelta(1,:)-g0(2,:))**2/Wdelta(:))
+! end function chi2_weiss_normal_superc
+! !
+! ! the \Delta_Anderson function used in \chi^2 and d\chi^2
+! ! \Delta = \sum_l V_l^2/(iw-e_l)
+! !+-------------------------------------------------------------+
+! function fg_delta_irred_sc(w,a) result(gg)
+!   real(8)                      :: w
+!   real(8),dimension(:)         :: a
+!   real(8),dimension(size(a)/3) :: eps,vps,dps
+!   complex(8)                   :: gg(2),delta(2),x
+!   integer                      :: i,Nb
+!   Nb=size(a)/3
+!   eps=a(1:Nb)
+!   dps=a(Nb+1:2*Nb)
+!   vps=a(2*Nb+1:3*Nb)
+!   gg = zero
+!   x = xi*w
+!   gg(1) = -sum(vps(:)**2*(x+eps(:))/(dimag(x)**2+eps(:)**2+dps(:)**2))
+!   gg(2) =  sum(dps(:)*vps(:)**2/(dimag(x)**2+eps(:)**2+dps(:)**2))
+! end function fg_delta_irred_sc
+! !
+! ! the non interacting GF (~ inverse weiss field) 
+! !+-------------------------------------------------------------+
+! function fg_weiss_irred_sc(w,a) result(gg)
+!   real(8)                      :: w
+!   real(8),dimension(:)         :: a
+!   complex(8)                   :: gg(2),g0(2),delta(2),det
+!   integer                      :: i,iorb,ispin
+!   ispin = Spin_indx
+!   iorb  = Orb_indx
+!   delta = fg_delta_irred_sc(w,a)
+!   g0(1) = xi*w + xmu - impHloc(ispin,ispin,iorb,iorb) - delta(1)
+!   g0(2) = -delta(2)
+!   det   = abs(g0(1))**2 + (g0(2))**2
+!   gg(1) = conjg(g0(1))/det
+!   gg(2) = g0(2)/det
+! end function fg_weiss_irred_sc
+! !>DEBUG
+
+
+
