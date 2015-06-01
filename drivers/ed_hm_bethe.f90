@@ -81,9 +81,9 @@ program lancED
   ! print*,K
   ! call get_ed_energy(1000)
 
-  allocate(wt(500),Hk(500))
-  call bethe_lattice(wt,Hk,500,1.d0)
-  call ed_kinetic_energy(Hk,wt,impSmats(1,1,1,1,:))
+  !allocate(wt(500),Hk(500))
+  !call bethe_lattice(wt,Hk,500,1.d0)
+  !call ed_kinetic_energy(Hk,wt,impSmats(1,1,1,1,:))
 
 contains
 

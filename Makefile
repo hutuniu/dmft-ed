@@ -27,15 +27,21 @@ include make.inc
 #INHOMO
 #EXE=ed_ahm_disorder
 #EXE=ed_hm_slab_hyb
-EXE=ed_ahm_stripe
+#EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
 
+#by K.K.
+#tests:
 #EXE=ed_cdwhm_bethe
-
+#EXE=ed_ehm_bethe
+#EXE=ed_ehm_bethe_new_test
+#most important:
+#EXE=ed_cdwhm_bethe_loop
+EXE=ed_ehm_bethe_loop
 
 DIR =drivers
-DIREXE=$(HOME)/.project_bin
+DIREXE=$(HOME)/opt/prog
 
 
 OBJS= MATRIX_SPARSE.o ED_BATH_TYPE.o ED_VARS_GLOBAL.o ED_INPUT_VARS.o ARPACK_LANCZOS.o PLAIN_LANCZOS.o ED_AUX_FUNX.o ED_EIGENSPACE.o ED_BATH.o ED_MATVEC.o ED_HAMILTONIAN.o ED_GREENS_FUNCTIONS.o ED_OBSERVABLES.o  ED_GLOC.o ED_WEISS.o ED_ENERGY.o ED_CHI2FIT.o ED_DIAG.o ED_MAIN.o ED_WRAP_AUX_FUNX.o ED_WRAP_MAIN.o ED_WRAP_GLOC.o ED_WRAP_WEISS.o ED_WRAP_ENERGY.o ED_WRAP_CHI2FIT.o DMFT_ED.o
