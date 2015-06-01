@@ -12,7 +12,7 @@ PLAT=intel
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-FPP_INEQ=MPI_INEQ
+FPP_INEQ=
 
 ##$ parallelism on the ed code flag: MPI
 FPP_ED=
@@ -26,7 +26,7 @@ LIBDIR=/opt
 ##$ CHOOSE THE MODEL BY SELECTING THE PROGRAM DRIVER
 ##$ if needed add yours to the list:
 ##$ --> HUBBARD MODELS:
-#EXE=ed_hm_bethe
+EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
 #EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
@@ -52,7 +52,7 @@ LIBDIR=/opt
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
 #EXE=ed_hm_slab_hyb
-EXE=ed_ahm_stripe
+#EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
 #EXE=ed_cdwhm_bethe

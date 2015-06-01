@@ -205,12 +205,17 @@ contains
   ! Build and check maps from the full(independent) lattice to the independent 
   ! (full) lattice                        !
   !+-----------------------------------------------------------------------------+!
-  subroutine get_independent_sites(symmetry_operations)
-    integer                       :: i,row,col,unit,isymm
-    integer,dimension(Nlat)       :: tmp_search
-    integer,dimension(Nlat,Nsymm) :: tmp_map
-    integer                       :: i_ind,check_maps
-    character(len=5)              :: tmp_suffix
+  subroutine get_independent_sites(symmetry_operations,Nsymm,Nindep)
+    integer,intent(in)                 :: Nsymm
+    integer,intent(inout)              :: Nindep
+    integer                            :: i,row,col,unit,isymm
+    integer,dimension(Nlat)            :: tmp_search
+    integer,dimension(Nlat,Nsymm)      :: tmp_map
+    integer                            :: i_ind,check_maps
+    character(len=5)                   :: tmp_suffix
+    ! integer,dimension(:),allocatable   :: map_lat2ind
+    ! integer,dimension(:,:),allocatable :: map_ind2lat
+    !integer,allocatable,dimension(:)   :: indep_list
     interface
        function symmetry_operations(site_in) result(sites_out)
          implicit none
@@ -231,6 +236,7 @@ contains
           end do
        end if
     end do
+    write(*,*) Nlat
     !
     Nindep=i_ind
     ! (remember: each site is connected with Nsymm sites (+ 1 = identity)) !
@@ -250,6 +256,10 @@ contains
     if(mpiID==0) close(unit)
     !+-  build maps -+!
     !
+    
+    write(*,*) "NINDEP",Nindep
+    write(*,*) indep_list
+
     do i_ind=1,Nindep
        map_lat2ind(indep_list(i_ind))=i_ind
        do isymm=1,Nsymm
@@ -277,6 +287,8 @@ contains
           if(i_ind /= map_lat2ind(check_maps)) stop "WRONG MAPS"
        end do
     end do
+    ! allocate(Ineq_sites_list(Nindep))
+    ! Ineq_sites_list = indep_list
   end subroutine get_independent_sites
 
 

@@ -11,24 +11,22 @@ module ED_WRAP_CHI2FIT
 
 
   interface ed_chi2_fitgf_lattice
-     module procedure &
-          ed_fit_bath_sites_eloc,   &
-          ed_fit_bath_sites_eloc_1b,&
-          ed_fit_bath_sites_eloc_mb,&
-                                !
-          ed_fit_bath_sites_hloc,   &
-          ed_fit_bath_sites_hloc_1b,&
-          ed_fit_bath_sites_hloc_mb,&
-                                !
-          ed_fit_bath_sc_sites_eloc,   &
-          ed_fit_bath_sc_sites_eloc_1b,&
-          ed_fit_bath_sc_sites_eloc_mb,&
-                                !
-          ed_fit_bath_sc_sites_hloc,   &
-          ed_fit_bath_sc_sites_hloc_1b,&
-          ed_fit_bath_sc_sites_hloc_mb
+     module procedure ed_fit_bath_sites_eloc
+     module procedure ed_fit_bath_sites_eloc_1b
+     module procedure ed_fit_bath_sites_eloc_mb
+     !
+     module procedure ed_fit_bath_sites_hloc
+     module procedure ed_fit_bath_sites_hloc_1b
+     module procedure ed_fit_bath_sites_hloc_mb
+     !
+     module procedure ed_fit_bath_sc_sites_eloc
+     module procedure ed_fit_bath_sc_sites_eloc_1b
+     module procedure ed_fit_bath_sc_sites_eloc_mb
+     !
+     module procedure ed_fit_bath_sc_sites_hloc
+     module procedure ed_fit_bath_sc_sites_hloc_1b
+     module procedure ed_fit_bath_sc_sites_hloc_mb
   end interface ed_chi2_fitgf_lattice
-
 
   public :: ed_chi2_fitgf_lattice
 
@@ -42,7 +40,7 @@ contains
   ! Eloc and Hloc as input
   !+-----------------------------------------------------------------------------+!
   subroutine ed_fit_bath_sites_eloc_1b(bath,Delta,Eloc,ispin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(size(bath,1),Lmats)
     real(8),optional         :: Eloc(size(bath,1)*Norb*Nspin)
     real(8)                  :: Eloc_(size(bath,1)*Norb*Nspin)
@@ -60,7 +58,7 @@ contains
   end subroutine ed_fit_bath_sites_eloc_1b
 
   subroutine ed_fit_bath_sites_eloc_mb(bath,Delta,Eloc,ispin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(size(bath,1),Norb,Norb,Lmats)
     real(8),optional         :: Eloc(size(bath,1)*Norb*Nspin)
     real(8)                  :: Eloc_(size(bath,1)*Norb*Nspin)
@@ -78,20 +76,27 @@ contains
   end subroutine ed_fit_bath_sites_eloc_mb
 
   subroutine ed_fit_bath_sites_eloc(bath,Delta,Eloc,ispin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
     real(8),optional         :: Eloc(size(bath,1)*Norb*Nspin)
     integer,optional         :: ispin
     !MPI auxiliary 
-    real(8)                  :: bath_tmp(size(bath,1),size(bath,2),size(bath,3))
+    real(8)                  :: bath_tmp(size(bath,1),size(bath,2))
     integer                  :: i,ilat,ispin_,iorb,Nsites
     logical                  :: check_dim
     character(len=5)         :: tmp_suffix
     complex(8)               :: Hloc(Nspin,Nspin,Norb,Norb)
+    !
     Nsites=size(bath,1)
+    !
+    do ilat=1+mpiID,Nsites,mpiSIZE
+       check_dim = check_bath_dimension(bath(ilat,:))
+       if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
+    end do
+    !
     bath_tmp=0d0
     do ilat=1+mpiID,Nsites,mpiSIZE
-       bath_tmp(ilat,:,:)=bath(ilat,:,:)
+       bath_tmp(ilat,:)=bath(ilat,:)
        !Set the local part of the Hamiltonian.
        Hloc=zero
        if(present(Eloc))then
@@ -108,10 +113,10 @@ contains
        if(present(ispin))then
           ispin_=ispin
           if(ispin_>Nspin)stop "ed_fit_bath_sites error: required spin index > Nspin"
-          call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:,:),ispin_)
+          call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin_)
        else
           do ispin=1,Nspin
-             call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:,:),ispin_)
+             call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin_)
           enddo
        end if
     end do
@@ -124,9 +129,14 @@ contains
 
 
 
+
+
+
+  
+
   !---------------------------- HLOC -------------------------------------!
   subroutine ed_fit_bath_sites_hloc_1b(bath,Delta,Hloc,spin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(size(bath,1),Lmats)
     complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
     integer,optional         :: spin
@@ -142,7 +152,7 @@ contains
   end subroutine ed_fit_bath_sites_hloc_1b
 
   subroutine ed_fit_bath_sites_hloc_mb(bath,Delta,Hloc,spin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(size(bath,1),Norb,Norb,Lmats)
     complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
     integer,optional         :: spin
@@ -157,35 +167,38 @@ contains
   end subroutine ed_fit_bath_sites_hloc_mb
 
   subroutine ed_fit_bath_sites_hloc(bath,Delta,Hloc,ispin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
     integer,optional         :: ispin
     !MPI auxiliary vars
-    real(8)                  :: bath_tmp(size(bath,1),size(bath,2),size(bath,3))
+    real(8)                  :: bath_tmp(size(bath,1),size(bath,2))
     integer                  :: ilat,i,iorb,ispin_
     integer                  :: Nsites
     logical                  :: check_dim
     character(len=5)         :: tmp_suffix
+    !
     ! Check dimensions !
     Nsites=size(bath,1)
+    !
     do ilat=1+mpiID,Nsites,mpiSIZE
-       check_dim = check_bath_dimension(bath(ilat,:,:))
+       check_dim = check_bath_dimension(bath(ilat,:))
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
     end do
+    !
     bath_tmp=0d0
     do ilat=1+mpiID,Nsites,mpiSIZE
-       bath_tmp(ilat,:,:)=bath(ilat,:,:)
+       bath_tmp(ilat,:)=bath(ilat,:)
        call set_Hloc(Hloc(ilat,:,:,:,:))
        write(tmp_suffix,'(I4.4)') ilat
        ed_file_suffix="_site"//trim(tmp_suffix)
        if(present(ispin))then
           ispin_=ispin
           if(ispin_>Nspin)stop "ed_fit_bath_sites error: required spin index > Nspin"
-          call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:,:),ispin=ispin_)
+          call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin=ispin_)
        else
           do ispin_=1,Nspin
-             call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:,:),ispin=ispin_)
+             call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin=ispin_)
           enddo
        end if
     end do
@@ -199,9 +212,13 @@ contains
 
 
 
+
+
+  
+
   !-------------------------------- SUPERCONDUCTING CASE -------------------------------------
   subroutine ed_fit_bath_sc_sites_eloc_1b(bath,Delta,Eloc,spin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(2,size(bath,1),Lmats)
     real(8),optional         :: Eloc(size(bath,1)*Norb*Nspin)
     real(8)                  :: Eloc_(size(bath,1)*Norb*Nspin)
@@ -219,7 +236,7 @@ contains
   end subroutine ed_fit_bath_sc_sites_eloc_1b
 
   subroutine ed_fit_bath_sc_sites_eloc_mb(bath,Delta,Eloc,spin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(2,size(bath,1),Norb,Norb,Lmats)
     real(8),optional         :: Eloc(size(bath,1)*Norb*Nspin)
     real(8)                  :: Eloc_(size(bath,1)*Norb*Nspin)
@@ -236,21 +253,30 @@ contains
   end subroutine ed_fit_bath_sc_sites_eloc_mb
 
   subroutine ed_fit_bath_sc_sites_eloc(bath,Delta,Eloc,spin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(2,size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
     real(8),optional         :: Eloc(size(bath,1)*Norb*Nspin)
     integer,optional         :: spin
     !MPI auxiliary
-    real(8)                  :: bath_tmp(size(bath,1),size(bath,2),size(bath,3))
+    real(8)                  :: bath_tmp(size(bath,1),size(bath,2))
     integer                  :: ilat,i,iorb,ispin_,Nsites
     logical                  :: check_dim
     character(len=5)         :: tmp_suffix
     complex(8)               :: Hloc(Nspin,Nspin,Norb,Norb)
+    !
     Nsites=size(bath,1)
-    bath_tmp=0.d0
-    !+- GET INDEPENDENT SITES HYBRIDIZATION FUNCTION AND FIT THE BATHS -+!
+    !
     do ilat=1+mpiID,Nsites,mpiSIZE
-       bath_tmp(ilat,:,:) = bath(ilat,:,:)
+       check_dim = check_bath_dimension(bath(ilat,:))
+       if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
+    end do
+    !
+    bath_tmp=0.d0
+    !
+    do ilat=1+mpiID,Nsites,mpiSIZE
+       !
+       bath_tmp(ilat,:) = bath(ilat,:)
+       !
        !Set the local part of the Hamiltonian.
        Hloc=zero
        if(present(Eloc))then
@@ -262,15 +288,16 @@ contains
           enddo
        endif
        call set_Hloc(Hloc)
+       !
        write(tmp_suffix,'(I4.4)') ilat
        ed_file_suffix="_site"//trim(tmp_suffix)
        if(present(spin))then
           ispin_=spin
           if(ispin_>Nspin)stop "ed_fit_bath_sites error: required spin index > Nspin"
-          call ed_chi2_fitgf(Delta(:,ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:,:),ispin_)
+          call ed_chi2_fitgf(Delta(:,ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin_)
        else
           do ispin_=1,Nspin
-             call ed_chi2_fitgf(Delta(:,ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:,:),ispin_)
+             call ed_chi2_fitgf(Delta(:,ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin_)
           enddo
        endif
     end do
@@ -284,7 +311,7 @@ contains
 
 
   subroutine ed_fit_bath_sc_sites_hloc_1b(bath,Delta,Hloc,ispin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(2,size(bath,1),Lmats)
     complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
     integer,optional         :: ispin
@@ -300,7 +327,7 @@ contains
   end subroutine ed_fit_bath_sc_sites_hloc_1b
 
   subroutine ed_fit_bath_sc_sites_hloc_mb(bath,Delta,Hloc,ispin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(2,size(bath,1),Norb,Norb,Lmats)
     complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
     integer,optional         :: ispin
@@ -315,31 +342,39 @@ contains
   end subroutine ed_fit_bath_sc_sites_hloc_mb
 
   subroutine ed_fit_bath_sc_sites_hloc(bath,Delta,Hloc,ispin)
-    real(8),intent(inout)    :: bath(:,:,:)
+    real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(2,size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
     integer,optional         :: ispin
     !MPI auxiliary
-    real(8)                  :: bath_tmp(size(bath,1),size(bath,2),size(bath,3))
+    real(8)                  :: bath_tmp(size(bath,1),size(bath,2))
     integer                  :: ilat,i,iorb,ispin_,Nsites
     logical                  :: check_dim
     character(len=5)         :: tmp_suffix
+    !
     Nsites=size(bath,1)
-    bath_tmp=0.d0
-    !+- GET INDEPENDENT SITES HYBRIDIZATION FUNCTION AND FIT THE BATHS -+!
+    !
     do ilat=1+mpiID,Nsites,mpiSIZE
-       bath_tmp(ilat,:,:) = bath(ilat,:,:)
-       !Set the local part of the Hamiltonian.
+       check_dim = check_bath_dimension(bath(ilat,:))
+       if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
+    end do
+    !
+    bath_tmp=0.d0
+    !
+    do ilat=1+mpiID,Nsites,mpiSIZE
+       !
+       bath_tmp(ilat,:) = bath(ilat,:)
+       !
        call set_Hloc(Hloc(ilat,:,:,:,:))
        write(tmp_suffix,'(I4.4)') ilat
        ed_file_suffix="_site"//trim(tmp_suffix)
        if(present(ispin))then
           ispin_=ispin
           if(ispin_>Nspin)stop "ed_fit_bath_sites error: required spin index > Nspin"
-          call ed_chi2_fitgf(Delta(:,ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:,:),ispin_)
+          call ed_chi2_fitgf(Delta(:,ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin_)
        else
           do ispin_=1,Nspin
-             call ed_chi2_fitgf(Delta(:,ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:,:),ispin_)
+             call ed_chi2_fitgf(Delta(:,ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin_)
           enddo
        endif
     end do

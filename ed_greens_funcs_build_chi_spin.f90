@@ -3,22 +3,20 @@
 !+------------------------------------------------------------------+
 subroutine build_chi_spin()
   integer :: iorb,jorb,ispin
-  logical :: verbose
-  verbose=.false.;if(ed_verbose<1)verbose=.true.
   write(LOGfile,"(A)")"Get impurity Chi:"
   do iorb=1,Norb
      select case(ed_type)
      case default
-        call lanc_ed_buildchi_d(iorb,verbose)
+        call lanc_ed_buildchi_d(iorb)
      case ('c')
-        call lanc_ed_buildchi_c(iorb,verbose)
+        call lanc_ed_buildchi_c(iorb)
      end select
   enddo
   select case(ed_type)
   case default
-     call lanc_ed_buildchi_tot_d(verbose)
+     call lanc_ed_buildchi_tot_d()
   case ('c')
-     call lanc_ed_buildchi_tot_c(verbose)
+     call lanc_ed_buildchi_tot_c()
   end select
   Chitau = Chitau/zeta_function
   Chiw   = Chiw/zeta_function
@@ -33,23 +31,20 @@ end subroutine build_chi_spin
 !PURPOSE  : Evaluate the Spin susceptibility \Chi_spin for a 
 ! single orbital: \chi = <S_a(\tau)S_a(0)>
 !+------------------------------------------------------------------+
-subroutine lanc_ed_buildchi_d(iorb,iverbose)
+subroutine lanc_ed_buildchi_d(iorb)
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
   real(8),allocatable              :: vvinit(:)
   integer                          :: Nitermax
-  logical,optional                 :: iverbose
-  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
   !
-  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
-  if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))//":"
+  if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))//":"
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -65,7 +60,7 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
@@ -89,22 +84,18 @@ subroutine lanc_ed_buildchi_d(iorb,iverbose)
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildchi_d
 
-subroutine lanc_ed_buildchi_c(iorb,iverbose)
+subroutine lanc_ed_buildchi_c(iorb)
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
   complex(8),allocatable           :: vvinit(:)
   integer                          :: Nitermax
-  logical,optional                 :: iverbose
-  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
-  !
-  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -121,7 +112,7 @@ subroutine lanc_ed_buildchi_c(iorb,iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
@@ -154,22 +145,18 @@ end subroutine lanc_ed_buildchi_c
 !PURPOSE  : Evaluate the total Spin susceptibility \Chi_spin for a 
 ! single orbital: \chi = \sum_a <S_a(\tau)S_a(0)>
 !+------------------------------------------------------------------+
-subroutine lanc_ed_buildchi_tot_d(iverbose)
+subroutine lanc_ed_buildchi_tot_d()
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
   real(8),allocatable              :: vvinit(:)
   integer                          :: Nitermax
-  logical,optional                 :: iverbose
-  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
-  !
-  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -185,7 +172,7 @@ subroutine lanc_ed_buildchi_tot_d(iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0  
@@ -209,22 +196,18 @@ subroutine lanc_ed_buildchi_tot_d(iverbose)
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_buildchi_tot_d
 
-subroutine lanc_ed_buildchi_tot_c(iverbose)
+subroutine lanc_ed_buildchi_tot_c()
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
   complex(8),allocatable           :: vvinit(:)
   integer                          :: Nitermax
-  logical,optional                 :: iverbose
-  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
-  !
-  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -241,7 +224,7 @@ subroutine lanc_ed_buildchi_tot_c(iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
