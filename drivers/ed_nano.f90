@@ -11,8 +11,8 @@ program ed_nano
   logical                                       :: converged
   integer                                       :: ilat,ineq
   !Bath:
-  integer                                       :: Nb(2)
-  real(8),allocatable                           :: Bath_prev(:,:,:),Bath_ineq(:,:,:)
+  integer                                       :: Nb
+  real(8),allocatable                           :: Bath_prev(:,:),Bath_ineq(:,:)
   !The local hybridization function:
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Weiss_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Smats,Smats_ineq
@@ -83,14 +83,12 @@ program ed_nano
   !Setup solver
   Nb=get_bath_size()
 
-  allocate(Bath_ineq(Nineq,Nb(1),Nb(2)))
-  allocate(Bath_prev(Nineq,Nb(1),Nb(2)))
+  allocate(Bath_ineq(Nineq,Nb))
+  allocate(Bath_prev(Nineq,Nb))
   call ed_init_solver_lattice(Bath_ineq)
 
   do ineq=1,Nineq
      ilat = ineq2lat(ineq)
-
-
      Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
   enddo
 
@@ -130,7 +128,7 @@ program ed_nano
      !call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin=2)
      if(phsym)then
         do ineq=1,Nineq
-           call ph_symmetrize_bath(bath_ineq(ineq,:,:))
+           call ph_symmetrize_bath(bath_ineq(ineq,:),save=.true.)
         enddo
      endif
      Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
