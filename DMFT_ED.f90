@@ -3,11 +3,6 @@ MODULE DMFT_ED
 
   USE ED_VARS_GLOBAL, only: &
        Nlat        ,&
-       Nsymm       ,&
-       Nindep      ,&
-       indep_list  ,&
-       map_lat2ind ,&
-       map_ind2lat ,&
        icol        ,&
        irow        ,&
        ij2site     ,&
@@ -17,18 +12,9 @@ MODULE DMFT_ED
        impSreal    ,&
        impSAreal   ,&
        ed_dens     ,&
-                                ! ed_dens_up,&
-                                ! ed_dens_dw,&
-                                ! ed_docc,   &
-                                ! ed_phisc,  &
-                                ! ed_Ekin,   &
-                                ! ed_Epot,   &
-                                ! ed_Ehartree,&
-                                ! ed_Eknot,  &
-                                ! ed_Dust,   &
-                                ! ed_Dund,   &
-                                ! ed_Dse,    &
-                                ! ed_Dph,  &
+       indep_list  ,&
+       map_lat2ind ,&
+       map_ind2lat ,&
        ED_MPI_ID,ED_MPI_SIZE,ED_MPI_ERR
 
   USE ED_AUX_FUNX, only:&

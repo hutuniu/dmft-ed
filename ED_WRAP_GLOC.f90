@@ -11,13 +11,12 @@ module ED_WRAP_GLOC
   private
   !
   interface ed_get_gloc_lattice
-     module procedure &
-          ed_get_gloc_normal,   &
-          ed_get_gloc_normal_1b,&
-          ed_get_gloc_normal_mb,&
-          ed_get_gloc_superc,   &
-          ed_get_gloc_superc_1b,&
-          ed_get_gloc_superc_mb
+     module procedure ed_get_gloc_normal_main
+     module procedure ed_get_gloc_superc_main
+     module procedure ed_get_gloc_normal_1b
+     module procedure ed_get_gloc_normal_mb
+     module procedure ed_get_gloc_superc_1b
+     module procedure ed_get_gloc_superc_mb
   end interface ed_get_gloc_lattice
   public :: ed_get_gloc_lattice
 
@@ -26,81 +25,18 @@ module ED_WRAP_GLOC
   character(len=20)                :: suffix
 
 
-
+  
 contains
 
+
+  
 
   !----------------------------------------------------------------------------------------!
   ! purpose: evaluate the Normal local Green's function for a given Hamiltonian matrix and
   ! self-energy functions. Hk is a big sparse matrix of the form H(k;R_i,R_j)_{ab}^{ss'}
   ! and size [Nk]*[Nlat*Nspin*Norb]**2
   !----------------------------------------------------------------------------------------!
-  subroutine ed_get_gloc_normal_1b(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
-    complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
-    real(8)                     :: Wtk(size(Hk,3)) ![Nk]
-    complex(8),intent(inout)    :: Gmats(Nlat,Lmats)
-    complex(8),intent(inout)    :: Greal(Nlat,Lreal)
-    complex(8),intent(inout)    :: Smats(Nlat,Lmats)
-    complex(8),intent(inout)    :: Sreal(Nlat,Lreal)
-    integer                     :: iprint
-    !
-    complex(8)                  :: Gmats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                  :: Greal_(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8)                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                  :: Sreal_(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    !
-    real(8),optional            :: Eloc(Nlat*Norb*Nspin)
-    real(8)                     :: Eloc_(Nlat*Norb*Nspin)
-    logical,optional            :: hk_symm(size(Hk,3))
-    logical                     :: hk_symm_(size(Hk,3))
-    if(Norb>1)stop "ed_get_gloc_normal_1b error: Norb > 1 in 1-band routine" 
-    if(Nspin>1)stop "ed_get_gloc_normal_1b error: Nspin > 1 in 1-band routine" 
-    Gmats_(:,1,1,1,1,:) = Gmats(:,:)
-    Greal_(:,1,1,1,1,:) = Greal(:,:)
-    Smats_(:,1,1,1,1,:) = Smats(:,:)
-    Sreal_(:,1,1,1,1,:) = Sreal(:,:)
-    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-    hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
-    call ed_get_gloc_normal(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
-    Gmats(:,:) = Gmats_(:,1,1,1,1,:)
-    Greal(:,:) = Greal_(:,1,1,1,1,:)
-    Smats(:,:) = Smats_(:,1,1,1,1,:)
-    Sreal(:,:) = Sreal_(:,1,1,1,1,:)
-  end subroutine ed_get_gloc_normal_1b
-
-  subroutine ed_get_gloc_normal_mb(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
-    complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
-    real(8)                     :: Wtk(size(Hk,3)) ![Nk]
-    complex(8),intent(inout)    :: Gmats(Nlat,Norb,Norb,Lmats)
-    complex(8),intent(inout)    :: Greal(Nlat,Norb,Norb,Lreal)
-    complex(8),intent(inout)    :: Smats(Nlat,Norb,Norb,Lmats)
-    complex(8),intent(inout)    :: Sreal(Nlat,Norb,Norb,Lreal)
-    integer                     :: iprint
-    !
-    complex(8)                  :: Gmats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                  :: Greal_(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8)                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                  :: Sreal_(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    !
-    real(8),optional            :: Eloc(Nlat*Norb*Nspin)
-    real(8)                     :: Eloc_(Nlat*Norb*Nspin)
-    logical,optional            :: hk_symm(size(Hk,3))
-    logical                     :: hk_symm_(size(Hk,3))
-    if(Nspin>1)stop "ed_get_gloc_normal_mb error: Nspin > 1 in M-band routine" 
-    Gmats_(:,1,1,:,:,:) = Gmats(:,:,:,:)
-    Greal_(:,1,1,:,:,:) = Greal(:,:,:,:)
-    Smats_(:,1,1,:,:,:) = Smats(:,:,:,:)
-    Sreal_(:,1,1,:,:,:) = Sreal(:,:,:,:)
-    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-    hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
-    call ed_get_gloc_normal(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
-    Gmats(:,:,:,:) = Gmats_(:,1,1,:,:,:)
-    Greal(:,:,:,:) = Greal_(:,1,1,:,:,:)
-    Smats(:,:,:,:) = Smats_(:,1,1,:,:,:)
-    Sreal(:,:,:,:) = Sreal_(:,1,1,:,:,:)
-  end subroutine ed_get_gloc_normal_mb
-
-  subroutine ed_get_gloc_normal(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
+  subroutine ed_get_gloc_normal_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
     complex(8),intent(inout)    :: Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
@@ -117,13 +53,13 @@ contains
     logical,optional            :: hk_symm(size(Hk,3))
     logical                     :: hk_symm_(size(Hk,3))
     integer                     :: i,ik,Lk,Nlso,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,js
-    
+    !
     Lk=size(Hk,3)
     Nlso=Nlat*Norb*Nspin
     if(size(Hk,1)/=Nlso.OR.size(Hk,2)/=Nlso) stop "rdmft_get_gloc_normal error: wrong dimensions of Hk"
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-
+    !
     if(mpiID==0)write(LOGfile,*)"Get local GF (id=0):"
     !here we create the "array" *zeta_site* of Nlat blocks, each of size (Nspin*Norb)
     !then we use a newly created function *blocks_to_matrix* to spread the blocks into
@@ -213,7 +149,7 @@ contains
           enddo
        end select
     endif
-  end subroutine ed_get_gloc_normal
+  end subroutine ed_get_gloc_normal_main
 
   subroutine add_to_gloc_normal(zeta_site,Hk,hk_symm,Gkout)
     complex(8)               :: zeta_site(:,:,:,:)              ![Nlat][Nspin][Nspin][Norb][Norb][Lfreq]
@@ -267,77 +203,14 @@ contains
 
 
 
+
+
   !----------------------------------------------------------------------------------------!
   ! PURPOSE: evaluate the Nambu local Green's function for a given Hamiltonian matrix and
   ! self-energy functions. Hk is a big sparse matrix of the form H(k;R_i,R_j)_{ab}^{ss'}
   ! and size [Nk]*[Nlat*Nspin*Norb]**2
   !----------------------------------------------------------------------------------------!
-  subroutine ed_get_gloc_superc_1b(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
-    complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
-    real(8)                     :: Wtk(size(Hk,3)) ![Nk]
-    complex(8),intent(inout)    :: Gmats(2,Nlat,Lmats)
-    complex(8),intent(inout)    :: Greal(2,Nlat,Lreal)
-    complex(8),intent(inout)    :: Smats(2,Nlat,Lmats)
-    complex(8),intent(inout)    :: Sreal(2,Nlat,Lreal)
-    integer                     :: iprint
-    !
-    complex(8)                  :: Gmats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                  :: Greal_(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8)                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                  :: Sreal_(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    !
-    real(8),optional            :: Eloc(Nlat*Norb*Nspin)
-    real(8)                     :: Eloc_(Nlat*Norb*Nspin)
-    logical,optional            :: hk_symm(size(Hk,3))
-    logical                     :: hk_symm_(size(Hk,3))
-    if(Norb>1)stop "ed_get_gloc_superc_1b error: Norb > 1 in 1-band routine" 
-    if(Nspin>1)stop "ed_get_gloc_superc_1b error: Nspin > 1 in 1-band routine" 
-    Gmats_(:,:,1,1,1,1,:) = Gmats(:,:,:)
-    Greal_(:,:,1,1,1,1,:) = Greal(:,:,:)
-    Smats_(:,:,1,1,1,1,:) = Smats(:,:,:)
-    Sreal_(:,:,1,1,1,1,:) = Sreal(:,:,:)
-    hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
-    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-    call ed_get_gloc_superc(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
-    Gmats(:,:,:) = Gmats_(:,:,1,1,1,1,:)
-    Greal(:,:,:) = Greal_(:,:,1,1,1,1,:)
-    Smats(:,:,:) = Smats_(:,:,1,1,1,1,:)
-    Sreal(:,:,:) = Sreal_(:,:,1,1,1,1,:)
-  end subroutine ed_get_gloc_superc_1b
-
-  subroutine ed_get_gloc_superc_mb(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
-    complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
-    real(8)                     :: Wtk(size(Hk,3)) ![Nk]
-    complex(8),intent(inout)    :: Gmats(2,Nlat,Norb,Norb,Lmats)
-    complex(8),intent(inout)    :: Greal(2,Nlat,Norb,Norb,Lreal)
-    complex(8),intent(inout)    :: Smats(2,Nlat,Norb,Norb,Lmats)
-    complex(8),intent(inout)    :: Sreal(2,Nlat,Norb,Norb,Lreal)
-    integer                     :: iprint
-    !
-    complex(8)                  :: Gmats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                  :: Greal_(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8)                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                  :: Sreal_(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    !
-    real(8),optional            :: Eloc(Nlat*Norb*Nspin)
-    real(8)                     :: Eloc_(Nlat*Norb*Nspin)
-    logical,optional            :: hk_symm(size(Hk,3))
-    logical                     :: hk_symm_(size(Hk,3))
-    if(Nspin>1)stop "ed_get_gloc_superc_mb error: Nspin > 1 in M-band routine" 
-    Gmats_(:,:,1,1,:,:,:) = Gmats(:,:,:,:,:)
-    Greal_(:,:,1,1,:,:,:) = Greal(:,:,:,:,:)
-    Smats_(:,:,1,1,:,:,:) = Smats(:,:,:,:,:)
-    Sreal_(:,:,1,1,:,:,:) = Sreal(:,:,:,:,:)
-    hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
-    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
-    call ed_get_gloc_superc(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
-    Gmats(:,:,:,:,:) = Gmats_(:,:,1,1,:,:,:)
-    Greal(:,:,:,:,:) = Greal_(:,:,1,1,:,:,:)
-    Smats(:,:,:,:,:) = Smats_(:,:,1,1,:,:,:)
-    Sreal(:,:,:,:,:) = Sreal_(:,:,1,1,:,:,:)
-  end subroutine ed_get_gloc_superc_mb
-
-  subroutine ed_get_gloc_superc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
+  subroutine ed_get_gloc_superc_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
     complex(8),intent(inout)    :: Gmats(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
@@ -377,8 +250,8 @@ contains
              !SYMMETRIES in Matsubara-frequencies  [assuming a real order parameter]
              !G22(iw) = -[G11[iw]]*
              !G21(iw) =   G12[w]
-             zeta_mats(1,1,ilat,io,io,:) = xi*wm(:)          + xmu - Eloc_(js)
-             zeta_mats(2,2,ilat,io,io,:) = xi*wm(:)          - xmu + Eloc_(js)
+             zeta_mats(1,1,ilat,io,io,:) = xi*wm(:) + xmu - Eloc_(js)
+             zeta_mats(2,2,ilat,io,io,:) = xi*wm(:) - xmu + Eloc_(js)
              !
              !SYMMETRIES in real-frequencies   [assuming a real order parameter]
              !G22(w)  = -[G11[-w]]*
@@ -396,12 +269,12 @@ contains
                    zeta_mats(1,1,ilat,io,jo,:) = zeta_mats(1,1,ilat,io,jo,:) - Smats(1,ilat,ispin,jspin,iorb,jorb,:)
                    zeta_mats(1,2,ilat,io,jo,:) = zeta_mats(1,2,ilat,io,jo,:) - Smats(2,ilat,ispin,jspin,iorb,jorb,:)
                    zeta_mats(2,1,ilat,io,jo,:) = zeta_mats(2,1,ilat,io,jo,:) - Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-                   zeta_mats(2,2,ilat,io,jo,:) = zeta_mats(2,2,ilat,io,jo,:) + conjg(Smats(1,ilat,ispin,jspin,iorb,jorb,:))
+                   zeta_mats(2,2,ilat,io,jo,:) = zeta_mats(2,2,ilat,io,jo,:) + conjg( Smats(1,ilat,ispin,jspin,iorb,jorb,:) )
                    !
                    zeta_real(1,1,ilat,io,jo,:) = zeta_real(1,1,ilat,io,jo,:) - Sreal(1,ilat,ispin,jspin,iorb,jorb,:)
                    zeta_real(1,2,ilat,io,jo,:) = zeta_real(1,2,ilat,io,jo,:) - Sreal(2,ilat,ispin,jspin,iorb,jorb,:)
                    zeta_real(2,1,ilat,io,jo,:) = zeta_real(2,1,ilat,io,jo,:) - Sreal(2,ilat,ispin,jspin,iorb,jorb,:)
-                   zeta_real(2,2,ilat,io,jo,:) = zeta_real(2,2,ilat,io,jo,:) + conjg(Sreal(1,ilat,ispin,jspin,iorb,jorb,Lreal:1:-1))
+                   zeta_real(2,2,ilat,io,jo,:) = zeta_real(2,2,ilat,io,jo,:) + conjg( Sreal(1,ilat,ispin,jspin,iorb,jorb,Lreal:1:-1) )
                 enddo
              enddo
           enddo
@@ -467,7 +340,7 @@ contains
           enddo
        end select
     endif
-  end subroutine ed_get_gloc_superc
+  end subroutine ed_get_gloc_superc_main
 
   subroutine add_to_gloc_superc(zeta_site,Hk,Wtk,hk_symm,Gkout)
     complex(8)               :: zeta_site(:,:,:,:,:,:)              ![2][2][Nlat][Nspin*Norb][Nspin*Norb][Lfreq]
@@ -521,5 +394,147 @@ contains
     Gkout = Gktmp
 #endif
   end subroutine add_to_gloc_superc
+
+
+
+
+
+
+
+
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE: additional interfaces to the main procedures above to get Gloc 
+  ! _1b : one band case (independent of Nspin and Norb)
+  ! _mb : multi-bands case (independent of Nspin)
+  !+-----------------------------------------------------------------------------+!
+  subroutine ed_get_gloc_normal_1b(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
+    complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
+    real(8)                     :: Wtk(size(Hk,3)) ![Nk]
+    complex(8),intent(inout)    :: Gmats(Nlat,Lmats)
+    complex(8),intent(inout)    :: Greal(Nlat,Lreal)
+    complex(8),intent(inout)    :: Smats(Nlat,Lmats)
+    complex(8),intent(inout)    :: Sreal(Nlat,Lreal)
+    integer                     :: iprint
+    !
+    complex(8)                  :: Gmats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                  :: Greal_(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                  :: Sreal_(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    !
+    real(8),optional            :: Eloc(Nlat*Norb*Nspin)
+    real(8)                     :: Eloc_(Nlat*Norb*Nspin)
+    logical,optional            :: hk_symm(size(Hk,3))
+    logical                     :: hk_symm_(size(Hk,3))
+    if(Norb>1)stop "ed_get_gloc_normal_1b error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop "ed_get_gloc_normal_1b error: Nspin > 1 in 1-band routine" 
+    Gmats_(:,1,1,1,1,:) = Gmats(:,:)
+    Greal_(:,1,1,1,1,:) = Greal(:,:)
+    Smats_(:,1,1,1,1,:) = Smats(:,:)
+    Sreal_(:,1,1,1,1,:) = Sreal(:,:)
+    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
+    hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
+    call ed_get_gloc_normal_main(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
+    Gmats(:,:) = Gmats_(:,1,1,1,1,:)
+    Greal(:,:) = Greal_(:,1,1,1,1,:)
+    Smats(:,:) = Smats_(:,1,1,1,1,:)
+    Sreal(:,:) = Sreal_(:,1,1,1,1,:)
+  end subroutine ed_get_gloc_normal_1b
+
+  subroutine ed_get_gloc_normal_mb(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
+    complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
+    real(8)                     :: Wtk(size(Hk,3)) ![Nk]
+    complex(8),intent(inout)    :: Gmats(Nlat,Norb,Norb,Lmats)
+    complex(8),intent(inout)    :: Greal(Nlat,Norb,Norb,Lreal)
+    complex(8),intent(inout)    :: Smats(Nlat,Norb,Norb,Lmats)
+    complex(8),intent(inout)    :: Sreal(Nlat,Norb,Norb,Lreal)
+    integer                     :: iprint
+    !
+    complex(8)                  :: Gmats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                  :: Greal_(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)                  :: Smats_(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                  :: Sreal_(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    !
+    real(8),optional            :: Eloc(Nlat*Norb*Nspin)
+    real(8)                     :: Eloc_(Nlat*Norb*Nspin)
+    logical,optional            :: hk_symm(size(Hk,3))
+    logical                     :: hk_symm_(size(Hk,3))
+    if(Nspin>1)stop "ed_get_gloc_normal_mb error: Nspin > 1 in M-band routine" 
+    Gmats_(:,1,1,:,:,:) = Gmats(:,:,:,:)
+    Greal_(:,1,1,:,:,:) = Greal(:,:,:,:)
+    Smats_(:,1,1,:,:,:) = Smats(:,:,:,:)
+    Sreal_(:,1,1,:,:,:) = Sreal(:,:,:,:)
+    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
+    hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
+    call ed_get_gloc_normal_main(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
+    Gmats(:,:,:,:) = Gmats_(:,1,1,:,:,:)
+    Greal(:,:,:,:) = Greal_(:,1,1,:,:,:)
+    Smats(:,:,:,:) = Smats_(:,1,1,:,:,:)
+    Sreal(:,:,:,:) = Sreal_(:,1,1,:,:,:)
+  end subroutine ed_get_gloc_normal_mb
+
+  subroutine ed_get_gloc_superc_1b(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
+    complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
+    real(8)                     :: Wtk(size(Hk,3)) ![Nk]
+    complex(8),intent(inout)    :: Gmats(2,Nlat,Lmats)
+    complex(8),intent(inout)    :: Greal(2,Nlat,Lreal)
+    complex(8),intent(inout)    :: Smats(2,Nlat,Lmats)
+    complex(8),intent(inout)    :: Sreal(2,Nlat,Lreal)
+    integer                     :: iprint
+    !
+    complex(8)                  :: Gmats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                  :: Greal_(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                  :: Sreal_(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    !
+    real(8),optional            :: Eloc(Nlat*Norb*Nspin)
+    real(8)                     :: Eloc_(Nlat*Norb*Nspin)
+    logical,optional            :: hk_symm(size(Hk,3))
+    logical                     :: hk_symm_(size(Hk,3))
+    if(Norb>1)stop "ed_get_gloc_superc_1b error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop "ed_get_gloc_superc_1b error: Nspin > 1 in 1-band routine" 
+    Gmats_(:,:,1,1,1,1,:) = Gmats(:,:,:)
+    Greal_(:,:,1,1,1,1,:) = Greal(:,:,:)
+    Smats_(:,:,1,1,1,1,:) = Smats(:,:,:)
+    Sreal_(:,:,1,1,1,1,:) = Sreal(:,:,:)
+    hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
+    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
+    call ed_get_gloc_superc_main(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
+    Gmats(:,:,:) = Gmats_(:,:,1,1,1,1,:)
+    Greal(:,:,:) = Greal_(:,:,1,1,1,1,:)
+    Smats(:,:,:) = Smats_(:,:,1,1,1,1,:)
+    Sreal(:,:,:) = Sreal_(:,:,1,1,1,1,:)
+  end subroutine ed_get_gloc_superc_1b
+
+  subroutine ed_get_gloc_superc_mb(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
+    complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
+    real(8)                     :: Wtk(size(Hk,3)) ![Nk]
+    complex(8),intent(inout)    :: Gmats(2,Nlat,Norb,Norb,Lmats)
+    complex(8),intent(inout)    :: Greal(2,Nlat,Norb,Norb,Lreal)
+    complex(8),intent(inout)    :: Smats(2,Nlat,Norb,Norb,Lmats)
+    complex(8),intent(inout)    :: Sreal(2,Nlat,Norb,Norb,Lreal)
+    integer                     :: iprint
+    !
+    complex(8)                  :: Gmats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                  :: Greal_(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)                  :: Smats_(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                  :: Sreal_(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    !
+    real(8),optional            :: Eloc(Nlat*Norb*Nspin)
+    real(8)                     :: Eloc_(Nlat*Norb*Nspin)
+    logical,optional            :: hk_symm(size(Hk,3))
+    logical                     :: hk_symm_(size(Hk,3))
+    if(Nspin>1)stop "ed_get_gloc_superc_mb error: Nspin > 1 in M-band routine" 
+    Gmats_(:,:,1,1,:,:,:) = Gmats(:,:,:,:,:)
+    Greal_(:,:,1,1,:,:,:) = Greal(:,:,:,:,:)
+    Smats_(:,:,1,1,:,:,:) = Smats(:,:,:,:,:)
+    Sreal_(:,:,1,1,:,:,:) = Sreal(:,:,:,:,:)
+    hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
+    Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
+    call ed_get_gloc_superc_main(Hk,Wtk,Gmats_,Greal_,Smats_,Sreal_,iprint,Eloc_,hk_symm_)
+    Gmats(:,:,:,:,:) = Gmats_(:,:,1,1,:,:,:)
+    Greal(:,:,:,:,:) = Greal_(:,:,1,1,:,:,:)
+    Smats(:,:,:,:,:) = Smats_(:,:,1,1,:,:,:)
+    Sreal(:,:,:,:,:) = Sreal_(:,:,1,1,:,:,:)
+  end subroutine ed_get_gloc_superc_mb
 
 end module ED_WRAP_GLOC

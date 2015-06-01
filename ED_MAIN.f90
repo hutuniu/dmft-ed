@@ -124,7 +124,7 @@ contains
   !PURPOSE  : 
   !+------------------------------------------------------------------+
   subroutine ed_init_solver(bath_,hwband,Hunit)
-    real(8),dimension(:,:),intent(inout) :: bath_
+    real(8),dimension(:),intent(inout)   :: bath_
     real(8),optional,intent(in)          :: hwband
     real(8)                              :: hwband_
     character(len=*),optional,intent(in) :: Hunit
@@ -142,11 +142,14 @@ contains
     call init_bath_ed(dmft_bath,hwband_)
     call copy_bath(dmft_bath,bath_)
     if(isetup)then
-       if(.not.ed_supercond)then
-          call setup_pointers
-       else
-          call setup_pointers_sc
-       endif
+       select case(ed_mode)
+       case default
+          call setup_pointers_normal
+       case ("superc")
+          call setup_pointers_superc
+       case ("nonsu2")
+          call setup_pointers_nonsu2
+       end select
     endif
     call deallocate_bath(dmft_bath)
     isetup=.false.
@@ -157,16 +160,17 @@ contains
   !PURPOSE  : 
   !+------------------------------------------------------------------+
   subroutine ed_solve(bath_)
-    real(8),dimension(:,:),intent(in) :: bath_
-    integer                           :: unit
-    logical                           :: check
+    real(8),dimension(:),intent(in) :: bath_
+    integer                         :: unit
+    logical                         :: check
     check = check_bath_dimension(bath_)
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"
     call allocate_bath(dmft_bath)
     call set_bath(bath_,dmft_bath)
     if(ED_MPI_ID==0)then
        if(ed_verbose<2)call write_bath(dmft_bath,LOGfile)
-       call save_bath(dmft_bath,file=trim(Hfile)//trim(ed_file_suffix))
+       !call save_bath(dmft_bath,file=trim(Hfile)//trim(ed_file_suffix))
+       call save_bath(dmft_bath,used=.true.)
     endif
     !
     !SOLVE THE QUANTUM IMPURITY PROBLEM:

@@ -1,12 +1,12 @@
 !########################################################################
-!PURPOSE  : Obtain some physical quantities and print them out
+!purpose  : Obtain some physical quantities and print them out
 !########################################################################
 MODULE ED_ENERGY
   USE SF_CONSTANTS, only:zero,pi,xi
   USE SF_IOTOOLS, only:free_unit,reg,txtfy
   USE SF_ARRAYS, only: arange
   USE SF_TIMER
-  USE SF_LINALG, only: matrix_inverse
+  USE SF_LINALG, only: inv
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
@@ -18,10 +18,10 @@ MODULE ED_ENERGY
 
 
   interface ed_kinetic_energy
-     module procedure kinetic_energy_impurity_normal
+     module procedure kinetic_energy_impurity_normal_main
+     module procedure kinetic_energy_impurity_superc_main
      module procedure kinetic_energy_impurity_normal_1B
      module procedure kinetic_energy_impurity_normal_MB
-     module procedure kinetic_energy_impurity_superc
      module procedure kinetic_energy_impurity_superc_1B
      module procedure kinetic_energy_impurity_superc_MB
   end interface ed_kinetic_energy
@@ -35,7 +35,7 @@ contains
   !PURPOSE  : Get internal energy from the Impurity problem.
   !+-------------------------------------------------------------------+
   subroutine local_energy_impurity()
-    integer,dimension(Ntot)                           :: ib
+    integer,dimension(Nlevels)                        :: ib
     integer                                           :: i,j
     integer                                           :: izero
     integer                                           :: isector
@@ -112,6 +112,46 @@ contains
           !
           !LOCAL ENERGY
           ed_Eknot = ed_Eknot + dot_product(eloc(1,:),nup)*gs_weight + dot_product(eloc(Nspin,:),ndw)*gs_weight
+          !==> HYBRIDIZATION TERMS I: same or different orbitals, same spins.
+          do iorb=1,Norb
+             do jorb=1,Norb
+                !SPIN UP
+                if((ib(iorb)==0).AND.(ib(jorb)==1))then
+                   call c(jorb,m,k1,sg1)
+                   call cdg(iorb,k1,k2,sg2)
+                   j=binary_search(Hmap,k2)
+                   ed_Eknot = ed_Eknot + impHloc(1,1,iorb,jorb)*sg1*sg2*gs_weight
+                endif
+                !SPIN DW
+                if((ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
+                   call c(jorb+Ns,m,k1,sg1)
+                   call cdg(iorb+Ns,k1,k2,sg2)
+                   j=binary_search(Hmap,k2)
+                   ed_Eknot = ed_Eknot + impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2*gs_weight
+                endif
+             enddo
+          enddo
+          !==> HYBRIDIZATION TERMS II: same or different orbitals, opposite spins.
+          if(ed_mode=="nonsu2")then
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !UP-DW
+                   if((impHloc(1,Nspin,iorb,jorb)/=zero).AND.(ib(iorb)==0).AND.(ib(jorb+Ns)==1))then
+                      call c(jorb+Ns,m,k1,sg1)
+                      call cdg(iorb,k1,k2,sg2)
+                      j=binary_search(Hmap,k2)
+                      ed_Eknot = ed_Eknot + impHloc(1,Nspin,iorb,jorb)*sg1*sg2*gs_weight
+                   endif
+                   !DW-UP
+                   if((impHloc(Nspin,1,iorb,jorb)/=zero).AND.(ib(iorb+Ns)==0).AND.(ib(jorb)==1))then
+                      call c(jorb,m,k1,sg1)
+                      call cdg(iorb+Ns,k1,k2,sg2)
+                      j=binary_search(Hmap,k2)
+                      ed_Eknot = ed_Eknot + impHloc(Nspin,1,iorb,jorb)*sg1*sg2*gs_weight
+                   endif
+                enddo
+             enddo
+          endif
           !
           !DENSITY-DENSITY INTERACTION: SAME ORBITAL, OPPOSITE SPINS
           !Euloc=\sum=i U_i*(n_u*n_d)_i
@@ -119,11 +159,6 @@ contains
           do iorb=1,Norb
              ed_Epot = ed_Epot + Uloc(iorb)*nup(iorb)*ndw(iorb)*gs_weight
           enddo
-          ! if(.not.ed_supercond) then
-          !    ed_Epot = ed_Epot + dot_product(uloc,nup*ndw)*gs_weight
-          ! else
-          !    ed_Epot = ed_Epot - uloc(1)*(nup(1)-0.5d0)*(ndw(1)-0.5d0)*gs_weight
-          ! end if
           !
           !DENSITY-DENSITY INTERACTION: DIFFERENT ORBITALS, OPPOSITE SPINS
           !Eust=\sum_ij Ust*(n_up_i*n_dn_j + n_up_j*n_dn_i)
@@ -241,40 +276,12 @@ contains
 
 
   !-------------------------------------------------------------------------------------------
-  !PURPOSE:  comment
+  !PURPOSE: Evaluate the Kinetic energy for the lattice model, given 
+  ! the Hamiltonian matrix Hk and the DMFT self-energy Sigma.
+  ! The main routine accept self-energy as:
+  ! - Sigma: [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
   !-------------------------------------------------------------------------------------------
-  subroutine kinetic_energy_impurity_normal_1B(Hk,Wtk,Sigma)
-    complex(8),dimension(:)               :: Sigma
-    complex(8),dimension(:)               :: Hk
-    real(8),dimension(size(Hk))           :: Wtk
-    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Hk))    :: Hk_
-    Sigma_(1,1,:) = Sigma
-    Hk_(1,1,:)    = Hk
-    call kinetic_energy_impurity_normal(Hk_,Wtk,Sigma_)
-  end subroutine kinetic_energy_impurity_normal_1B
-  !
-  subroutine kinetic_energy_impurity_normal_MB(Hk,Wtk,Sigma)
-    complex(8),dimension(:,:,:)                               :: Hk
-    real(8),dimension(size(Hk,3))                             :: Wtk
-    complex(8),dimension(:,:,:,:,:)                           :: Sigma
-    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Sigma,5)) :: Sigma_
-    integer                                                   :: iorb,jorb,ispin,jspin,io,jo
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                Sigma_(io,jo,:) = Sigma(ispin,jspin,iorb,jorb,:)
-             enddo
-          enddo
-       enddo
-    enddo
-    call kinetic_energy_impurity_normal(Hk,Wtk,Sigma_)
-  end subroutine kinetic_energy_impurity_normal_MB
-  !
-  subroutine kinetic_energy_impurity_normal(Hk,Wtk,Sigma)
+  function kinetic_energy_impurity_normal_main(Hk,Wtk,Sigma) result(Eout)
     integer                                  :: Lk,Nso,Liw
     integer                                  :: i,j,ik,iorb
     complex(8),dimension(:,:,:)              :: Hk
@@ -288,12 +295,14 @@ contains
     real(8)                                  :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
     !
     real(8)                                  :: H0,Hl,ed_Ekin,ed_Eloc
+    real(8)                                  :: Eout(2)
     !
     Nso = size(Hk,1)
     Lk = size(Hk,3)
     Liw= size(Sigma,3)
     if(Nso/=size(Hk,2))stop "kinetic_energy_impurity_normal error: size(Hk,1)!=size(Hk,2) [Norb_total]"
-    if(Nso/=size(Sigma,1).OR.Nso/=size(Sigma,2))stop "kinetic_energy_impurity_normal error: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
+    if(Nso/=size(Sigma,1).OR.Nso/=size(Sigma,2))&
+         stop "kinetic_energy_impurity_normal error: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
     !
     allocate(wm(Liw))
     allocate(Sigma_HF(Nso,Nso))
@@ -305,18 +314,7 @@ contains
     !
     Hloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
-    if(ED_MPI_ID==0)then
-       call print_hloc(Hloc,LOGfile)
-       ! write(LOGfile,"(A)")"Hloc"
-       ! do i=1,Nso
-       !    write(LOGfile,"(90F21.12)")(dreal(Hloc(i,j)),j=1,Nso)
-       ! enddo
-       ! write(LOGfile,*)""
-       ! do i=1,Nso
-       !    write(LOGfile,"(90F21.12)")(dimag(Hloc(i,j)),j=1,Nso)
-       ! enddo
-    endif
-
+    if(ED_MPI_ID==0)call print_hloc(Hloc)
     !
     if(ED_MPI_ID==0)call start_timer()
     H0=0d0
@@ -329,7 +327,7 @@ contains
           Gk = (xi*wm(i)+xmu)*Zk(:,:) - Hk(:,:,ik) - Sigma(:,:,i)
           select case(Nso)
           case default
-             call matrix_inverse(Gk)
+             call inv(Gk)
           case(1)
              Gk = 1d0/Gk
           end select
@@ -377,13 +375,11 @@ contains
     Lail1=spin_degeneracy*Lail1*beta
     ed_Ekin=H0+Tail0+Tail1
     ed_Eloc=Hl+Lail0+Lail1
+    Eout = [ed_Ekin,ed_Eloc]
     deallocate(wm,Sigma_HF,Ak,Bk,Ck,Dk,Hloc,Zk,Zeta,Gk,Tk)
     call write_kinetic_info()
-    call write_kinetic([ed_Ekin,ed_Eloc])
-  end subroutine kinetic_energy_impurity_normal
-
-
-
+    call write_kinetic(Eout)
+  end function kinetic_energy_impurity_normal_main
 
 
 
@@ -391,62 +387,28 @@ contains
 
 
   !-------------------------------------------------------------------------------------------
-  !PURPOSE:  comment
+  !PURPOSE: Evaluate the Kinetic energy for the lattice case Superconducting, given 
+  ! the Hamiltonian matrix Hk and the DMFT self-energy Sigma.
+  ! The main routine accept self-energy as
+  ! - Sigma: [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
   !-------------------------------------------------------------------------------------------
-  subroutine kinetic_energy_impurity_superc_1B(Hk,Wtk,Sigma,Self)
-    real(8),dimension(:)                     :: Hk
-    real(8),dimension(size(Hk))              :: Wtk
-    complex(8),dimension(:)                  :: Sigma,Self
-    complex(8),dimension(1,1,size(Sigma))    :: Sigma_
-    complex(8),dimension(1,1,size(Self))     :: Self_
-    complex(8),dimension(1,1,size(Hk))       :: Hk_
-    real(8),dimension(size(Hk))              :: Wtk_
-    if(size(Sigma)/=size(Self)) stop "ed_kinetic_energy_sc: Normal and Anomalous self-energies have different size!"
-    Sigma_(1,1,:)  = Sigma(:)
-    Self_(1,1,:)   = Self(:)
-    Hk_(1,1,:)     = Hk
-    call kinetic_energy_impurity_superc(Hk_,Wtk,Sigma_,Self_)
-  end subroutine kinetic_energy_impurity_superc_1B
-
-  subroutine kinetic_energy_impurity_superc_MB(Hk,Wtk,Sigma,Self)
-    complex(8),dimension(:,:,:)                               :: Hk
-    real(8),dimension(size(Hk,3))                             :: Wtk
-    complex(8),dimension(:,:,:,:,:)                           :: Sigma
-    complex(8),dimension(:,:,:,:,:)                           :: Self
-    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Sigma,5)) :: Sigma_
-    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Self,5))  :: Self_
-    integer                                                   :: iorb,jorb,ispin,jspin,io,jo
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                Sigma_(io,jo,:) = Sigma(ispin,jspin,iorb,jorb,:)
-                Self_(io,jo,:)  = Self(ispin,jspin,iorb,jorb,:)
-             enddo
-          enddo
-       enddo
-    enddo
-    call kinetic_energy_impurity_superc(Hk,Wtk,Sigma_,Self_)
-  end subroutine kinetic_energy_impurity_superc_MB
-
-  subroutine kinetic_energy_impurity_superc(Hk,Wtk,Sigma,SigmaA)
-    integer                                  :: Lk,Nso,Liw
-    integer                                  :: i,j,ik,iorb,jorb,inambu,jnambu,n,m
-    complex(8),dimension(:,:,:)              :: Hk
-    complex(8),dimension(:,:,:)              :: Sigma,SigmaA
-    real(8),dimension(size(Hk,3))            :: Wtk
+  function kinetic_energy_impurity_superc_main(Hk,Wtk,Sigma,SigmaA) result(Eout)
+    integer                               :: Lk,Nso,Liw
+    integer                               :: i,j,ik,iorb,jorb,inambu,jnambu,n,m
+    complex(8),dimension(:,:,:)           :: Hk
+    complex(8),dimension(:,:,:)           :: Sigma,SigmaA
+    real(8),dimension(size(Hk,3))         :: Wtk
     !
-    real(8),dimension(:,:),allocatable       :: Sigma_HF,SigmaA_HF
-    real(8),dimension(:),allocatable         :: wm
-    complex(8),dimension(:,:),allocatable    :: Ak,Bk,Ck,Dk,Zk,Hloc
-    complex(8),dimension(:,:),allocatable    :: Zeta,Gk,Tk,Gk_Nambu
-    complex(8),dimension(2,2)                :: Gk_Nambu_ij
+    real(8),dimension(:,:),allocatable    :: Sigma_HF,SigmaA_HF
+    real(8),dimension(:),allocatable      :: wm
+    complex(8),dimension(:,:),allocatable :: Ak,Bk,Ck,Dk,Zk,Hloc
+    complex(8),dimension(:,:),allocatable :: Zeta,Gk,Tk,Gk_Nambu
+    complex(8),dimension(2,2)             :: Gk_Nambu_ij
     !
-    real(8)                                  :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
+    real(8)                               :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
     !
-    real(8)                                  :: H0,Hl,ed_Ekin,ed_Eloc
+    real(8)                               :: H0,Hl,ed_Ekin,ed_Eloc
+    real(8)                               :: Eout(2)
     !
     Nso = size(Hk,1)
     Lk = size(Hk,3)
@@ -467,18 +429,7 @@ contains
     !
     Hloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
-    if(ED_MPI_ID==0)then
-       call print_hloc(Hloc,LOGfile)
-       ! write(LOGfile,"(A)")"Hloc"
-       ! do i=1,Nso
-       !    write(LOGfile,"(90F21.12)")(dreal(Hloc(i,j)),j=1,Nso)
-       ! enddo
-       ! write(LOGfile,*)""
-       ! do i=1,Nso
-       !    write(LOGfile,"(90F21.12)")(dimag(Hloc(i,j)),j=1,Nso)
-       ! enddo
-    endif
-
+    if(ED_MPI_ID==0)call print_hloc(Hloc)
     !
     H0=0d0
     Zk=0d0 ; forall(i=1:Nso)Zk(i,i)=1d0
@@ -490,10 +441,10 @@ contains
           do iorb=1,Nso
              do jorb=1,Nso
                 Gk_Nambu_ij=zero
-                Gk_Nambu_ij(1,1) =  -Hk(iorb,jorb,ik)-Sigma(iorb,jorb,i)
-                Gk_Nambu_ij(1,2) = -SigmaA(iorb,jorb,i)
-                Gk_Nambu_ij(2,1) = -SigmaA(iorb,jorb,i)
-                Gk_Nambu_ij(2,2) = -conjg(Gk_Nambu_ij(1,1))
+                Gk_Nambu_ij(1,1) =  -Hk(iorb,jorb,ik) - Sigma(iorb,jorb,i)
+                Gk_Nambu_ij(1,2) =                    - SigmaA(iorb,jorb,i)
+                Gk_Nambu_ij(2,1) =                    - SigmaA(iorb,jorb,i)
+                Gk_Nambu_ij(2,2) =   Hk(iorb,jorb,ik) + conjg(Sigma(iorb,jorb,i))!-conjg(Gk_Nambu_ij(1,1))
                 if(iorb==jorb) then
                    Gk_Nambu_ij(1,1) = Gk_Nambu_ij(1,1) + xi*wm(i) + xmu
                    Gk_Nambu_ij(2,2) = Gk_Nambu_ij(1,1) + xi*wm(i) - xmu
@@ -507,9 +458,7 @@ contains
                 enddo
              enddo
           enddo
-          !
-          call matrix_inverse(Gk_Nambu)
-          !
+          call inv(Gk_Nambu)
           inambu=1
           jnambu=1
           do iorb=1,Nso
@@ -567,9 +516,102 @@ contains
     ed_Ekin=H0+Tail0+Tail1
     ed_Eloc=Hl+Lail0+Lail1
     deallocate(wm,Sigma_HF,Ak,Bk,Ck,Dk,Hloc,Zk,Zeta,Gk,Tk)
+    Eout = [ed_Ekin,ed_Eloc]
     call write_kinetic_info()
-    call write_kinetic([ed_Ekin,ed_Eloc])
-  end subroutine kinetic_energy_impurity_superc
+    call write_kinetic(Eout)
+  end function kinetic_energy_impurity_superc_main
+
+
+
+
+
+
+
+
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE: additional interfaces as used in drivers with different allocation 
+  ! of the required functions
+  ! Then we distinguish different interface according to other shapes of the self-energy:
+  ! - Sigma: [Nlat][Nspin*Norb][Nspin*Norb][L]
+  ! - Sigma: [Nlat][Nspin][Nspin][Norb][Norb][L]
+  ! - Sigma: [Nlat][L]
+  !+-----------------------------------------------------------------------------+!
+  function kinetic_energy_impurity_normal_1B(Hk,Wtk,Sigma) result(Eout)
+    complex(8),dimension(:)               :: Sigma
+    complex(8),dimension(:)               :: Hk
+    real(8),dimension(size(Hk))           :: Wtk
+    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
+    complex(8),dimension(1,1,size(Hk))    :: Hk_
+    real(8),dimension(2)                  :: Eout
+    Sigma_(1,1,:) = Sigma
+    Hk_(1,1,:)    = Hk
+    Eout = kinetic_energy_impurity_normal_main(Hk_,Wtk,Sigma_)
+  end function kinetic_energy_impurity_normal_1B
+  !
+  function kinetic_energy_impurity_normal_MB(Hk,Wtk,Sigma) result(Eout)
+    complex(8),dimension(:,:,:)                               :: Hk
+    real(8),dimension(size(Hk,3))                             :: Wtk
+    complex(8),dimension(:,:,:,:,:)                           :: Sigma
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Sigma,5)) :: Sigma_
+    integer                                                   :: iorb,jorb,ispin,jspin,io,jo
+    real(8),dimension(2)                                      :: Eout
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                Sigma_(io,jo,:) = Sigma(ispin,jspin,iorb,jorb,:)
+             enddo
+          enddo
+       enddo
+    enddo
+    Eout = kinetic_energy_impurity_normal_main(Hk,Wtk,Sigma_)
+  end function kinetic_energy_impurity_normal_MB
+
+  function kinetic_energy_impurity_superc_1B(Hk,Wtk,Sigma,Self) result(Eout)
+    real(8),dimension(:)                  :: Hk
+    real(8),dimension(size(Hk))           :: Wtk
+    complex(8),dimension(:)               :: Sigma,Self
+    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
+    complex(8),dimension(1,1,size(Self))  :: Self_
+    complex(8),dimension(1,1,size(Hk))    :: Hk_
+    real(8),dimension(size(Hk))           :: Wtk_
+    real(8)                               :: Eout(2)
+    if(size(Sigma)/=size(Self)) stop "ed_kinetic_energy_sc: Normal and Anomalous self-energies have different size!"
+    Sigma_(1,1,:)  = Sigma(:)
+    Self_(1,1,:)   = Self(:)
+    Hk_(1,1,:)     = Hk
+    Eout = kinetic_energy_impurity_superc_main(Hk_,Wtk,Sigma_,Self_)
+  end function kinetic_energy_impurity_superc_1B
+  !
+  function kinetic_energy_impurity_superc_MB(Hk,Wtk,Sigma,Self) result(Eout)
+    complex(8),dimension(:,:,:)                               :: Hk
+    real(8),dimension(size(Hk,3))                             :: Wtk
+    complex(8),dimension(:,:,:,:,:)                           :: Sigma
+    complex(8),dimension(:,:,:,:,:)                           :: Self
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Sigma,5)) :: Sigma_
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Self,5))  :: Self_
+    integer                                                   :: iorb,jorb,ispin,jspin,io,jo
+    real(8)                                                   :: Eout(2)
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                Sigma_(io,jo,:) = Sigma(ispin,jspin,iorb,jorb,:)
+                Self_(io,jo,:)  = Self(ispin,jspin,iorb,jorb,:)
+             enddo
+          enddo
+       enddo
+    enddo
+    Eout = kinetic_energy_impurity_superc_main(Hk,Wtk,Sigma_,Self_)
+  end function kinetic_energy_impurity_superc_MB
+
+
+
+
 
 
 

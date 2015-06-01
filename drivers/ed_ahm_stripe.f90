@@ -27,8 +27,13 @@ program ed_stripe
   complex(8),allocatable                :: Greal_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lreal]
   complex(8),allocatable                :: Delta_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
 
-  real(8),allocatable,dimension(:,:,:)    :: bath,bath_old
-  real(8),allocatable,dimension(:,:,:)    :: bath_,bath_old_
+  ! real(8),allocatable,dimension(:,:,:)    :: bath,bath_old
+  ! real(8),allocatable,dimension(:,:,:)    :: bath_,bath_old_
+  real(8),allocatable,dimension(:,:)    :: bath,bath_old
+  real(8),allocatable,dimension(:,:)    :: bath_,bath_old_
+
+  integer :: Nindep,Nsymm
+
 
   real(8),allocatable,dimension(:)        :: nii,dii,pii,eii
   real(8),allocatable,dimension(:)        :: nii_,dii_,pii_,eii_
@@ -47,7 +52,8 @@ program ed_stripe
   logical,allocatable,dimension(:)        :: hk_symm,hk_symm_
   integer                                 :: Uperiod,Nperiod
   integer                                 :: i,is,iloop,ik
-  integer                                 :: Nb(2),Lk
+  integer                                 :: Lk
+  integer                                 :: Nb
   integer                                 :: Nrow,Ncol
   integer                                 :: row,col,ilat,i_ind
 
@@ -91,6 +97,7 @@ program ed_stripe
   !
   call ed_read_input("inputRDMFT.in")
   call set_store_size(1024)
+
 
 
   !+-----------------------------+!
@@ -183,8 +190,10 @@ program ed_stripe
   wm(:)  = pi/beta*real(2*arange(1,Lmats)-1,8)
   ! Independent sites baths
   Nb=get_bath_size()
-  allocate(bath(Nlat,Nb(1),Nb(2)))
-  allocate(bath_old(Nlat,Nb(1),Nb(2)))
+  ! allocate(bath(Nlat,Nb(1),Nb(2)))
+  ! allocate(bath_old(Nlat,Nb(1),Nb(2)))
+  allocate(bath(Nlat,Nb))
+  allocate(bath_old(Nlat,Nb))
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))
   ! Observables
   allocate(nii(Nlat))
@@ -206,10 +215,12 @@ program ed_stripe
   if(Yperiod==1) symmetry_flag=.false.
   if(symmetry_flag) then     
      Nsymm=1
-     call get_independent_sites(reflect)
+     call get_independent_sites(reflect,Nsymm,Nindep)
      !
-     allocate(bath_(Nindep,Nb(1),Nb(2)))
-     allocate(bath_old_(Nindep,Nb(1),Nb(2)))
+     ! allocate(bath_(Nindep,Nb(1),Nb(2)))
+     ! allocate(bath_old_(Nindep,Nb(1),Nb(2)))
+     allocate(bath_(Nindep,Nb))
+     allocate(bath_old_(Nindep,Nb))
      allocate(Hloc_(Nindep,Nspin,Nspin,Norb,Norb))
      ! Observables
      allocate(nii_(Nindep))
@@ -227,8 +238,8 @@ program ed_stripe
 
      allocate(Usite_(Nindep,1))
      do i_ind=1,Nindep
-        Usite_(i_ind,:) = Usite_(indep_list(i_ind),:)
-        bath_(i_ind,:,:) = bath(indep_list(i_ind),:,:)
+        !bath_(i_ind,:,:) = bath(indep_list(i_ind),:,:)
+        bath_(i_ind,:) = bath(indep_list(i_ind),:)
         Hloc_(i_ind,:,:,:,:) = Hloc(indep_list(i_ind),:,:,:,:)
      end do
   end if
@@ -246,7 +257,8 @@ program ed_stripe
         !+- LOOP WITH SYMMETRIES -+!
         if(rdmft_phsym)then
            do i_ind=1,Nindep
-              call ph_symmetrize_bath(bath_(i_ind,:,:))
+              !call ph_symmetrize_bath(bath_(i_ind,:,:))
+              call ph_symmetrize_bath(bath_(i_ind,:))
            enddo
         endif
         bath_old_=bath_
@@ -286,7 +298,8 @@ program ed_stripe
      else
         if(rdmft_phsym)then
            do i=1,Nlat
-              call ph_symmetrize_bath(bath(i,:,:))
+              ! call ph_symmetrize_bath(bath(i,:,:))
+              call ph_symmetrize_bath(bath(i,:))
            enddo
         endif
         bath_old=bath
@@ -306,6 +319,12 @@ program ed_stripe
         call ed_chi2_fitgf_lattice(bath,Delta,Hloc)
         !
         bath=wmixing*bath + (1.d0-wmixing)*bath_old
+        if(rdmft_phsym)then
+           do i=1,Nlat
+              !call ph_symmetrize_bath(bath(i,:,:))
+              call ph_symmetrize_bath(bath(i,:))
+           enddo
+        endif
      end if
      !
      if(mpiID==0) converged = check_convergence_local(dii,dmft_error,Nsuccess,nloop,id=0,file="error.err")
@@ -491,7 +510,7 @@ CONTAINS
     if(mod(Nx,Lx)/=0) stop "wrong X-periodicity"
     if(mod(Ny,Ly)/=0) stop "wrong Y-periodicity"
 
-    
+
     !+- STEP-1: build the lattice hamiltonian using FT of the energy-momentum dispersion with the right boundary conditions.
     allocate(kxgrid(Nx),kygrid(Ny))    
     if(Xpbc) then
@@ -701,7 +720,7 @@ CONTAINS
 
 
 
-  !!!!!!!!! OBSOLETE !!!!!!!!
+!!!!!!!!! OBSOLETE !!!!!!!!
   ! build Hk
   subroutine get_k_hamiltonian_stripe(Nrow,Ncol,pbc_col,pbc_row,k_grid)
     integer               :: Nrow

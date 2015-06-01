@@ -14,16 +14,18 @@ MODULE ED_VARS_GLOBAL
   !-------------------- ED  VARIABLES ----------------------!
 
   !SIZE OF THE PROBLEM
-  !Ns   = # of levels per spin
-  !Ntot = 2*Ns = total #  of levels
-  !NN   = 2**Ntot = 2**(2Ns) max size of the Hilbert space
-  !Nbo  =# number of bath sites (all sites - impurity sites)
-  !Nsect=# of sectors
-  !INTERNAL USE:
+  !Ns       =              Number of levels per spin
+  !Nlevels  = 2*Ns       = Total Number  of levels
+  !Nhilbert = 2**Nlevels = Max size of the Hilbert space
+  !Nsectors =              Number of sectors
   !=========================================================
-  integer                                     :: Ns,Ntot,NN
-  integer                                     :: Nsect
-  integer                                     :: Nbo
+  ! integer                                     :: Ns,Ntot,NN
+  ! integer                                     :: Nsect
+  ! integer                                     :: Nbo
+  integer                                     :: Ns
+  integer                                     :: Nlevels
+  integer                                     :: Nhilbert
+  integer                                     :: Nsectors
 
   !local part of the Hamiltonian
   !INTERNAL USE (accessed thru functions)
@@ -38,7 +40,10 @@ MODULE ED_VARS_GLOBAL
   integer,allocatable,dimension(:,:)          :: getCDGsector
   integer,allocatable,dimension(:,:)          :: getBathStride
   integer,allocatable,dimension(:,:)          :: impIndex
-  integer,allocatable,dimension(:)            :: getdim,getnup,getndw,getsz
+  integer,allocatable,dimension(:)            :: getdim
+  integer,allocatable,dimension(:)            :: getNup,getNdw
+  integer,allocatable,dimension(:)            :: getSz
+  integer,allocatable,dimension(:)            :: getN
   logical,allocatable,dimension(:)            :: twin_mask
 
   !Effective Bath used in the ED code (this is opaque to user)
@@ -101,12 +106,12 @@ MODULE ED_VARS_GLOBAL
   integer                                     :: Nlat
 
   !Symmetry operations
-  !PRIVATE (but many should be removed)
   !=========================================================
-  integer                                     :: Nsymm,Nindep
   integer,allocatable,dimension(:)            :: indep_list
-  integer,dimension(:),allocatable            :: map_lat2ind
-  integer,dimension(:,:),allocatable          :: map_ind2lat
+  integer,dimension(:),allocatable   :: map_lat2ind
+  integer,dimension(:,:),allocatable :: map_ind2lat
+
+
 
   !OBSOLETE (to be removed associated to build_tight_binding_2dsquare)
   !Large matrices for Lattice Hamiltonian/GF
@@ -115,7 +120,6 @@ MODULE ED_VARS_GLOBAL
   integer,dimension(:),allocatable            :: icol,irow
   integer,dimension(:,:),allocatable          :: ij2site
   real(8),dimension(:,:),allocatable          :: H0
-  ! complex(8),dimension(:,:,:),allocatable     :: Hk,Hk_
 
 
 END MODULE ED_VARS_GLOBAL

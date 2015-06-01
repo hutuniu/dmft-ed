@@ -45,7 +45,8 @@ MODULE ED_INPUT_VARS
   logical              :: finiteT             !flag for finite temperature calculation
   logical              :: ed_twin             !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   character(len=1)     :: ed_type             !flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)
-  logical              :: ed_supercond        !flag to set ed symmetry type: F=normal (default), T=superc=superconductive
+  character(len=7)     :: ed_mode             !flag to set ed symmetry type: normal=normal (default), superc=superconductive, nonsu2=broken SU(2)
+  logical              :: ed_spin_sym         !
   character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
   character(len=100)   :: ed_file_suffix      !suffix string attached to the output files.
   real(8)              :: nread               !fixed density. if 0.d0 fixed chemical potential calculation.
@@ -70,13 +71,6 @@ MODULE ED_INPUT_VARS
   !RDMFT VARIABLES:
   !=========================================================
   integer              :: Nside            !linear size of the cluster to be solved.
-  ! real(8)              :: Wdis             !degree of local disorder.
-  ! integer              :: idum             !initial seed for the random variable sample.	
-  ! real(8)              :: a0trap           !bottom of the trap. here kept separated from mu.
-  ! real(8)              :: V0trap           !Trap curvature in x,y directions (assumed circular symmetry)
-  ! real(8)              :: chitrap          !Tentative value for the global trap compressibility dN/d(mu_{tot})
-  ! integer              :: N_wanted         !Required number of particles for canonical calculations [set 0 for fixmu]
-  ! real(8)              :: N_tol            !Tolerance over the total number of particles
   logical              :: pbcflag          !periodic boundary conditions flag
   logical              :: symmflag         !Enforce trap cubic symmetry in the xy-plane.
   real(8)              :: rdmft_nread      !density value for chemical potential search.
@@ -142,8 +136,9 @@ contains
     call parse_input_variable(cg_stop,"CG_STOP",INPUTunit,default=0,comment="Conjugate-Gradient stopping condition.")
     call parse_input_variable(cg_eps,"CG_EPS",INPUTunit,default=0.000001d0,comment="Conjugate-Gradient eps tolerance.")
     call parse_input_variable(cg_weight,"CG_WEIGHT",INPUTunit,default=0,comment="Conjugate-Gradient weight form: 0=1.0 ,1=1/n , 2=1/w.")
-    call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")
-    call parse_input_variable(ed_Supercond,"ED_SUPERCOND",INPUTunit,default=.false.,comment="Flag to set ED type: F=normal, T=superconductive")
+    call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")    
+    call parse_input_variable(ed_mode,"ED_MODE",INPUTunit,default='normal',comment="Flag to set ED type: normal=normal, superc=superconductive, nonsu2=broken SU(2)")
+    call parse_input_variable(ed_spin_sym,"ED_SPIN_SYM",INPUTunit,default=.true.,comment="Flag to force paramagnetic solution in the nonSU2 channel.")
     call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
@@ -152,33 +147,23 @@ contains
 
     !+- LATTICE INPUT -+!
     call parse_input_variable(Nside,"NSIDE",INPUTunit,default=6)
-    ! call parse_input_variable(wdis,"WDIS",INPUTunit,default=0.d0)
-    call parse_input_variable(rdmft_nread,"RDMFT_NREAD",INPUTunit,default=0.d0)
-    call parse_input_variable(rdmft_nerror,"RDMFT_NERROR",INPUTunit,default=1.d-4)
-    call parse_input_variable(rdmft_ndelta,"RDMFT_NDELTA",INPUTunit,default=0.1d0)
-    call parse_input_variable(rdmft_phsym,"RDMFT_PHSYM",INPUTunit,default=.false.)
-    call parse_input_variable(rdmft_lrsym,"RDMFT_LRSYM",INPUTunit,default=.false.)
-    ! call parse_input_variable(n_wanted,"NWANTED",INPUTunit,default=Nside**2/2)
-    ! call parse_input_variable(n_tol,"NTOL",INPUTunit,default=0.1d0)
-    ! call parse_input_variable(chitrap,"CHITRAP",INPUTunit,default=0.1d0)
+    ! call parse_input_variable(rdmft_nread,"RDMFT_NREAD",INPUTunit,default=0.d0)
+    ! call parse_input_variable(rdmft_nerror,"RDMFT_NERROR",INPUTunit,default=1.d-4)
+    ! call parse_input_variable(rdmft_ndelta,"RDMFT_NDELTA",INPUTunit,default=0.1d0)
+    ! call parse_input_variable(rdmft_phsym,"RDMFT_PHSYM",INPUTunit,default=.false.)
+    ! call parse_input_variable(rdmft_lrsym,"RDMFT_LRSYM",INPUTunit,default=.false.)
     call parse_input_variable(fileSig,"FILESIG",INPUTunit,default="LSigma.data")
     call parse_input_variable(fileSelf,"FILESELF",INPUTunit,default="LSelf.data")
-    call parse_input_variable(symmflag,"SYMMFLAG",INPUTunit,default=.false.)
+    ! call parse_input_variable(symmflag,"SYMMFLAG",INPUTunit,default=.false.)
     call parse_input_variable(pbcflag,"PBCFLAG",INPUTunit,default=.true.)
     call parse_input_variable(mix_type,"MIX_TYPE",INPUTunit,default=0)
-    ! call parse_input_variable(idum,"IDUM",INPUTunit,default=1234567)
 
     call substring_delete(ed_file_suffix,".ed")
     call substring_delete(Hfile,".restart")
     call substring_delete(Hfile,".ed")
     Ltau=max(int(beta),Ltau)
     if(ED_MPI_ID==0.AND.mpiID==0)call save_input_file(INPUTunit)
-#ifdef _MPI_INEQ
-    call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
-#endif
-#ifdef _MPI
-    call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
+    !
     if(ED_MPI_ID==0.AND.mpiID==0)call sf_version(revision)
   end subroutine ed_read_input
 

@@ -205,12 +205,17 @@ contains
   ! Build and check maps from the full(independent) lattice to the independent 
   ! (full) lattice                        !
   !+-----------------------------------------------------------------------------+!
-  subroutine get_independent_sites(symmetry_operations)
-    integer                       :: i,row,col,unit,isymm
-    integer,dimension(Nlat)       :: tmp_search
-    integer,dimension(Nlat,Nsymm) :: tmp_map
-    integer                       :: i_ind,check_maps
-    character(len=5)              :: tmp_suffix
+  subroutine get_independent_sites(symmetry_operations,Nsymm,Nindep)
+    integer,intent(in)                 :: Nsymm
+    integer,intent(inout)              :: Nindep
+    integer                            :: i,row,col,unit,isymm
+    integer,dimension(Nlat)            :: tmp_search
+    integer,dimension(Nlat,Nsymm)      :: tmp_map
+    integer                            :: i_ind,check_maps
+    character(len=5)                   :: tmp_suffix
+    ! integer,dimension(:),allocatable   :: map_lat2ind
+    ! integer,dimension(:,:),allocatable :: map_ind2lat
+    !integer,allocatable,dimension(:)   :: indep_list
     interface
        function symmetry_operations(site_in) result(sites_out)
          implicit none
@@ -282,6 +287,8 @@ contains
           if(i_ind /= map_lat2ind(check_maps)) stop "WRONG MAPS"
        end do
     end do
+    ! allocate(Ineq_sites_list(Nindep))
+    ! Ineq_sites_list = indep_list
   end subroutine get_independent_sites
 
 
