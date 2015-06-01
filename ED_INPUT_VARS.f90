@@ -162,13 +162,9 @@ contains
     call substring_delete(Hfile,".restart")
     call substring_delete(Hfile,".ed")
     Ltau=max(int(beta),Ltau)
-    !
-#ifdef _MPI_INEQ
-    if(mpiID==0)call save_input_file(INPUTunit)
-#endif
-    !if(ED_MPI_ID==0) call save_input_file(INPUTunit)
-    !
-    call sf_version(revision)
+    if(mpiID==0.AND.ED_MPI_ID==0)call save_input_file(INPUTunit)
+
+    if(mpiID==0.AND.ED_MPI_ID==0)call sf_version(revision)
   end subroutine ed_read_input
 
 
