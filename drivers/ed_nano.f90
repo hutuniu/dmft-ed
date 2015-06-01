@@ -82,12 +82,15 @@ program ed_nano
 
   !Setup solver
   Nb=get_bath_size()
+
   allocate(Bath_ineq(Nineq,Nb(1),Nb(2)))
   allocate(Bath_prev(Nineq,Nb(1),Nb(2)))
   call ed_init_solver_lattice(Bath_ineq)
 
   do ineq=1,Nineq
      ilat = ineq2lat(ineq)
+
+
      Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
   enddo
 
@@ -133,6 +136,7 @@ program ed_nano
      Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
      if(mpiID==0)then
        converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
+
        if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
     endif
 #ifdef _MPI_INEQ
