@@ -62,7 +62,7 @@ EXE=ed_nano
 DIR =drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
-DIREXE=$(HOME)/.project_bin
+DIREXE=$(HOME)/.bin
 
 
 ifeq ($(PLAT),intel)
