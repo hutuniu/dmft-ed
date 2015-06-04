@@ -12,62 +12,59 @@ program ed_stripe
   USE MPI
 #endif
   implicit none
-  complex(8),allocatable                :: Hloc(:,:,:,:,:)       ![Nlat][Nspin][Nspin][Norb][Norb]
-  complex(8),allocatable                :: Hloc_(:,:,:,:,:)      ![Nindep][Nspin][Nspin][Norb][Norb]
-
-  complex(8),allocatable                :: Smats(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-  complex(8),allocatable                :: Sreal(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
-  complex(8),allocatable                :: Gmats(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-  complex(8),allocatable                :: Greal(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
-  complex(8),allocatable                :: Delta(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-
-  complex(8),allocatable                :: Smats_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
-  complex(8),allocatable                :: Sreal_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lreal]
-  complex(8),allocatable                :: Gmats_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
-  complex(8),allocatable                :: Greal_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lreal]
-  complex(8),allocatable                :: Delta_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
-
-  ! real(8),allocatable,dimension(:,:,:)    :: bath,bath_old
-  ! real(8),allocatable,dimension(:,:,:)    :: bath_,bath_old_
-  real(8),allocatable,dimension(:,:)    :: bath,bath_old
-  real(8),allocatable,dimension(:,:)    :: bath_,bath_old_
-
-  integer :: Nindep,Nsymm
-
-
-  real(8),allocatable,dimension(:)        :: nii,dii,pii,eii
-  real(8),allocatable,dimension(:)        :: nii_,dii_,pii_,eii_
-
-  real(8),dimension(:),allocatable          :: wm,wr  
-  complex(8),allocatable :: Hk(:,:,:)              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
-
-  real(8) :: ts
-  real(8),allocatable,dimension(:,:)      :: Usite,Usite_
-  real(8),allocatable,dimension(:,:)      :: Uij,Unodes
-
-  logical                                 :: converged
-  real(8)                                 :: Uamplitude
-  real(8)                                 :: r,wmixing
-  real(8),allocatable,dimension(:)        :: epsik,wt,k_grid,epsik_,wt_
-  logical,allocatable,dimension(:)        :: hk_symm,hk_symm_
-  integer                                 :: Uperiod,Nperiod
-  integer                                 :: i,is,iloop,ik
-  integer                                 :: Lk
-  integer                                 :: Nb
-  integer                                 :: Nrow,Ncol
-  integer                                 :: row,col,ilat,i_ind
-
-  integer                                 :: unit
-  logical                                 :: pbc_row,pbc_col
-  logical                                 :: symmetry_flag
-  integer                                 :: symmetry_type
-
-
+  
+  real(8),dimension(:),allocatable   :: wm,wr  
   !
-  integer :: Xperiod,Yperiod
-  integer :: N_Xperiod,N_Yperiod
-  logical :: Xpbc,Ypbc
-  integer :: Nx,Ny,ix,iy
+  complex(8),allocatable             :: Hk(:,:,:)              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
+  complex(8),allocatable             :: Hloc(:,:,:,:,:)       ![Nlat][Nspin][Nspin][Norb][Norb]
+  complex(8),allocatable             :: Hloc_(:,:,:,:,:)      ![Nindep][Nspin][Nspin][Norb][Norb]
+  !
+  complex(8),allocatable             :: Smats(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),allocatable             :: Sreal(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+  complex(8),allocatable             :: Gmats(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),allocatable             :: Greal(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+  complex(8),allocatable             :: Delta(:,:,:,:,:,:,:)  ![2][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+  !
+  complex(8),allocatable             :: Smats_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),allocatable             :: Sreal_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lreal]
+  complex(8),allocatable             :: Gmats_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),allocatable             :: Greal_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lreal]
+  complex(8),allocatable             :: Delta_(:,:,:,:,:,:,:) ![2][Nindep][Nspin][Nspin][Norb][Norb][Lmats]
+  !
+  real(8),allocatable,dimension(:,:) :: bath,bath_old
+  real(8),allocatable,dimension(:,:) :: bath_,bath_old_
+  integer                            :: Nb
+  !
+  integer                            :: Nindep,Nsymm
+  !
+  real(8),allocatable,dimension(:)   :: nii,dii,pii,eii
+  real(8),allocatable,dimension(:)   :: nii_,dii_,pii_,eii_
+  !  
+  real(8)                            :: ts
+  real(8),allocatable,dimension(:,:) :: Usite,Usite_
+  real(8),allocatable,dimension(:,:) :: Uij,Unodes
+
+  logical                            :: converged
+  real(8)                            :: Uamplitude
+  real(8)                            :: wmixing
+  real(8),allocatable,dimension(:)   :: wt
+  logical,allocatable,dimension(:)   :: hk_symm,hk_symm_
+  integer                            :: Uperiod,Nperiod
+  integer                            :: i,iloop,ik
+  integer                            :: Lk
+  
+  integer                            :: Nrow,Ncol
+  integer                            :: row,col,ilat,i_ind
+  
+  integer                            :: unit
+  logical                            :: pbc_row,pbc_col
+  logical                            :: symmetry_flag,rdmft_phsym
+  integer                            :: symmetry_type
+  !
+  integer                            :: Xperiod,Yperiod
+  integer                            :: N_Xperiod,N_Yperiod
+  logical                            :: Xpbc,Ypbc
+  integer                            :: Nx,Ny,ix,iy
   !
 
   !+---------+!
@@ -93,7 +90,7 @@ program ed_stripe
   call parse_input_variable(Ypbc,"Ypbc","inputRDMFT.in",default=.true.)
   call parse_input_variable(Uamplitude,"Uamplitude","inputRDMFT.in",default=0.d0)
   call parse_input_variable(symmetry_flag,"REFLECTION_SYMM","inputRDMFT.in",default=.true.)
-  !
+  call parse_input_variable(rdmft_phsym,"RDMFT_PHSYM","inputRDMFT.in",default=.true.)
   !
   call ed_read_input("inputRDMFT.in")
   call set_store_size(1024)
@@ -103,37 +100,8 @@ program ed_stripe
   !+-----------------------------+!
   !+- BUILD LATTICE HAMILTONIAN -+!
   !+-----------------------------+!
-  !<DEBUG
-  ! Ncol = Xperiod
-  ! Nrow = Yperiod
-  ! Nlat = Nrow*Ncol
-  ! pbc_row = .false.
-  ! pbc_col = .false.
-  ! unit=free_unit()
-  ! open(unit,file='k_grid.lattice')
-  ! Lk=N_Xperiod
-  ! allocate(wt_(Lk),epsik_(Lk),k_grid(Lk),hk_symm_(Lk))
-  ! do ik=1,Lk
-  !    k_grid(ik) = 2*pi/dble(Lk)*dble(ik-1)
-  !    epsik_(ik) = 2.d0*cos(k_grid(ik))
-  !    wt_(ik) = 1.d0/dble(Lk)
-  !    write(unit,'(6(F18.10))') dble(ik),k_grid(ik),epsik_(ik),wt_(ik)
-  ! end do
-  ! close(unit)
-  ! call get_k_hamiltonian_stripe(Nrow,Ncol,pbc_row,pbc_col,k_grid)  
-  ! do ik=1,Lk
-  !    write(401,*)
-  !    write(401,*) ik
-  !    write(401,*)
-  !    write(*,*) ik,Lk,N_Xperiod,N_Yperiod
-  !    do ilat=1,Nlat
-  !       write(401,'(40(F7.2))') dreal(Hk(ilat,:,ik))
-  !    end do
-  ! end do
-  !DEBUG>
-
-  Nx=Xperiod*N_Xperiod
-  Ny=Yperiod*N_Yperiod
+  Nx=Xperiod*N_Xperiod;Ncol=Xperiod
+  Ny=Yperiod*N_Yperiod;Nrow=Yperiod
   Lk = N_Xperiod*N_Yperiod
   !+- CONSTRAINTS ON INPUTS -+!
   if(Xperiod==1.and.N_Xperiod>1) Xpbc=.true.
@@ -143,19 +111,18 @@ program ed_stripe
   call  get_Hk_2dsquare(Nx,Xpbc,Ny,Ypbc,Xperiod,Yperiod,Hk)
   wt=1.d0/dble(Lk)
   Nlat=size(Hk,1)
-  !<DEBUG
-  ! do ik=1,Lk
-  !    write(400,*)
-  !    write(400,*) ik
-  !    write(400,*)
-  !    write(*,*) ik,Lk,N_Xperiod,N_Yperiod
-  !    do ilat=1,Nlat
-  !       write(400,'(40(F7.2))') dreal(Hk(ilat,:,ik))
-  !    end do
-  ! end do
-  !>DEBUG
-
-
+  
+  allocate(icol(Nlat),irow(Nlat))
+  allocate(ij2site(Nrow,Ncol))
+  do row=0,Nrow-1
+     do col=0,Ncol-1
+        i=col+ 1 + row*Ncol
+        irow(i)=row+1
+        icol(i)=col+1
+        ij2site(row+1,col+1)=i
+     end do
+  end do
+  
   !+-------------------------+!
   !+- BUILD LATTICE DETAILS -+!
   !+-------------------------+!
@@ -163,11 +130,8 @@ program ed_stripe
   Usite=Uloc(1)
   Uperiod = Xperiod
   if(mpiID==0) open(unit,file='Unodes.lattice')
-  ! do ix=1,Xperiod
-  !    do iy=1,Yperiod
   do iy=1,Yperiod
      do ix=1,Xperiod
-        !ilat = iy + (ix-1)*Yperiod 
         ilat = ix + (iy-1)*Xperiod 
         if(Uperiod.gt.1) Usite(ilat,:) = Usite(ilat,:) + Uamplitude*dsin(2.d0*pi*dble(ix-1)/dble(Uperiod))
         Uij(ix,iy) = Usite(ilat,1)
@@ -179,8 +143,7 @@ program ed_stripe
   end do
   if(mpiID==0) call splot3d("Ustripe.ed",(/(dble(i),i=1,Xperiod)/),(/(dble(i),i=1,Yperiod)/),Uij)  
   if(mpiID==0) close(unit)  
-
-
+  
   !+----------------------------------+!  
   !+- ALLOCATE GF & INITIALIZE BATHS -+!
   !+----------------------------------+!  
@@ -190,8 +153,6 @@ program ed_stripe
   wm(:)  = pi/beta*real(2*arange(1,Lmats)-1,8)
   ! Independent sites baths
   Nb=get_bath_size()
-  ! allocate(bath(Nlat,Nb(1),Nb(2)))
-  ! allocate(bath_old(Nlat,Nb(1),Nb(2)))
   allocate(bath(Nlat,Nb))
   allocate(bath_old(Nlat,Nb))
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))
@@ -211,14 +172,13 @@ program ed_stripe
   !
   call  ed_init_solver_lattice(bath)
   Hloc=0.d0
+  Hloc_=0.d0
   !
   if(Yperiod==1) symmetry_flag=.false.
   if(symmetry_flag) then     
      Nsymm=1
      call get_independent_sites(reflect,Nsymm,Nindep)
      !
-     ! allocate(bath_(Nindep,Nb(1),Nb(2)))
-     ! allocate(bath_old_(Nindep,Nb(1),Nb(2)))
      allocate(bath_(Nindep,Nb))
      allocate(bath_old_(Nindep,Nb))
      allocate(Hloc_(Nindep,Nspin,Nspin,Norb,Norb))
@@ -235,16 +195,13 @@ program ed_stripe
      allocate(Greal_(2,Nindep,Nspin,Nspin,Norb,Norb,Lreal))
      ! Impurity-bath hybritizations
      allocate(Delta_(2,Nindep,Nspin,Nspin,Norb,Norb,Lmats))
-
      allocate(Usite_(Nindep,1))
      do i_ind=1,Nindep
-        !bath_(i_ind,:,:) = bath(indep_list(i_ind),:,:)
         bath_(i_ind,:) = bath(indep_list(i_ind),:)
         Hloc_(i_ind,:,:,:,:) = Hloc(indep_list(i_ind),:,:,:,:)
      end do
   end if
-
-
+  
   !+-------------+!
   !+- DMFT LOOP -+!
   !+-------------+!
@@ -257,7 +214,6 @@ program ed_stripe
         !+- LOOP WITH SYMMETRIES -+!
         if(rdmft_phsym)then
            do i_ind=1,Nindep
-              !call ph_symmetrize_bath(bath_(i_ind,:,:))
               call ph_symmetrize_bath(bath_(i_ind,:))
            enddo
         endif
@@ -298,7 +254,6 @@ program ed_stripe
      else
         if(rdmft_phsym)then
            do i=1,Nlat
-              ! call ph_symmetrize_bath(bath(i,:,:))
               call ph_symmetrize_bath(bath(i,:))
            enddo
         endif
@@ -321,7 +276,6 @@ program ed_stripe
         bath=wmixing*bath + (1.d0-wmixing)*bath_old
         if(rdmft_phsym)then
            do i=1,Nlat
-              !call ph_symmetrize_bath(bath(i,:,:))
               call ph_symmetrize_bath(bath(i,:))
            enddo
         endif
@@ -345,7 +299,6 @@ CONTAINS
   !+----------------------+!
   !+- AUXILIARY ROUTINES -+!
   !+----------------------+!
-
   subroutine print_sc_out(converged)
     integer                              :: i,j,is,row,col,ilat,jlat
     real(8)                              :: nimp,phi,ccdw,docc
@@ -426,6 +379,12 @@ CONTAINS
           grid_y(col)=col
           do row=1,Nrow
              grid_x(row)  = row
+             ! i=col+ 1 + row*Ncol
+             ! !
+             ! irow(i)=row+1
+             ! icol(i)=col+1
+             ! ij2site(row+1,col+1)=i
+             !i            = col + (row-1)*Ncol!ij2site(row,col)
              i            = ij2site(row,col)
              nij(row,col) = nii(i)
              dij(row,col) = dii(i)
@@ -478,12 +437,7 @@ CONTAINS
        close(unit)
     end if
     !
-
   end subroutine stripe_energy
-
-
-
-
   
 
 
@@ -891,3 +845,35 @@ CONTAINS
 
 end program ed_stripe
 
+
+
+
+
+  !<DEBUG
+  ! Ncol = Xperiod
+  ! Nrow = Yperiod
+  ! Nlat = Nrow*Ncol
+  ! pbc_row = .false.
+  ! pbc_col = .false.
+  ! unit=free_unit()
+  ! open(unit,file='k_grid.lattice')
+  ! Lk=N_Xperiod
+  ! allocate(wt_(Lk),epsik_(Lk),k_grid(Lk),hk_symm_(Lk))
+  ! do ik=1,Lk
+  !    k_grid(ik) = 2*pi/dble(Lk)*dble(ik-1)
+  !    epsik_(ik) = 2.d0*cos(k_grid(ik))
+  !    wt_(ik) = 1.d0/dble(Lk)
+  !    write(unit,'(6(F18.10))') dble(ik),k_grid(ik),epsik_(ik),wt_(ik)
+  ! end do
+  ! close(unit)
+  ! call get_k_hamiltonian_stripe(Nrow,Ncol,pbc_row,pbc_col,k_grid)  
+  ! do ik=1,Lk
+  !    write(401,*)
+  !    write(401,*) ik
+  !    write(401,*)
+  !    write(*,*) ik,Lk,N_Xperiod,N_Yperiod
+  !    do ilat=1,Nlat
+  !       write(401,'(40(F7.2))') dreal(Hk(ilat,:,ik))
+  !    end do
+  ! end do
+  !DEBUG>

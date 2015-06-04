@@ -79,7 +79,7 @@ program ed_tddpam_lattice
      call start_loop(iloop,nloop,"DMFT-loop")
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
-     call ed_solve(bath) 
+     call ed_solve(bath)
 
      !Get the Weiss field/Delta function to be fitted (user defined)
      delta_old=delta
@@ -251,7 +251,7 @@ contains
           call splot("Gloc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(jorb))//"_iw.ed",wm,gloc(iorb,jorb,:))
        enddo
     enddo
-    npimp=fft_get_density(gloc(2,2,:),beta)
+    npimp=2*fft_get_density(gloc(2,2,:),beta)
     ntotal=ed_dens(1)+npimp
     write(*,"(A,F25.18)")"np  =",npimp
     write(*,"(A,F25.18)")"ntot=",ntotal
