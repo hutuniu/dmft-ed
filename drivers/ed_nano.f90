@@ -7,32 +7,38 @@ program ed_nano
 #endif
   implicit none
 
-  integer                                       :: iloop
-  logical                                       :: converged
-  integer                                       :: ilat,ineq
-  !Bath:
-  integer                                       :: Nb
-  real(8),allocatable                           :: Bath_prev(:,:),Bath_ineq(:,:)
-  !The local hybridization function:
-  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Weiss_ineq
-  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Smats,Smats_ineq
-  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Sreal,Sreal_ineq
-  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Gmats,Gmats_ineq
-  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Greal,Greal_ineq
-  real(8), allocatable,dimension(:)             :: dens,dens_ineq
-  real(8), allocatable,dimension(:)             :: docc,docc_ineq
+  integer                                         :: iloop
+  logical                                         :: converged
+  integer                                         :: ilat,ineq,ispin,iorb
+  !bath:
+  integer                                         :: Nb
+  real(8),allocatable                             :: Bath_prev(:,:),Bath_ineq(:,:)
+  !local hybridization function:
+  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Weiss_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Smats,Smats_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Sreal,Sreal_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Gmats,Gmats_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Greal,Greal_ineq
+  real(8), allocatable,dimension(:)               :: dens,dens_ineq
+  real(8), allocatable,dimension(:)               :: docc,docc_ineq
   !hamiltonian input:
-  complex(8),allocatable                        :: Hij(:,:,:)  ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk==1]
-  complex(8),allocatable                        :: nanoHloc(:,:),Hloc(:,:,:,:,:),Hloc_ineq(:,:,:,:,:)
-  integer                                       :: Nk,Nlso,Nineq
-  integer,dimension(:),allocatable              :: lat2ineq,ineq2lat
-  integer,dimension(:),allocatable              :: sb_field_sign
+  complex(8),allocatable                          :: Hij(:,:,:)      ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk==1]
+  complex(8),allocatable                          :: nanoHloc(:,:),Hloc(:,:,:,:,:),Hloc_ineq(:,:,:,:,:)
+  integer                                         :: Nk,Nlso,Nineq
+  integer,dimension(:),allocatable                :: lat2ineq,ineq2lat
+  integer,dimension(:),allocatable                :: sb_field_sign
   !
-  real(8)                                       :: wmixing,Eout(2)
-  !input files
-  character(len=32)                             :: finput
-  character(len=32)                             :: nfile,hijfile
-  logical                                       :: phsym
+  real(8)                                         :: wmixing,Eout(2)
+  !input files:
+  character(len=32)                               :: finput
+  character(len=32)                               :: nfile,hijfile
+  !
+  logical                                         :: phsym,conduct
+  !non-local Green's function:
+  complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gijmats,Gijreal
+  !hybridization function to environment
+  complex(8),dimension(:,:,:,:,:,:),allocatable   :: hyb             ![Nlat][Nlat][Norb[Norb]][Nspin][Lreal]
+
 
 #ifdef _MPI_INEQ
   ! START MPI !
@@ -49,11 +55,25 @@ program ed_nano
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   call parse_input_variable(phsym,"phsym",finput,default=.false.)
 
+  ! parse postprocessing flags
+  call parse_input_variable(conduct,"conduct",finput,default=.false.)
+
+
+
   call ed_read_input(trim(finput))
 
-  call build_Hij([nfile,hijfile])
 
-  !Allocate Weiss Field:
+
+  ! set input structure hamiltonian
+  call build_Hij([nfile,hijfile])
+  
+
+  ! allocate hybridization matrix
+  allocate(hyb(Nlat,Nlat,Norb,Norb,Nspin,Lreal))
+  call set_hyb(hyb)
+
+
+  ! allocate weiss field:
   allocate(Weiss_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
   !
   allocate(Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
@@ -80,7 +100,31 @@ program ed_nano
   Hloc = reshape_Hloc(nanoHloc,Nlat,Nspin,Norb)
 
 
-  !Setup solver
+  ! postprocessing options
+  if(conduct)then
+     ! read converged self-energy
+     call read_sigma(Smats_ineq,Sreal_ineq)
+     do ineq=1,Nineq
+        ilat = ineq2lat(ineq)
+        Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
+        Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
+     enddo
+
+     ! allocates and extracts non-local Green's function
+     allocate(Gijmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+     allocate(Gijreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+     call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal)
+
+     ! extract the linear response (zero-bias) transmission function
+     ! i.e. the conductance in units of the quantum G0 [e^2/h]
+     call ed_get_conductance(Gijreal,hyb)
+     
+     deallocate(Gijmats,Gijreal)
+     stop
+  endif
+
+
+  ! setup solver
   Nb=get_bath_size()
 
   allocate(Bath_ineq(Nineq,Nb))
@@ -133,10 +177,10 @@ program ed_nano
      endif
      Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
      if(mpiID==0)then
-       converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
+        converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
 
-       if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
-    endif
+        if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
+     endif
 #ifdef _MPI_INEQ
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
      call MPI_BCAST(xmu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
@@ -144,9 +188,13 @@ program ed_nano
      if(mpiID==0) call end_loop()
   end do
 
+
+  call save_sigma(Smats,Sreal)
+
   Eout = ed_kinetic_energy_lattice(Hij,[1d0],Smats)
 
   call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
+
 
 #ifdef _MPI_INEQ
   call MPI_FINALIZE(mpiERR)
@@ -155,6 +203,11 @@ program ed_nano
 
 contains
 
+
+
+  !----------------------------------------------------------------------------------------!
+  ! purpose: build real-space Hamiltonian for a nanostructure of size [Nlat*Nspin*Norb]**2
+  !----------------------------------------------------------------------------------------!
   subroutine build_Hij(file)
     character(len=*)     :: file(2)
     integer              :: ilat,jlat,iorb,jorb,is,js,ispin,ie
@@ -213,7 +266,7 @@ contains
        if(iineq/=iineq0)then
           ineq2lat(iineq)=i
           ineq_count=ineq_count+1
-          endif
+       endif
        !if(ineq_count==Nineq)exit
     enddo
     iineq=lat2ineq(1)
@@ -289,7 +342,454 @@ contains
     close(unit)
   end subroutine build_Hij
 
+  
+  !----------------------------------------------------------------------------------------!
+  ! purpose: save the local self-energy on disk
+  !----------------------------------------------------------------------------------------!
+  subroutine save_sigma(Smats,Sreal)
+    complex(8),intent(inout)         :: Smats(:,:,:,:,:,:)
+    complex(8),intent(inout)         :: Sreal(:,:,:,:,:,:)
+    character(len=30)                :: suffix
+    integer                          :: ilat,ispin,iorb
+    real(8),dimension(:),allocatable :: wm,wr
+  
+    if(size(Smats,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
+    if(size(Smats,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
+    if(size(Smats,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
+    if(size(Smats,5)/=Norb) stop "save_sigma: error in dim 4. Norb"
 
+    if(size(Sreal,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
+    if(size(Sreal,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
+    if(size(Sreal,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
+    if(size(Sreal,5)/=Norb) stop "save_sigma: error in dim 4. Norb"
+
+    allocate(wm(Lmats))
+    allocate(wr(Lreal))
+   
+    wm = pi/beta*(2*arange(1,Lmats)-1)
+    wr = linspace(wini,wfin,Lreal)
+    if(mpiID==0)then
+       write(LOGfile,*)"write spin-orbital diagonal elements:"
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+             call store_data("LSigma"//trim(suffix),Smats(:,ispin,ispin,iorb,iorb,:),wm)
+          enddo
+       enddo
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+             call store_data("LSigma"//trim(suffix),Sreal(:,ispin,ispin,iorb,iorb,:),wr)
+          enddo
+       enddo
+    endif
+
+  end subroutine save_sigma
+
+
+
+  !----------------------------------------------------------------------------------------!
+  ! purpose: save the local self-energy on disk
+  !----------------------------------------------------------------------------------------!
+  subroutine read_sigma(Smats,Sreal)
+    complex(8),intent(inout)         :: Smats(:,:,:,:,:,:)
+    complex(8),intent(inout)         :: Sreal(:,:,:,:,:,:)
+    character(len=30)                :: suffix
+    integer                          :: ilat,ispin,iorb
+    real(8),dimension(:),allocatable :: wm,wr
+  
+    if(size(Smats,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
+    if(size(Smats,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
+    if(size(Smats,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
+    if(size(Smats,5)/=Norb) stop "save_sigma: error in dim 4. Norb"
+
+    if(size(Sreal,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
+    if(size(Sreal,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
+    if(size(Sreal,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
+    if(size(Sreal,5)/=Norb) stop "save_sigma: error in dim 4. Norb"
+
+    allocate(wm(Lmats))
+    allocate(wr(Lreal))
+   
+    wm = pi/beta*(2*arange(1,Lmats)-1)
+    wr = linspace(wini,wfin,Lreal)
+    if(mpiID==0)then
+       write(LOGfile,*)"write spin-orbital diagonal elements:"
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+             call read_data("LSigma"//trim(suffix),Smats(:,ispin,ispin,iorb,iorb,:),wm)
+          enddo
+       enddo
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+             call read_data("LSigma"//trim(suffix),Sreal(:,ispin,ispin,iorb,iorb,:),wr)
+          enddo
+       enddo
+    endif
+
+  end subroutine read_sigma
+
+
+  !----------------------------------------------------------------------------------------!
+  ! purpose: evaluate the Normal Green's functions G_ij for a given Hamiltonian matrix and
+  ! self-energy functions. Hk is a big sparse matrix of the form H(k;R_i,R_j)_{ab}^{ss'}
+  ! and size [Nk]*[Nlat*Nspin*Norb]**2
+  !----------------------------------------------------------------------------------------!
+  subroutine ed_get_gij_lattice(Hk,Wtk,Gmats,Greal,Smats,Sreal)
+    complex(8),dimension(:,:,:)      :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
+    real(8)                          :: Wtk(size(Hk,3)) ![Nk]
+    complex(8),intent(inout)         :: Gmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8),intent(inout)         :: Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8),intent(inout)         :: Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8),intent(inout)         :: Sreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)                       :: zeta_mats(Nlat,Nspin*Norb,Nspin*Norb,Lmats)
+    complex(8)                       :: zeta_real(Nlat,Nspin*Norb,Nspin*Norb,Lreal)
+    complex(8)                       :: Gkmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                       :: Gkreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    integer                          :: i,j,ik,Lk,Nlso,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,is,js
+    real(8),dimension(:),allocatable :: wm,wr
+
+    !
+    Lk=size(Hk,3)
+    Nlso=Nlat*Norb*Nspin
+    if(size(Hk,1)/=Nlso.OR.size(Hk,2)/=Nlso) stop "ed_get_gij_lattice error: wrong dimensions of Hk"
+    !
+    allocate(wm(Lmats))
+    allocate(wr(Lreal))
+    wm = pi/beta*(2*arange(1,Lmats)-1)
+    wr = linspace(wini,wfin,Lreal)
+    
+ 
+    if(mpiID==0)write(*,*)"Get local GF (id=0):"
+    !here we create the "array" *zeta_site* of Nlat blocks, each of size (Nspin*Norb)
+    !then we use a newly created function *blocks_to_matrix* to spread the blocks into
+    !a matrix of rank 2 dimensions Nlso*Nlso
+
+    zeta_mats=zero
+    zeta_real=zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             io = iorb + (ispin-1)*Norb
+             js = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
+             zeta_mats(ilat,io,io,:) = xi*wm(:)       + xmu
+             zeta_real(ilat,io,io,:) = wr(:) + xi*eps + xmu
+          enddo
+       enddo
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   zeta_mats(ilat,io,jo,:) = zeta_mats(ilat,io,jo,:) - Smats(ilat,ispin,jspin,iorb,jorb,:)
+                   zeta_real(ilat,io,jo,:) = zeta_real(ilat,io,jo,:) - Sreal(ilat,ispin,jspin,iorb,jorb,:)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    !pass each Z_site to the routines that invert (Z-Hk) for each k-point 
+    if(mpiID==0)call start_timer
+    Gmats=zero
+    Greal=zero
+    do ik=1,Lk
+       call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),Gkmats)      
+       call add_to_gloc_normal(zeta_real,Hk(:,:,ik),Gkreal)
+       Gmats = Gmats + Gkmats*Wtk(ik)
+       Greal = Greal + Gkreal*Wtk(ik)
+       if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+    end do
+    if(mpiID==0)call stop_timer
+    if(mpiID==0)then
+       write(LOGfile,*)"write spin-orbital diagonal elements:"
+       ispin=1
+       iorb=1
+       !call store_data("Gij_l1_s1_iw.ed",Gmats(:,:,ispin,ispin,iorb,iorb,:),wm)
+       !call store_data("Gij_l1_s1_realw.ed",Greal(:,:,ispin,ispin,iorb,iorb,:),wr)
+    endif
+  end subroutine ed_get_gij_lattice
+
+  subroutine add_to_gloc_normal(zeta_site,Hk,Gkout)
+    complex(8)               :: zeta_site(:,:,:,:)              ![Nlat][Nspin*Norb][Nspin*Norb][Lfreq]
+    complex(8)               :: Hk(Nlat*Nspin*Norb,Nlat*Nspin*Norb) 
+    real(8)                  :: Wtk                    
+    !output:
+    complex(8),intent(inout) :: Gkout(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,4))
+    complex(8)               :: Gktmp(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,4))
+    !
+    complex(8)               :: Gmatrix(Nlat*Nspin*Norb,Nlat*Nspin*Norb)
+    integer                  :: i,j,is,Lfreq,ilat,jlat,iorb,jorb,ispin,jspin,io,jo
+    if(size(zeta_site,1)/=Nlat)stop "get_gloc_kpoint error: zeta_site wrong size 1 = Nlat"
+    if(size(zeta_site,2)/=Nspin*Norb)stop "get_gloc_kpoint error: zeta_site wrong size 2 = Nspin*Norb"
+    if(size(zeta_site,3)/=Nspin*Norb)stop "get_gloc_kpoint error: zeta_site wrong size 3 = Nspin*Norb"
+    Lfreq = size(zeta_site,4)
+    Gktmp=zero
+    do i=1+mpiID,Lfreq,mpiSIZE
+       Gmatrix  = blocks_to_matrix(zeta_site(:,:,:,i)) - Hk !(z+mu)I_ij - Sigma_ij.I_ij - H(k)_ij
+       call matrix_inverse_sym(Gmatrix)
+       !store the diagonal blocks directly into the tmp output 
+       do ilat=1,Nlat
+          do jlat=1,Nlat
+             do ispin=1,Nspin
+                do jspin=1,Nspin
+                   do iorb=1,Norb
+                      do jorb=1,Norb
+                         io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+                         jo = jorb + (jspin-1)*Norb + (jlat-1)*Nspin*Norb
+                         Gktmp(ilat,jlat,ispin,jspin,iorb,jorb,i) = Gmatrix(io,jo)
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    Gkout=zero
+#ifdef _MPI_INEQ
+    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+    Gkout = Gktmp
+#endif
+  end subroutine add_to_gloc_normal
+
+  
+  !----------------------------------------------------------------------------------------!
+  ! purpose: evaluate the conductance (without vertex corrections) for a nanostructure 
+  ! on the real axis, given the non-local Green's function and the L/R hybridization matrix, 
+  ! of size [Nlat*Nspin*Norb**2*Lreal]
+  !----------------------------------------------------------------------------------------!
+  subroutine ed_get_conductance(Gret,hyb)
+    complex(8),intent(inout)              :: Gret(:,:,:,:,:,:,:)  ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+    complex(8),intent(inout)              :: hyb(:,:,:,:,:,:)     ![Nlat][Nlat][Nspin][Norb][Norb][Lreal]
+    ! auxiliary variables for matmul        
+    complex(8),dimension(:,:),allocatable :: GR,HR,GA,HL,Re,Le,Te ![Nlat*Norb]**2
+    complex(8),dimension(:,:),allocatable :: transe               ![Nspin][Lreal]
+    !
+    integer(4),dimension(:),allocatable   :: rmask,lmask          ![Nlat]
+    !
+    real(8),dimension(:),allocatable      :: wr
+    integer                               :: ilat,jlat,ispin,jspin,iorb,jorb,io,jo,i
+    integer                               :: unit,lfile
+    character(len=30)                     :: suffix
+ 
+    allocate(wr(Lreal))
+    wr = linspace(wini,wfin,Lreal)
+
+    ! allocate variables for matrix-matrix multiplication
+    allocate(GR(Nlat*Norb,Nlat*Norb))
+    allocate(HR(Nlat*Norb,Nlat*Norb))
+    allocate(GA(Nlat*Norb,Nlat*Norb))
+    allocate(HL(Nlat*Norb,Nlat*Norb))
+    allocate(Re(Nlat*Norb,Nlat*Norb))
+    allocate(Le(Nlat*Norb,Nlat*Norb))
+    allocate(Te(Nlat*Norb,Nlat*Norb))
+
+    ! set masks
+    allocate(lmask(Nlat),rmask(Nlat))
+    lmask(:)=0
+    rmask(:)=0
+    if(mpiID==0)then
+       lfile = file_length("lmask.in")
+       unit = free_unit()
+       open(unit,file='lmask.in',status='old')
+       do i=1,lfile
+          read(unit,*) ilat
+          ilat=ilat+1
+          lmask(ilat)=1
+          !write(6,*) ilat,lmask(ilat)
+       enddo
+       lfile = file_length("rmask.in")
+       unit = free_unit()
+       open(unit,file='rmask.in',status='old')
+       do i=1,lfile
+          read(unit,*) ilat
+          ilat=ilat+1
+          rmask(ilat)=1
+          !write(6,*) ilat,rmask(ilat)
+       enddo
+    endif
+ 
+    ! allocate spin-resolved transmission coefficient
+    allocate(transe(Nspin,Lreal))
+
+    do ispin=1,Nspin
+       do i=1,Lreal
+          ! fill auxiliary matrix [Nlat*Norb]**2
+          do ilat=1,Nlat
+             do jlat=1,Nlat
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ilat-1)*Norb
+                      jo = jorb + (jlat-1)*Norb
+                      GR(io,jo)=Gret(jlat,ilat,ispin,ispin,iorb,jorb,i)
+                      GA(io,jo)=dconjg(Gret(ilat,jlat,ispin,ispin,iorb,jorb,i))
+                      ! set \Gamma matrix for L/R according to maks
+                      if(ilat==jlat)then
+                         HR(io,jo)=hyb(ilat,ilat,ispin,iorb,jorb,i)*rmask(ilat)
+                         HL(io,jo)=hyb(ilat,ilat,ispin,iorb,jorb,i)*lmask(ilat)
+                      endif
+                   enddo
+                enddo
+             enddo
+          enddo
+          ! get transmission function as T(ispin,i)=Tr[Hybl*Gadvc*Hybr*Gret]
+          Re = matmul(HR,GR)
+          Le = matmul(HL,GA)
+          Te = matmul(Le,Re)
+          transe(ispin,i) = trace_matrix(Te,Nlat*Norb)
+       enddo
+       suffix="_s"//reg(txtfy(ispin))//"_realw.ed"
+       call store_data("Te"//trim(suffix),transe(ispin,:),wr)
+    enddo 
+
+
+    deallocate(GR,HR,GA,HL,rmask,lmask,Re,Le,Te) 
+
+  end subroutine ed_get_conductance
+
+
+  !----------------------------------------------------------------------------------------!
+  ! purpose: define the hybridization matrix of size [Nlat][Nlat][Nspin][Norb][Norb][Lreal] 
+  ! reading the parameters from an input file
+  !----------------------------------------------------------------------------------------!
+  subroutine set_hyb(hyb)
+    complex(8),intent(inout)                :: hyb(:,:,:,:,:,:) ![Nlat][Nlat][Nspin][Norb][Norb][Lreal]
+    !
+    real(8)                                 :: pi
+    !
+    integer                                 :: ilat,jlat,ispin,jspin,iorb,jorb,io,jo,i
+    integer                                 :: k,kmax
+    integer                                 :: unit,l,lfile
+    ! leads
+    integer                                 :: ikind,ilead,Nlead
+    real(8)                                 :: D,mu,V,epsk
+    complex(8)                              :: ksum
+    complex(8),dimension(:,:,:),allocatable :: lead ![Nlead][Nspin][Lreal]
+    real(8),dimension(:),allocatable        :: wr
+    character(30)                           :: suffix
+
+    ! greek pi
+    pi=acos(-1.d0)
+
+    kmax=10000
+
+    allocate(wr(Lreal))
+    wr = linspace(wini,wfin,Lreal)
+
+    ! initialize embedding hybridization function
+    hyb(:,:,:,:,:,:)=dcmplx(0.0,0.0)
+
+    ! determine Nleads & allocate lead matrix
+    if(mpiID==0)then
+       unit = free_unit()
+       open(unit,file='lead.in',status='old')
+       read(unit,*) Nlead
+       allocate(lead(Nlead,Nspin,Lreal))
+       lead(:,:,:)=dcmplx(0.d0,0.d0)
+       ! lead file setup lead by kind, half-bandwitdh (D) and chemical potential (mu)
+       do l=1,Nlead
+          read(unit,*) ilead, ispin, D, mu, ikind
+          ilead=ilead+1
+          ispin=ispin+1
+          if(ilead>Nlead)stop "set_hyb error: in input file 'lead.in' ilead > Nlead"
+          if(ispin>Nspin)stop "set_hyb error: non-spin degenerate leads for Nspin=1 calculation"
+          suffix="_ilead"//reg(txtfy(ilead))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+          !
+          if(ikind==0)then
+             ! flat DOS (analytic)
+             write(*,*) "flat DOS (analytic)"
+             lead(ilead,ispin,:)=dcmplx(log(abs((D+wr(:)+mu)/(D-wr(:)-mu))),-pi*heaviside(D-abs(wr(:)+mu)))/(2*D)
+          elseif(ikind==1)then
+             ! flat DOS (k-sum)
+             write(*,*) "flat DOS (k-sum)"
+             do i=1,Lreal
+                ksum=dcmplx(0.d0,0.d0)
+                do k=1,kmax
+                   epsk=-D+2.d0*D*(k/kmax)
+                   ksum=ksum+1.d0/(wr(i)-epsk+mu+dcmplx(0.d0,0.03d0))
+                enddo
+                lead(ilead,ispin,i)=ksum/kmax
+             enddo
+          elseif(ikind==2)then
+             ! semicircular DOS (k-sum) 
+             write(*,*) "semicircular DOS (k-sum)"
+             do i=1,Lreal
+                ksum=dcmplx(0.d0,0.d0)
+                do k=1,kmax
+                   epsk=-D+2.d0*D*(k/kmax)
+                   ksum=ksum+(4.d0/(pi*kmax))*sqrt(1.d0-(epsk/D)**2)/(wr(i)-epsk+mu+dcmplx(0.d0,0.03d0))
+                enddo
+                lead(ilead,ispin,i)=ksum
+             enddo
+          elseif(ikind==3)then
+          ! readin hk DOS
+             write(*,*) "readin hk DOS to be implemented and benchmarked w/ w2dynamics"
+             stop
+          else
+             write(*,*) "set_hyb error: in input file 'lead.in' invalid ikind"
+             stop
+          endif
+          ! store lead(s) on disk
+          call store_data("lead"//trim(suffix),lead(ilead,ispin,:),wr)
+       enddo
+       close(unit)
+    endif
+
+    ! hybridization file determine lead-site connections 
+    if(mpiID==0)then
+       lfile = file_length("vij.in")
+       unit = free_unit()
+       open(unit,file='vij.in',status='old')
+       do i=1,lfile
+          read(unit,*) ilat, iorb, jlat, jorb, ilead, V
+          ilat=ilat+1
+          iorb=iorb+1
+          jlat=jlat+1
+          jorb=jorb+1
+          ilead=ilead+1
+          if((iorb>Norb).or.(jorb>Norb))stop "set_hyb error: in input file 'vij.in' i/jorb > Norb"
+          if((ilat>Nlat).or.(jlat>Nlat))stop "set_hyb error: in input file 'vij.in' i/jlat > Nlat"
+          if(ilead>Nlead)stop "set_hyb error: in input file 'vij.in' ilead > Nlead"
+          do iorb=1,Norb
+             do jorb=1,Norb
+                do ispin=1,Nspin
+                   hyb(ilat,jlat,ispin,iorb,jorb,:)=lead(ilead,ispin,:)
+                enddo
+             enddo
+          enddo
+       enddo
+       close(unit)
+    endif
+
+    deallocate(lead,wr)
+
+    !do ilat=1,Nlat
+    !   do ispin=1,Nspin
+    !      do iorb=1,Norb
+    !         do jorb=1,Norb
+    !            hyb(ilat,ilat,ispin,iorb,jorb,:)=dcmplx(0.0,1.0)
+    !         enddo
+    !      enddo
+    !   enddo
+    !enddo
+    
+  end subroutine set_hyb
+
+
+  function trace_matrix(M,dim) result(tr)
+    integer                       :: dim
+    complex(8),dimension(dim,dim) :: M
+    complex(8) :: tr
+    integer                       :: i
+    tr=dcmplx(0d0,0d0)
+    do i=1,dim
+       tr=tr+M(i,i)
+    enddo
+  end function trace_matrix
 
 
 end program ed_nano
