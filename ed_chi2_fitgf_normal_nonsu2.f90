@@ -26,8 +26,8 @@ subroutine chi2_fitgf_normal_nonsu2(fg,bath_)
   character(len=20)                  :: suffix
   integer                            :: unit
   !
-  if(size(fg,1)/=Norb)stop "chi2_fitgf_normal_nonsu2 error: size[fg,1]!=Nspin"
-  if(size(fg,2)/=Norb)stop "chi2_fitgf_normal_nonsu2 error: size[fg,2]!=Nspin"
+  if(size(fg,1)/=Nspin)stop "chi2_fitgf_normal_nonsu2 error: size[fg,1]!=Nspin"
+  if(size(fg,2)/=Nspin)stop "chi2_fitgf_normal_nonsu2 error: size[fg,2]!=Nspin"
   if(size(fg,3)/=Norb)stop "chi2_fitgf_normal_nonsu2 error: size[fg,3]!=Norb"
   if(size(fg,4)/=Norb)stop "chi2_fitgf_normal_nonsu2 error: size[fg,4]!=Norb"
   !

@@ -27,8 +27,8 @@ subroutine chi2_fitgf_hybrid_nonsu2(fg,bath_)
   character(len=20)                  :: suffix
   integer                            :: unit
   !
-  if(size(fg,1)/=Norb)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,1]!=Nspin"
-  if(size(fg,2)/=Norb)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,2]!=Nspin"
+  if(size(fg,1)/=Nspin)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,1]!=Nspin"
+  if(size(fg,2)/=Nspin)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,2]!=Nspin"
   if(size(fg,3)/=Norb)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,3]!=Norb"
   if(size(fg,4)/=Norb)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,4]!=Norb"
   !
@@ -91,7 +91,7 @@ subroutine chi2_fitgf_hybrid_nonsu2(fg,bath_)
   do ispin=1,Nspin
      do i=1,Nbath
         io = stride + i + (ispin-1)*Nbath
-        array_bath(io) = dmft_bath%e(ispin,iorb,i)
+        array_bath(io) = dmft_bath%e(ispin,1,i)
      enddo
   enddo
   stride = Nspin*Nbath
@@ -170,7 +170,7 @@ subroutine chi2_fitgf_hybrid_nonsu2(fg,bath_)
   do ispin=1,Nspin
      do i=1,Nbath
         io = stride + i + (ispin-1)*Nbath
-        dmft_bath%e(ispin,iorb,i) = array_bath(io)
+        dmft_bath%e(ispin,1,i) = array_bath(io)
      enddo
   enddo
   stride = Nspin*Nbath
@@ -257,7 +257,7 @@ end subroutine chi2_fitgf_hybrid_nonsu2
 function chi2_delta_hybrid_nonsu2(a) result(chi2)
   real(8),dimension(:)                               ::  a
   real(8)                                            ::  chi2
-  real(8),dimension(totNspin)                        ::  chi2_so
+  real(8),dimension(totNso)                          ::  chi2_so
   complex(8),dimension(Nspin,Nspin,Norb,Norb,Ldelta) ::  Delta
   integer                                            ::  i,l,iorb,jorb,ispin,jspin
   !
@@ -284,7 +284,7 @@ end function chi2_delta_hybrid_nonsu2
 function chi2_weiss_hybrid_nonsu2(a) result(chi2)
   real(8),dimension(:)                               :: a
   real(8)                                            :: chi2
-  real(8),dimension(totNspin)                        :: chi2_so
+  real(8),dimension(totNso)                          :: chi2_so
   complex(8),dimension(Nspin,Nspin,Norb,Norb,Ldelta) :: g0and
   integer                                            :: i,l,iorb,jorb,ispin,jspin
   !

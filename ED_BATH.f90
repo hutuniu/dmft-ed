@@ -794,7 +794,7 @@ contains
              do iorb=1,Norb
                 do i=1,Nbath
                    io = stride + i + (iorb-1)*Nbath + (ispin-1)*Norb*Nbath
-                   dmft_bath%v(ispin,iorb,i) = bath_(io)
+                   dmft_bath_%v(ispin,iorb,i) = bath_(io)
                 enddo
              enddo
           enddo
@@ -803,7 +803,7 @@ contains
              do iorb=1,Norb
                 do i=1,Nbath
                    io = stride + i + (iorb-1)*Nbath + (ispin-1)*Norb*Nbath
-                   dmft_bath%u(ispin,iorb,i) = bath_(io)
+                   dmft_bath_%u(ispin,iorb,i) = bath_(io)
                 enddo
              enddo
           enddo
@@ -971,7 +971,7 @@ contains
              do iorb=1,Norb
                 do i=1,Nbath
                    io = stride + i + (iorb-1)*Nbath + (ispin-1)*Norb*Nbath
-                   bath_(io) = dmft_bath%v(ispin,iorb,i)
+                   bath_(io) = dmft_bath_%v(ispin,iorb,i)
                 enddo
              enddo
           enddo
@@ -980,7 +980,7 @@ contains
              do iorb=1,Norb
                 do i=1,Nbath
                    io = stride + i + (iorb-1)*Nbath + (ispin-1)*Norb*Nbath
-                   bath_(io) = dmft_bath%u(ispin,iorb,i)
+                   bath_(io) = dmft_bath_%u(ispin,iorb,i)
                 enddo
              enddo
           enddo
