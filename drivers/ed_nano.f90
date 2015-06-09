@@ -37,7 +37,7 @@ program ed_nano
   !non-local Green's function:
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gijmats,Gijreal
   !hybridization function to environment
-  complex(8),dimension(:,:,:,:,:,:),allocatable   :: hyb             ![Nlat][Nlat][Norb[Norb]][Nspin][Lreal]
+  complex(8),dimension(:,:,:),allocatable         :: Hyb_mats,Hyb_real             ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lmats/Lreal]
 
 
 #ifdef _MPI_INEQ
@@ -66,11 +66,10 @@ program ed_nano
 
   ! set input structure hamiltonian
   call build_Hij([nfile,hijfile])
-  
+
 
   ! allocate hybridization matrix
-  allocate(hyb(Nlat,Nlat,Norb,Norb,Nspin,Lreal))
-  call set_hyb(hyb)
+  call set_hyb()
 
 
   ! allocate weiss field:
@@ -117,8 +116,8 @@ program ed_nano
 
      ! extract the linear response (zero-bias) transmission function
      ! i.e. the conductance in units of the quantum G0 [e^2/h]
-     call ed_get_conductance(Gijreal,hyb)
-     
+     call ed_get_conductance(Gijreal)
+
      deallocate(Gijmats,Gijreal)
      stop
   endif
@@ -215,7 +214,7 @@ contains
     integer              :: EOF
     character, parameter :: tab = achar ( 9 )
     integer              :: unit,ineq_count
-    integer              :: Ns,Ne,Nb         ! #atoms, #inequivalent, #bands
+    integer              :: Ns,Ne,Nb,Nk         ! #atoms, #inequivalent, #bands
     real(8)              :: ret,imt
     logical              :: blank_at_right
     character(len=1)     :: next,prev
@@ -342,7 +341,7 @@ contains
     close(unit)
   end subroutine build_Hij
 
-  
+
   !----------------------------------------------------------------------------------------!
   ! purpose: save the local self-energy on disk
   !----------------------------------------------------------------------------------------!
@@ -352,7 +351,7 @@ contains
     character(len=30)                :: suffix
     integer                          :: ilat,ispin,iorb
     real(8),dimension(:),allocatable :: wm,wr
-  
+
     if(size(Smats,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
     if(size(Smats,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
     if(size(Smats,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
@@ -365,7 +364,7 @@ contains
 
     allocate(wm(Lmats))
     allocate(wr(Lreal))
-   
+
     wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
     if(mpiID==0)then
@@ -397,7 +396,7 @@ contains
     character(len=30)                :: suffix
     integer                          :: ilat,ispin,iorb
     real(8),dimension(:),allocatable :: wm,wr
-  
+
     if(size(Smats,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
     if(size(Smats,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
     if(size(Smats,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
@@ -410,7 +409,7 @@ contains
 
     allocate(wm(Lmats))
     allocate(wr(Lreal))
-   
+
     wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
     if(mpiID==0)then
@@ -460,8 +459,8 @@ contains
     allocate(wr(Lreal))
     wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
-    
- 
+
+
     if(mpiID==0)write(*,*)"Get local GF (id=0):"
     !here we create the "array" *zeta_site* of Nlat blocks, each of size (Nspin*Norb)
     !then we use a newly created function *blocks_to_matrix* to spread the blocks into
@@ -556,37 +555,40 @@ contains
 #endif
   end subroutine add_to_gloc_normal
 
-  
+
   !----------------------------------------------------------------------------------------!
   ! purpose: evaluate the conductance (without vertex corrections) for a nanostructure 
   ! on the real axis, given the non-local Green's function and the L/R hybridization matrix, 
   ! of size [Nlat*Nspin*Norb**2*Lreal]
   !----------------------------------------------------------------------------------------!
-  subroutine ed_get_conductance(Gret,hyb)
+  subroutine ed_get_conductance(Gret)
     complex(8),intent(inout)              :: Gret(:,:,:,:,:,:,:)  ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
-    complex(8),intent(inout)              :: hyb(:,:,:,:,:,:)     ![Nlat][Nlat][Nspin][Norb][Norb][Lreal]
     ! auxiliary variables for matmul        
     complex(8),dimension(:,:),allocatable :: GR,HR,GA,HL,Re,Le,Te ![Nlat*Norb]**2
     complex(8),dimension(:,:),allocatable :: transe               ![Nspin][Lreal]
     !
-    integer(4),dimension(:),allocatable   :: rmask,lmask          ![Nlat]
+    integer,dimension(:),allocatable   :: rmask,lmask          ![Nlat]
+    logical,dimension(:,:),allocatable :: RightMask,LeftMask
     !
     real(8),dimension(:),allocatable      :: wr
-    integer                               :: ilat,jlat,ispin,jspin,iorb,jorb,io,jo,i
+    integer                               :: ilat,jlat,ispin,jspin,iorb,jorb,io,jo,i,Nlso
     integer                               :: unit,lfile
     character(len=30)                     :: suffix
- 
+    !
+    Nlso = Nlat*Nspin*Norb
+    !
     allocate(wr(Lreal))
     wr = linspace(wini,wfin,Lreal)
 
     ! allocate variables for matrix-matrix multiplication
-    allocate(GR(Nlat*Norb,Nlat*Norb))
-    allocate(HR(Nlat*Norb,Nlat*Norb))
-    allocate(GA(Nlat*Norb,Nlat*Norb))
-    allocate(HL(Nlat*Norb,Nlat*Norb))
-    allocate(Re(Nlat*Norb,Nlat*Norb))
-    allocate(Le(Nlat*Norb,Nlat*Norb))
-    allocate(Te(Nlat*Norb,Nlat*Norb))
+    allocate(GR(Nlso,Nlso));GR=zero
+    allocate(HR(Nlso,Nlso));HR=zero
+    allocate(GA(Nlso,Nlso));GA=zero
+    allocate(HL(Nlso,Nlso));HL=zero
+    allocate(Re(Nlso,Nlso));Re=zero
+    allocate(Le(Nlso,Nlso));Le=zero
+    allocate(Te(Nlso,Nlso));Te=zero
+
 
     ! set masks
     allocate(lmask(Nlat),rmask(Nlat))
@@ -612,26 +614,29 @@ contains
           !write(6,*) ilat,rmask(ilat)
        enddo
     endif
- 
+
+    allocate(RightMask(Nlat,Nlat),LeftMask(Nlat,Nlat))
+
     ! allocate spin-resolved transmission coefficient
     allocate(transe(Nspin,Lreal))
 
     do ispin=1,Nspin
        do i=1,Lreal
-          ! fill auxiliary matrix [Nlat*Norb]**2
+          ! fill auxiliary matrix [Nlso]**2
           do ilat=1,Nlat
              do jlat=1,Nlat
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      io = iorb + (ilat-1)*Norb
-                      jo = jorb + (jlat-1)*Norb
+                      io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+                      jo = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb
                       GR(io,jo)=Gret(jlat,ilat,ispin,ispin,iorb,jorb,i)
                       GA(io,jo)=dconjg(Gret(ilat,jlat,ispin,ispin,iorb,jorb,i))
-                      ! set \Gamma matrix for L/R according to maks
-                      if(ilat==jlat)then
-                         HR(io,jo)=hyb(ilat,ilat,ispin,iorb,jorb,i)*rmask(ilat)
-                         HL(io,jo)=hyb(ilat,ilat,ispin,iorb,jorb,i)*lmask(ilat)
-                      endif
+                      !
+                      ! set \Gamma matrix for L/R according to masks: {ilat,jlat} \in L-subset OR R-subset
+                      HR(io,jo)=zero
+                      if( (rmask(ilat)==1) .AND. (rmask(jlat)==1) )HR(io,jo) = Hyb_real(io,jo,i)
+                      HL(io,jo)=zero
+                      if( (lmask(ilat)==1) .AND. (lmask(jlat)==1) )HL(io,jo) = Hyb_real(io,jo,i)
                    enddo
                 enddo
              enddo
@@ -640,12 +645,11 @@ contains
           Re = matmul(HR,GR)
           Le = matmul(HL,GA)
           Te = matmul(Le,Re)
-          transe(ispin,i) = trace_matrix(Te,Nlat*Norb)
+          transe(ispin,i) = trace_matrix(Te,Nlso)
        enddo
        suffix="_s"//reg(txtfy(ispin))//"_realw.ed"
        call store_data("Te"//trim(suffix),transe(ispin,:),wr)
-    enddo 
-
+    enddo
 
     deallocate(GR,HR,GA,HL,rmask,lmask,Re,Le,Te) 
 
@@ -656,40 +660,41 @@ contains
   ! purpose: define the hybridization matrix of size [Nlat][Nlat][Nspin][Norb][Norb][Lreal] 
   ! reading the parameters from an input file
   !----------------------------------------------------------------------------------------!
-  subroutine set_hyb(hyb)
-    complex(8),intent(inout)                :: hyb(:,:,:,:,:,:) ![Nlat][Nlat][Nspin][Norb][Norb][Lreal]
-    !
-    real(8)                                 :: pi
-    !
-    integer                                 :: ilat,jlat,ispin,jspin,iorb,jorb,io,jo,i
+  subroutine set_hyb()
+    integer                                 :: ilat,jlat,ispin,jspin,iorb,jorb,io,jo,i,Nlso
     integer                                 :: k,kmax
     integer                                 :: unit,l,lfile
     ! leads
     integer                                 :: ikind,ilead,Nlead
     real(8)                                 :: D,mu,V,epsk
     complex(8)                              :: ksum
-    complex(8),dimension(:,:,:),allocatable :: lead ![Nlead][Nspin][Lreal]
-    real(8),dimension(:),allocatable        :: wr
-    character(30)                           :: suffix
-
-    ! greek pi
-    pi=acos(-1.d0)
-
+    complex(8),dimension(:,:,:),allocatable :: lead,mlead ![Nlead][Nspin][Lreal/Lmats]
+    real(8),dimension(:),allocatable        :: wr,wm
+    character(50)                           :: suffix
+    !
+    Nlso = Nlat*Nspin*Norb
+    !
     kmax=10000
-
-    allocate(wr(Lreal))
+    !
+    allocate(wm(Lmats),wr(Lreal))
+    wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
 
+
     ! initialize embedding hybridization function
-    hyb(:,:,:,:,:,:)=dcmplx(0.0,0.0)
+    allocate(Hyb_mats(Nlso,Nlso,Lmats))
+    allocate(Hyb_real(Nlso,Nlso,Lreal))
+    Hyb_mats=zero
+    Hyb_real=zero
 
     ! determine Nleads & allocate lead matrix
     if(mpiID==0)then
        unit = free_unit()
        open(unit,file='lead.in',status='old')
-       read(unit,*) Nlead
+       read(unit,*)Nlead
        allocate(lead(Nlead,Nspin,Lreal))
-       lead(:,:,:)=dcmplx(0.d0,0.d0)
+       allocate(mlead(Nlead,Nspin,Lmats))
+       lead(:,:,:)=zero
        ! lead file setup lead by kind, half-bandwitdh (D) and chemical potential (mu)
        do l=1,Nlead
           read(unit,*) ilead, ispin, D, mu, ikind
@@ -702,15 +707,15 @@ contains
           if(ikind==0)then
              ! flat DOS (analytic)
              write(*,*) "flat DOS (analytic)"
-             lead(ilead,ispin,:)=dcmplx(log(abs((D+wr(:)+mu)/(D-wr(:)-mu))),-pi*heaviside(D-abs(wr(:)+mu)))/(2*D)
+             lead(ilead,ispin,:)=dcmplx( log(abs((D+wr(:)+mu)/(D-wr(:)-mu))) , -pi*heaviside(D-abs(wr(:)+mu)) )/(2d0*D)
           elseif(ikind==1)then
              ! flat DOS (k-sum)
              write(*,*) "flat DOS (k-sum)"
              do i=1,Lreal
-                ksum=dcmplx(0.d0,0.d0)
+                ksum=zero
                 do k=1,kmax
-                   epsk=-D+2.d0*D*(k/kmax)
-                   ksum=ksum+1.d0/(wr(i)-epsk+mu+dcmplx(0.d0,0.03d0))
+                   epsk = -D + 2*D/kmax*(k-1)
+                   ksum = ksum + 1d0/( wr(i)+xi*0.01d0+mu - epsk)
                 enddo
                 lead(ilead,ispin,i)=ksum/kmax
              enddo
@@ -718,15 +723,15 @@ contains
              ! semicircular DOS (k-sum) 
              write(*,*) "semicircular DOS (k-sum)"
              do i=1,Lreal
-                ksum=dcmplx(0.d0,0.d0)
+                ksum=zero
                 do k=1,kmax
-                   epsk=-D+2.d0*D*(k/kmax)
-                   ksum=ksum+(4.d0/(pi*kmax))*sqrt(1.d0-(epsk/D)**2)/(wr(i)-epsk+mu+dcmplx(0.d0,0.03d0))
+                   epsk = -D + 2*D/kmax*(k-1)
+                   ksum = ksum + (4d0/(pi*kmax))*sqrt(1d0-(epsk/D)**2)/( wr(i)+xi*0.01d0+mu - epsk)
                 enddo
                 lead(ilead,ispin,i)=ksum
              enddo
           elseif(ikind==3)then
-          ! readin hk DOS
+             ! readin hk DOS
              write(*,*) "readin hk DOS to be implemented and benchmarked w/ w2dynamics"
              stop
           else
@@ -735,12 +740,13 @@ contains
           endif
           ! store lead(s) on disk
           call store_data("lead"//trim(suffix),lead(ilead,ispin,:),wr)
+          call get_matsubara_gf_from_dos(wr,lead(ilead,ispin,:),mlead(ilead,ispin,:),beta)
+          call store_data("mlead"//trim(suffix),mlead(ilead,ispin,:),wm)
        enddo
        close(unit)
-    endif
-
-    ! hybridization file determine lead-site connections 
-    if(mpiID==0)then
+       !
+       !
+       ! hybridization file determine lead-site connections 
        lfile = file_length("vij.in")
        unit = free_unit()
        open(unit,file='vij.in',status='old')
@@ -754,29 +760,20 @@ contains
           if((iorb>Norb).or.(jorb>Norb))stop "set_hyb error: in input file 'vij.in' i/jorb > Norb"
           if((ilat>Nlat).or.(jlat>Nlat))stop "set_hyb error: in input file 'vij.in' i/jlat > Nlat"
           if(ilead>Nlead)stop "set_hyb error: in input file 'vij.in' ilead > Nlead"
-          do iorb=1,Norb
-             do jorb=1,Norb
-                do ispin=1,Nspin
-                   hyb(ilat,jlat,ispin,iorb,jorb,:)=lead(ilead,ispin,:)
-                enddo
-             enddo
+          do ispin=1,Nspin
+             io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb !== ilat
+             jo = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb !== jlat
+             Hyb_real(io,jo,:)=lead(ilead,ispin,:)
+             Hyb_mats(io,jo,:)=mlead(ilead,ispin,:)
           enddo
        enddo
        close(unit)
     endif
-
-    deallocate(lead,wr)
-
-    !do ilat=1,Nlat
-    !   do ispin=1,Nspin
-    !      do iorb=1,Norb
-    !         do jorb=1,Norb
-    !            hyb(ilat,ilat,ispin,iorb,jorb,:)=dcmplx(0.0,1.0)
-    !         enddo
-    !      enddo
-    !   enddo
-    !enddo
-    
+    deallocate(lead,mlead,wr,wm)
+    !
+    call MPI_Bcast(hyb_real,size(hyb_real),MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ED_MPI_ERR)
+    call MPI_Bcast(hyb_mats,size(hyb_mats),MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ED_MPI_ERR)
+    !
   end subroutine set_hyb
 
 

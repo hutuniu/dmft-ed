@@ -61,7 +61,9 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
            do ispin=1,Nspin
               do jspin=1,Nspin
                  do ih=1,Nspin
-                    Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x(i) - hps(ih,:)) )
+                    do i=1,L
+                       Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x(i) - hps(ih,:)) )
+                    enddo
                  enddo
               enddo
            enddo

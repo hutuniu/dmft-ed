@@ -300,20 +300,20 @@ contains
        !Get Gimp^-1
        do i=1,Lmats
           invGimp=zero
-          invGimp(1:Norb,1:Norb)               = impGmats(ispin,ispin,iorb,jorb,i)
-          invGimp(1:Norb,Norb+1:2*Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,1:Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGmats(ispin,ispin,iorb,jorb,i))
+          invGimp(1:Norb,1:Norb)               = impGmats(ispin,ispin,:,:,i)
+          invGimp(1:Norb,Norb+1:2*Norb)        = impFmats(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,1:Norb)        = impFmats(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGmats(ispin,ispin,:,:,i))
           call inv(invGimp)
           invGmats(ispin,ispin,:,:,i) = invGimp(1:Norb,1:Norb)
           invFmats(ispin,ispin,:,:,i) = invGimp(1:Norb,Norb+1:2*Norb)
        enddo
        do i=1,Lreal
           invGimp=zero
-          invGimp(1:Norb,1:Norb)               = impGreal(ispin,ispin,iorb,jorb,i)
-          invGimp(1:Norb,Norb+1:2*Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,1:Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGreal(ispin,ispin,iorb,jorb,Lreal-i+1))
+          invGimp(1:Norb,1:Norb)               = impGreal(ispin,ispin,:,:,i)
+          invGimp(1:Norb,Norb+1:2*Norb)        = impFreal(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,1:Norb)        = impFreal(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGreal(ispin,ispin,:,:,Lreal-i+1))
           call inv(invGimp)
           invGreal(ispin,ispin,:,:,i) =  invGimp(1:Norb,1:Norb)
           invFreal(ispin,ispin,:,:,i) =  invGimp(1:Norb,Norb+1:2*Norb)

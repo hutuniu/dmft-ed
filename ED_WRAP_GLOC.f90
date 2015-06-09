@@ -36,7 +36,7 @@ contains
   ! self-energy functions. Hk is a big sparse matrix of the form H(k;R_i,R_j)_{ab}^{ss'}
   ! and size [Nk]*[Nlat*Nspin*Norb]**2
   !----------------------------------------------------------------------------------------!
-  subroutine ed_get_gloc_normal_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
+  subroutine ed_get_gloc_normal_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm,Gamma_mats,Gamma_real)
     complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
     complex(8),intent(inout)    :: Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
@@ -52,6 +52,8 @@ contains
     real(8)                     :: Eloc_(Nlat*Norb*Nspin)
     logical,optional            :: hk_symm(size(Hk,3))
     logical                     :: hk_symm_(size(Hk,3))
+    complex(8),optional         :: Gamma_mats(size(Hk,1),size(Hk,2),Lmats)
+    complex(8),optional         :: Gamma_real(size(Hk,1),size(Hk,2),Lreal)
     integer                     :: i,ik,Lk,Nlso,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,js
     !
     Lk=size(Hk,3)
@@ -100,8 +102,16 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
-       call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)      
-       call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+       if(present(Gamma_mats))then
+          call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=Gamma_mats)
+       else
+          call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)
+       endif
+       if(present(Gamma_real))then
+          call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Gembed=Gamma_real)
+       else
+          call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+       endif
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
        if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
@@ -151,16 +161,17 @@ contains
     endif
   end subroutine ed_get_gloc_normal_main
 
-  subroutine add_to_gloc_normal(zeta_site,Hk,hk_symm,Gkout)
+  subroutine add_to_gloc_normal(zeta_site,Hk,hk_symm,Gkout,Gembed)
     complex(8)               :: zeta_site(:,:,:,:)              ![Nlat][Nspin][Nspin][Norb][Norb][Lfreq]
     complex(8)               :: Hk(Nlat*Nspin*Norb,Nlat*Nspin*Norb) 
     real(8)                  :: Wtk                    
-    logical                  :: hk_symm                
+    logical                  :: hk_symm
     !output:
     complex(8),intent(inout) :: Gkout(Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,4))
     complex(8)               :: Gktmp(Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,4))
     !
     complex(8)               :: Gmatrix(Nlat*Nspin*Norb,Nlat*Nspin*Norb)
+    complex(8),optional      :: Gembed(Nlat*Nspin*Norb,Nlat*Nspin*Norb,size(zeta_site,4)) ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lfreq]
     integer                  :: i,is,Lfreq,ilat,jlat,iorb,jorb,ispin,jspin,io,jo
     if(size(zeta_site,1)/=Nlat)stop "get_gloc_kpoint error: zeta_site wrong size 1 = Nlat"
     if(size(zeta_site,2)/=Nspin*Norb)stop "get_gloc_kpoint error: zeta_site wrong size 2 = Nspin*Norb"
@@ -169,6 +180,7 @@ contains
     Gktmp=zero
     do i=1+mpiID,Lfreq,mpiSIZE
        Gmatrix  = blocks_to_matrix(zeta_site(:,:,:,i)) - Hk
+       if(present(Gembed))Gmatrix = Gmatrix - Gembed(:,:,i)
        if(hk_symm) then
           call matrix_inverse_sym(Gmatrix)
        else
