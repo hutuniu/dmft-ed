@@ -113,10 +113,10 @@ contains
           !
        case ("nonsu2")
           !
-          if(present(ispin))then
-             write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=nonsu2 but only ONE spin orientation required. disregarded"
-             call sleep(1)
-          endif
+          !if(present(ispin))then
+          !   write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=nonsu2 but only ONE spin orientation required. disregarded"
+          !   call sleep(1)
+          !endif
           call chi2_fitgf_hybrid_nonsu2(fg(:,:,:,:,:),bath)
           !
        case default
@@ -207,7 +207,7 @@ contains
     fg_=zero
     fg_(ispin_,ispin_,:,:,1:Lfit) = fg(:,:,1:Lfit)
     call chi2_fitgf_generic_normal(fg_,bath,ispin_)
-  end subroutine chi2_fitgf_generic_normal_NOSPIN
+  end subroutine chi2_fitgf_generic_normal_NOSPIN           !<======================
 
   subroutine chi2_fitgf_generic_superc_NOSPIN(fg,bath,ispin)
     complex(8),dimension(:,:,:,:)                      :: fg ![2][Norb][Norb][Niw]

@@ -179,10 +179,10 @@ contains
        !
        !Get G0^-1
        do i=1,Lmats
-          invG0mats(:,:,:,:,i) = invg0_bath_mats(xi*wm(i),dmft_bath)
+          invG0mats(:,:,:,:,i) = invg0_bath_mats(xi*wm(i),dmft_bath)!<=====
        enddo
        do i=1,Lreal
-          invG0real(:,:,:,:,i) = invg0_bath_real(wr(i)+xi*eps,dmft_bath)
+          invG0real(:,:,:,:,i) = invg0_bath_real(wr(i)+xi*eps,dmft_bath)!<=====
        enddo
        !Get Gimp^-1
        do ispin=1,Nspin
@@ -390,7 +390,8 @@ contains
     complex(8)                                        :: fg0
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats,invG0mats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real,invG0real
-    complex(8),dimension(Nspin,Nspin)                 :: invGimp
+    !complex(8),dimension(Nspin,Nspin)                 :: invGimp
+    complex(8),dimension((Nspin*Norb),(Nspin*Norb))                 :: invGimp
     character(len=20)                                 :: suffix
     !
     !Get G0^-1

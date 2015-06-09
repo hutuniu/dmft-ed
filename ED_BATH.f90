@@ -301,7 +301,7 @@ contains
           bath_size = Nspin*Nbath + Nspin*Nbath + Nspin*Norb*Nbath
        case ("nonsu2")
           !(e [Nspin][1][Nbath] + v [Nspin][Norb][Nbath] + u [Nspin][Norb][Nbath] )
-          bath_size = Nspin*Nbath + Nspin*Norb*Nbath + Nspin*Norb*Nbath
+          bath_size = Nspin*Nbath + Nspin*Norb*Nbath + Nspin*Norb*Nbath !+ Norb    !<=======================
        end select
        !
     end select
@@ -381,6 +381,13 @@ contains
     do i=1,Nbath
        dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))
     enddo
+
+    !if (bath_type=="hybrid") then
+    !   do i=1,Nbath
+    !      dmft_bath_%v(:,:,i)=1e-4
+    !   enddo
+    !endif
+
     !Get SC amplitudes
     if(ed_mode=="superc")dmft_bath_%d(:,:,:)=deltasc
     !Get spin-flip hybridizations
@@ -794,7 +801,7 @@ contains
              do iorb=1,Norb
                 do i=1,Nbath
                    io = stride + i + (iorb-1)*Nbath + (ispin-1)*Norb*Nbath
-                   dmft_bath%v(ispin,iorb,i) = bath_(io)
+                   dmft_bath_%v(ispin,iorb,i) = bath_(io)
                 enddo
              enddo
           enddo
@@ -803,7 +810,7 @@ contains
              do iorb=1,Norb
                 do i=1,Nbath
                    io = stride + i + (iorb-1)*Nbath + (ispin-1)*Norb*Nbath
-                   dmft_bath%u(ispin,iorb,i) = bath_(io)
+                   dmft_bath_%u(ispin,iorb,i) = bath_(io)
                 enddo
              enddo
           enddo
@@ -971,7 +978,7 @@ contains
              do iorb=1,Norb
                 do i=1,Nbath
                    io = stride + i + (iorb-1)*Nbath + (ispin-1)*Norb*Nbath
-                   bath_(io) = dmft_bath%v(ispin,iorb,i)
+                   bath_(io) = dmft_bath_%v(ispin,iorb,i)
                 enddo
              enddo
           enddo
@@ -980,7 +987,7 @@ contains
              do iorb=1,Norb
                 do i=1,Nbath
                    io = stride + i + (iorb-1)*Nbath + (ispin-1)*Norb*Nbath
-                   bath_(io) = dmft_bath%u(ispin,iorb,i)
+                   bath_(io) = dmft_bath_%u(ispin,iorb,i)
                 enddo
              enddo
           enddo

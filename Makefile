@@ -21,8 +21,8 @@ ifeq ($(PLAT),gnu)
 #questi mi includono le libreirie customizzate (-ldmftt -lscifor), le altre (-lminpack -llapack -lblas  -larpack -lparpack) sono in /usr/lib
 INCARGS=-I/home/xps13/Documenti/PhD/thesis/adriano/SciFor/gnu/include -I/home/xps13/Documenti/PhD/thesis/adriano/dmft_tools/gnu/include
 #FFLAG = -O0 -p -g -Wall -fbacktrace
-FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 #FFLAG +=-O0 -p -g -Wall -fimplicit-none  -Wall  -Wline-truncation  -Wcharacter-truncation  -Wsurprising  -Waliasing  -Wimplicit-interface  -Wunused-parameter  -fwhole-file  -fcheck=all  -pedantic  -fbacktrace -fcheck=bounds
+FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 endif
 
 #CHOOSE LINKING OPTIONS:

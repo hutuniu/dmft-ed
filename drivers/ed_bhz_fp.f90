@@ -35,7 +35,7 @@ program ed_bhz
   integer,allocatable    :: ik2ix(:),ik2iy(:)
   !variables for the model:
   integer                :: Nk,Nkpath
-  real(8)                :: mh,lambda,wmixing
+  real(8)                :: mh,lambda,wmixing,drummer
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   logical                :: spinsym
@@ -76,6 +76,9 @@ program ed_bhz
 
   !Setup solver
   Nb=get_bath_size()
+
+  write(*,*) "Nb dri",Nb
+
   allocate(Bath(Nb))
   allocate(Bath_(Nb))
   call ed_init_solver(bath)
@@ -92,18 +95,21 @@ program ed_bhz
      call ed_solve(bath)
      call ed_get_sigma_matsubara(Smats)
      call ed_get_sigma_real(Sreal)
-     call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
+     call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=2)
      !call ed_get_weiss(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=1)
 
      call ed_get_weiss(Gmats,Smats,Delta,Hloc=my_reshape(Ti3dt2g_Hloc),iprint=1)
 
+
      !Fit the new bath, starting from the old bath + the supplied delta
-     call ed_chi2_fitgf(delta(1,1,:,:,:),bath,ispin=1)
-     if(.not.spinsym)then
-        call ed_chi2_fitgf(delta(2,2,:,:,:),bath,ispin=2)
-     else
-        call spin_symmetrize_bath(bath,save=.true.)
-     endif
+     call ed_chi2_fitgf(delta,bath)
+     !call ed_chi2_fitgf(delta,bath,ispin=1)
+     !call ed_chi2_fitgf(delta(1,1,:,:,:),bath,ispin=1)
+     !if(.not.spinsym)then
+     !   call ed_chi2_fitgf(delta(2,2,:,:,:),bath,ispin=2)
+     !else
+     call spin_symmetrize_bath(bath,save=.true.)
+     !endif
 
      !MIXING:
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
@@ -113,6 +119,12 @@ program ed_bhz
 #ifdef _MPI
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
+
+     drummer=sum(ed_get_dens())
+     write(*,*) "drummer",drummer,"xmu",xmu,"converged",converged
+     if(nread/=0.d0)call search_chemical_potential(xmu,drummer,converged)
+     write(*,*) "drummer",drummer,"xmu",xmu,"converged",converged
+
      if(ED_MPI_ID==0)call end_loop
   enddo
   !Get Kinetic Energy:
@@ -237,13 +249,13 @@ contains
     ky=kvec(2)
     kz=kvec(3)
 
-    Eo = 3.31
+    Eo = 0.0
     t1 = 0.277
     t2 = 0.031
     t3 = 0.076
 
-    soc=2.0d0
-    ivb=1.0d0
+    soc=0.0d0
+    ivb=0.0d0
 
     Hk          = zero
     Hk(1:2,1:2) = band_yz(kx,ky,kz,Eo,t1,t2,t3)
@@ -332,11 +344,12 @@ contains
 
   function inverse_g0k(iw,hk) result(g0k)
     complex(8)                  :: iw
-    complex(8),dimension(4,4)   :: hk
-    complex(8),dimension(4,4)   :: g0k
+    complex(8),dimension(6,6)   :: hk
+    complex(8),dimension(6,6)   :: g0k
     g0k=zero
     g0k(1:2,1:2) = inverse_g0k2x2(iw,hk(1:2,1:2))
     g0k(3:4,3:4) = inverse_g0k2x2(iw,hk(3:4,3:4))
+    g0k(5:6,5:6) = inverse_g0k2x2(iw,hk(5:6,5:6))
     ! else
     !    g0k = -hk
     !    forall(i=1:4)g0k(i,i) = iw + xmu + g0k(i,i)
