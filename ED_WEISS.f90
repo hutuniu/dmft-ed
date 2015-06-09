@@ -91,13 +91,11 @@ contains
     real(8),optional                            :: Eloc(Norb*Nspin)
     !aux
     real(8)                                     :: Eloc_(Norb*Nspin)
-    complex(8)                                  :: Weiss_tmp(Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                                  :: zeta_site(Nspin*Norb,Nspin*Norb,Lmats)
-    complex(8)                                  :: Hloc(Nspin*Norb,Nspin*Norb)
     complex(8)                                  :: Smats_site(Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                                  :: invGloc_site(Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                                  :: calG0_site(Nspin*Norb,Nspin*Norb,Lmats)
-    integer                                     :: i,j,iorb,jorb,ispin,jspin,io,jo,js
+    integer                                     :: i,iorb,jorb,ispin,jspin,io,jo,js
     !
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
     if(allocated(wm))deallocate(wm)
@@ -253,12 +251,11 @@ contains
     complex(8)                                  :: Hloc(Nspin,Nspin,Norb,Norb)
     integer                                     :: iprint
     !aux
-    complex(8)                                  :: Weiss_tmp(Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                                  :: zeta_site(Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                                  :: Smats_site(Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                                  :: invGloc_site(Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                                  :: calG0_site(Nspin*Norb,Nspin*Norb,Lmats)
-    integer                                     :: i,j,iorb,jorb,ispin,jspin,io,jo,js
+    integer                                     :: i,iorb,jorb,ispin,jspin,io,jo
     !
     if(allocated(wm))deallocate(wm)
     allocate(wm(Lmats))
@@ -425,12 +422,11 @@ contains
     real(8),optional                            :: Eloc(Norb*Nspin)
     !aux
     real(8)                                     :: Eloc_(Norb*Nspin)
-    complex(8)                                  :: Weiss_tmp(2,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                                  :: zeta_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
     complex(8)                                  :: Smats_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
     complex(8)                                  :: invGloc_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
     complex(8)                                  :: calG0_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
-    integer                                     :: i,j,iorb,jorb,ispin,jspin,io,jo,js
+    integer                                     :: i,iorb,jorb,ispin,jspin,io,jo,js
     integer                                     :: Nso
     !
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
@@ -609,12 +605,11 @@ contains
     complex(8)                                  :: Hloc(Nspin,Nspin,Norb,Norb)
     integer                                     :: iprint
     !aux
-    complex(8)                                  :: Weiss_tmp(2,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                                  :: zeta_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
     complex(8)                                  :: Smats_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
     complex(8)                                  :: invGloc_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
     complex(8)                                  :: calG0_site(2*Nspin*Norb,2*Nspin*Norb,Lmats)
-    integer                                     :: i,j,iorb,jorb,ispin,jspin,io,jo,js
+    integer                                     :: i,iorb,jorb,ispin,jspin,io,jo
     integer                                     :: Nso
     !
     if(allocated(wm))deallocate(wm)

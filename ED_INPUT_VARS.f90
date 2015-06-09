@@ -89,9 +89,7 @@ contains
   !+-------------------------------------------------------------------+
   subroutine ed_read_input(INPUTunit)
     character(len=*) :: INPUTunit
-    logical          :: control
-    integer          :: iorb,jorb,ispin,jspin
-
+    !
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals.")
     call parse_input_variable(Nbath,"NBATH",INPUTunit,default=6,comment="Number of bath sites (per orbital or not depending on bath_type)")

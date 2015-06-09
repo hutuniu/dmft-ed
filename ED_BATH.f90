@@ -345,7 +345,7 @@ contains
   !+------------------------------------------------------------------+
   subroutine init_bath_ed(dmft_bath_,hwband_)
     type(effective_bath) :: dmft_bath_
-    real(8)              :: hwband_,wband_
+    real(8)              :: hwband_
     integer              :: i,iorb,ispin,unit,flen,Nh
     logical              :: IOfile
     real(8)              :: de
@@ -645,7 +645,7 @@ contains
   subroutine set_bath(bath_,dmft_bath_)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
-    integer                :: i,iorb,jorb,ispin,jspin,stride,io
+    integer                :: i,iorb,ispin,stride,io
     logical                :: check
     if(.not.dmft_bath_%status)stop "SET_BATH: bath not allocated"
     check = check_bath_dimension(bath_)
@@ -823,7 +823,7 @@ contains
   subroutine copy_bath(dmft_bath_,bath_)
     type(effective_bath)   :: dmft_bath_
     real(8),dimension(:)   :: bath_
-    integer                :: iorb,jorb,ispin,jspin,stride,io,i
+    integer                :: iorb,ispin,stride,io,i
     logical                :: check
     if(.not.dmft_bath_%status)stop "COPY_BATH: bath not allocated"
     check=check_bath_dimension(bath_)
@@ -1188,7 +1188,6 @@ contains
   subroutine enforce_normal_bath(bath_,save)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
-    integer                :: i
     logical,optional       :: save
     logical                :: save_
     save_=.false.;if(present(save))save_=save

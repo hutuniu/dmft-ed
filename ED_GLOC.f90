@@ -51,7 +51,7 @@ contains
     logical,optional            :: hk_symm(size(Hk,3))
     logical                     :: hk_symm_(size(Hk,3))
     integer                     :: iprint
-    integer                     :: i,ik,Lk,Nso,iorb,jorb,ispin,jspin,io,jo,js
+    integer                     :: ik,Lk,Nso,iorb,jorb,ispin,jspin,io,jo
     Lk=size(Hk,3)
     Nso=Norb*Nspin
     if(size(Hk,1)/=Nso.OR.size(Hk,2)/=Nso) stop "rdmft_get_gloc_normal error: wrong dimensions of Hk"
@@ -148,14 +148,13 @@ contains
   subroutine add_to_gloc_normal(zeta_site,Hk,hk_symm,Gkout)
     complex(8)               :: zeta_site(:,:,:)              ![Nspin*Norb][Nspin*Norb][Lfreq]
     complex(8)               :: Hk(Nspin*Norb,Nspin*Norb) 
-    real(8)                  :: Wtk                    
     logical                  :: hk_symm                
     !output:
     complex(8),intent(inout) :: Gkout(Nspin,Nspin,Norb,Norb,size(zeta_site,3))
     complex(8)               :: Gktmp(Nspin,Nspin,Norb,Norb,size(zeta_site,3))
     !
     complex(8)               :: Gmatrix(Nspin*Norb,Nspin*Norb)
-    integer                  :: i,is,Lfreq,iorb,jorb,ispin,jspin,io,jo
+    integer                  :: i,Lfreq,iorb,jorb,ispin,jspin,io,jo
     if(size(zeta_site,1)/=Nspin*Norb)stop "get_gloc_kpoint error: zeta_site wrong size 2 = Nspin*Norb"
     if(size(zeta_site,2)/=Nspin*Norb)stop "get_gloc_kpoint error: zeta_site wrong size 3 = Nspin*Norb"
     Lfreq = size(zeta_site,3)
@@ -206,7 +205,7 @@ contains
     real(8)                     :: Eloc_(Norb*Nspin)
     logical,optional            :: hk_symm(size(Hk,3))
     logical                     :: hk_symm_(size(Hk,3))
-    integer                     :: ik,Lk,Nso,iorb,jorb,ispin,jspin,io,jo,js
+    integer                     :: ik,Lk,Nso,iorb,jorb,ispin,jspin,io,jo
     integer                     :: iprint
     Lk=size(Hk,3)
     Nso=Norb*Nspin
@@ -267,8 +266,8 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
-       call add_to_gloc_superc(zeta_mats,Hk(:,:,ik),Wtk(ik),hk_symm_(ik),Gkmats)
-       call add_to_gloc_superc(zeta_real,Hk(:,:,ik),Wtk(ik),hk_symm_(ik),Gkreal)
+       call add_to_gloc_superc(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)
+       call add_to_gloc_superc(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
        if(ED_MPI_ID==0)call eta(ik,Lk,unit=LOGfile)
@@ -322,17 +321,16 @@ contains
     endif
   end subroutine ed_get_gloc_superc_main
 
-  subroutine add_to_gloc_superc(zeta_site,Hk,Wtk,hk_symm,Gkout)
+  subroutine add_to_gloc_superc(zeta_site,Hk,hk_symm,Gkout)
     complex(8)               :: zeta_site(:,:,:,:,:)              ![2][2][Nspin*Norb][Nspin*Norb][Lfreq]
     complex(8)               :: Hk(Nspin*Norb,Nspin*Norb) 
-    real(8)                  :: Wtk                    
     logical                  :: hk_symm                
     !output:
     complex(8),intent(inout) :: Gkout(2,Nspin,Nspin,Norb,Norb,size(zeta_site,5))
     complex(8)               :: Gktmp(2,Nspin,Nspin,Norb,Norb,size(zeta_site,5))
     !
     complex(8)               :: Gmatrix(2*Nspin*Norb ,2*Nspin*Norb)
-    integer                  :: i,is,Lfreq,iorb,jorb,ispin,jspin,io,jo,Nso
+    integer                  :: i,Lfreq,iorb,jorb,ispin,jspin,io,jo,Nso
     if(size(zeta_site,1)/=2.OR.size(zeta_site,2)/=2)stop "add_to_gloc_superc error: zeta_site wrong size 1 or 2 = 2 (Nambu)"
     if(size(zeta_site,3)/=Nspin*Norb)stop "add_to_gloc_superc error: zeta_site wrong size 4 = Nspin*Norb"
     if(size(zeta_site,4)/=Nspin*Norb)stop "add_to_gloc_superc error: zeta_site wrong size 5 = Nspin*Norb"

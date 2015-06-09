@@ -19,7 +19,7 @@ FPP_ED=
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=$(HOME)/opt
+LIBDIR=/opt
 
 
 
@@ -66,7 +66,7 @@ DIREXE=$(HOME)/.bin
 
 
 ifeq ($(PLAT),intel)
-FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
+FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
 endif
 
 ifeq ($(PLAT),gnu)

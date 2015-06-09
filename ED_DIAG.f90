@@ -32,7 +32,6 @@ contains
   ! GS, build the Green's functions calling all the necessary routines
   !+------------------------------------------------------------------+
   subroutine diagonalize_impurity
-    logical :: iverbose_
     select case(ed_type)
     case default
        call ed_diag_d
@@ -50,11 +49,11 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_diag_d
     integer             :: nup,ndw,isector,dim
-    integer             :: isect,izero,sz,nt
-    integer             :: i,j,iter
+    integer             :: sz,nt
+    integer             :: i,iter
     integer             :: numgs
     integer             :: Nitermax,Neigen,Nblock
-    real(8)             :: oldzero,enemin,Egs,Ei,Ec
+    real(8)             :: oldzero,enemin
     real(8),allocatable :: eig_values(:)
     real(8),allocatable :: eig_basis(:,:)
     logical             :: lanc_solve,Tflag
@@ -164,11 +163,11 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_diag_c
     integer                :: nup,ndw,isector,dim
-    integer                :: isect,izero,sz,nt
-    integer                :: i,j,iter
+    integer                :: sz,nt
+    integer                :: i,iter
     integer                :: numgs
     integer                :: Nitermax,Neigen,Nblock
-    real(8)                :: oldzero,enemin,Egs,Ei,Ec
+    real(8)                :: oldzero,enemin
     real(8),allocatable    :: eig_values(:)
     complex(8),allocatable :: eig_basis(:,:)
     logical                :: lanc_solve,Tflag
@@ -275,9 +274,9 @@ contains
 
 
   subroutine print_state_list(unit)
-    integer :: nup,ndw,sz,n,isector,jsector,dim
+    integer :: nup,ndw,sz,n,isector
     integer :: istate
-    integer :: i,j,unit
+    integer :: unit
     real(8) :: Estate
     if(ed_twin)then
        do isector=1,Nsectors
@@ -319,14 +318,12 @@ contains
   !lanczos  diagonalization. 
   !+------------------------------------------------------------------+
   subroutine ed_analysis()
-    integer             :: nup,ndw,sz,n,isector,jsector,dim
+    integer             :: nup,ndw,sz,n,isector,dim
     integer             :: istate
-    integer             :: i,j,unit
-    real(8)             :: Estate
+    integer             :: i,unit
     integer             :: Nsize,NtoBremoved,nstates_below_cutoff
     integer             :: numgs
     real(8)             :: Egs,Ei,Ec
-    logical             :: lanc_solve
     type(histogram)     :: hist
     real(8)             :: hist_a,hist_b,hist_w
     integer             :: hist_n

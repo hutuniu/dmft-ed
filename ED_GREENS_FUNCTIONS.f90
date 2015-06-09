@@ -170,8 +170,7 @@ contains
   !PURPOSE  : Build the Self-energy functions, NORMAL case
   !+------------------------------------------------------------------+
   subroutine get_sigma_normal
-    integer                                           :: i,j,ispin,isign,unit(7),iorb,jorb
-    complex(8)                                        :: fg0
+    integer                                           :: i,ispin,iorb
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: invG0mats,invGmats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: invG0real,invGreal
     complex(8),dimension(Norb,Norb)                   :: invGimp
@@ -245,8 +244,7 @@ contains
   !PURPOSE  : Build the Self-energy functions, SUPERC case
   !+------------------------------------------------------------------+
   subroutine get_sigma_superc
-    integer                                               :: i,j,ispin,unit(12),iorb,jorb
-    complex(8)                                            :: iw
+    integer                                               :: i,ispin,iorb
     real(8)                                               :: det_mats(Lmats)
     complex(8)                                            :: det_real(Lreal)
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats)     :: invG0mats,invF0mats,invGmats,invFmats
@@ -300,20 +298,20 @@ contains
        !Get Gimp^-1
        do i=1,Lmats
           invGimp=zero
-          invGimp(1:Norb,1:Norb)               = impGmats(ispin,ispin,iorb,jorb,i)
-          invGimp(1:Norb,Norb+1:2*Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,1:Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGmats(ispin,ispin,iorb,jorb,i))
+          invGimp(1:Norb,1:Norb)               = impGmats(ispin,ispin,:,:,i)
+          invGimp(1:Norb,Norb+1:2*Norb)        = impFmats(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,1:Norb)        = impFmats(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGmats(ispin,ispin,:,:,i))
           call inv(invGimp)
           invGmats(ispin,ispin,:,:,i) = invGimp(1:Norb,1:Norb)
           invFmats(ispin,ispin,:,:,i) = invGimp(1:Norb,Norb+1:2*Norb)
        enddo
        do i=1,Lreal
           invGimp=zero
-          invGimp(1:Norb,1:Norb)               = impGreal(ispin,ispin,iorb,jorb,i)
-          invGimp(1:Norb,Norb+1:2*Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,1:Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGreal(ispin,ispin,iorb,jorb,Lreal-i+1))
+          invGimp(1:Norb,1:Norb)               = impGreal(ispin,ispin,:,:,i)
+          invGimp(1:Norb,Norb+1:2*Norb)        = impFreal(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,1:Norb)        = impFreal(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGreal(ispin,ispin,:,:,Lreal-i+1))
           call inv(invGimp)
           invGreal(ispin,ispin,:,:,i) =  invGimp(1:Norb,1:Norb)
           invFreal(ispin,ispin,:,:,i) =  invGimp(1:Norb,Norb+1:2*Norb)
@@ -348,12 +346,10 @@ contains
   !PURPOSE  : Build the Self-energy functions, NONSU2 case
   !+------------------------------------------------------------------+
   subroutine get_sigma_nonsu2
-    integer                                           :: i,j,isign,unit(7),iorb,jorb,ispin,jspin,io,jo
-    complex(8)                                        :: fg0
+    integer                                           :: i,iorb,jorb,ispin,jspin,io,jo
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats,invG0mats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real,invG0real
     complex(8),dimension(Nspin,Nspin)                 :: invGimp
-    character(len=20)                                 :: suffix
     !
     impG0mats=zero
     impG0real=zero
@@ -462,7 +458,7 @@ contains
   !PURPOSE  : Print Green's functions, NORMAL case
   !+------------------------------------------------------------------+
   subroutine print_gf_normal
-    integer                                           :: i,j,ispin,isign,unit(7),iorb,jorb
+    integer                                           :: i,ispin,isign,unit(7),iorb,jorb
     character(len=20)                                 :: suffix
     integer,dimension(:),allocatable                  :: getIorb,getJorb
     integer                                           :: totNorb,l
@@ -583,8 +579,7 @@ contains
   !PURPOSE  : Print Green's functions, SUPERConducting case
   !+------------------------------------------------------------------+
   subroutine print_gf_superc
-    integer                                               :: i,j,ispin,unit(12),iorb,jorb
-    complex(8)                                            :: iw
+    integer                                               :: i,ispin,unit(12),iorb,jorb
     character(len=20)                                     :: suffix
     integer,dimension(:),allocatable                      :: getIorb,getJorb
     integer                                               :: totNorb,l
@@ -735,9 +730,9 @@ contains
   !PURPOSE  : Print nonSU2 Green's functions
   !+------------------------------------------------------------------+
   subroutine print_gf_nonsu2
-    integer                          :: i,j,isign,unit(7),iorb,jorb,ispin,jspin,io,jo
+    integer                          :: i,isign,unit(7),iorb,jorb,ispin,jspin
     integer,dimension(:),allocatable :: getIorb,getJorb,getIspin,getJspin
-    integer                          :: totNso,totNorb,totNspin,l,s
+    integer                          :: totNso,totNorb,totNspin,l
     character(len=20)                :: suffix
     !
     select case(bath_type)
@@ -878,7 +873,7 @@ contains
   !PURPOSE  : 
   !+------------------------------------------------------------------+
   subroutine print_chi_spin
-    integer                               :: i,j,iorb
+    integer                               :: i,iorb
     integer                               :: unit(3)
     if(ED_MPI_ID==0)then
        do iorb=1,Norb
