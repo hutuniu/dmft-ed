@@ -112,7 +112,7 @@ program ed_nano
      ! allocates and extracts non-local Green's function
      allocate(Gijmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
      allocate(Gijreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-     call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal)
+     call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
 
      ! extract the linear response (zero-bias) transmission function
      ! i.e. the conductance in units of the quantum G0 [e^2/h]
@@ -158,7 +158,7 @@ program ed_nano
      enddo
 
      ! compute the local gf:
-     call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
+     call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
      do ineq=1,Nineq
         ilat = ineq2lat(ineq)
         Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
@@ -436,7 +436,7 @@ contains
   ! self-energy functions. Hk is a big sparse matrix of the form H(k;R_i,R_j)_{ab}^{ss'}
   ! and size [Nk]*[Nlat*Nspin*Norb]**2
   !----------------------------------------------------------------------------------------!
-  subroutine ed_get_gij_lattice(Hk,Wtk,Gmats,Greal,Smats,Sreal)
+  subroutine ed_get_gij_lattice(Hk,Wtk,Gmats,Greal,Smats,Sreal,Gamma_mats,Gamma_real)
     complex(8),dimension(:,:,:)      :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                          :: Wtk(size(Hk,3)) ![Nk]
     complex(8),intent(inout)         :: Gmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
@@ -447,6 +447,8 @@ contains
     complex(8)                       :: zeta_real(Nlat,Nspin*Norb,Nspin*Norb,Lreal)
     complex(8)                       :: Gkmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)                       :: Gkreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8),optional              :: Gamma_mats(size(Hk,1),size(Hk,2),Lmats)
+    complex(8),optional              :: Gamma_real(size(Hk,1),size(Hk,2),Lreal)
     integer                          :: i,j,ik,Lk,Nlso,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,is,js
     real(8),dimension(:),allocatable :: wm,wr
 
@@ -496,8 +498,18 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
-       call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),Gkmats)      
-       call add_to_gloc_normal(zeta_real,Hk(:,:,ik),Gkreal)
+       if(present(Gamma_mats))then
+          call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),Gkmats,Gembed=Gamma_mats)
+       else
+          call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),Gkmats)
+       endif
+       if(present(Gamma_real))then
+          call add_to_gloc_normal(zeta_real,Hk(:,:,ik),Gkreal,Gembed=Gamma_real)
+       else
+          call add_to_gloc_normal(zeta_real,Hk(:,:,ik),Gkreal)
+       endif
+       !call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),Gkmats)      
+       !call add_to_gloc_normal(zeta_real,Hk(:,:,ik),Gkreal)
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
        if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
@@ -507,12 +519,12 @@ contains
        write(LOGfile,*)"write spin-orbital diagonal elements:"
        ispin=1
        iorb=1
-       !call store_data("Gij_l1_s1_iw.ed",Gmats(:,:,ispin,ispin,iorb,iorb,:),wm)
-       !call store_data("Gij_l1_s1_realw.ed",Greal(:,:,ispin,ispin,iorb,iorb,:),wr)
+       call store_data("Gij_l1_s1_iw.ed",Gmats(:,:,ispin,ispin,iorb,iorb,:),wm)
+       call store_data("Gij_l1_s1_realw.ed",Greal(:,:,ispin,ispin,iorb,iorb,:),wr)
     endif
   end subroutine ed_get_gij_lattice
 
-  subroutine add_to_gloc_normal(zeta_site,Hk,Gkout)
+  subroutine add_to_gloc_normal(zeta_site,Hk,Gkout,Gembed)
     complex(8)               :: zeta_site(:,:,:,:)              ![Nlat][Nspin*Norb][Nspin*Norb][Lfreq]
     complex(8)               :: Hk(Nlat*Nspin*Norb,Nlat*Nspin*Norb) 
     real(8)                  :: Wtk                    
@@ -521,6 +533,7 @@ contains
     complex(8)               :: Gktmp(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,4))
     !
     complex(8)               :: Gmatrix(Nlat*Nspin*Norb,Nlat*Nspin*Norb)
+    complex(8),optional      :: Gembed(Nlat*Nspin*Norb,Nlat*Nspin*Norb,size(zeta_site,4)) ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lfreq]
     integer                  :: i,j,is,Lfreq,ilat,jlat,iorb,jorb,ispin,jspin,io,jo
     if(size(zeta_site,1)/=Nlat)stop "get_gloc_kpoint error: zeta_site wrong size 1 = Nlat"
     if(size(zeta_site,2)/=Nspin*Norb)stop "get_gloc_kpoint error: zeta_site wrong size 2 = Nspin*Norb"
@@ -529,6 +542,7 @@ contains
     Gktmp=zero
     do i=1+mpiID,Lfreq,mpiSIZE
        Gmatrix  = blocks_to_matrix(zeta_site(:,:,:,i)) - Hk !(z+mu)I_ij - Sigma_ij.I_ij - H(k)_ij
+       if(present(Gembed))Gmatrix = Gmatrix - Gembed(:,:,i)
        call matrix_inverse_sym(Gmatrix)
        !store the diagonal blocks directly into the tmp output 
        do ilat=1,Nlat
@@ -630,7 +644,7 @@ contains
                       io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
                       jo = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb
                       GR(io,jo)=Gret(jlat,ilat,ispin,ispin,iorb,jorb,i)
-                      GA(io,jo)=dconjg(Gret(ilat,jlat,ispin,ispin,iorb,jorb,i))
+                      GA(io,jo)=conjg(Gret(ilat,jlat,ispin,ispin,iorb,jorb,i))
                       !
                       ! set \Gamma matrix for L/R according to masks: {ilat,jlat} \in L-subset OR R-subset
                       HR(io,jo)=zero
@@ -643,7 +657,7 @@ contains
           enddo
           ! get transmission function as T(ispin,i)=Tr[Hybl*Gadvc*Hybr*Gret]
           Re = matmul(HR,GR)
-          Le = matmul(HL,GA)
+          Le = matmul(HL,Ga)
           Te = matmul(Le,Re)
           transe(ispin,i) = trace_matrix(Te,Nlso)
        enddo
@@ -668,7 +682,7 @@ contains
     integer                                 :: ikind,ilead,Nlead
     real(8)                                 :: D,mu,V,epsk
     complex(8)                              :: ksum
-    complex(8),dimension(:,:,:),allocatable :: lead,mlead ![Nlead][Nspin][Lreal/Lmats]
+    complex(8),dimension(:,:,:),allocatable :: lead_real,lead_mats ![Nlead][Nspin][Lreal/Lmats]
     real(8),dimension(:),allocatable        :: wr,wm
     character(50)                           :: suffix
     !
@@ -692,9 +706,9 @@ contains
        unit = free_unit()
        open(unit,file='lead.in',status='old')
        read(unit,*)Nlead
-       allocate(lead(Nlead,Nspin,Lreal))
-       allocate(mlead(Nlead,Nspin,Lmats))
-       lead(:,:,:)=zero
+       allocate(lead_real(Nlead,Nspin,Lreal))
+       allocate(lead_mats(Nlead,Nspin,Lmats))
+       lead_real(:,:,:)=zero
        ! lead file setup lead by kind, half-bandwitdh (D) and chemical potential (mu)
        do l=1,Nlead
           read(unit,*) ilead, ispin, D, mu, ikind
@@ -702,12 +716,12 @@ contains
           ispin=ispin+1
           if(ilead>Nlead)stop "set_hyb error: in input file 'lead.in' ilead > Nlead"
           if(ispin>Nspin)stop "set_hyb error: non-spin degenerate leads for Nspin=1 calculation"
-          suffix="_ilead"//reg(txtfy(ilead))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+          suffix="_ilead"//reg(txtfy(ilead))//"_s"//reg(txtfy(ispin))
           !
           if(ikind==0)then
              ! flat DOS (analytic)
              write(*,*) "flat DOS (analytic)"
-             lead(ilead,ispin,:)=dcmplx( log(abs((D+wr(:)+mu)/(D-wr(:)-mu))) , -pi*heaviside(D-abs(wr(:)+mu)) )/(2d0*D)
+             lead_real(ilead,ispin,:)=dcmplx( log(abs((D+wr(:)+mu)/(D-wr(:)-mu))) , -pi*heaviside(D-abs(wr(:)+mu)) )/(2d0*D)
           elseif(ikind==1)then
              ! flat DOS (k-sum)
              write(*,*) "flat DOS (k-sum)"
@@ -717,7 +731,7 @@ contains
                    epsk = -D + 2*D/kmax*(k-1)
                    ksum = ksum + 1d0/( wr(i)+xi*0.01d0+mu - epsk)
                 enddo
-                lead(ilead,ispin,i)=ksum/kmax
+                lead_real(ilead,ispin,i)=ksum/kmax
              enddo
           elseif(ikind==2)then
              ! semicircular DOS (k-sum) 
@@ -728,7 +742,7 @@ contains
                    epsk = -D + 2*D/kmax*(k-1)
                    ksum = ksum + (4d0/(pi*kmax))*sqrt(1d0-(epsk/D)**2)/( wr(i)+xi*0.01d0+mu - epsk)
                 enddo
-                lead(ilead,ispin,i)=ksum
+                lead_real(ilead,ispin,i)=ksum
              enddo
           elseif(ikind==3)then
              ! readin hk DOS
@@ -739,12 +753,13 @@ contains
              stop
           endif
           ! store lead(s) on disk
-          call store_data("lead"//trim(suffix),lead(ilead,ispin,:),wr)
-          call get_matsubara_gf_from_dos(wr,lead(ilead,ispin,:),mlead(ilead,ispin,:),beta)
-          call store_data("mlead"//trim(suffix),mlead(ilead,ispin,:),wm)
+          suffix="_ilead"//reg(txtfy(ilead))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+          call store_data("lead"//trim(suffix),lead_real(ilead,ispin,:),wr)
+          call get_matsubara_gf_from_dos(wr,lead_real(ilead,ispin,:),lead_mats(ilead,ispin,:),beta)
+          suffix="_ilead"//reg(txtfy(ilead))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+          call store_data("lead"//trim(suffix),lead_mats(ilead,ispin,:),wm)
        enddo
        close(unit)
-       !
        !
        ! hybridization file determine lead-site connections 
        lfile = file_length("vij.in")
@@ -763,13 +778,25 @@ contains
           do ispin=1,Nspin
              io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb !== ilat
              jo = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb !== jlat
-             Hyb_real(io,jo,:)=lead(ilead,ispin,:)
-             Hyb_mats(io,jo,:)=mlead(ilead,ispin,:)
+             Hyb_real(io,jo,:)=pi*lead_real(ilead,ispin,:)*V**2
+             Hyb_mats(io,jo,:)=pi*lead_mats(ilead,ispin,:)*V**2
+             io = iorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb !== jlat
+             jo = jorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb !== ilat
+             Hyb_real(io,jo,:)=pi*lead_real(ilead,ispin,:)*V**2
+             Hyb_mats(io,jo,:)=pi*lead_mats(ilead,ispin,:)*V**2
+             io = jorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb !== ilat
+             jo = iorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb !== jlat
+             Hyb_real(io,jo,:)=pi*lead_real(ilead,ispin,:)*V**2
+             Hyb_mats(io,jo,:)=pi*lead_mats(ilead,ispin,:)*V**2
+             io = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb !== jlat
+             jo = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb !== ilat
+             Hyb_real(io,jo,:)=pi*lead_real(ilead,ispin,:)*V**2
+             Hyb_mats(io,jo,:)=pi*lead_mats(ilead,ispin,:)*V**2
           enddo
        enddo
        close(unit)
     endif
-    deallocate(lead,mlead,wr,wm)
+    deallocate(lead_real,lead_mats,wr,wm)
     !
     call MPI_Bcast(hyb_real,size(hyb_real),MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ED_MPI_ERR)
     call MPI_Bcast(hyb_mats,size(hyb_mats),MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ED_MPI_ERR)
