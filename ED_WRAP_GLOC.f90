@@ -617,19 +617,23 @@ contains
   ! Hamiltonian matrix and self-energy functions. Hk is a big sparse matrix of the form 
   ! H(k;R_i,R_j)_{ab}^{ss'} and size [Nk]*[Nlat*Nspin*Norb]**2
   !----------------------------------------------------------------------------------------!
-  subroutine ed_get_gij_superc_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
+  subroutine ed_get_gij_superc_main(Hk,Wtk,Gmats,Fmats,Greal,Freal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
-    complex(8),intent(inout)    :: Gmats(2,Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8),intent(inout)    :: Greal(2,Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8),intent(inout)    :: Gmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8),intent(inout)    :: Fmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8),intent(inout)    :: Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8),intent(inout)    :: Freal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
     complex(8),intent(inout)    :: Smats(2,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
     complex(8),intent(inout)    :: Sreal(2,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
     integer                     :: iprint
     !
     complex(8)                  :: zeta_mats(2,2,Nlat,Nspin*Norb,Nspin*Norb,Lmats)
     complex(8)                  :: zeta_real(2,2,Nlat,Nspin*Norb,Nspin*Norb,Lreal)
-    complex(8)                  :: Gkmats(2,Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                  :: Gkreal(2,Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)                  :: Gkmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                  :: Fkmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)                  :: Gkreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)                  :: Fkreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
     real(8),optional            :: Eloc(Nlat*Norb*Nspin)
     real(8)                     :: Eloc_(Nlat*Norb*Nspin)
     logical,optional            :: hk_symm(size(Hk,3))
@@ -692,10 +696,12 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
-       call add_to_gloc_superc(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)
-       call add_to_gloc_superc(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+       call add_to_gloc_superc(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Fkmats)
+       call add_to_gloc_superc(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Fkreal)
        Gmats = Gmats + Gkmats*Wtk(ik)
+       Fmats = Fmats + Fkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
+       Freal = Freal + Fkreal*Wtk(ik)
        if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
     end do
     if(mpiID==0)call stop_timer
@@ -708,11 +714,11 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
-                call store_data("Gij"//reg(suffix),Gmats(1,:,:,ispin,ispin,iorb,iorb,:),wm)
-                call store_data("Fij"//reg(suffix),Gmats(2,:,:,ispin,ispin,iorb,iorb,:),wm)
+                call store_data("Gij"//reg(suffix),Gmats(:,:,ispin,ispin,iorb,iorb,:),wm)
+                call store_data("Fij"//reg(suffix),Fmats(:,:,ispin,ispin,iorb,iorb,:),wm)
                 suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                call store_data("Gij"//reg(suffix),Greal(1,:,:,ispin,ispin,iorb,iorb,:),wr)
-                call store_data("Fij"//reg(suffix),Greal(2,:,:,ispin,ispin,iorb,iorb,:),wr)
+                call store_data("Gij"//reg(suffix),Greal(:,:,ispin,ispin,iorb,iorb,:),wr)
+                call store_data("Fij"//reg(suffix),Freal(:,:,ispin,ispin,iorb,iorb,:),wr)
              enddo
           enddo
        case(2)                  !print spin-diagonal, all orbitals 
@@ -721,11 +727,11 @@ contains
              do iorb=1,Norb
                 do jorb=1,Norb
                    suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
-                   call store_data("Gij"//reg(suffix),Gmats(1,:,:,ispin,ispin,iorb,jorb,:),wm)
-                   call store_data("Fij"//reg(suffix),Gmats(2,:,:,ispin,ispin,iorb,jorb,:),wm)
+                   call store_data("Gij"//reg(suffix),Gmats(:,:,ispin,ispin,iorb,jorb,:),wm)
+                   call store_data("Fij"//reg(suffix),Fmats(:,:,ispin,ispin,iorb,jorb,:),wm)
                    suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                   call store_data("Gij"//reg(suffix),Greal(1,:,:,ispin,ispin,iorb,jorb,:),wr)
-                   call store_data("Fij"//reg(suffix),Greal(2,:,:,ispin,ispin,iorb,jorb,:),wr)
+                   call store_data("Gij"//reg(suffix),Greal(:,:,ispin,ispin,iorb,jorb,:),wr)
+                   call store_data("Fij"//reg(suffix),Freal(:,:,ispin,ispin,iorb,jorb,:),wr)
                 enddo
              enddo
           enddo
@@ -736,11 +742,11 @@ contains
                 do iorb=1,Norb
                    do jorb=1,Norb
                       suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
-                      call store_data("Gij"//reg(suffix),Gmats(1,:,:,ispin,jspin,iorb,jorb,:),wm)
-                      call store_data("Fij"//reg(suffix),Gmats(2,:,:,ispin,jspin,iorb,jorb,:),wm)
+                      call store_data("Gij"//reg(suffix),Gmats(:,:,ispin,jspin,iorb,jorb,:),wm)
+                      call store_data("Fij"//reg(suffix),Fmats(:,:,ispin,jspin,iorb,jorb,:),wm)
                       suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
-                      call store_data("Gij"//reg(suffix),Greal(1,:,:,ispin,jspin,iorb,jorb,:),wr)
-                      call store_data("Fij"//reg(suffix),Greal(2,:,:,ispin,jspin,iorb,jorb,:),wr)
+                      call store_data("Gij"//reg(suffix),Greal(:,:,ispin,jspin,iorb,jorb,:),wr)
+                      call store_data("Fij"//reg(suffix),Freal(:,:,ispin,jspin,iorb,jorb,:),wr)
                    enddo
                 enddo
              enddo
@@ -749,13 +755,15 @@ contains
     endif
   end subroutine ed_get_gij_superc_main
 
-  subroutine add_to_gij_superc(zeta_site,Hk,hk_symm,Gkout)
+  subroutine add_to_gij_superc(zeta_site,Hk,hk_symm,Gkout,Fkout)
     complex(8)               :: zeta_site(:,:,:,:,:,:)              ![2][2][Nlat][Nspin*Norb][Nspin*Norb][Lfreq]
     complex(8)               :: Hk(Nlat*Nspin*Norb,Nlat*Nspin*Norb) 
     logical                  :: hk_symm                
     !output:
-    complex(8),intent(inout) :: Gkout(2,Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,6))
-    complex(8)               :: Gktmp(2,Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,6))
+    complex(8),intent(inout) :: Gkout(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,6))
+    complex(8),intent(inout) :: Fkout(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,6))
+    complex(8)               :: Gktmp(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,6))
+    complex(8)               :: Fktmp(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta_site,6))
     !
     complex(8)               :: Gmatrix(2*Nlat*Nspin*Norb , 2*Nlat*Nspin*Norb)
     integer                  :: i,is,Lfreq,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,Nlso
@@ -787,8 +795,8 @@ contains
                       do jorb=1,Norb
                          io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
                          jo = jorb + (jspin-1)*Norb + (jlat-1)*Nspin*Norb
-                         Gktmp(1,ilat,jlat,ispin,jspin,iorb,jorb,i) = Gmatrix(io,jo)
-                         Gktmp(2,ilat,jlat,ispin,jspin,iorb,jorb,i) = Gmatrix(io,Nlso+jo)
+                         Gktmp(ilat,jlat,ispin,jspin,iorb,jorb,i) = Gmatrix(io,jo)
+                         Fktmp(ilat,jlat,ispin,jspin,iorb,jorb,i) = Gmatrix(io,Nlso+jo)
                       enddo
                    enddo
                 enddo
@@ -799,8 +807,10 @@ contains
     enddo
 #ifdef _MPI_INEQ
     call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+    call MPI_ALLREDUCE(Fktmp,Fkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
 #else
     Gkout = Gktmp
+    Fkout = Fktmp
 #endif
   end subroutine add_to_gij_superc
 
