@@ -98,7 +98,8 @@ MODULE DMFT_ED
 
 
   USE ED_GLOC,     only:  ed_get_gloc
-  USE ED_WRAP_GLOC,only:  ed_get_gloc_lattice
+  USE ED_WRAP_GLOC,only:  ed_get_gloc_lattice,ed_get_gij_lattice
+       
 
 
   USE ED_WEISS,    only:  ed_get_weiss
