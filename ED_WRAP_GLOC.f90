@@ -696,8 +696,8 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
-       call add_to_gloc_superc(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Fkmats)
-       call add_to_gloc_superc(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Fkreal)
+       call add_to_gij_superc(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Fkmats)
+       call add_to_gij_superc(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Fkreal)
        Gmats = Gmats + Gkmats*Wtk(ik)
        Fmats = Fmats + Fkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
@@ -795,8 +795,10 @@ contains
                       do jorb=1,Norb
                          io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
                          jo = jorb + (jspin-1)*Norb + (jlat-1)*Nspin*Norb
-                         Gktmp(1,ilat,jlat,ispin,jspin,iorb,jorb,i) = Gmatrix(io,jo)
-                         Fktmp(2,ilat,jlat,ispin,jspin,iorb,jorb,i) = Gmatrix(io,Nlso+jo)
+
+                         Gktmp(ilat,jlat,ispin,jspin,iorb,jorb,i) = Gmatrix(io,jo)
+                         Fktmp(ilat,jlat,ispin,jspin,iorb,jorb,i) = Gmatrix(io,Nlso+jo)
+
                       enddo
                    enddo
                 enddo
