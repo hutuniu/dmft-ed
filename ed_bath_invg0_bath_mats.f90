@@ -10,7 +10,7 @@ function invg0_bath_mats_main(x,dmft_bath_) result(G0and)
   complex(8),dimension(:),intent(in)                  :: x
   type(effective_bath)                                :: dmft_bath_
   complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: G0and,Delta,Fdelta
-  integer                                             :: iorb,jorb,ispin,jspin,io,jo,Nso,L
+  integer                                             :: i,iorb,jorb,ispin,jspin,io,jo,Nso,L
   real(8),dimension(size(x))                          :: det
   complex(8),dimension(size(x))                       :: fg,ff
   complex(8),dimension(:,:),allocatable               :: fgorb,zeta
