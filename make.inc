@@ -1,6 +1,6 @@
 ##$ COMPILER: suppprted compilers are ifort, gnu >v4.7
 ##$ use mpif90 for parallel compiler
-FC=mpif90
+FC=ifort
 
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
@@ -12,7 +12,7 @@ PLAT=gnu
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-#FPP_INEQ=MPI_INEQ
+FPP_INEQ=
 
 ##$ parallelism on the ed code flag: MPI
 #FPP_ED=
@@ -40,7 +40,7 @@ LIBDIR=$(HOME)/opt
 #EXE=ed_pam_2b
 #EXE=ed_lda1b
 #EXE=ed_lda
-#EXE=ed_tddpam_lattice
+EXE=ed_tddpam_lattice
 #EXE=ed_tddpam_bethe
 
 ##$ --> B-H-Z MODELS
@@ -71,7 +71,7 @@ DIREXE=$(HOME)/.bin
 
 
 ifeq ($(PLAT),intel)
-FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
+FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
 endif
 
 ifeq ($(PLAT),gnu)

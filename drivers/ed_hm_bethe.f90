@@ -211,7 +211,6 @@ contains
   !   enddo
   !   Tail0=2d0*Tail0
   !   Tail1=2d0*Tail1
-
   !   H0 = H0 + Tail0 + Tail1
   ! end function get_energy
   ! !>DEBUG

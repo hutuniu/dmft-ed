@@ -76,7 +76,6 @@ MODULE ED_INPUT_VARS
   real(8)              :: rdmft_nread      !density value for chemical potential search.
   real(8)              :: rdmft_nerror     ! max error in adjusting chemical potential. 
   real(8)              :: rdmft_ndelta     !starting value for chemical potential shift.
-  logical              :: rdmft_phsym      !flag to enforce particle-hole symmetry in the bath 
   logical              :: rdmft_lrsym      !flag to enforce left-right symmetry in a biased system
   integer              :: mix_type         !flag for mixing type: 0=mix G0, 1=mix Sigma
   character(len=64)    :: fileSig,fileSelf !restart files
@@ -90,9 +89,7 @@ contains
   !+-------------------------------------------------------------------+
   subroutine ed_read_input(INPUTunit)
     character(len=*) :: INPUTunit
-    logical          :: control
-    integer          :: iorb,jorb,ispin,jspin
-
+    !
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals.")
     call parse_input_variable(Nbath,"NBATH",INPUTunit,default=6,comment="Number of bath sites (per orbital or not depending on bath_type)")

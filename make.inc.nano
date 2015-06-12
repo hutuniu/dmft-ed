@@ -5,7 +5,7 @@ FC=mpif90
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=intel
+PLAT=gnu
 
 
 ##$ PRECOMPILATION FLAGS
@@ -19,7 +19,7 @@ FPP_ED=
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=/opt
+LIBDIR=$(HOME)/opt
 
 
 
@@ -52,9 +52,9 @@ LIBDIR=/opt
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
 #EXE=ed_hm_slab_hyb
-EXE=ed_ahm_stripe
+#EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
-#EXE=ed_nano
+EXE=ed_nano
 #EXE=ed_cdwhm_bethe
 
 
@@ -62,7 +62,7 @@ EXE=ed_ahm_stripe
 DIR =drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
-DIREXE=$(HOME)/.project_bin
+DIREXE=$(HOME)/.bin
 
 
 ifeq ($(PLAT),intel)

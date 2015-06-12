@@ -61,7 +61,9 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
            do ispin=1,Nspin
               do jspin=1,Nspin
                  do ih=1,Nspin
-                    Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x(i) - hps(ih,:)) )
+                    do i=1,L
+                       Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x(i) - hps(ih,:)) )
+                    enddo
                  enddo
               enddo
            enddo
@@ -80,7 +82,9 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
            do iorb=1,Norb
               do jorb=1,Norb
-                 Delta(ispin,ispin,iorb,jorb,i) = sum( vops(iorb,:)*vops(jorb,:)/(x(i) - eps(:)) )
+                 do i=1,L
+                    Delta(ispin,ispin,iorb,jorb,i) = sum( vops(iorb,:)*vops(jorb,:)/(x(i) - eps(:)) )
+                 enddo
               enddo
            enddo
         enddo
@@ -94,7 +98,9 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
            vops = dmft_bath_%v(ispin,1:Norb,1:Nbath)
            do iorb=1,Norb
               do jorb=1,Norb
-                 Delta(ispin,ispin,iorb,jorb,i) = -sum( vops(iorb,:)*vops(jorb,:)*(x(i) + eps(:))/(dimag(x(i))**2 + eps(:)**2 + dps(:)**2) )
+                 do i=1,L
+                    Delta(ispin,ispin,iorb,jorb,i) = -sum( vops(iorb,:)*vops(jorb,:)*(x(i) + eps(:))/(dimag(x(i))**2 + eps(:)**2 + dps(:)**2) )
+                 enddo
               enddo
            enddo
         enddo
@@ -109,8 +115,10 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
               do ispin=1,Nspin
                  do jspin=1,Nspin
                     do ih=1,Nspin
-                       Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
-                            sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x(i) - hps(ih,:)) )
+                       do i=1,L
+                          Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
+                               sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x(i) - hps(ih,:)) )
+                       enddo
                     enddo
                  enddo
               enddo

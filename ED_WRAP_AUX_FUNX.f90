@@ -105,7 +105,7 @@ contains
     complex(8),dimension(size(Hk,1),size(Hk,2)) :: Hloc
     !
     integer                                     :: i,iorb,ispin,ilat,is
-    integer                                     :: j,jorb,jspin,jlat,js
+    integer                                     :: j,jorb,jspin,js
     Hloc = zero
     do ilat=1,Nlat
        do ispin=1,Nspin
@@ -128,8 +128,8 @@ contains
     integer                                     :: Nspin,Norb
     complex(8),dimension(size(Hk,1),size(Hk,2)) :: Hloc
     !
-    integer                                     :: i,iorb,ispin,ilat,is
-    integer                                     :: j,jorb,jspin,jlat,js
+    integer                                     :: i,iorb,ispin,is
+    integer                                     :: j,jorb,jspin,js
     Hloc = zero
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -159,8 +159,8 @@ contains
     integer                                               :: Nlat,Nspin,Norb
     complex(8),dimension(Nlat,Nspin,Nspin,Norb,Norb)      :: edHloc
     !
-    integer                                               :: i,iorb,ispin,ilat,is
-    integer                                               :: j,jorb,jspin,jlat,js
+    integer                                               :: iorb,ispin,ilat,is
+    integer                                               :: jorb,jspin,jlat,js
     edHloc=zero
     do ilat=1,Nlat
        do ispin=1,Nspin
@@ -179,11 +179,11 @@ contains
 
   function reshape_Hloc_2(Hloc,Nspin,Norb) result(edHloc)
     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: Hloc
-    integer                                     :: Nlat,Nspin,Norb
+    integer                                     :: Nspin,Norb
     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: edHloc
     !
-    integer                                     :: i,iorb,ispin,ilat,is
-    integer                                     :: j,jorb,jspin,jlat,js
+    integer                                     :: iorb,ispin,is
+    integer                                     :: jorb,jspin,js
     edHloc=zero
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -208,7 +208,7 @@ contains
   subroutine get_independent_sites(symmetry_operations,Nsymm,Nindep)
     integer,intent(in)                 :: Nsymm
     integer,intent(inout)              :: Nindep
-    integer                            :: i,row,col,unit,isymm
+    integer                            :: i,unit,isymm
     integer,dimension(Nlat)            :: tmp_search
     integer,dimension(Nlat,Nsymm)      :: tmp_map
     integer                            :: i_ind,check_maps
@@ -305,13 +305,11 @@ contains
   subroutine get_lattice_hamiltonian(Nrow,Ncol,pbc_row,pbc_col,ts)
     integer          :: Nrow
     integer,optional :: Ncol
-    integer          :: Nsquare
     logical,optional :: pbc_row,pbc_col
     logical          :: pbc_row_,pbc_col_
     real(8),optional :: ts
     real(8)          :: ts_
-    logical          :: symm
-    integer          :: i,jj,j,k,row,col,link(4)
+    integer          :: i,jj,row,col,link(4)
     integer          :: unit
     !
     pbc_row_=.false.;pbc_col_=.false.

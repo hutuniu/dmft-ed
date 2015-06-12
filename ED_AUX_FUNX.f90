@@ -68,7 +68,7 @@ contains
     logical                                  :: control
     real(8),dimension(Nspin,Nspin,Norb,Norb) :: reHloc         !local hamiltonian, real part 
     real(8),dimension(Nspin,Nspin,Norb,Norb) :: imHloc         !local hamiltonian, imag part
-    integer                                  :: i,dim_sector_max,nup,ndw,iorb,jorb,ispin,jspin
+    integer                                  :: i,dim_sector_max,iorb,jorb,ispin,jspin
     !
     !Norb=# of impurity orbitals
     !Nbath=# of bath sites (per orbital or not depending on bath_type)
@@ -384,10 +384,8 @@ contains
   !NORMAL CASE
   !
   subroutine setup_pointers_normal
-    integer                          :: i,in,dim,isector,jsector,dimup,dimdw
+    integer                          :: i,in,dim,isector,jsector
     integer                          :: nup,ndw,jup,jdw,iorb
-    integer,dimension(:),allocatable :: imap
-    integer,dimension(:),allocatable :: invmap
     if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
     if(ED_MPI_ID==0)call start_timer
     isector=0
@@ -467,9 +465,7 @@ contains
   !
   subroutine setup_pointers_superc
     integer                          :: i,isz,in,dim,isector,jsector
-    integer                          :: sz,iorb,dim2,jsz
-    integer,dimension(:),allocatable :: imap
-    integer,dimension(:),allocatable :: invmap
+    integer                          :: sz,iorb,jsz
     if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
     if(ED_MPI_ID==0)call start_timer
     isector=0
@@ -544,9 +540,7 @@ contains
   !
   subroutine setup_pointers_nonsu2
     integer                          :: i,dim,isector,jsector
-    integer                          :: in,jn,iorb,jorb
-    integer,dimension(:),allocatable :: imap
-    integer,dimension(:),allocatable :: invmap
+    integer                          :: in,jn,iorb
     if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
     if(ED_MPI_ID==0)call start_timer
     isector=0
@@ -649,7 +643,7 @@ contains
   !|ImpUP,BathUP>|ImpDW,BathDW >
   !+------------------------------------------------------------------+
   subroutine build_sector(isector,map)
-    integer              :: i,j,isector,iup,idw,mz,dim,in
+    integer              :: i,isector,iup,idw,mz,dim,in
     integer              :: nup,ndw,sz,nt
     integer              :: ivec(Nlevels)
     integer,dimension(:) :: map

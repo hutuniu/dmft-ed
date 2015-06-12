@@ -283,7 +283,7 @@ contains
   !-------------------------------------------------------------------------------------------
   function kinetic_energy_impurity_normal_main(Hk,Wtk,Sigma) result(Eout)
     integer                                  :: Lk,Nso,Liw
-    integer                                  :: i,j,ik,iorb
+    integer                                  :: i,ik
     complex(8),dimension(:,:,:)              :: Hk
     complex(8),dimension(:,:,:)              :: Sigma
     real(8),dimension(size(Hk,3))            :: Wtk
@@ -394,7 +394,7 @@ contains
   !-------------------------------------------------------------------------------------------
   function kinetic_energy_impurity_superc_main(Hk,Wtk,Sigma,SigmaA) result(Eout)
     integer                               :: Lk,Nso,Liw
-    integer                               :: i,j,ik,iorb,jorb,inambu,jnambu,n,m
+    integer                               :: i,ik,iorb,jorb,inambu,jnambu,n,m
     complex(8),dimension(:,:,:)           :: Hk
     complex(8),dimension(:,:,:)           :: Sigma,SigmaA
     real(8),dimension(size(Hk,3))         :: Wtk
@@ -576,7 +576,6 @@ contains
     complex(8),dimension(1,1,size(Sigma)) :: Sigma_
     complex(8),dimension(1,1,size(Self))  :: Self_
     complex(8),dimension(1,1,size(Hk))    :: Hk_
-    real(8),dimension(size(Hk))           :: Wtk_
     real(8)                               :: Eout(2)
     if(size(Sigma)/=size(Self)) stop "ed_kinetic_energy_sc: Normal and Anomalous self-energies have different size!"
     Sigma_(1,1,:)  = Sigma(:)
@@ -640,7 +639,7 @@ contains
   !PURPOSE  : write legend, i.e. info about columns 
   !+-------------------------------------------------------------------+
   subroutine write_energy_info()
-    integer :: unit,iorb,jorb,ispin
+    integer :: unit
     unit = free_unit()
     open(unit,file="energy_info.ed")
     write(unit,"(A1,90(A14,1X))")"#",&
@@ -656,8 +655,7 @@ contains
   end subroutine write_energy_info
 
   subroutine write_kinetic_info()
-    real(8) :: Ekin
-    integer :: unit,iorb,jorb,ispin
+    integer :: unit
     unit = free_unit()
     open(unit,file="kinetic_info.ed")
     write(unit,"(A1,90(A14,1X))")"#",reg(txtfy(1))//"<K>",reg(txtfy(2))//"<Eloc>"
@@ -671,7 +669,6 @@ contains
   !+-------------------------------------------------------------------+
   subroutine write_energy()
     integer :: unit
-    integer :: iorb,jorb,ispin
     unit = free_unit()
     open(unit,file="energy_last"//reg(ed_file_suffix)//".ed")
     write(unit,"(90F15.9)")ed_Epot,ed_Epot-ed_Ehartree,ed_Eknot,ed_Ehartree,ed_Dust,ed_Dund,ed_Dse,ed_Dph
@@ -681,7 +678,6 @@ contains
   subroutine write_kinetic(Ekin)
     real(8) :: Ekin(2)
     integer :: unit
-    integer :: iorb,jorb,ispin
     unit = free_unit()
     open(unit,file="kinetic_last"//reg(ed_file_suffix)//".ed")
     write(unit,"(90F15.9)")Ekin(1),Ekin(2)

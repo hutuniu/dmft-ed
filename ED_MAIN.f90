@@ -161,7 +161,6 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_solve(bath_)
     real(8),dimension(:),intent(in) :: bath_
-    integer                         :: unit
     logical                         :: check
     check = check_bath_dimension(bath_)
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"

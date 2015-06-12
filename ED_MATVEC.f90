@@ -41,9 +41,12 @@ contains
     integer                    :: N,Nloc
     real(8),dimension(Nloc)    :: v
     real(8),dimension(Nloc)    :: Hv
+#ifdef _MPI
     integer                    :: Q,R
     real(8),dimension(N)       :: vin,vtmp
     integer                    :: i
+#endif
+    !
 #ifdef _MPI
     Q = N/ED_MPI_SIZE ; R = 0
     if(ED_MPI_ID==(ED_MPI_SIZE-1))R=mod(N,ED_MPI_SIZE)
@@ -63,9 +66,12 @@ contains
     integer                    :: N,Nloc
     complex(8),dimension(Nloc) :: v
     complex(8),dimension(Nloc) :: Hv
+#ifdef _MPI
     integer                    :: Q,R
     complex(8),dimension(N)    :: vin,vtmp
     integer                    :: i
+#endif
+    !
 #ifdef _MPI
     Q = N/ED_MPI_SIZE ; R = 0
     if(ED_MPI_ID==(ED_MPI_SIZE-1))R=mod(N,ED_MPI_SIZE)
@@ -85,9 +91,12 @@ contains
     integer                    :: N,Nloc
     complex(8),dimension(Nloc) :: v
     complex(8),dimension(Nloc) :: Hv
+#ifdef _MPI
     integer                    :: Q,R
     complex(8),dimension(N)    :: vin,vtmp
     integer                    :: i
+#endif
+    !
 #ifdef _MPI
     Q = N/ED_MPI_SIZE ; R = 0
     if(ED_MPI_ID==(ED_MPI_SIZE-1))R=mod(N,ED_MPI_SIZE)
@@ -116,10 +125,15 @@ contains
   !+------------------------------------------------------------------+
   subroutine lanc_spHtimesV_dd(Nloc,N,v,Hv)
     integer                 :: Nloc,N
-    real(8),dimension(N)    :: v,Hv,Hvtmp
+    real(8),dimension(N)    :: v
+    real(8),dimension(N)    :: Hv
+#ifdef _MPI
+    real(8),dimension(N)    :: Hvtmp
     real(8),dimension(Nloc) :: vout
     integer                 :: Q,R
     integer                 :: i
+#endif
+    !
 #ifdef _MPI
     Q = N/ED_MPI_SIZE ; R = 0
     if(ED_MPI_ID==(ED_MPI_SIZE-1))R=mod(N,ED_MPI_SIZE)
@@ -137,11 +151,16 @@ contains
   end subroutine lanc_spHtimesV_dd
 
   subroutine lanc_spHtimesV_dc(Nloc,N,v,Hv)
-    integer                 :: Nloc,N
-    complex(8),dimension(N)    :: v,Hv,Hvtmp
+    integer                    :: Nloc,N
+    complex(8),dimension(N)    :: v
+    complex(8),dimension(N)    :: Hv
+#ifdef _MPI
+    complex(8),dimension(N)    :: Hvtmp
     complex(8),dimension(Nloc) :: vout
-    integer                 :: Q,R
-    integer                 :: i
+    integer                    :: Q,R
+    integer                    :: i
+#endif
+    !
 #ifdef _MPI
     Q = N/ED_MPI_SIZE ; R = 0
     if(ED_MPI_ID==(ED_MPI_SIZE-1))R=mod(N,ED_MPI_SIZE)
@@ -159,11 +178,16 @@ contains
   end subroutine lanc_spHtimesV_dc
 
   subroutine lanc_spHtimesV_cc(Nloc,N,v,Hv)
-    integer                 :: Nloc,N
-    complex(8),dimension(N)    :: v,Hv,Hvtmp
+    integer                    :: Nloc,N
+    complex(8),dimension(N)    :: v
+    complex(8),dimension(N)    :: Hv
+#ifdef _MPI
+    complex(8),dimension(N)    :: Hvtmp
     complex(8),dimension(Nloc) :: vout
-    integer                 :: Q,R
-    integer                 :: i
+    integer                    :: Q,R
+    integer                    :: i
+#endif
+    !
 #ifdef _MPI
     Q = N/ED_MPI_SIZE ; R = 0
     if(ED_MPI_ID==(ED_MPI_SIZE-1))R=mod(N,ED_MPI_SIZE)

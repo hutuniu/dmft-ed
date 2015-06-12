@@ -191,7 +191,6 @@ contains
     real(8),optional         :: Ust_ii(size(bath,1))
     real(8),optional         :: Jh_ii(size(bath,1))
     !MPI 
-    real(8)                  :: bath_tmp(size(bath,2))
     complex(8)               :: Smats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)               :: Sreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
     complex(8)               :: SAmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
@@ -356,7 +355,6 @@ contains
     real(8),optional         :: Ust_ii(size(bath,1))
     real(8),optional         :: Jh_ii(size(bath,1))
     !MPI  auxiliary vars
-    real(8)                  :: bath_tmp(size(bath,2))
     complex(8)               :: Smats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)               :: Sreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
     complex(8)               :: SAmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
@@ -372,9 +370,8 @@ contains
     real(8)                  :: eii_tmp(size(bath,1),4)
     real(8)                  :: ddii_tmp(size(bath,1),4)
     ! 
-    integer                  :: ilat,i
+    integer                  :: ilat
     integer                  :: Nsites
-    integer                  :: Nb1,Nb2
     logical                  :: check_dim
     character(len=5)         :: tmp_suffix
     !
