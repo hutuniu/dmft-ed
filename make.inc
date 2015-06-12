@@ -5,21 +5,21 @@ FC=mpif90
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=intel
+PLAT=gnu
 
 
 ##$ PRECOMPILATION FLAGS
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-FPP_INEQ=MPI_INEQ
+#FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
-FPP_ED=
+#FPP_ED=
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=/opt
+LIBDIR=$(HOME)/opt
 
 
 
@@ -52,10 +52,15 @@ LIBDIR=/opt
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
 #EXE=ed_hm_slab_hyb
-EXE=ed_ahm_stripe
+#EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
+
+##$ --> Extended Hubbard models 
 #EXE=ed_cdwhm_bethe
+EXE=ed_cdwhm_bethe_loop
+#EXE=ed_ehm_bethe
+#EXE=ed_ed_ehm_bethe_loop
 
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
