@@ -753,7 +753,7 @@ contains
                 l=l+1
                 getIorb(l)=iorb
                 getIspin(l)=ispin
-                getJorb(l)=iorb
+                getJorb(l)=jorb
                 getJspin(l)=jspin
              enddo
           enddo
@@ -784,7 +784,7 @@ contains
     !!
     !!PRINT OUT GF:
     if(ED_MPI_ID==0)then
-       do l=1,totNorb
+       do l=1,totNso
           iorb=getIorb(l)
           jorb=getJorb(l)
           ispin=getIspin(l)

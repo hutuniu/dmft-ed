@@ -260,6 +260,9 @@ contains
     complex(8)                                  :: calG0_site(Nspin*Norb,Nspin*Norb,Lmats)
     integer                                     :: i,j,iorb,jorb,ispin,jspin,io,jo,js
     !
+
+    write(*,*) "sto facendo questo Weiss"
+
     if(allocated(wm))deallocate(wm)
     allocate(wm(Lmats))
     wm = pi/beta*(2*arange(1,Lmats)-1)
