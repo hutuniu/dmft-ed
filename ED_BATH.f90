@@ -380,9 +380,12 @@ contains
     !Get spin-keep yhbridizations
     do i=1,Nbath
        dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))
+       if(bath_type=="hybrid") then
+          dmft_bath_%v(:,:,i)=0.1d0
+       endif
     enddo
     !Get SC amplitudes
-    if(ed_mode=="superc")dmft_bath_%d(:,:,:)=deltasc
+    if(ed_mode=="superc")dmft_bath_%d(:,:,:) = deltasc
     !Get spin-flip hybridizations
     if(ed_mode=="nonsu2")dmft_bath_%u(:,:,:) = dmft_bath_%v(:,:,:)
     !
