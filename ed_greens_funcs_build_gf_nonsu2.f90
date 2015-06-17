@@ -870,10 +870,10 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
   !   
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do istate=1,numstates
-     isector     =  es_return_sector(state_list,istate)
+     isector    =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
-     state_vec  => es_return_vector(state_list,istate)
-     norm0=sqrt(dot_product(state_vec,state_vec))
+     state_cvec  => es_return_cvector(state_list,istate)
+     norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
      allocate(HImap(idim))
@@ -893,7 +893,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
            if(ib(isite)==0)then          !if impurity is empty: proceed
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)      !map r back to  jsector
-              vvinit(j) = sgn*state_vec(m)  !build the cdg_ispin|gs> state
+              vvinit(j) = sgn*state_cvec(m)  !build the cdg_ispin|gs> state
            endif
         enddo
         deallocate(HJmap)
@@ -922,7 +922,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
@@ -937,7 +937,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
-     nullify(state_vec)
+     nullify(state_cvec)
      deallocate(HImap)
      !
   enddo
@@ -956,7 +956,6 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
   complex(8),allocatable           :: vvinit(:)
-  complex(8),allocatable           :: cvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: Nitermax,Nlanc
   integer,allocatable,dimension(:) :: HImap,HJmap    !map of the Sector S to Hilbert space H
@@ -971,9 +970,9 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do istate=1,numstates
      isector     =  es_return_sector(state_list,istate)
-     state_e    =  es_return_energy(state_list,istate)
-     state_vec  => es_return_vector(state_list,istate)
-     norm0=sqrt(dot_product(state_vec,state_vec))
+     state_e     =  es_return_energy(state_list,istate)
+     state_cvec  => es_return_cvector(state_list,istate)
+     norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      !
      idim  = getdim(isector)
@@ -995,7 +994,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1004,7 +1003,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = vvinit(j) + sgn*state_vec(m)
+              vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
@@ -1033,7 +1032,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1042,7 +1041,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = vvinit(j) + sgn*state_vec(m)
+              vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
@@ -1063,16 +1062,16 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
+        allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
-        cvinit=zero
+        vvinit=zero
         do m=1,idim
            i=HImap(m)
            call bdecomp(i,ib)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1081,18 +1080,18 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
+              vvinit(j) = vvinit(j) + xi*sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
-        norm2=dot_product(cvinit,cvinit)
-        cvinit=cvinit/sqrt(norm2)
+        norm2=dot_product(vvinit,vvinit)
+        vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
         call ed_buildH_c(jsector)
-        call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
+        call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=-xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,ispin)
-        deallocate(cvinit)
+        deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1101,16 +1100,16 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      if(jsector/=0)then
         jdim   = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
+        allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
-        cvinit=zero
+        vvinit=zero
         do m=1,idim
            i=HImap(m)
            call bdecomp(i,ib)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1119,18 +1118,18 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
+              vvinit(j) = vvinit(j) - xi*sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
-        norm2=dot_product(cvinit,cvinit)
-        cvinit=cvinit/sqrt(norm2)
+        norm2=dot_product(vvinit,vvinit)
+        vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
         call ed_buildH_c(jsector)
-        call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
+        call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=-xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
-        deallocate(cvinit)
+        deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1153,7 +1152,6 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
   complex(8),allocatable           :: vvinit(:)
-  complex(8),allocatable           :: cvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: Nitermax,Nlanc
   integer,allocatable,dimension(:) :: HImap,HJmap    !map of the Sector S to Hilbert space H
@@ -1169,8 +1167,8 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
   do istate=1,numstates
      isector     =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
-     state_vec  => es_return_vector(state_list,istate)
-     norm0=sqrt(dot_product(state_vec,state_vec))
+     state_cvec  => es_return_cvector(state_list,istate)
+     norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      !
      idim  = getdim(isector)
@@ -1192,7 +1190,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1201,7 +1199,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = vvinit(j) + sgn*state_vec(m)
+              vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
@@ -1230,7 +1228,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1239,7 +1237,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = vvinit(j) + sgn*state_vec(m)
+              vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
@@ -1260,16 +1258,16 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
+        allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
-        cvinit=zero
+        vvinit=zero
         do m=1,idim
            i=HImap(m)
            call bdecomp(i,ib)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1278,18 +1276,18 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
+              vvinit(j) = vvinit(j) + xi*sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
-        norm2=dot_product(cvinit,cvinit)
-        cvinit=cvinit/sqrt(norm2)
+        norm2=dot_product(vvinit,vvinit)
+        vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
         call ed_buildH_c(jsector)
-        call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
+        call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=-xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,jspin)
-        deallocate(cvinit)
+        deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1298,16 +1296,16 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      if(jsector/=0)then
         jdim   = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
+        allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
-        cvinit=zero
+        vvinit=zero
         do m=1,idim
            i=HImap(m)
            call bdecomp(i,ib)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1316,22 +1314,22 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
+              vvinit(j) = vvinit(j) - xi*sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
-        norm2=dot_product(cvinit,cvinit)
-        cvinit=cvinit/sqrt(norm2)
+        norm2=dot_product(vvinit,vvinit)
+        vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
         call ed_buildH_c(jsector)
-        call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
+        call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=-xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
-        deallocate(cvinit)
+        deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
-     nullify(state_vec)
+     nullify(state_cvec)
      deallocate(HImap)
      !
   enddo
@@ -1350,7 +1348,6 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
   complex(8),allocatable           :: vvinit(:)
-  complex(8),allocatable           :: cvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: Nitermax,Nlanc
   integer,allocatable,dimension(:) :: HImap,HJmap    !map of the Sector S to Hilbert space H
@@ -1366,8 +1363,8 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
   do istate=1,numstates
      isector     =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
-     state_vec  => es_return_vector(state_list,istate)
-     norm0=sqrt(dot_product(state_vec,state_vec))
+     state_cvec  => es_return_cvector(state_list,istate)
+     norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      !
      idim  = getdim(isector)
@@ -1389,7 +1386,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1398,7 +1395,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = vvinit(j) + sgn*state_vec(m)
+              vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
@@ -1427,7 +1424,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1436,7 +1433,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              vvinit(j) = vvinit(j) + sgn*state_vec(m)
+              vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
@@ -1457,16 +1454,16 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
+        allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
-        cvinit=zero
+        vvinit=zero
         do m=1,idim
            i=HImap(m)
            call bdecomp(i,ib)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1475,18 +1472,18 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
+              vvinit(j) = vvinit(j) + xi*sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
-        norm2=dot_product(cvinit,cvinit)
-        cvinit=cvinit/sqrt(norm2)
+        norm2=dot_product(vvinit,vvinit)
+        vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
         call ed_buildH_c(jsector)
-        call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
+        call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=-xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,jspin)
-        deallocate(cvinit)
+        deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1495,16 +1492,16 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      if(jsector/=0)then
         jdim   = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
+        allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
-        cvinit=zero
+        vvinit=zero
         do m=1,idim
            i=HImap(m)
            call bdecomp(i,ib)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = sgn*state_vec(m)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
@@ -1513,22 +1510,22 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
               j=binary_search(HJmap,r)
-              cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
+              vvinit(j) = vvinit(j) - xi*sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJmap)
-        norm2=dot_product(cvinit,cvinit)
-        cvinit=cvinit/sqrt(norm2)
+        norm2=dot_product(vvinit,vvinit)
+        vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
         call ed_buildH_c(jsector)
-        call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
+        call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
         cnorm2=-xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
-        deallocate(cvinit)
+        deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
-     nullify(state_vec)
+     nullify(state_cvec)
      deallocate(HImap)
      !
   enddo

@@ -667,10 +667,10 @@ contains
     Hk          = zero
     Hk(1:2,1:2) = hk_bhz2x2(kx,ky)
     Hk(3:4,3:4) = conjg(hk_bhz2x2(-kx,-ky))
-    ! Hk(1,4) = -delta ; Hk(4,1)=-delta
-    ! Hk(2,3) =  delta ; Hk(3,2)= delta
-    ! Hk(1,3) = xi*rh*(sin(kx)-xi*sin(ky))
-    ! Hk(3,1) =-xi*rh*(sin(kx)+xi*sin(ky))
+    Hk(1,4) = -delta ; Hk(4,1)=-delta
+    Hk(2,3) =  delta ; Hk(3,2)= delta
+    Hk(1,3) = xi*rh*(sin(kx)-xi*sin(ky))
+    Hk(3,1) =-xi*rh*(sin(kx)+xi*sin(ky))
   end function hk_bhz
 
   function hk_bhz2x2(kx,ky) result(hk)
