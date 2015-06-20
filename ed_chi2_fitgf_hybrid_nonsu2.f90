@@ -263,6 +263,10 @@ function chi2_delta_hybrid_nonsu2(a) result(chi2)
   !
   Delta = delta_hybrid_nonsu2(a)
   !
+  cg_iter_count=cg_iter_count+1
+  print*,cg_iter_count
+  call timestamp()
+  !
   do l=1,totNso
      iorb = getIorb(l)
      jorb = getJorb(l)

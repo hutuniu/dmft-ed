@@ -198,7 +198,6 @@ contains
        if(ed_twin)stop  "SC + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
     endif
     if(ed_mode=="nonsu2")then
-       !if(bath_type/="hybrid")stop "nonSU2 code is developed for Hybridized bath."
        if(Nspin/=2)stop "NONSU2 with Nspin!=2 IS NOT ALLOWED. To enfore PM use ed_sym_spin=T."
        if(ed_twin)stop  "NONSU2 + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
     endif

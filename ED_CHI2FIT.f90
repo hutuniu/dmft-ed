@@ -44,7 +44,7 @@ MODULE ED_CHI2FIT
   integer,dimension(:),allocatable      :: getIorb,getJorb,getIspin,getJspin
   integer                               :: Orb_indx,Spin_indx
   type(effective_bath)                  :: chi2_bath
-
+  integer :: cg_iter_count=0  
 
 contains
 

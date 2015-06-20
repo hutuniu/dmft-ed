@@ -172,7 +172,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap) !note that here you are doing twice the map building...
         vvinit=0d0
@@ -201,7 +201,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -259,7 +259,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
   !   
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do istate=1,numstates
-     isector     =  es_return_sector(state_list,istate)
+     isector    =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
      state_vec  => es_return_vector(state_list,istate)
      norm0=sqrt(dot_product(state_vec,state_vec))
@@ -274,7 +274,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -312,7 +312,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -351,7 +351,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),cvinit(jdim))
         call build_sector(jsector,HJmap)
         cvinit=zero
@@ -389,7 +389,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),cvinit(jdim))
         call build_sector(jsector,HJmap)
         cvinit=zero
@@ -471,7 +471,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -509,7 +509,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
      jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -548,7 +548,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),cvinit(jdim))
         call build_sector(jsector,HJmap)
         cvinit=zero
@@ -586,7 +586,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),cvinit(jdim))
         call build_sector(jsector,HJmap)
         cvinit=zero
@@ -668,7 +668,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -706,7 +706,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
      jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -745,7 +745,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),cvinit(jdim))
         call build_sector(jsector,HJmap)
         cvinit=zero
@@ -783,7 +783,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),cvinit(jdim))
         call build_sector(jsector,HJmap)
         cvinit=zero
@@ -883,7 +883,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap) !note that here you are doing twice the map building...
         vvinit=0d0
@@ -912,7 +912,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -984,7 +984,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -1022,7 +1022,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -1061,7 +1061,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=zero
@@ -1099,7 +1099,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=zero
@@ -1180,7 +1180,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -1218,7 +1218,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -1257,7 +1257,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=zero
@@ -1295,7 +1295,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=zero
@@ -1376,7 +1376,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -1414,7 +1414,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=0.d0
@@ -1453,7 +1453,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=zero
@@ -1491,7 +1491,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=zero

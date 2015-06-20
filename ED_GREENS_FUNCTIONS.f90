@@ -753,7 +753,7 @@ contains
                 l=l+1
                 getIorb(l)=iorb
                 getIspin(l)=ispin
-                getJorb(l)=jorb
+                getJorb(l)=iorb
                 getJspin(l)=jspin
              enddo
           enddo

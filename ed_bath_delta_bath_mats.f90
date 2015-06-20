@@ -60,8 +60,8 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
            wps = get_Whyb_matrix(dmft_bath_%v(1:Nspin,iorb,1:Nbath),dmft_bath_%u(1:Nspin,iorb,1:Nbath))
            do ispin=1,Nspin
               do jspin=1,Nspin
-                 do ih=1,Nspin
-                    do i=1,L
+                 do i=1,L
+                    do ih=1,Nspin
                        Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x(i) - hps(ih,:)) )
                     enddo
                  enddo
@@ -114,10 +114,10 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
            do jorb=1,Norb
               do ispin=1,Nspin
                  do jspin=1,Nspin
-                    do ih=1,Nspin
-                       do i=1,L
+                    do i=1,L
+                       do ih=1,Nspin
                           Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
-                            sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x(i) - hps(ih,:)) )
+                               sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x(i) - hps(ih,:)) )
                        enddo
                     enddo
                  enddo
