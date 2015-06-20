@@ -116,7 +116,7 @@ function delta_bath_real_main(x,dmft_bath_) result(Delta)
                  do jspin=1,Nspin
                     do i=1,L
                        do ih=1,Nspin
-                          Delta(ispin,ispin,iorb,iorb,i) = Delta(ispin,ispin,iorb,iorb,i) + &
+                          Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
                                sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x(i) - hps(ih,:)) )
                        enddo
                     enddo

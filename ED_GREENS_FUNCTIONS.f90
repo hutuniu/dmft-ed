@@ -448,7 +448,7 @@ contains
     !
     !Get G0and:
     impG0mats(:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
-    impG0real(:,:,:,:,:) = g0and_bath_real(dcmplx(0d0,wm(:)),dmft_bath)
+    impG0real(:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),dmft_bath) 
     !
   end subroutine get_sigma_nonsu2
 
