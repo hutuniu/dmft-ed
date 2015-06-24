@@ -107,7 +107,7 @@ contains
        !
        lanc_solve  = .true.
        if(Neigen==dim)lanc_solve=.false.
-       if(dim<=max(512,ED_MPI_SIZE))lanc_solve=.false.
+       if(dim<=max(64,ED_MPI_SIZE))lanc_solve=.false.
        !
        if(lanc_solve)then
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
@@ -287,11 +287,11 @@ contains
     if(ED_MPI_ID==0)then
        select case(ed_mode)
        case default
-          write(unit,"(A)")"# i       E_i            exp(-(E-E0)/T)   nup ndw  Sect     Dim"
+          write(unit,"(A)")"# i       E_i          exp(-(E-E0)/T)       nup ndw  Sect     Dim"
        case ("superc")
-          write(unit,"(A)")"# i       E_i            exp(-(E-E0)/T)     Sz     Sect     Dim"
+          write(unit,"(A)")"# i       E_i          exp(-(E-E0)/T)       Sz     Sect     Dim"
        case ("nonsu2")
-          write(unit,"(A)")"# i       E_i            exp(-(E-E0)/T)      n     Sect     Dim"
+          write(unit,"(A)")"# i       E_i          exp(-(E-E0)/T)       n    Sect     Dim"
        end select
        do istate=1,state_list%size
           Estate  = es_return_energy(state_list,istate)
@@ -300,13 +300,13 @@ contains
           case default
              nup   = getnup(isector)
              ndw   = getndw(isector)
-             write(unit,"(i3,f18.12,E18.9,1x,2i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),nup,ndw,isector,getdim(isector)
+             write(unit,"(i3,f18.12,2x,ES18.12,1x,2i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),nup,ndw,isector,getdim(isector)
           case("superc")
              sz   = getsz(isector)
-             write(unit,"(i3,f18.12,E18.9,1x,i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),sz,isector,getdim(isector)
+             write(unit,"(i3,f18.12,2x,ES18.12,1x,i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),sz,isector,getdim(isector)
           case("nonsu2")
              n    = getn(isector)
-             write(unit,"(i3,f18.12,E18.9,1x,i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),n,isector,getdim(isector)
+             write(unit,"(i3,f18.12,2x,ES18.12,1x,i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),n,isector,getdim(isector)
           end select
        enddo
     endif
