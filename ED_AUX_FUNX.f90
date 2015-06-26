@@ -199,7 +199,7 @@ contains
     endif
     if(ed_mode=="nonsu2")then
        if(Nspin/=2)stop "NONSU2 with Nspin!=2 IS NOT ALLOWED. To enfore PM use ed_sym_spin=T."
-       if(ed_twin)stop  "NONSU2 + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
+       ! if(ed_twin)stop  "NONSU2 + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
     endif
     !#############################################################################################
 
@@ -543,9 +543,9 @@ contains
   !
   subroutine setup_pointers_nonsu2
     integer                          :: i,dim,isector,jsector
-    integer                          :: in,jn,iorb,jorb
+    integer                          :: in,jn,iorb,jorb,ntot
+    integer :: nt,idim,ivec(Nlevels)
     integer,dimension(:),allocatable :: imap
-    integer,dimension(:),allocatable :: invmap
     if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
     if(ED_MPI_ID==0)call start_timer
     isector=0
@@ -560,6 +560,14 @@ contains
     twin_mask=.true.
     !<TODO 
     !build the twin sector statements in the non-SU2 channel.
+    if(ed_twin)then
+       do isector=1,Nsectors
+          ntot=getn(isector)
+          if(ntot>Nlevels/2)twin_mask(isector)=.false.
+          print*,twin_mask(isector),ntot
+       enddo
+       if(ED_MPI_ID==0)write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
+    endif
     !>TODO
     if(ED_MPI_ID==0)call stop_timer
 

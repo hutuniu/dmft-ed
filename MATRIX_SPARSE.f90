@@ -124,6 +124,8 @@ MODULE MATRIX_SPARSE
   end interface sp_print_matrix
   public :: sp_print_matrix     !print sparse             !checked
 
+  !TEST
+  public :: sp_test_symmetric
 
   !HOMEBREW MAT-VEC PRODUCT
   public :: sp_matrix_vector_product_dd !checked
@@ -703,6 +705,38 @@ contains
 
 
 
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE:  test if a sparse matrix is symmetric 
+  !+-----------------------------------------------------------------------------+
+  subroutine sp_test_symmetric(sparse,type)
+    type(sparse_matrix)                   :: sparse
+    logical                               :: is_symmetric
+    real(8),dimension(:,:),allocatable    :: rM,rMtra
+    complex(8),dimension(:,:),allocatable :: cM,cMher
+    integer                               :: Nrow,Ncol
+    character(len=1),optional             :: type
+    character(len=1)                      :: type_
+    type_='d';if(present(type))type_=type
+    Nrow=sparse%Nrow
+    Ncol=Nrow
+    is_symmetric=.false.
+    select case(type_)
+    case ("d")
+       allocate(rM(Nrow,Ncol))
+       call sp_dump_matrix(sparse,rM)
+       if(abs(maxval(rM-transpose(rM))) < 1.d-12)is_symmetric=.true.
+    case("c")
+       allocate(cM(Nrow,Ncol))
+       call sp_dump_matrix(sparse,cM)
+       if( maxval(abs(cM-conjg(transpose(cM))) ) < 1.d-12)is_symmetric=.true.
+    end select
+    if(is_symmetric)then
+       write(*,"(A)")"Matrix IS symmetric"
+    else
+       write(*,"(A)")"Matrix IS NOT symmetric"
+    endif
+  end subroutine sp_test_symmetric
+
 
 
 
@@ -791,9 +825,6 @@ contains
 
 
 
-
-
-
   !+------------------------------------------------------------------+
   !PURPOSE: copy a sparse LL matrix into a sparse CSR
   !+------------------------------------------------------------------+
@@ -840,7 +871,6 @@ contains
 
 
 
-
   !+------------------------------------------------------------------+
   !PURPOSE: pretty print a sparse matrix on a given unit using format fmt
   !+------------------------------------------------------------------+
@@ -855,7 +885,7 @@ contains
     logical,optional               :: full
     logical                        :: full_
     unit_=6;if(present(unit))unit_=unit
-    fmt_='F8.3';if(present(fmt))fmt_=fmt
+    fmt_='F6.2';if(present(fmt))fmt_=fmt
     type_='d';if(present(type))type_=type
     full_=.false.;if(present(full))full_=full
     Ns=sparse%Nrow
@@ -864,7 +894,7 @@ contains
        if(full_)then
           write(*,*)"Print sparse matrix (full mode < 100) ->",unit_
           do i=1,Ns
-             write(*,"(100"//trim(fmt_)//",1X)")(sp_get_element_d(sparse,i,j),j=1,Ns)
+             write(unit_,"(100"//trim(fmt_)//",1X)")(sp_get_element_d(sparse,i,j),j=1,Ns)
           enddo
        else
           write(*,*)"Print sparse matrix (compact mode) ->",unit_
@@ -876,7 +906,7 @@ contains
        if(full_)then
           write(*,*)"Print sparse matrix (full mode < 100) ->",unit_
           do i=1,Ns
-             write(*,"(100("//trim(fmt_)//",A1,"//trim(fmt_)//",2X))")(&
+             write(unit_,"(100("//trim(fmt_)//",A1,"//trim(fmt_)//",2X))")(&
                   real(sp_get_element_c(sparse,i,j)),",",imag(sp_get_element_c(sparse,i,j)),j=1,Ns)
           enddo
        else

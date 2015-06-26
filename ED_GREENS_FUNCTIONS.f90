@@ -105,9 +105,6 @@ contains
        call build_gf_superc()
        call get_sigma_superc()
        call print_gf_superc()
-       !<DEBUG 
-       !call get_sigma_print_gf_superc()
-       !>DEBUG
     case ("nonsu2")
        call build_gf_nonsu2()
        call get_sigma_nonsu2()
@@ -300,20 +297,20 @@ contains
        !Get Gimp^-1
        do i=1,Lmats
           invGimp=zero
-          invGimp(1:Norb,1:Norb)               = impGmats(ispin,ispin,iorb,jorb,i)
-          invGimp(1:Norb,Norb+1:2*Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,1:Norb)        = impFmats(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGmats(ispin,ispin,iorb,jorb,i))
+          invGimp(1:Norb,1:Norb)               = impGmats(ispin,ispin,:,:,i)
+          invGimp(1:Norb,Norb+1:2*Norb)        = impFmats(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,1:Norb)        = impFmats(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGmats(ispin,ispin,:,:,i))
           call inv(invGimp)
           invGmats(ispin,ispin,:,:,i) = invGimp(1:Norb,1:Norb)
           invFmats(ispin,ispin,:,:,i) = invGimp(1:Norb,Norb+1:2*Norb)
        enddo
        do i=1,Lreal
           invGimp=zero
-          invGimp(1:Norb,1:Norb)               = impGreal(ispin,ispin,iorb,jorb,i)
-          invGimp(1:Norb,Norb+1:2*Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,1:Norb)        = impFreal(ispin,ispin,iorb,jorb,i)
-          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGreal(ispin,ispin,iorb,jorb,Lreal-i+1))
+          invGimp(1:Norb,1:Norb)               = impGreal(ispin,ispin,:,:,i)
+          invGimp(1:Norb,Norb+1:2*Norb)        = impFreal(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,1:Norb)        = impFreal(ispin,ispin,:,:,i)
+          invGimp(Norb+1:2*Norb,Norb+1:2*Norb) =-conjg(impGreal(ispin,ispin,:,:,Lreal-i+1))
           call inv(invGimp)
           invGreal(ispin,ispin,:,:,i) =  invGimp(1:Norb,1:Norb)
           invFreal(ispin,ispin,:,:,i) =  invGimp(1:Norb,Norb+1:2*Norb)
@@ -350,8 +347,8 @@ contains
   subroutine get_sigma_nonsu2
     integer                                           :: i,j,isign,unit(7),iorb,jorb,ispin,jspin,io,jo
     complex(8)                                        :: fg0
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: impG0mats,invG0mats
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: impG0real,invG0real
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: invG0mats
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: invG0real
     complex(8),dimension(Nspin*Norb,Nspin*Norb)       :: invGimp
     character(len=20)                                 :: suffix
     !
@@ -448,7 +445,7 @@ contains
     !
     !Get G0and:
     impG0mats(:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
-    impG0real(:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),dmft_bath) 
+    impG0real(:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),dmft_bath)
     !
   end subroutine get_sigma_nonsu2
 
@@ -771,7 +768,7 @@ contains
                    l=l+1
                    getIorb(l)=iorb
                    getIspin(l)=ispin
-                   getJorb(l)=iorb
+                   getJorb(l)=jorb
                    getJspin(l)=jspin
                 enddo
              enddo
@@ -794,33 +791,33 @@ contains
           call open_units(reg(suffix))
           if(ed_verbose<4)then
              do i=1,Lmats
-                write(unit(1),"(F26.15,6(F26.15))")wm(i),dimag(impSmats(ispin,jspin,iorb,jorb,i)),dreal(impSmats(ispin,jspin,iorb,jorb,i))
+                write(unit(1),"(F26.15,2(F26.15))")wm(i),dimag(impSmats(ispin,jspin,iorb,jorb,i)),dreal(impSmats(ispin,jspin,iorb,jorb,i))
              enddo
              do i=1,Lreal
-                write(unit(2),"(F26.15,6(F26.15))")wr(i),dimag(impSreal(ispin,jspin,iorb,jorb,i)),dreal(impSreal(ispin,jspin,iorb,jorb,i))
+                write(unit(2),"(F26.15,2(F26.15))")wr(i),dimag(impSreal(ispin,jspin,iorb,jorb,i)),dreal(impSreal(ispin,jspin,iorb,jorb,i))
              enddo
              do isign=1,2
                 do i=1,lanc_nGFiter
-                   write(unit(3),"(6(F26.15,1x))")GFpoles(ispin,jspin,iorb,iorb,isign,i),GFweights(ispin,jspin,iorb,iorb,isign,i)
+                   write(unit(3),"(2(F26.15,1x))")GFpoles(ispin,jspin,iorb,iorb,isign,i),GFweights(ispin,jspin,iorb,iorb,isign,i)
                 enddo
              enddo
           endif
           !
           if(ed_verbose<2)then
              do i=1,Lmats
-                write(unit(4),"(F26.15,6(F26.15))")wm(i),dimag(impGmats(ispin,jspin,iorb,jorb,i)),dreal(impGmats(ispin,jspin,iorb,jorb,i))
+                write(unit(4),"(F26.15,2(F26.15))")wm(i),dimag(impGmats(ispin,jspin,iorb,jorb,i)),dreal(impGmats(ispin,jspin,iorb,jorb,i))
              enddo
              do i=1,Lreal
-                write(unit(5),"(F26.15,6(F26.15))")wr(i),dimag(impGreal(ispin,jspin,iorb,jorb,i)),dreal(impGreal(ispin,jspin,iorb,jorb,i))
+                write(unit(5),"(F26.15,2(F26.15))")wr(i),dimag(impGreal(ispin,jspin,iorb,jorb,i)),dreal(impGreal(ispin,jspin,iorb,jorb,i))
              enddo
           endif
           !
           if(ed_verbose<1)then
              do i=1,Lmats
-                write(unit(6),"(F26.15,6(F26.15))")wm(i),dimag(impG0mats(ispin,jspin,iorb,jorb,i)),dreal(impG0mats(ispin,jspin,iorb,jorb,i))
+                write(unit(6),"(F26.15,2(F26.15))")wm(i),dimag(impG0mats(ispin,jspin,iorb,jorb,i)),dreal(impG0mats(ispin,jspin,iorb,jorb,i))
              enddo
              do i=1,Lreal
-                write(unit(7),"(F26.15,6(F26.15))")wr(i),dimag(impG0real(ispin,jspin,iorb,jorb,i)),dreal(impG0real(ispin,jspin,iorb,jorb,i))
+                write(unit(7),"(F26.15,2(F26.15))")wr(i),dimag(impG0real(ispin,jspin,iorb,jorb,i)),dreal(impG0real(ispin,jspin,iorb,jorb,i))
              enddo
           endif
           call close_units()

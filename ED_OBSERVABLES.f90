@@ -8,6 +8,9 @@ MODULE ED_OBSERVABLES
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
+  !
+  USE ED_HAMILTONIAN
+  !
   USE ED_BATH
   USE ED_AUX_FUNX
   USE ED_MATVEC
@@ -49,10 +52,14 @@ contains
     real(8)                          :: peso
     real(8)                          :: norm
     real(8),dimension(Norb)          :: nup,ndw,Sz,nt
-    real(8),dimension(:),pointer     :: gsvec
+    real(8),dimension(:),pointer     :: gsvec,vvec
     complex(8),dimension(:),pointer  :: gscvec
     integer,allocatable,dimension(:) :: Hmap,HJmap
     real(8),allocatable              :: vvinit(:)
+    !<DEBUG 
+    real(8) :: pdens
+    !>DEBUG
+
     !
     !LOCAL OBSERVABLES:
     ! density, 
@@ -81,12 +88,14 @@ contains
     do izero=1,numstates
        isector = es_return_sector(state_list,izero)
        Ei      = es_return_energy(state_list,izero)
-       idim     = getdim(isector)
+       idim    = getdim(isector)
        !
        if(ed_type=='d')then
+          allocate(gsvec(idim))
           gsvec  => es_return_vector(state_list,izero)
           norm=sqrt(dot_product(gsvec,gsvec))
        elseif(ed_type=='c')then
+          allocate(gscvec(idim))
           gscvec  => es_return_cvector(state_list,izero)
           norm=sqrt(dot_product(gscvec,gscvec))
        endif
@@ -98,6 +107,7 @@ contains
        allocate(Hmap(idim))
        call build_sector(isector,Hmap)
        !
+       pdens=0d0
        do i=1,idim
           m=Hmap(i)
           call bdecomp(m,ib)
@@ -116,6 +126,7 @@ contains
              nt(iorb) =  nup(iorb) + ndw(iorb)
           enddo
           !
+          pdens     = pdens      +  nt(1)*gs_weight*zeta_function
           !Evaluate averages of observables:
           do iorb=1,Norb
              dens(iorb)     = dens(iorb)      +  nt(iorb)*gs_weight
@@ -134,9 +145,20 @@ contains
           enddo
           s2tot = s2tot  + (sum(sz))**2*gs_weight
        enddo
+       !<DEBUG  comment
+       print*,isector,getn(isector),idim,pdens       
+       call ed_buildH_d(isector)
+       allocate(vvec(idim))
+       call spHtimesV_dd(1,idim,gsvec,vvec)
+       if(spH0%status)call sp_delete_matrix(spH0)
+       do i=1,idim
+          if(abs(vvec(i)-Ei*gsvec(i))>1.d-12)write(100+isector,*)i,abs(vvec(i)-Ei*gsvec(i))
+       enddo
+       !>DEBUG
        if(associated(gsvec))nullify(gsvec)
        if(associated(gscvec))nullify(gscvec)
        deallocate(Hmap)
+
     enddo
     !
     !SUPERCONDUCTING ORDER PARAMETER

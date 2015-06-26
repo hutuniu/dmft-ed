@@ -57,7 +57,7 @@ contains
     real(8)             :: oldzero,enemin,Egs,Ei,Ec
     real(8),allocatable :: eig_values(:)
     real(8),allocatable :: eig_basis(:,:)
-    logical             :: lanc_solve,Tflag
+    logical             :: lanc_solve,Tflag,lanc_verbose
     if(allocated(egs_values))deallocate(egs_values)
     allocate(egs_values(Nsectors))
     egs_values=0d0
@@ -67,6 +67,8 @@ contains
     numgs=0
     if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer()
     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
+    lanc_verbose=.false.
+    if(ed_verbose<0)lanc_verbose=.true.
     iter=0
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
@@ -107,26 +109,33 @@ contains
        !
        lanc_solve  = .true.
        if(Neigen==dim)lanc_solve=.false.
-       if(dim<=max(512,ED_MPI_SIZE))lanc_solve=.false.
+       if(dim<=max(lanc_dim_threshold,ED_MPI_SIZE))lanc_solve=.false.
        !
        if(lanc_solve)then
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
           eig_values=0.d0 ; eig_basis=0.d0
           call ed_buildH_d(isector)
+          ! !<DEBUG
+          ! call sp_test_symmetric(spH0)
+          ! !>DEBUG
+
 #ifdef _MPI
-          call lanczos_parpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd)
+          call lanczos_parpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,lanc_verbose)
 #else
-          call lanczos_arpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd)
+          call lanczos_arpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,lanc_verbose)
 #endif
-          if(spH0%status)call sp_delete_matrix(spH0)
        else
           allocate(eig_values(dim),eig_basis(dim,dim))
           eig_values=0.d0 ; eig_basis=0.d0 
           call ed_buildH_d(isector,eig_basis)
-          if(spH0%status)call sp_delete_matrix(spH0)
+          ! !<DEBUG
+          ! call sp_test_symmetric(spH0)
+          ! !>DEBUG
           call matrix_diagonalize(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=1.d0
        endif
+       !
+       if(spH0%status)call sp_delete_matrix(spH0)
        !
        egs_values(isector)=eig_values(1)
        !
@@ -153,7 +162,7 @@ contains
        if(allocated(eig_basis))deallocate(eig_basis)
        !
     enddo sector
-    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer    
   end subroutine ed_diag_d
 
 
