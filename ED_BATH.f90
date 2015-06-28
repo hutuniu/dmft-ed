@@ -387,7 +387,7 @@ contains
     !Get SC amplitudes
     if(ed_mode=="superc")dmft_bath_%d(:,:,:) = deltasc
     !Get spin-flip hybridizations
-    if(ed_mode=="nonsu2")dmft_bath_%u(:,:,:) = dmft_bath_%v(:,:,:)!*(1d0-1d-3)
+    if(ed_mode=="nonsu2")dmft_bath_%u(:,:,:) = 0d0!dmft_bath_%v(:,:,:)/10d0!*(1d0-1d-3)
 
     !
     !Read from file if exist:

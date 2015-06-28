@@ -118,7 +118,6 @@ contains
           ! !<DEBUG
           ! call sp_test_symmetric(spH0)
           ! !>DEBUG
-
 #ifdef _MPI
           call lanczos_parpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,lanc_verbose)
 #else
@@ -162,7 +161,11 @@ contains
        if(allocated(eig_basis))deallocate(eig_basis)
        !
     enddo sector
-    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer    
+    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+    !<DEBUG pretty print state_list
+    call  es_print_espace(state_list,400,.true.)
+    !>DEBUG
+
   end subroutine ed_diag_d
 
 
