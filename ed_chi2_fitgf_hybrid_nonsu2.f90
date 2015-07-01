@@ -438,13 +438,14 @@ function delta_hybrid_nonsu2(a) result(Delta)
   wops = get_Whyb_matrix(vops,uops)
   !
   Delta=zero
-  do i=1,Ldelta
-     do ispin=1,Nspin
-        do jspin=1,Nspin
-           do iorb=1,Norb
-              do jorb=1,Norb
+  do ispin=1,Nspin
+     do jspin=1,Nspin
+        do iorb=1,Norb
+           do jorb=1,Norb
+              do i=1,Ldelta
                  do ih=1,Nspin
-                    Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(xi*Xdelta(i) - hps(ih,:)) )
+                    Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
+                         sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(xi*Xdelta(i) - hps(ih,:)) )
                  enddo
               enddo
            enddo

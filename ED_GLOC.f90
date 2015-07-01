@@ -54,7 +54,7 @@ contains
     integer                     :: i,ik,Lk,Nso,iorb,jorb,ispin,jspin,io,jo,js
     Lk=size(Hk,3)
     Nso=Norb*Nspin
-    if(size(Hk,1)/=Nso.OR.size(Hk,2)/=Nso) stop "rdmft_get_gloc_normal error: wrong dimensions of Hk"
+    if(size(Hk,1)/=Nso.OR.size(Hk,2)/=Nso) stop "ed_get_gloc_normal error: wrong dimensions of Hk"
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc
     if(ED_MPI_ID==0)write(LOGfile,*)"Get local GF (id=0):"
@@ -109,9 +109,9 @@ contains
           write(LOGfile,*)"write spin-orbital diagonal elements:"
           do ispin=1,Nspin
              do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)//"_iw.ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
                 call splot("Gloc"//reg(suffix),wm,Gmats(ispin,ispin,iorb,iorb,:))
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
                 call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(ispin,ispin,iorb,iorb,:)))
              enddo
           enddo
@@ -120,9 +120,9 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
                    call splot("Gloc"//reg(suffix),wm,Gmats(ispin,ispin,iorb,jorb,:))
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
                    call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(ispin,ispin,iorb,jorb,:)))
                 enddo
              enddo
@@ -210,7 +210,7 @@ contains
     integer                     :: iprint
     Lk=size(Hk,3)
     Nso=Norb*Nspin
-    if(size(Hk,1)/=Nso.OR.size(Hk,2)/=Nso) stop "rdmft_get_gloc_superc error: wrong dimensions of Hk"
+    !if(size(Hk,1)/=Nso.OR.size(Hk,2)/=Nso) stop "rdmft_get_gloc_superc error: wrong dimensions of Hk"
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     Eloc_=0d0       ;if(present(Eloc))Eloc_=Eloc    
     if(ED_MPI_ID==0)write(LOGfile,*)"Get local GF (id=0):"
@@ -280,10 +280,10 @@ contains
           write(LOGfile,*)"write spin-orbital diagonal elements:"
           do ispin=1,Nspin
              do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
                 call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,ispin,iorb,iorb,:))
                 call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,ispin,iorb,iorb,:))
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
                 call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(1,ispin,ispin,iorb,iorb,:)))
                 call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(2,ispin,ispin,iorb,iorb,:)))
              enddo
@@ -293,10 +293,10 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
                    call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,ispin,iorb,jorb,:))
                    call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,ispin,iorb,jorb,:))
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
                    call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(1,ispin,ispin,iorb,jorb,:)))
                    call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(2,ispin,ispin,iorb,jorb,:)))
                 enddo

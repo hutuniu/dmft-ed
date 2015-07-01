@@ -115,9 +115,9 @@ contains
           write(LOGfile,*)"write spin-orbital diagonal elements:"
           do ispin=1,Nspin
              do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                 call store_data("LG"//reg(suffix),Gmats(:,ispin,ispin,iorb,iorb,:),wm)
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw.ed"
                 call store_data("LG"//reg(suffix),Greal(:,ispin,ispin,iorb,iorb,:),wr)
              enddo
           enddo
@@ -126,9 +126,9 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                    call store_data("LG"//reg(suffix),Gmats(:,ispin,ispin,iorb,jorb,:),wm)
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw.ed"
                    call store_data("LG"//reg(suffix),Greal(:,ispin,ispin,iorb,jorb,:),wr)
                 enddo
              enddo
@@ -300,10 +300,10 @@ contains
           write(LOGfile,*)"write spin-orbital diagonal elements:"
           do ispin=1,Nspin
              do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                 call store_data("LG"//reg(suffix),Gmats(1,:,ispin,ispin,iorb,iorb,:),wm)
                 call store_data("LF"//reg(suffix),Gmats(2,:,ispin,ispin,iorb,iorb,:),wm)
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw.ed"
                 call store_data("LG"//reg(suffix),Greal(1,:,ispin,ispin,iorb,iorb,:),wr)
                 call store_data("LF"//reg(suffix),Greal(2,:,ispin,ispin,iorb,iorb,:),wr)
              enddo
@@ -313,10 +313,10 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                    call store_data("LG"//reg(suffix),Gmats(1,:,ispin,ispin,iorb,jorb,:),wm)
                    call store_data("LF"//reg(suffix),Gmats(2,:,ispin,ispin,iorb,jorb,:),wm)
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw.ed"
                    call store_data("LG"//reg(suffix),Greal(1,:,ispin,ispin,iorb,jorb,:),wr)
                    call store_data("LF"//reg(suffix),Greal(2,:,ispin,ispin,iorb,jorb,:),wr)
                 enddo

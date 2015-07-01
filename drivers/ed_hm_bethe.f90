@@ -17,11 +17,12 @@ program lancED
   !Bath:
   real(8),allocatable    :: Bath(:),Bath_(:)
   !The local hybridization function:
-  complex(8),allocatable :: Delta(:,:,:)
+  complex(8),allocatable :: Delta(:,:,:,:,:)
+  complex(8),allocatable :: Smats(:,:,:,:,:),Sreal(:,:,:,:,:)
+  complex(8),allocatable :: Gmats(:,:,:,:,:),Greal(:,:,:,:,:),Hloc(:,:,:,:)
   character(len=16)      :: finput
-  integer                :: M
-  real(8)                :: alpha,K,wmixing,Eout(2)
-  real(8),allocatable    :: He(:),Wte(:)
+  real(8)                :: wmixing,Eout(2)
+  real(8),allocatable    :: He(:,:,:),Wte(:)
   real(8),allocatable    :: Gtau(:)
 
 #ifdef _MPI
@@ -36,14 +37,21 @@ program lancED
   call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
   call parse_input_variable(wband,"wband",finput,default=1.d0)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
-  ! call parse_input_variable(M,"M",finput,default=0)
-  ! call parse_input_variable(alpha,"ALPHA",finput,default=1.d0)
   !
   call ed_read_input(trim(finput))
   !Hloc=zero
 
+  allocate(Wte(500),He(Nspin,Nspin,500))
+  call bethe_lattice(Wte,He(1,1,:),500,wband)
+  call bethe_lattice(Wte,He(Nspin,Nspin,:),500,wband)
+
   !Allocate Weiss Field:
-  allocate(delta(Norb,Norb,Lmats))
+  allocate(delta(Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Smats(Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(Hloc(Nspin,Nspin,Norb,Norb));Hloc=zero
 
   !setup solver
   Nb=get_bath_size()
@@ -59,12 +67,18 @@ program lancED
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solve(bath) 
+     call ed_get_sigma_matsubara(Smats)
+     call ed_get_sigma_real(Sreal)
 
      !Get the Weiss field/Delta function to be fitted (user defined)
-     call get_delta_bethe()
+     call ed_get_gloc(one*He,Wte,Gmats,Greal,Smats,Sreal,iprint=3)
+     call ed_get_weiss(Gmats,Smats,Delta,Hloc,iprint=3)
+
+     !call get_delta_bethe()
 
      !Perform the SELF-CONSISTENCY by fitting the new bath
-     call ed_chi2_fitgf(delta,bath,ispin=1)
+     call ed_chi2_fitgf(delta(:,:,:,:,:),bath,ispin=1)
+     if(ed_mode=="normal")call spin_symmetrize_bath(bath,save=.true.)
 
      !MIXING:
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
@@ -72,7 +86,7 @@ program lancED
 
      !Check convergence (if required change chemical potential)
 
-     converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
+     converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
      if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu,converged)
      call end_loop
   enddo
@@ -84,68 +98,68 @@ program lancED
 contains
 
 
-  !+----------------------------------------+
-  subroutine get_delta_bethe
-    integer                     :: i,j,iorb
-    complex(8)                  :: iw,zita,g0loc
-    complex(8),dimension(Lmats) :: gloc,sigma,Tiw
-    complex(8),dimension(Lreal) :: grloc
-    real(8)                     :: wm(Lmats),wr(Lreal),tau(0:Lmats),C0,C1,n0
-    real(8),dimension(0:Lmats)  :: sigt,gtau,Ttau
-    real(8),dimension(3)  :: Scoeff
+  ! !+----------------------------------------+
+  ! subroutine get_delta_bethe
+  !   integer                     :: i,j,iorb
+  !   complex(8)                  :: iw,zita,g0loc
+  !   complex(8),dimension(Lmats) :: gloc,sigma,Tiw
+  !   complex(8),dimension(Lreal) :: grloc
+  !   real(8)                     :: wm(Lmats),wr(Lreal),tau(0:Lmats),C0,C1,n0
+  !   real(8),dimension(0:Lmats)  :: sigt,gtau,Ttau
+  !   real(8),dimension(3)  :: Scoeff
 
-    wm = pi/beta*(2*arange(1,Lmats)-1)
-    wr = linspace(wini,wfin,Lreal)
+  !   wm = pi/beta*(2*arange(1,Lmats)-1)
+  !   wr = linspace(wini,wfin,Lreal)
 
-    do iorb=1,Norb
-       do i=1,Lmats
-          iw = xi*wm(i)
-          zita    = iw + xmu - impSmats(1,1,iorb,iorb,i)
-          gloc(i) = gfbethe(wm(i),zita,Wband)
-          if(cg_scheme=='weiss')then
-             delta(iorb,iorb,i)= one/(one/gloc(i) + impSmats(1,1,iorb,iorb,i))
-          else
-             delta(iorb,iorb,i)= iw + xmu - impSmats(1,1,iorb,iorb,i) - one/gloc(i)
-          endif
-       enddo
+  !   do iorb=1,Norb
+  !      do i=1,Lmats
+  !         iw = xi*wm(i)
+  !         zita    = iw + xmu - impSmats(1,1,iorb,iorb,i)
+  !         gloc(i) = gfbethe(wm(i),zita,Wband)
+  !         if(cg_scheme=='weiss')then
+  !            delta(1,1,iorb,iorb,i)= one/(one/gloc(i) + impSmats(1,1,iorb,iorb,i))
+  !         else
+  !            delta(1,1,iorb,iorb,i)= iw + xmu - impSmats(1,1,iorb,iorb,i) - one/gloc(i)
+  !         endif
+  !      enddo
 
-       do i=1,Lreal
-          iw=cmplx(wr(i),eps)
-          zita     = iw + xmu - impSreal(1,1,iorb,iorb,i)
-          grloc(i) = gfbether(wr(i),zita,Wband)
-       enddo
-       if(ED_MPI_ID==0)then
-          call splot("Gloc_"//reg(txtfy(iorb))//"_iw.ed",wm,gloc)
-          call splot("Gloc_"//reg(txtfy(iorb))//"_realw.ed",wr,grloc)
-          call splot("DOS"//reg(txtfy(iorb))//".ed",wr,-dimag(grloc)/pi)
-          call splot("Delta_"//reg(txtfy(iorb))//"_iw.ed",wm,delta(iorb,iorb,:))
-       endif
+  !      do i=1,Lreal
+  !         iw=cmplx(wr(i),eps)
+  !         zita     = iw + xmu - impSreal(1,1,iorb,iorb,i)
+  !         grloc(i) = gfbether(wr(i),zita,Wband)
+  !      enddo
+  !      if(ED_MPI_ID==0)then
+  !         call splot("Gloc_"//reg(txtfy(iorb))//"_iw.ed",wm,gloc)
+  !         call splot("Gloc_"//reg(txtfy(iorb))//"_realw.ed",wr,grloc)
+  !         call splot("DOS"//reg(txtfy(iorb))//".ed",wr,-dimag(grloc)/pi)
+  !         call splot("Delta_"//reg(txtfy(iorb))//"_iw.ed",wm,delta(1,1,iorb,iorb,:))
+  !      endif
 
-       ! tau(0:) = linspace(0.d0,beta,Lmats+1)
+  !      ! tau(0:) = linspace(0.d0,beta,Lmats+1)
 
-       ! C0=Uloc(1)*(ed_dens_up(1)-0.5d0)
-       ! C1=Uloc(1)**2*ed_dens_up(1)*(1.d0-ed_dens_dw(1))
-       ! Tiw=dcmplx(C0,-C1/wm)
-       ! call splot("Tail_"//reg(txtfy(iorb))//"_iw.ed",wm,Tiw)
+  !      ! C0=Uloc(1)*(ed_dens_up(1)-0.5d0)
+  !      ! C1=Uloc(1)**2*ed_dens_up(1)*(1.d0-ed_dens_dw(1))
+  !      ! Tiw=dcmplx(C0,-C1/wm)
+  !      ! call splot("Tail_"//reg(txtfy(iorb))//"_iw.ed",wm,Tiw)
 
-       ! Ttau = -C1/2.d0
-       ! Sigma = impSmats(1,1,iorb,iorb,:)  - Tiw
-       ! call fftgf_iw2tau(Sigma,Sigt(0:),beta,notail=.true.)
-       ! Sigt=Sigt + Ttau
-       ! call splot("Sigma_"//reg(txtfy(iorb))//"_tau.ed",tau,sigt)
+  !      ! Ttau = -C1/2.d0
+  !      ! Sigma = impSmats(1,1,iorb,iorb,:)  - Tiw
+  !      ! call fftgf_iw2tau(Sigma,Sigt(0:),beta,notail=.true.)
+  !      ! Sigt=Sigt + Ttau
+  !      ! call splot("Sigma_"//reg(txtfy(iorb))//"_tau.ed",tau,sigt)
 
-       ! Sigt=Sigt !+ Ttau
-       ! call fftgf_tau2iw(sigt(0:),sigma,beta)
-       ! Sigma=Sigma !+ Tiw
-       ! call splot("Sigma_"//reg(txtfy(iorb))//"_iw.ed",wm,sigma)
+  !      ! Sigt=Sigt !+ Ttau
+  !      ! call fftgf_tau2iw(sigt(0:),sigma,beta)
+  !      ! Sigma=Sigma !+ Tiw
+  !      ! call splot("Sigma_"//reg(txtfy(iorb))//"_iw.ed",wm,sigma)
 
 
-       ! call fftgf_iw2tau(gloc,gtau(0:),beta)
-       ! call splot("Gloc_tau.ed",tau(0:),gtau(0:))
-    enddo
+  !      ! call fftgf_iw2tau(gloc,gtau(0:),beta)
+  !      ! call splot("Gloc_tau.ed",tau(0:),gtau(0:))
+  !   enddo
 
-  end subroutine get_delta_bethe
-  !+----------------------------------------+
+  ! end subroutine get_delta_bethe
+  ! !+----------------------------------------+
 
 
 

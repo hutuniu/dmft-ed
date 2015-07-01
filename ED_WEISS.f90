@@ -166,7 +166,7 @@ contains
        case(1)
           do ispin=1,Nspin
              do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                 if(cg_scheme=="weiss")then
                    call splot("WeissField"//reg(suffix),wm,Weiss(ispin,ispin,iorb,iorb,:))
                 else
@@ -178,7 +178,7 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                    if(cg_scheme=="weiss")then
                       call splot("WeissField"//reg(suffix),wm,Weiss(ispin,ispin,iorb,jorb,:))
                    else
@@ -328,7 +328,7 @@ contains
        case(1)
           do ispin=1,Nspin
              do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                 if(cg_scheme=="weiss")then
                    call splot("WeissField"//reg(suffix),wm,Weiss(ispin,ispin,iorb,iorb,:))
                 else
@@ -340,7 +340,7 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                    if(cg_scheme=="weiss")then
                       call splot("WeissField"//reg(suffix),wm,Weiss(ispin,ispin,iorb,jorb,:))
                    else
@@ -517,7 +517,7 @@ contains
        case(1)
           do ispin=1,Nspin
              do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                 if(cg_scheme=="weiss")then
                    call splot("WeissField_normal"//reg(suffix),wm,Weiss(1,ispin,ispin,iorb,iorb,:))
                    call splot("WeissField_anomal"//reg(suffix),wm,Weiss(2,ispin,ispin,iorb,iorb,:))
@@ -531,7 +531,7 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                    if(cg_scheme=="weiss")then
                       call splot("WeissField_normal"//reg(suffix),wm,Weiss(1,ispin,ispin,iorb,jorb,:))
                       call splot("WeissField_anomal"//reg(suffix),wm,Weiss(2,ispin,ispin,iorb,jorb,:))
@@ -699,7 +699,7 @@ contains
        case(1)
           do ispin=1,Nspin
              do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                 if(cg_scheme=="weiss")then
                    call splot("WeissField_normal"//reg(suffix),wm,Weiss(1,ispin,ispin,iorb,iorb,:))
                    call splot("WeissField_anomal"//reg(suffix),wm,Weiss(2,ispin,ispin,iorb,iorb,:))
@@ -713,7 +713,7 @@ contains
           do ispin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw.ed"
                    if(cg_scheme=="weiss")then
                       call splot("WeissField_normal"//reg(suffix),wm,Weiss(1,ispin,ispin,iorb,jorb,:))
                       call splot("WeissField_anomal"//reg(suffix),wm,Weiss(2,ispin,ispin,iorb,jorb,:))
