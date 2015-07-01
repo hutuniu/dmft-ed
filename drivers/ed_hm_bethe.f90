@@ -80,6 +80,7 @@ program lancED
      call ed_chi2_fitgf(delta(:,:,:,:,:),bath,ispin=1)
      if(ed_mode=="normal")call spin_symmetrize_bath(bath,save=.true.)
 
+
      !MIXING:
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      Bath_=Bath
