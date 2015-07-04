@@ -117,7 +117,7 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJmap)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
@@ -146,7 +146,7 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJmap)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
@@ -179,7 +179,7 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJmap)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
@@ -209,7 +209,7 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJmap)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
@@ -252,7 +252,7 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJmap)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
@@ -293,7 +293,7 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJmap)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
@@ -336,7 +336,7 @@ subroutine lanc_build_gf_superc_d(iorb)
      !    deallocate(HJmap)
      !    norm2=dot_product(cvinit,cvinit)
      !    cvinit=cvinit/sqrt(norm2)
-     !    alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+     !    alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
      !    call ed_buildH_d(jsector)
      !    call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
      !    cnorm2=-xi*norm2
@@ -377,7 +377,7 @@ subroutine lanc_build_gf_superc_d(iorb)
      !    deallocate(HJmap)
      !    norm2=dot_product(cvinit,cvinit)
      !    cvinit=cvinit/sqrt(norm2)
-     !    alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+     !    alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
      !    call ed_buildH_d(jsector)
      !    call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
      !    cnorm2=-xi**norm2
@@ -467,7 +467,7 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         deallocate(HJmap)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
@@ -508,7 +508,7 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         deallocate(HJmap)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
         cnorm2=one*norm2
@@ -549,7 +549,7 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         deallocate(HJmap)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
         cnorm2=-xi*norm2
@@ -590,7 +590,7 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         deallocate(HJmap)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
         cnorm2=-xi**norm2

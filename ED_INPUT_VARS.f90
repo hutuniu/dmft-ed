@@ -32,10 +32,13 @@ MODULE ED_INPUT_VARS
   real(8)              :: lanc_tolerance      !Tolerance for the Lanczos iterations as used in Arpack and plain lanczos. 
   integer              :: lanc_niter          !Max number of Lanczos iterations
   integer              :: lanc_ngfiter        !Max number of iteration in resolvant tri-diagonalization
+  integer              :: lanc_ncv_factor     !Set the size of the block used in Lanczos-Arpack by multiplying the required Neigen (Ncv=lanc_ncv_factor*Neigen+lanc_ncv_add)
+  integer              :: lanc_ncv_add        !Adds up to the size of the block to prevent it to become too small (Ncv=lanc_ncv_factor*Neigen+lanc_ncv_add)
   integer              :: lanc_nstates_sector !Max number of required eigenvalues per sector
   integer              :: lanc_nstates_total  !Max number of states hold in the finite T calculation
   integer              :: lanc_nstates_step   !Number of states added at each step to determine the optimal spectrum size at finite T
-  integer              :: lanc_dim_threshold  !Min dimension threshold to use Lanczos determination of the spectrum rather than Lapack based exact diagonalization. 
+  integer              :: lanc_dim_threshold  !Min dimension threshold to use Lanczos determination of the spectrum rather than Lapack based exact diagonalization.
+
   integer              :: cg_Niter            !Max number of iteration in the fit
   real(8)              :: cg_Ftol             !Tolerance in the cg fit
   integer              :: cg_Weight           !CGfit mode 0=normal,1=1/n weight, 2=1/w weight
@@ -47,7 +50,7 @@ MODULE ED_INPUT_VARS
   logical              :: ed_twin             !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   character(len=1)     :: ed_type             !flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)
   character(len=7)     :: ed_mode             !flag to set ed symmetry type: normal=normal (default), superc=superconductive, nonsu2=broken SU(2)
-  logical              :: ed_spin_sym         !
+  logical              :: ed_para             !flag to enforce non-magnetic solution
   real(8)              :: ed_vsf_ratio        !
   character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
   character(len=100)   :: ed_file_suffix      !suffix string attached to the output files.
@@ -74,13 +77,6 @@ MODULE ED_INPUT_VARS
   !=========================================================
   integer              :: Nside            !linear size of the cluster to be solved.
   logical              :: pbcflag          !periodic boundary conditions flag
-  logical              :: symmflag         !Enforce trap cubic symmetry in the xy-plane.
-  real(8)              :: rdmft_nread      !density value for chemical potential search.
-  real(8)              :: rdmft_nerror     ! max error in adjusting chemical potential. 
-  real(8)              :: rdmft_ndelta     !starting value for chemical potential shift.
-  logical              :: rdmft_phsym      !flag to enforce particle-hole symmetry in the bath 
-  logical              :: rdmft_lrsym      !flag to enforce left-right symmetry in a biased system
-  integer              :: mix_type         !flag for mixing type: 0=mix G0, 1=mix Sigma
   character(len=64)    :: fileSig,fileSelf !restart files
 
 
@@ -125,9 +121,11 @@ contains
     call parse_input_variable(eps,"EPS",INPUTunit,default=0.01d0,comment="Broadening on the real-axis.")
     call parse_input_variable(cutoff,"CUTOFF",INPUTunit,default=1.d-9,comment="Spectrum cut-off, used to determine the number states to be retained.")
     call parse_input_variable(gs_threshold,"GS_THRESHOLD",INPUTunit,default=1.d-9,comment="Energy threshold for ground state degeneracy loop up")
-    call parse_input_variable(lanc_nstates_sector,"LANC_NSTATES_SECTOR",INPUTunit,default=1,comment="Initial number of states per sector to be determined.")
-    call parse_input_variable(lanc_nstates_total,"LANC_NSTATES_TOTAL",INPUTunit,default=1,comment="Initial number of total states to be determined.")
+    call parse_input_variable(lanc_nstates_sector,"LANC_NSTATES_SECTOR",INPUTunit,default=2,comment="Initial number of states per sector to be determined.")
+    call parse_input_variable(lanc_nstates_total,"LANC_NSTATES_TOTAL",INPUTunit,default=1,comment="Initial number of total states to be determined. 1: T=0; >1: T>0")
     call parse_input_variable(lanc_nstates_step,"LANC_NSTATES_STEP",INPUTunit,default=2,comment="Number of states added to the spectrum at each step.")
+    call parse_input_variable(lanc_ncv_factor,"LANC_NCV_FACTOR",INPUTunit,default=3,comment="Set the size of the block used in Lanczos-Arpack by multiplying the required Neigen (Ncv=lanc_ncv_factor*Neigen+lanc_ncv_add)")
+    call parse_input_variable(lanc_ncv_add,"LANC_NCV_ADD",INPUTunit,default=0,comment="Adds up to the size of the block to prevent it to become too small (Ncv=lanc_ncv_factor*Neigen+lanc_ncv_add)")
     call parse_input_variable(lanc_niter,"LANC_NITER",INPUTunit,default=512,comment="Number of Lanczos iteration in spectrum determination.")
     call parse_input_variable(lanc_ngfiter,"LANC_NGFITER",INPUTunit,default=200,comment="Number of Lanczos iteration in GF determination. Number of momenta.")
     call parse_input_variable(lanc_tolerance,"LANC_TOLERANCE",INPUTunit,default=0.000000000001d0,comment="Tolerance for the Lanczos iterations as used in Arpack and plain lanczos.")
@@ -141,7 +139,7 @@ contains
     call parse_input_variable(cg_weight,"CG_WEIGHT",INPUTunit,default=0,comment="Conjugate-Gradient weight form: 0=1.0 ,1=1/n , 2=1/w.")
     call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")    
     call parse_input_variable(ed_mode,"ED_MODE",INPUTunit,default='normal',comment="Flag to set ED type: normal=normal, superc=superconductive, nonsu2=broken SU(2)")
-    call parse_input_variable(ed_spin_sym,"ED_SPIN_SYM",INPUTunit,default=.true.,comment="Flag to force paramagnetic solution in the nonSU2 channel.")
+    call parse_input_variable(ed_para,"ED_PARA",INPUTunit,default=.true.,comment="Flag to force paramagnetic solution (only used in ed_mode=nonsu2 now).")
     call parse_input_variable(ed_vsf_ratio,"ED_VSF_RATIO",INPUTunit,default=0.1d0,comment="Ration of the spin-flip hopping to spin-hold ones in the nonSU2 channel.")
     call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
@@ -151,16 +149,9 @@ contains
 
     !+- LATTICE INPUT -+!
     call parse_input_variable(Nside,"NSIDE",INPUTunit,default=6)
-    ! call parse_input_variable(rdmft_nread,"RDMFT_NREAD",INPUTunit,default=0.d0)
-    ! call parse_input_variable(rdmft_nerror,"RDMFT_NERROR",INPUTunit,default=1.d-4)
-    ! call parse_input_variable(rdmft_ndelta,"RDMFT_NDELTA",INPUTunit,default=0.1d0)
-    ! call parse_input_variable(rdmft_phsym,"RDMFT_PHSYM",INPUTunit,default=.false.)
-    ! call parse_input_variable(rdmft_lrsym,"RDMFT_LRSYM",INPUTunit,default=.false.)
     call parse_input_variable(fileSig,"FILESIG",INPUTunit,default="LSigma.data")
     call parse_input_variable(fileSelf,"FILESELF",INPUTunit,default="LSelf.data")
-    ! call parse_input_variable(symmflag,"SYMMFLAG",INPUTunit,default=.false.)
     call parse_input_variable(pbcflag,"PBCFLAG",INPUTunit,default=.true.)
-    call parse_input_variable(mix_type,"MIX_TYPE",INPUTunit,default=0)
 
     call substring_delete(ed_file_suffix,".ed")
     call substring_delete(Hfile,".restart")

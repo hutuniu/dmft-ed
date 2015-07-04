@@ -86,12 +86,15 @@ contains
     case default
        Nsectors = (Ns+1)*(Ns+1)
        dim_sector_max=get_normal_sector_dimension(nup=Ns/2,ndw=Ns-Ns/2)
+       Nhel     = 1
     case ("superc")
        Nsectors = Nlevels+1        !sz=-Ns:Ns=2*Ns+1=Nlevels+1
        dim_sector_max=get_superc_sector_dimension(0)
+       Nhel     = 1
     case("nonsu2")
        Nsectors = Nlevels+1        !n=0:2*Ns=2*Ns+1=Nlevels+1
        dim_sector_max=get_nonsu2_sector_dimension(Ns)
+       Nhel     = 2
     end select
     !
     if(ED_MPI_ID==0)then
@@ -112,7 +115,7 @@ contains
 
     inquire(file=Hunit,exist=control)
     if(control)then
-       if(ED_MPI_ID==0)write(LOGfile,*)"Reading impHloc from file: "//Hunit
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"ED msg: Reading impHloc from file: "//Hunit
        open(50,file=Hunit,status='old')
        do ispin=1,Nspin
           do iorb=1,Norb
@@ -127,9 +130,9 @@ contains
        close(50)
     else
        if(ED_MPI_ID==0)then
-          write(LOGfile,*)"impHloc file not found."
-          write(LOGfile,*)"impHloc should be defined elsewhere..."
-          call sleep(1)
+          write(LOGfile,*)"ED msg: impHloc file not found."
+          write(LOGfile,*)"ED msg: impHloc should be defined elsewhere..."
+          call sleep(2)
        endif
     endif
     impHloc = dcmplx(reHloc,imHloc)
@@ -160,9 +163,9 @@ contains
     !check finiteT
     finiteT=.true.              !assume doing finite T per default
     if(lanc_nstates_total==1)then     !is you only want to keep 1 state
-       lanc_nstates_sector=1            !set the required eigen per sector to 1 see later for neigen_sector
+       !lanc_nstates_sector=6            !set the required eigen per sector to 1 see later for neigen_sector
        finiteT=.false.          !set to do zero temperature calculations
-       if(ED_MPI_ID==0)write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"ED msg: Required Lanc_nstates_total=1 => set T=0 calculation"
     endif
 
 
@@ -170,35 +173,39 @@ contains
     if(finiteT)then
        if(mod(lanc_nstates_sector,2)/=0)then
           lanc_nstates_sector=lanc_nstates_sector+1
-          if(ED_MPI_ID==0)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_sector:",lanc_nstates_sector
+          if(ED_MPI_ID==0)write(LOGfile,"(A,I10)")"ED msg: Increased Lanc_nstates_sector:",lanc_nstates_sector
        endif
        if(mod(lanc_nstates_total,2)/=0)then
           lanc_nstates_total=lanc_nstates_total+1
-          if(ED_MPI_ID==0)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_total:",lanc_nstates_total
+          if(ED_MPI_ID==0)write(LOGfile,"(A,I10)")"ED msg: Increased Lanc_nstates_total:",lanc_nstates_total
        endif
 
     endif
 
     if(finiteT)then
-       if(ED_MPI_ID==0)write(LOGfile,"(A)")"Lanczos FINITE temperature calculation:"
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"ED msg: Lanczos FINITE temperature calculation:"
     else
-       if(ED_MPI_ID==0)write(LOGfile,"(A)")"Lanczos ZERO temperature calculation:"
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"ED msg: Lanczos ZERO temperature calculation:"
     endif
 
     !#############################################################################################
     !CHECKS:
     if(Lfit>Lmats)Lfit=Lmats
-    if(Nspin>2)stop "Nspin > 2 ERROR"
-    if(Norb>3)stop "Norb > 3 ERROR" 
+    if(Nspin>2)stop "ED ERROR: Nspin > 2 is not allowed"
+    if(Norb>3)stop "ED ERROR: Norb > 3 is not tested. remove this check from ED_AUX_FUNX" 
     if(nerr < dmft_error) nerr=dmft_error
     if(ed_mode=="superc")then
-       if(Nspin>1)stop "SC+AFM ERROR." 
-       if(Norb>1)stop "SC Multi-Band IS NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
-       if(ed_type=='c')stop "SC with Hermitian H NOT IMPLEMENTED."
-       if(ed_twin)stop  "SC + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
+       if(Nspin>1)stop "ED ERROR: SC+AFM is not tested. remove this check from ED_AUX_FUNX." 
+       if(Norb>1)stop "ED ERROR: SC multi-Band is not tested. remove this check in ED_AUX_FUNX."
+       if(ed_type=='c')stop "ED ERROR: SC with complex H is not implemented yet."
+       if(ed_twin)stop  "ED ERROR: SC + ed_twin is not implemented yet. (laziness)"
     endif
     if(ed_mode=="nonsu2")then
-       if(Nspin/=2)stop "NONSU2 with Nspin!=2 IS NOT ALLOWED. To enfore PM use ed_sym_spin=T."
+       if(Nspin/=2)then
+          write(LOGfile,"(A)")"ED msg: ed_mode=nonSU2 with Nspin!=1 is not allowed."
+          write(LOGfile,"(A)")"        to enforce spin symmetry up-dw set ed_para=T."
+          stop
+       endif
        ! if(ed_twin)stop  "NONSU2 + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
     endif
     !#############################################################################################

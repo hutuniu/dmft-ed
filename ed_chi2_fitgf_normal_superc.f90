@@ -16,7 +16,7 @@
 !PURPOSE  : Chi^2 interface for Irreducible bath Superconducting phase
 !+-------------------------------------------------------------+
 subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
-  complex(8),dimension(:,:,:,:)        :: fg ![2][Norb][Norb][Lmats]
+  complex(8),dimension(:,:,:,:,:,:)    :: fg ![2][Nspin][Nspin][Norb][Norb][Lmats]
   real(8),dimension(:),intent(inout)   :: bath_
   integer                              :: ispin
   real(8),dimension(:),allocatable     :: array_bath
@@ -28,13 +28,15 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
   integer                              :: unit
   !
   if(size(fg,1)/=2)stop"chi2_fitgf_normal_superc error: size[fg,1]!=2"
-  if(size(fg,2)/=Norb)stop"chi2_fitgf_normal_superc error: size[fg,2]!=Norb"
-  if(size(fg,3)/=Norb)stop"chi2_fitgf_normal_superc error: size[fg,3]!=Norb"
+  if(size(fg,2)/=Nspin)stop"chi2_fitgf_normal_superc error: size[fg,2]!=Nspin"
+  if(size(fg,3)/=Nspin)stop"chi2_fitgf_normal_superc error: size[fg,3]!=Nspin"
+  if(size(fg,4)/=Norb)stop"chi2_fitgf_normal_superc error: size[fg,4]!=Norb"
+  if(size(fg,5)/=Norb)stop"chi2_fitgf_normal_superc error: size[fg,5]!=Norb"
   !
   check= check_bath_dimension(bath_)
   if(.not.check)stop "chi2_fitgf_normal_superc: wrong bath dimensions"
   !
-  Ldelta = Lfit ; if(Ldelta>size(fg,4))Ldelta=size(fg,4)
+  Ldelta = Lfit ; if(Ldelta>size(fg,6))Ldelta=size(fg,6)
   !
   allocate(Gdelta(1,Ldelta))
   allocate(Fdelta(1,Ldelta))
@@ -68,8 +70,8 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
      Orb_indx=iorb
      Spin_indx=ispin
      !
-     Gdelta(1,1:Ldelta) = fg(1,iorb,iorb,1:Ldelta)
-     Fdelta(1,1:Ldelta) = fg(2,iorb,iorb,1:Ldelta)
+     Gdelta(1,1:Ldelta) = fg(1,ispin,ispin,iorb,iorb,1:Ldelta)
+     Fdelta(1,1:Ldelta) = fg(2,ispin,ispin,iorb,iorb,1:Ldelta)
      !
      !3*Nbath == Nbath + Nbath + Nbath
      stride = 0
@@ -174,8 +176,8 @@ contains
     real(8)           :: w
     do iorb=1,Norb
        !
-       Gdelta(1,1:Ldelta) = fg(1,iorb,iorb,1:Ldelta)
-       Fdelta(1,1:Ldelta) = fg(2,iorb,iorb,1:Ldelta)
+       Gdelta(1,1:Ldelta) = fg(1,ispin,ispin,iorb,iorb,1:Ldelta)
+       Fdelta(1,1:Ldelta) = fg(2,ispin,ispin,iorb,iorb,1:Ldelta)
        !
        if(cg_scheme=='weiss')then
           fgand(1,:) = g0and_bath_mats(ispin,ispin,iorb,iorb,xi*Xdelta(:),dmft_bath)

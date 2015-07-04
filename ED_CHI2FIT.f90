@@ -17,7 +17,7 @@
 MODULE ED_CHI2FIT
   USE SF_CONSTANTS
   USE SF_OPTIMIZE, only:fmin_cg,fmin_cgplus,fmin_cgminimize
-  USE SF_LINALG,   only:eye,inv
+  USE SF_LINALG,   only:zeye,inv
   USE SF_IOTOOLS,  only:reg,free_unit,txtfy
   USE SF_ARRAYS,   only:arange
   USE ED_INPUT_VARS
@@ -30,8 +30,10 @@ MODULE ED_CHI2FIT
   interface ed_chi2_fitgf
      module procedure chi2_fitgf_generic_normal
      module procedure chi2_fitgf_generic_normal_NOSPIN
+     module procedure chi2_fitgf_generic_normal_NOSPIN_NOORB
      module procedure chi2_fitgf_generic_superc
      module procedure chi2_fitgf_generic_superc_NOSPIN
+     module procedure chi2_fitgf_generic_superc_NOSPIN_NOORB
   end interface ed_chi2_fitgf
 
   public :: ed_chi2_fitgf
@@ -88,29 +90,29 @@ contains
     case default
        !
        select case(ed_mode)
-       case ("normal")
+       case default
           !
-          call chi2_fitgf_normal_normal(fg(ispin_,ispin_,:,:,:),bath,ispin_)
+          call chi2_fitgf_normal_normal(fg(:,:,:,:,:),bath,ispin_)
           !
        case ("nonsu2")
           !
           if(present(ispin))then
-             write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=nonsu2 but only ONE spin orientation required. disregarded"
+             write(LOGfile,"(A)")"chi2_fitgf_generic_normal WARNING: ed_mode=nonsu2 but only ONE spin orientation required. disregarded"
              call sleep(1)
           endif
           call chi2_fitgf_normal_nonsu2(fg(:,:,:,:,:),bath)
           !
-       case default
+       case ("superc")
           !
-          stop "chi2_fitgf ERROR: ed_mode!=normal/nonsu2 but only NORMAL component is provided"
+          stop "chi2_fitgf ERROR: ed_mode=superc but only NORMAL component is provided"
           !
        end select
        !
     case ("hybrid")
        select case(ed_mode)
-       case ("normal")
+       case default
           !
-          call chi2_fitgf_hybrid_normal(fg(ispin_,ispin_,:,:,:),bath,ispin_)
+          call chi2_fitgf_hybrid_normal(fg(:,:,:,:,:),bath,ispin_)
           !
        case ("nonsu2")
           !
@@ -120,9 +122,9 @@ contains
           endif
           call chi2_fitgf_hybrid_nonsu2(fg(:,:,:,:,:),bath)
           !
-       case default
+       case ("superc")
           !
-          stop "chi2_fitgf ERROR: ed_mode!=normal/nonsu2 but only NORMAL component is provided"
+          stop "chi2_fitgf ERROR: ed_mode=superc but only NORMAL component is provided"
           !
        end select
     end select
@@ -143,11 +145,11 @@ contains
     integer                         :: ispin_
     ispin_=1;if(present(ispin))ispin_=ispin
     if(ED_MPI_ID==0)then
-       if(size(fg,1)/=2)stop"chi2_fitgf_generic_normal error: size[fg,1] != 2"
-       if(size(fg,2)/=Nspin)stop"chi2_fitgf_generic_normal error: size[fg,2] != Nspin"
-       if(size(fg,3)/=Nspin)stop"chi2_fitgf_generic_normal error: size[fg,3] != Nspin"
-       if(size(fg,4)/=Norb)stop"chi2_fitgf_generic_normal error: size[fg,4] != Norb"
-       if(size(fg,5)/=Norb)stop"chi2_fitgf_generic_normal error: size[fg,5] != Norb"
+       if(size(fg,1)/=2)stop"chi2_fitgf_generic_superc error: size[fg,1] != 2"
+       if(size(fg,2)/=Nspin)stop"chi2_fitgf_generic_superc error: size[fg,2] != Nspin"
+       if(size(fg,3)/=Nspin)stop"chi2_fitgf_generic_superc error: size[fg,3] != Nspin"
+       if(size(fg,4)/=Norb)stop"chi2_fitgf_generic_superc error: size[fg,4] != Norb"
+       if(size(fg,5)/=Norb)stop"chi2_fitgf_generic_superc error: size[fg,5] != Norb"
        select case(cg_method)
        case (0)
           if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
@@ -164,7 +166,7 @@ contains
        select case(ed_mode)
        case ("superc")
           !
-          call chi2_fitgf_normal_superc(fg(:,ispin_,ispin_,:,:,:),bath,ispin_)
+          call chi2_fitgf_normal_superc(fg(1:2,:,:,:,:,:),bath,ispin_)
           !
        case default
           !
@@ -176,11 +178,11 @@ contains
        select case(ed_mode)
        case ("superc")
           !
-          call chi2_fitgf_hybrid_superc(fg(:,ispin_,ispin_,:,:,:),bath,ispin_)
+          call chi2_fitgf_hybrid_superc(fg(1:2,:,:,:,:,:),bath,ispin_)
           !
        case default
           !
-          stop "chi2_fitgf ERROR: ed_mode=normal/nonsu2 but NORMAL & ANOMAL components provided. Fitting only the NORMAL."
+          stop "chi2_fitgf ERROR: ed_mode=normal/nonsu2 but NORMAL & ANOMAL components provided."
           !
        end select
     end select
@@ -210,6 +212,21 @@ contains
     call chi2_fitgf_generic_normal(fg_,bath,ispin_)
   end subroutine chi2_fitgf_generic_normal_NOSPIN
 
+  subroutine chi2_fitgf_generic_normal_NOSPIN_NOORB(fg,bath,ispin)
+    complex(8),dimension(:)                          :: fg ![Niw]
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lfit) :: fg_
+    real(8),dimension(:),intent(inout)               :: bath
+    integer,optional                                 :: ispin
+    integer                                          :: ispin_,iorb_
+    ispin_=1;if(present(ispin))ispin_=ispin
+    iorb_ =1
+    if(Norb>1)stop "chi2_fitgf_generic_normal_NOSPIN_NOORB error: Norb > 1 in 1-band routine" 
+    if(size(fg)<Lfit)stop "chi2_fitgf_generic_normal_NOSPIN_NOORB error: size[fg] < Lfit"
+    fg_=zero
+    fg_(ispin_,ispin_,iorb_,iorb_,1:Lfit) = fg(1:Lfit)
+    call chi2_fitgf_generic_normal(fg_,bath,ispin_)
+  end subroutine chi2_fitgf_generic_normal_NOSPIN_NOORB
+
   subroutine chi2_fitgf_generic_superc_NOSPIN(fg,bath,ispin)
     complex(8),dimension(:,:,:,:)                      :: fg ![2][Norb][Norb][Niw]
     complex(8),dimension(2,Nspin,Nspin,Norb,Norb,Lfit) :: fg_
@@ -222,6 +239,22 @@ contains
     fg_(:,ispin_,ispin_,:,:,1:Lfit) = fg(:,:,:,1:Lfit)
     call chi2_fitgf_generic_superc(fg_,bath,ispin_)
   end subroutine chi2_fitgf_generic_superc_NOSPIN
+
+  subroutine chi2_fitgf_generic_superc_NOSPIN_NOORB(fg,bath,ispin)
+    complex(8),dimension(:,:)                          :: fg ![2][Niw]
+    complex(8),dimension(2,Nspin,Nspin,Norb,Norb,Lfit) :: fg_
+    real(8),dimension(:),intent(inout)                 :: bath
+    integer,optional                                 :: ispin
+    integer                                          :: ispin_,iorb_
+    ispin_=1;if(present(ispin))ispin_=ispin
+    iorb_ =1
+    if(Norb>1)stop "chi2_fitgf_generic_superc_NOSPIN_NOORB error: Norb > 1 in 1-band routine" 
+    if(size(fg,1)/=2)stop "chi2_fitgf_generic_superc_NOSPIN_NOORB error: size[fg,1] != 2"
+    if(size(fg,2)<Lfit)stop "chi2_fitgf_generic_superc_NOSPIN_NOORB error: size[fg,2] < Lfit"
+    fg_=zero
+    fg_(:,ispin_,ispin_,iorb_,iorb_,1:Lfit) = fg(:,1:Lfit)
+    call chi2_fitgf_generic_superc(fg_,bath,ispin_)
+  end subroutine chi2_fitgf_generic_superc_NOSPIN_NOORB
 
 
 
