@@ -46,7 +46,7 @@ function invg0_bath_mats_main(x,dmft_bath_) result(G0and)
         Delta = delta_bath_mats(x,dmft_bath_)
         allocate(zeta(Nspin,Nspin))
         do i=1,L
-           zeta  = (x(i) + xmu)*eye(Nspin)        
+           zeta  = (x(i) + xmu)*zeye(Nspin)
            do iorb=1,Norb
               do ispin=1,Nspin
                  do jspin=1,Nspin
@@ -68,7 +68,7 @@ function invg0_bath_mats_main(x,dmft_bath_) result(G0and)
         Delta = delta_bath_mats(x,dmft_bath_)
         do ispin=1,Nspin
            do i=1,L
-              zeta = (x(i)+xmu)*eye(Norb)
+              zeta = (x(i)+xmu)*zeye(Norb)
               do iorb=1,Norb
                  do jorb=1,Norb
                     G0and(ispin,ispin,iorb,jorb,i) = zeta(iorb,jorb)-impHloc(ispin,ispin,iorb,jorb)-Delta(ispin,ispin,iorb,jorb,i)
@@ -105,7 +105,7 @@ function invg0_bath_mats_main(x,dmft_bath_) result(G0and)
         allocate(zeta(Nso,Nso))
         Delta = delta_bath_mats(x,dmft_bath_)
         do i=1,L
-           zeta  = (x(i) + xmu)*eye(Nso)
+           zeta  = (x(i) + xmu)*zeye(Nso)
            do ispin=1,Nspin
               do jspin=1,Nspin
                  do iorb=1,Norb

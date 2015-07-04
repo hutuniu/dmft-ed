@@ -1,11 +1,11 @@
 ##$ COMPILER: suppprted compilers are ifort, gnu >v4.7
 ##$ use mpif90 for parallel compiler
-FC=ifort
+FC=gfortran
 
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=intel
+PLAT=gnu
 
 
 ##$ PRECOMPILATION FLAGS
@@ -26,7 +26,7 @@ LIBDIR=/opt
 ##$ CHOOSE THE MODEL BY SELECTING THE PROGRAM DRIVER
 ##$ if needed add yours to the list:
 ##$ --> HUBBARD MODELS:
-#EXE=ed_hm_bethe
+EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
 #EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
@@ -52,7 +52,7 @@ LIBDIR=/opt
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
 #EXE=ed_hm_slab_hyb
-EXE=ed_ahm_stripe
+#EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
 #EXE=ed_cdwhm_bethe

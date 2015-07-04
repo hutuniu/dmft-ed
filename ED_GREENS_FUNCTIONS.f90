@@ -9,7 +9,7 @@
 MODULE ED_GREENS_FUNCTIONS
   USE SF_CONSTANTS, only:one,xi,zero,pi
   USE SF_TIMER  
-  USE SF_IOTOOLS, only: free_unit,reg,free_units,txtfy
+  USE SF_IOTOOLS, only: free_unit,reg,free_units,txtfy,splot
   USE SF_ARRAYS,  only: arange,linspace
   USE SF_LINALG,  only: inv
   USE PLAIN_LANCZOS
@@ -25,31 +25,25 @@ MODULE ED_GREENS_FUNCTIONS
   private 
 
   !Lanczos shared variables
-  !=========================================================
   real(8),dimension(:),pointer               :: state_vec
   complex(8),dimension(:),pointer            :: state_cvec
   real(8)                                    :: state_e
 
   !Frequency and time arrays:
-  !=========================================================
   real(8),dimension(:),allocatable           :: wm,tau,wr,vm
 
   !Non-interacting GF
-  !=========================================================
   complex(8),allocatable,dimension(:,:,:,:,:):: impG0mats,impG0real
   complex(8),allocatable,dimension(:,:,:,:,:):: impF0mats,impF0real
 
   !AUX GF
-  !=========================================================
   complex(8),allocatable,dimension(:,:)      :: auxGmats,auxGreal
 
   !Poles & Weights 
-  !=========================================================
   real(8),allocatable,dimension(:,:,:,:,:,:) :: GFpoles,GFweights
 
 
   !Spin Susceptibilities
-  !=========================================================
   real(8),allocatable,dimension(:,:)         :: Chitau
   complex(8),allocatable,dimension(:,:)      :: Chiw,Chiiw
 
@@ -349,7 +343,7 @@ contains
     complex(8)                                        :: fg0
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats) :: invG0mats
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Lreal) :: invG0real
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)       :: invGimp
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)       :: invGimp,Foo
     character(len=20)                                 :: suffix
     !
     impG0mats=zero
@@ -358,7 +352,7 @@ contains
     invG0real = zero
     !
     !Get G0^-1
-    invG0mats(:,:,:,:,:)=invg0_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)       
+    invG0mats(:,:,:,:,:)=invg0_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
     invG0real(:,:,:,:,:)=invg0_bath_real(dcmplx(wr(:),eps),dmft_bath)
     !
     select case(bath_type)

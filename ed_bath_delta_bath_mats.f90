@@ -14,8 +14,11 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
   real(8),dimension(Nbath)                            :: eps,dps,vps
   real(8),dimension(Norb,Nbath)                       :: vops
   real(8),dimension(Nspin,Nbath)                      :: hps
-  real(8),dimension(Nspin,Nspin,Nbath)                :: wps
-  real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wops
+  real(8),dimension(Nspin,Nbath)                      :: wps,ups
+  real(8),dimension(Nspin,Norb,Nbath)                 :: wops,uops
+  real(8),dimension(Nhel,Nbath)                       :: ehel
+  real(8),dimension(Nhel,Nhel,Nbath)                  :: whel
+  real(8),dimension(Nhel,Nhel,Norb,Nbath)             :: wohel
   !
   Delta=zero
   !
@@ -54,20 +57,50 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
         !
      case ("nonsu2")
         !
-        !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(iw_n - H_{a}^{h}(k))]
+        !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{s`h}(k)/(iw_n - H_{a}^{h}(k))]
         do iorb=1,Norb
-           hps = dmft_bath_%e(1:Nspin,iorb,1:Nbath)
-           wps = get_Whyb_matrix(dmft_bath_%v(1:Nspin,iorb,1:Nbath),dmft_bath_%u(1:Nspin,iorb,1:Nbath))
+           ehel = dmft_bath_%e(1:Nspin,iorb,1:Nbath)
+           whel = get_Whyb_matrix(dmft_bath_%v(1:Nspin,iorb,1:Nbath),dmft_bath_%u(1:Nspin,iorb,1:Nbath))
            do ispin=1,Nspin
               do jspin=1,Nspin
                  do i=1,L
                     do ih=1,Nspin
-                       Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x(i) - hps(ih,:)) )
+                       Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + &
+                            sum( whel(ispin,ih,:)*whel(jspin,ih,:)/(x(i) - ehel(ih,:)) )
                     enddo
                  enddo
               enddo
            enddo
         enddo
+        ! !s != s`
+        ! !\Delta_{aa}^{ss}  = \sum_k [ V_{a}^{s}(k)*V_{a}^{s}(k)/(iw_n - E_{a}^{s}(k)) ] + 
+        ! !                    \sum_k [ U_{a}^{s}(k)*U_{a}^{s}(k)/(iw_n - E_{a}^{sbar}(k)) ]
+        ! !
+        ! !\Delta_{aa}^{ss`} = \sum_k [ V_{a}^{s}(k)*U_{a}^{s`}(k)/(iw_n - E_{a}^{s}(k)) ] + 
+        ! !                    \sum_k [ U_{a}^{s}(k)*V_{a}^{s`}(k)/(iw_n - E_{a}^{sbar}(k)) ]
+        ! do iorb=1,Norb
+        !    hps = dmft_bath_%e(1:Nspin,iorb,1:Nbath)
+        !    wps = dmft_bath_%v(1:Nspin,iorb,1:Nbath)
+        !    ups = dmft_bath_%u(1:Nspin,iorb,1:Nbath)
+        !    do ispin=1,Nspin
+        !       do i=1,L
+        !          Delta(ispin,ispin,iorb,iorb,i) = &
+        !               sum( wps(ispin,:)*wps(ispin,:)/(x(i) - hps(ispin,:)) ) + &
+        !               sum( ups(ispin,:)*ups(ispin,:)/(x(i) - hps((Nspin+1)-ispin,:)) )
+        !       enddo
+        !       do jspin=ispin+1,Nspin
+        !          do i=1,L
+        !             Delta(ispin,jspin,iorb,iorb,i) = &
+        !                  sum( wps(ispin,:)*ups(jspin,:)/(x(i) - hps(ispin,:)) ) + &
+        !                  sum( ups(ispin,:)*wps(jspin,:)/(x(i) - hps((Nspin+1)-ispin,:)) )
+        !             !
+        !             Delta(jspin,ispin,iorb,iorb,i) = &
+        !                  sum( wps(jspin,:)*ups(ispin,:)/(x(i) - hps(jspin,:)) ) + &
+        !                  sum( ups(jspin,:)*wps(ispin,:)/(x(i) - hps((Nspin+1)-jspin,:)) )
+        !          enddo
+        !       enddo
+        !    enddo
+        ! enddo
         !
      end select
      !
@@ -107,9 +140,9 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
         !
      case ("nonsu2")
         !
-        !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(iw_n - H^{h}(k))]
-        hps  = dmft_bath_%e(1:Nspin,1     ,1:Nbath)
-        wops = get_Whyb_matrix(dmft_bath_%v(1:Nspin,1:Norb,1:Nbath),dmft_bath_%u(1:Nspin,1:Norb,1:Nbath))
+        !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{s`h}(k)/(iw_n - H^{h}(k))]
+        ehel  = dmft_bath_%e(1:Nspin,1,1:Nbath)
+        wohel = get_Whyb_matrix(dmft_bath_%v(1:Nspin,1:Norb,1:Nbath),dmft_bath_%u(1:Nspin,1:Norb,1:Nbath))
         do iorb=1,Norb
            do jorb=1,Norb
               do ispin=1,Nspin
@@ -117,13 +150,45 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
                     do i=1,L
                        do ih=1,Nspin
                           Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
-                               sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x(i) - hps(ih,:)) )
+                               sum( wohel(ispin,ih,iorb,:)*wohel(jspin,ih,jorb,:)/(x(i) - ehel(ih,:)) )
                        enddo
                     enddo
                  enddo
               enddo
            enddo
         enddo
+        ! !
+        ! !s != s`
+        ! !\Delta_{ab}^{ss}  = \sum_k [ V_{a}^{s}(k)*V_{b}^{s}(k)/(iw_n - E^{s}(k)) ] + 
+        ! !                    \sum_k [ U_{a}^{s}(k)*U_{b}^{s}(k)/(iw_n - E^{sbar}(k)) ]
+        ! !
+        ! !\Delta_{ab}^{ss`} = \sum_k [ V_{a}^{s}(k)*U_{b}^{s`}(k)/(iw_n - E^{s}(k)) ] + 
+        ! !                    \sum_k [ U_{a}^{s}(k)*V_{b}^{s`}(k)/(iw_n - E^{sbar}(k)) ]
+        ! hps  = dmft_bath_%e(1:Nspin,1     ,1:Nbath)
+        ! wops = dmft_bath_%v(1:Nspin,1:Norb,1:Nbath)
+        ! uops = dmft_bath_%u(1:Nspin,1:Norb,1:Nbath)
+        ! do iorb=1,Norb
+        !    do jorb=1,Norb
+        !       do ispin=1,Nspin
+        !          do i=1,L
+        !             Delta(ispin,ispin,iorb,jorb,i) = &
+        !                  sum( wops(ispin,iorb,:)*wops(ispin,jorb,:)/(x(i) - hps(ispin,:)) ) + &
+        !                  sum( uops(ispin,iorb,:)*uops(ispin,jorb,:)/(x(i) - hps((Nspin+1)-ispin,:)) )
+        !          enddo
+        !          do jspin=ispin+1,Nspin
+        !             do i=1,L
+        !                Delta(ispin,jspin,iorb,jorb,i) = &
+        !                     sum( wops(ispin,iorb,:)*uops(jspin,jorb,:)/(x(i) - hps(ispin,:)) ) + &
+        !                     sum( uops(ispin,iorb,:)*wops(jspin,jorb,:)/(x(i) - hps((Nspin+1)-ispin,:)) )
+        !                !
+        !                Delta(jspin,ispin,iorb,jorb,i) = &
+        !                     sum( wops(jspin,iorb,:)*uops(ispin,jorb,:)/(x(i) - hps(ispin,:)) ) + &
+        !                     sum( uops(jspin,iorb,:)*wops(ispin,jorb,:)/(x(i) - hps((Nspin+1)-jspin,:)) )
+        !             enddo
+        !          enddo
+        !       enddo
+        !    enddo
+        ! enddo
         !
      end select
      !

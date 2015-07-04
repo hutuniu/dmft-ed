@@ -50,7 +50,7 @@ function g0and_bath_real_main(x,dmft_bath_) result(G0and)
         Delta = delta_bath_real(x,dmft_bath_)
         allocate(fgorb(Nspin,Nspin),zeta(Nspin,Nspin))
         do i=1,L
-           zeta  = (x(i) + xmu)*eye(Nspin)
+           zeta  = (x(i) + xmu)*zeye(Nspin)
            fgorb = zero
            !
            do iorb=1,Norb
@@ -83,7 +83,7 @@ function g0and_bath_real_main(x,dmft_bath_) result(G0and)
         do ispin=1,Nspin
            do i=1,L
               fgorb= zero
-              zeta = (x(i)+xmu)*eye(Norb)
+              zeta = (x(i)+xmu)*zeye(Norb)
               do iorb=1,Norb
                  do jorb=1,Norb
                     fgorb(iorb,jorb) = zeta(iorb,jorb)-impHloc(ispin,ispin,iorb,jorb)-Delta(ispin,ispin,iorb,jorb,i)
@@ -128,7 +128,7 @@ function g0and_bath_real_main(x,dmft_bath_) result(G0and)
         Delta = delta_bath_real(x,dmft_bath_)
         allocate(fgorb(Nso,Nso),zeta(Nso,Nso))
         do i=1,L
-           zeta  = (x(i) + xmu)*eye(Nso)
+           zeta  = (x(i) + xmu)*zeye(Nso)
            fgorb = zero
            do ispin=1,Nspin
               do jspin=1,Nspin

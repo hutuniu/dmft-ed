@@ -14,7 +14,7 @@ subroutine build_gf_nonsu2()
   !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
   do ispin=1,Nspin
      do iorb=1,Norb
-        if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_r"//reg(txtfy(ispin))
+        if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
         select case(ed_type)
         case default
            call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
@@ -28,7 +28,7 @@ subroutine build_gf_nonsu2()
   do ispin=1,Nspin
      do jspin=ispin+1,Nspin
         do iorb=1,Norb
-           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_r"//reg(txtfy(jspin))
+           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
            select case(ed_type)
            case default
               call lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
@@ -62,7 +62,7 @@ subroutine build_gf_nonsu2()
      do ispin=1,Nspin
         do iorb=1,Norb
            do jorb=iorb+1,Norb
-              if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_r"//reg(txtfy(ispin))
+              if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
               select case(ed_type)
               case default
                  call lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
@@ -95,7 +95,7 @@ subroutine build_gf_nonsu2()
         do jspin=ispin+1,Nspin
            do iorb=1,Norb
               do jorb=iorb+1,Norb
-                 if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_r"//reg(txtfy(jspin))
+                 if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
                  select case(ed_type)
                  case default
                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
@@ -168,7 +168,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
      allocate(HImap(idim))
      call build_sector(isector,HImap)
      !
-     !ADD ONE PARTICLE with ISPIN:
+     !APPLY c^+_{iorb,ispin}|gs>
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
@@ -197,7 +197,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
-     !REMOVE ONE PARTICLE with ISPIN:
+     !APPLY c_{iorb,ispin}|gs>
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim  = getdim(jsector)
@@ -783,7 +783,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),cvinit(jdim))
         call build_sector(jsector,HJmap)
         cvinit=zero
@@ -1295,7 +1295,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=zero
@@ -1491,7 +1491,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
         allocate(HJmap(jdim),vvinit(jdim))
         call build_sector(jsector,HJmap)
         vvinit=zero

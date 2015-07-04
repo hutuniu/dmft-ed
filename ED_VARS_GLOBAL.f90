@@ -19,13 +19,11 @@ MODULE ED_VARS_GLOBAL
   !Nhilbert = 2**Nlevels = Max size of the Hilbert space
   !Nsectors =              Number of sectors
   !=========================================================
-  ! integer                                     :: Ns,Ntot,NN
-  ! integer                                     :: Nsect
-  ! integer                                     :: Nbo
   integer                                     :: Ns
   integer                                     :: Nlevels
   integer                                     :: Nhilbert
   integer                                     :: Nsectors
+  integer                                     :: Nhel
 
   !local part of the Hamiltonian
   !INTERNAL USE (accessed thru functions)

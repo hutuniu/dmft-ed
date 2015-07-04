@@ -5,20 +5,25 @@ module ED_GLOC
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE SF_TIMER
+  USE SF_SPECIAL,   only: gfbethe,gfbether
   USE SF_IOTOOLS,   only: reg,txtfy,splot
-  USE SF_LINALG,    only:matrix_inverse,matrix_inverse_sym
-  USE SF_ARRAYS,    only:linspace,arange
+  USE SF_LINALG,    only: matrix_inverse,matrix_inverse_sym
+  USE SF_ARRAYS,    only: linspace,arange
   implicit none
   private
   !
   interface ed_get_gloc
-     module procedure &
-          ed_get_gloc_normal_main,   &
-          ed_get_gloc_superc_main,   &
-          ed_get_gloc_normal_1b,&
-          ed_get_gloc_normal_mb,&
-          ed_get_gloc_superc_1b,&
-          ed_get_gloc_superc_mb
+     module procedure ed_get_gloc_normal_main
+     module procedure ed_get_gloc_normal_1b
+     module procedure ed_get_gloc_normal_mb
+     !
+     module procedure ed_get_gloc_superc_main
+     module procedure ed_get_gloc_superc_1b
+     module procedure ed_get_gloc_superc_mb
+     !
+     module procedure ed_get_gloc_normal_bethe
+     module procedure ed_get_gloc_normal_bethe_1b
+     module procedure ed_get_gloc_normal_bethe_mb
   end interface ed_get_gloc
 
   public :: ed_get_gloc
@@ -31,10 +36,13 @@ contains
 
 
   !----------------------------------------------------------------------------------------!
-  ! PURPOSE: evaluate the Normal local Green's function for a given Hamiltonian matrix and
-  ! self-energy functions. Hk is a big sparse matrix of the form H(k;R_i,R_j)_{ab}^{ss'}
+  ! PURPOSE: evaluate the local Green's function for a given Hamiltonian matrix and
+  ! self-energy functions. Hk is a big sparse matrix of the form H(k)_{ab}^{ss'}
   ! and size [Nk]*[Nlat*Nspin*Norb]**2
+  !   NORMAL:_normal_main
+  !   SUPERC:_superc_main
   !----------------------------------------------------------------------------------------!
+  !NORMAL
   subroutine ed_get_gloc_normal_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Norb*Nspin][Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
@@ -103,94 +111,14 @@ contains
        if(ED_MPI_ID==0)call eta(ik,Lk,unit=LOGfile)
     end do
     if(ED_MPI_ID==0)call stop_timer
-    if(ED_MPI_ID==0.AND.ed_verbose<4)then
-       select case(iprint)
-       case(1)                  !print only diagonal elements
-          write(LOGfile,*)"write spin-orbital diagonal elements:"
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
-                call splot("Gloc"//reg(suffix),wm,Gmats(ispin,ispin,iorb,iorb,:))
-                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
-                call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(ispin,ispin,iorb,iorb,:)))
-             enddo
-          enddo
-       case(2)                  !print spin-diagonal, all orbitals 
-          write(LOGfile,*)"write spin diagonal and all orbitals elements:"
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
-                   call splot("Gloc"//reg(suffix),wm,Gmats(ispin,ispin,iorb,jorb,:))
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
-                   call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(ispin,ispin,iorb,jorb,:)))
-                enddo
-             enddo
-          enddo
-       case default                  !print all off-diagonals
-          write(LOGfile,*)"write all elements:"
-          do ispin=1,Nspin
-             do jspin=1,Nspin
-                do iorb=1,Norb
-                   do jorb=1,Norb
-                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw"//reg(ed_file_suffix)//".ed"
-                      call splot("Gloc"//reg(suffix),wm,Gmats(ispin,jspin,iorb,jorb,:))
-                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw"//reg(ed_file_suffix)//".ed"
-                      call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(ispin,jspin,iorb,jorb,:)))
-                   enddo
-                enddo
-             enddo
-          enddo
-       end select
-    endif
+    !
+    !
+    !PRINT:
+    call print_gloc_normal(Gmats,Greal,iprint)
+    !
   end subroutine ed_get_gloc_normal_main
 
-  subroutine add_to_gloc_normal(zeta_site,Hk,hk_symm,Gkout)
-    complex(8)               :: zeta_site(:,:,:)              ![Nspin*Norb][Nspin*Norb][Lfreq]
-    complex(8)               :: Hk(Nspin*Norb,Nspin*Norb) 
-    real(8)                  :: Wtk                    
-    logical                  :: hk_symm                
-    !output:
-    complex(8),intent(inout) :: Gkout(Nspin,Nspin,Norb,Norb,size(zeta_site,3))
-    complex(8)               :: Gktmp(Nspin,Nspin,Norb,Norb,size(zeta_site,3))
-    !
-    complex(8)               :: Gmatrix(Nspin*Norb,Nspin*Norb)
-    integer                  :: i,is,Lfreq,iorb,jorb,ispin,jspin,io,jo
-    if(size(zeta_site,1)/=Nspin*Norb)stop "get_gloc_kpoint error: zeta_site wrong size 2 = Nspin*Norb"
-    if(size(zeta_site,2)/=Nspin*Norb)stop "get_gloc_kpoint error: zeta_site wrong size 3 = Nspin*Norb"
-    Lfreq = size(zeta_site,3)
-    Gktmp=zero
-    do i=1,Lfreq
-       Gmatrix  = zeta_site(:,:,i) - Hk
-       if(hk_symm) then
-          call matrix_inverse_sym(Gmatrix)
-       else
-          call matrix_inverse(Gmatrix)  ! PAY ATTENTION HERE: it is not guaranteed that Gloc is a symmetric matrix
-       end if
-       !store the diagonal blocks directly into the tmp output 
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   Gktmp(ispin,jspin,iorb,jorb,i) = Gmatrix(io,jo)
-                enddo
-             enddo
-          enddo
-       enddo
-    enddo
-    Gkout = Gktmp
-  end subroutine add_to_gloc_normal
-
-
-
-
-  !----------------------------------------------------------------------------------------!
-  ! PURPOSE: evaluate the Nambu local Green's function for a given Hamiltonian matrix and
-  ! self-energy functions. Hk is a big sparse matrix of the form H(k;R_i,R_j)_{ab}^{ss'}
-  ! and size [Nk]*[Nlat*Nspin*Norb]**2
-  !----------------------------------------------------------------------------------------!
+  !SUPERCONDUCTING:
   subroutine ed_get_gloc_superc_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,Eloc,hk_symm)
     complex(8),dimension(:,:,:) :: Hk              ![Norb*Nspin][Norb*Nspin][Nk]
     real(8)                     :: Wtk(size(Hk,3)) ![Nk]
@@ -237,7 +165,7 @@ contains
           !SYMMETRIES in real-frequencies   [assuming a real order parameter]
           !G22(w)  = -[G11[-w]]*
           !G21(w)  =   G12[w]
-          zeta_real(1,1,io,io,:) = dcmplx(wr(:),eps)                  + xmu - Eloc_(io)    
+          zeta_real(1,1,io,io,:) =  dcmplx(wr(:),eps)                  + xmu - Eloc_(io)    
           zeta_real(2,2,io,io,:) = -conjg( dcmplx(wr(Lreal:1:-1),eps) + xmu - Eloc_(io) )
        enddo
     enddo
@@ -274,53 +202,127 @@ contains
        if(ED_MPI_ID==0)call eta(ik,Lk,unit=LOGfile)
     end do
     if(ED_MPI_ID==0)call stop_timer
-    if(ED_MPI_ID==0.AND.ed_verbose<4)then
-       select case(iprint)
-       case(1)
-          write(LOGfile,*)"write spin-orbital diagonal elements:"
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
-                call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,ispin,iorb,iorb,:))
-                call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,ispin,iorb,iorb,:))
-                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
-                call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(1,ispin,ispin,iorb,iorb,:)))
-                call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(2,ispin,ispin,iorb,iorb,:)))
-             enddo
+    !
+    !
+    !PRINT:
+    call print_gloc_superc(Gmats,Greal,iprint)
+    !
+  end subroutine ed_get_gloc_superc_main
+
+
+  !NORMAL BETHE
+  subroutine ed_get_gloc_normal_bethe(Gmats,Greal,Smats,Sreal,Hloc,iprint,wband)
+    complex(8),intent(inout)    :: Gmats(Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8),intent(inout)    :: Greal(Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8),intent(inout)    :: Smats(Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8),intent(inout)    :: Sreal(Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)                  :: Hloc(Nspin,Nspin,Norb,Norb)
+    integer                     :: iprint
+    real(8),optional            :: wband
+    real(8)                     :: wband_
+    complex(8)                  :: zeta_mats(Nspin*Norb,Lmats)
+    complex(8)                  :: zeta_real(Nspin*Norb,Lreal)
+    integer                     :: i,ik,Lk,Nso,iorb,jorb,ispin,jspin,io,jo,js
+    !
+    wband_=1d0;if(present(wband))wband_=wband
+    Nso=Norb*Nspin
+    if(ED_MPI_ID==0)write(LOGfile,*)"Get Bethe GF (id=0):"
+    if(ED_MPI_ID==0)write(LOGfile,*)"print in mode "//reg(txtfy(iprint))
+    if(bath_type/="normal")stop "ed_get_gloc_normal_bethe error: this routine works only for diagonal problems. set bath_type=normal"
+    !
+    if(allocated(wm))deallocate(wm)
+    if(allocated(wr))deallocate(wr)
+    allocate(wm(Lmats))
+    allocate(wr(Lreal))
+    wm = pi/beta*(2*arange(1,Lmats)-1)
+    wr = linspace(wini,wfin,Lreal)
+    !
+    if(ED_MPI_ID==0)call start_timer
+    !only Diagonal component are allowed.
+    Gmats=zero
+    Greal=zero
+    do ispin=1,Nspin
+       do iorb=1,Norb
+          io = iorb + (ispin-1)*Norb
+          zeta_mats(io,:) = xi*wm(:)          + xmu - Hloc(ispin,ispin,iorb,iorb) - Smats(ispin,ispin,iorb,iorb,:)
+          zeta_real(io,:) = dcmplx(wr(:),eps) + xmu - Hloc(ispin,ispin,iorb,iorb) - Sreal(ispin,ispin,iorb,iorb,:)
+          do i=1,Lmats
+             Gmats(ispin,ispin,iorb,iorb,i) = gfbethe(wm(i),zeta_mats(io,i),wband_)
           enddo
-       case(2)
-          write(LOGfile,*)"write spin diagonal and all orbitals elements:"
-          do ispin=1,Nspin
+          do i=1,Lreal
+             Greal(ispin,ispin,iorb,iorb,i) = gfbether(wr(i),zeta_real(io,i),wband_)
+          enddo
+       enddo
+    enddo
+    if(ED_MPI_ID==0)call stop_timer
+    !
+    !
+    !PRINT:
+    call print_gloc_normal(Gmats,Greal,iprint)
+    !
+  end subroutine ed_get_gloc_normal_bethe
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  !----------------------------------------------------------------------------------------!
+  ! PURPOSE: routines that actually evaluate the G_k(iw//w+) 
+  !----------------------------------------------------------------------------------------!
+  subroutine add_to_gloc_normal(zeta_site,Hk,hk_symm,Gkout)
+    complex(8)               :: zeta_site(:,:,:)              ![Nspin*Norb][Nspin*Norb][Lfreq]
+    complex(8)               :: Hk(Nspin*Norb,Nspin*Norb) 
+    real(8)                  :: Wtk                    
+    logical                  :: hk_symm                
+    !output:
+    complex(8),intent(inout) :: Gkout(Nspin,Nspin,Norb,Norb,size(zeta_site,3))
+    complex(8)               :: Gktmp(Nspin,Nspin,Norb,Norb,size(zeta_site,3))
+    !
+    complex(8)               :: Gmatrix(Nspin*Norb,Nspin*Norb)
+    integer                  :: i,is,Lfreq,iorb,jorb,ispin,jspin,io,jo
+    if(size(zeta_site,1)/=Nspin*Norb)stop "get_gloc_kpoint error: zeta_site wrong size 2 = Nspin*Norb"
+    if(size(zeta_site,2)/=Nspin*Norb)stop "get_gloc_kpoint error: zeta_site wrong size 3 = Nspin*Norb"
+    Lfreq = size(zeta_site,3)
+    Gktmp=zero
+    do i=1,Lfreq
+       Gmatrix  = zeta_site(:,:,i) - Hk
+       if(Nspin*Norb==1)then
+          Gmatrix = one/Gmatrix
+       else
+          if(hk_symm) then
+             call matrix_inverse_sym(Gmatrix)
+          else
+             call matrix_inverse(Gmatrix)  ! PAY ATTENTION HERE: it is not guaranteed that Gloc is a symmetric matrix
+          endif
+       endif
+       !store the diagonal blocks directly into the tmp output 
+       do ispin=1,Nspin
+          do jspin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
-                   call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,ispin,iorb,jorb,:))
-                   call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,ispin,iorb,jorb,:))
-                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
-                   call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(1,ispin,ispin,iorb,jorb,:)))
-                   call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(2,ispin,ispin,iorb,jorb,:)))
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   Gktmp(ispin,jspin,iorb,jorb,i) = Gmatrix(io,jo)
                 enddo
              enddo
           enddo
-       case(3)
-          write(LOGfile,*)"write all elements:"
-          do ispin=1,Nspin
-             do jspin=1,Nspin
-                do iorb=1,Norb
-                   do jorb=1,Norb
-                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw"//reg(ed_file_suffix)//".ed"
-                      call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,jspin,iorb,jorb,:))
-                      call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,jspin,iorb,jorb,:))
-                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw"//reg(ed_file_suffix)//".ed"
-                      call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(1,ispin,jspin,iorb,jorb,:)))
-                      call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(2,ispin,jspin,iorb,jorb,:)))
-                   enddo
-                enddo
-             enddo
-          enddo
-       end select
-    endif
-  end subroutine ed_get_gloc_superc_main
+       enddo
+    enddo
+    Gkout = Gktmp
+  end subroutine add_to_gloc_normal
 
   subroutine add_to_gloc_superc(zeta_site,Hk,Wtk,hk_symm,Gkout)
     complex(8)               :: zeta_site(:,:,:,:,:)              ![2][2][Nspin*Norb][Nspin*Norb][Lfreq]
@@ -373,6 +375,121 @@ contains
 
 
 
+
+
+
+  !----------------------------------------------------------------------------------------!
+  ! PURPOSE: write local GF to file
+  !----------------------------------------------------------------------------------------!
+  subroutine print_gloc_normal(Gmats,Greal,iprint)
+    complex(8),intent(in)    :: Gmats(Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8),intent(in)    :: Greal(Nspin,Nspin,Norb,Norb,Lreal)
+    integer                  :: iprint
+    integer                  :: ik,Lk,Nso,iorb,jorb,ispin,jspin,io,jo,js
+    if(ED_MPI_ID==0.AND.ed_verbose<4)then
+       select case(iprint)
+       case(1)                  !print only diagonal elements
+          write(LOGfile,*)"write spin-orbital diagonal elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
+                call splot("Gloc"//reg(suffix),wm,Gmats(ispin,ispin,iorb,iorb,:))
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(ispin,ispin,iorb,iorb,:)))
+             enddo
+          enddo
+       case(2)                  !print spin-diagonal, all orbitals 
+          write(LOGfile,*)"write spin diagonal and all orbitals elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
+                   call splot("Gloc"//reg(suffix),wm,Gmats(ispin,ispin,iorb,jorb,:))
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                   call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(ispin,ispin,iorb,jorb,:)))
+                enddo
+             enddo
+          enddo
+       case default                  !print all off-diagonals
+          write(LOGfile,*)"write all elements:"
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw"//reg(ed_file_suffix)//".ed"
+                      call splot("Gloc"//reg(suffix),wm,Gmats(ispin,jspin,iorb,jorb,:))
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw"//reg(ed_file_suffix)//".ed"
+                      call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(ispin,jspin,iorb,jorb,:)))
+                   enddo
+                enddo
+             enddo
+          enddo
+       end select
+    endif
+  end subroutine print_gloc_normal
+
+  subroutine print_gloc_superc(Gmats,Greal,iprint)
+    complex(8),intent(in)    :: Gmats(2,Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8),intent(in)    :: Greal(2,Nspin,Nspin,Norb,Norb,Lreal)
+    integer                  :: iprint
+    integer                  :: ik,Lk,Nso,iorb,jorb,ispin,jspin,io,jo,js
+    if(ED_MPI_ID==0.AND.ed_verbose<4)then
+       select case(iprint)
+       case(1)
+          write(LOGfile,*)"write spin-orbital diagonal elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
+                call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,ispin,iorb,iorb,:))
+                call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,ispin,iorb,iorb,:))
+                suffix="_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(1,ispin,ispin,iorb,iorb,:)))
+                call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(2,ispin,ispin,iorb,iorb,:)))
+             enddo
+          enddo
+       case(2)
+          write(LOGfile,*)"write spin diagonal and all orbitals elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_iw"//reg(ed_file_suffix)//".ed"
+                   call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,ispin,iorb,jorb,:))
+                   call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,ispin,iorb,jorb,:))
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))//"_realw"//reg(ed_file_suffix)//".ed"
+                   call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(1,ispin,ispin,iorb,jorb,:)))
+                   call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,ispin,iorb,jorb,:))/pi,dreal(Greal(2,ispin,ispin,iorb,jorb,:)))
+                enddo
+             enddo
+          enddo
+       case(3)
+          write(LOGfile,*)"write all elements:"
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw"//reg(ed_file_suffix)//".ed"
+                      call splot("Gloc"//reg(suffix),wm,Gmats(1,ispin,jspin,iorb,jorb,:))
+                      call splot("Floc"//reg(suffix),wm,Gmats(2,ispin,jspin,iorb,jorb,:))
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw"//reg(ed_file_suffix)//".ed"
+                      call splot("Gloc"//reg(suffix),wr,-dimag(Greal(1,ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(1,ispin,jspin,iorb,jorb,:)))
+                      call splot("Floc"//reg(suffix),wr,-dimag(Greal(2,ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(2,ispin,jspin,iorb,jorb,:)))
+                   enddo
+                enddo
+             enddo
+          enddo
+       end select
+    endif
+  end subroutine print_gloc_superc
+
+
+
+
+
+
+
+
+
+
   !+-----------------------------------------------------------------------------+!
   !PURPOSE:  additional interfaces to the main procedures above for the 
   ! normal and superc case:
@@ -399,7 +516,7 @@ contains
     logical                            :: hk_symm_(size(Hk,1))
     integer                            :: iprint
     if(Norb>1)stop "ed_get_gloc_normal_1b error: Norb > 1 in 1-band routine" 
-    if(Nspin>1)stop "ed_get_gloc_normal_1b error: Nspin > 1 in 1-band routine" 
+    if(Nspin>1)stop"ed_get_gloc_normal_1b error: Nspin > 1 in 1-band routine" 
     Gmats_(1,1,1,1,:) = Gmats(:)
     Greal_(1,1,1,1,:) = Greal(:)
     Smats_(1,1,1,1,:) = Smats(:)
@@ -432,7 +549,7 @@ contains
     logical,optional            :: hk_symm(size(Hk,3))
     logical                     :: hk_symm_(size(Hk,3))
     integer                     :: iprint
-    if(Nspin>1)stop "ed_get_gloc_normal_mb error: Nspin > 1 in M-band routine" 
+    if(Nspin>1)stop"ed_get_gloc_normal_mb error: Nspin > 1 in M-band routine" 
     Gmats_(1,1,:,:,:) = Gmats(:,:,:)
     Greal_(1,1,:,:,:) = Greal(:,:,:)
     Smats_(1,1,:,:,:) = Smats(:,:,:)
@@ -465,8 +582,8 @@ contains
     logical,optional            :: hk_symm(size(Hk,1))
     logical                     :: hk_symm_(size(Hk,1))
     integer                     :: iprint
-    if(Norb>1)stop "ed_get_gloc_superc_1b error: Norb > 1 in 1-band routine" 
-    if(Nspin>1)stop "ed_get_gloc_superc_1b error: Nspin > 1 in 1-band routine" 
+    if(Norb>1)stop"ed_get_gloc_superc_1b error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop"ed_get_gloc_superc_1b error: Nspin > 1 in 1-band routine" 
     Gmats_(:,1,1,1,1,:) = Gmats(:,:)
     Greal_(:,1,1,1,1,:) = Greal(:,:)
     Smats_(:,1,1,1,1,:) = Smats(:,:)
@@ -512,5 +629,60 @@ contains
     Smats(:,:,:,:) = Smats_(:,1,1,:,:,:)
     Sreal(:,:,:,:) = Sreal_(:,1,1,:,:,:)
   end subroutine ed_get_gloc_superc_mb
+
+  subroutine ed_get_gloc_normal_bethe_1b(Gmats,Greal,Smats,Sreal,Hloc,iprint,wband)
+    complex(8),intent(inout) :: Gmats(Lmats)
+    complex(8),intent(inout) :: Greal(Lreal)
+    complex(8),intent(inout) :: Smats(Lmats)
+    complex(8),intent(inout) :: Sreal(Lreal)
+    complex(8)               :: Hloc(Nspin,Nspin,Norb,Norb)
+    integer                  :: iprint
+    real(8),optional         :: wband
+    real(8)                  :: wband_
+    complex(8)               :: Gmats_(Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)               :: Greal_(Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)               :: Smats_(Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)               :: Sreal_(Nspin,Nspin,Norb,Norb,Lreal)
+    !
+    if(Norb>1)stop "ed_get_gloc_normal_bethe_1b error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop"ed_get_gloc_normal_bethe_1b error: Nspin > 1 in 1-band routine" 
+    !
+    Gmats_(1,1,1,1,:) = Gmats(:)
+    Greal_(1,1,1,1,:) = Greal(:)
+    Smats_(1,1,1,1,:) = Smats(:)
+    Sreal_(1,1,1,1,:) = Sreal(:)
+    wband_=1d0       ;if(present(wband))wband_=wband
+    call ed_get_gloc_normal_bethe(Gmats_,Greal_,Smats_,Sreal_,Hloc,iprint,wband_)
+    Gmats(:) = Gmats_(1,1,1,1,:)
+    Greal(:) = Greal_(1,1,1,1,:)
+    Smats(:) = Smats_(1,1,1,1,:)
+    Sreal(:) = Sreal_(1,1,1,1,:)
+  end subroutine ed_get_gloc_normal_bethe_1b
+
+  subroutine ed_get_gloc_normal_bethe_mb(Gmats,Greal,Smats,Sreal,Hloc,iprint,wband)
+    complex(8),intent(inout) :: Gmats(Norb,Norb,Lmats)
+    complex(8),intent(inout) :: Greal(Norb,Norb,Lreal)
+    complex(8),intent(inout) :: Smats(Norb,Norb,Lmats)
+    complex(8),intent(inout) :: Sreal(Norb,Norb,Lreal)
+    complex(8)               :: Hloc(Nspin,Nspin,Norb,Norb)
+    integer                  :: iprint
+    real(8),optional         :: wband
+    real(8)                  :: wband_
+    complex(8)               :: Gmats_(Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)               :: Greal_(Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)               :: Smats_(Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)               :: Sreal_(Nspin,Nspin,Norb,Norb,Lreal)
+    if(Nspin>1)stop"ed_get_gloc_normal_bethe_mb error: Nspin > 1 in M-band routine" 
+    Gmats_(1,1,:,:,:) = Gmats(:,:,:)
+    Greal_(1,1,:,:,:) = Greal(:,:,:)
+    Smats_(1,1,:,:,:) = Smats(:,:,:)
+    Sreal_(1,1,:,:,:) = Sreal(:,:,:)
+    wband_=1d0       ;if(present(wband))wband_=wband
+    call ed_get_gloc_normal_bethe(Gmats_,Greal_,Smats_,Sreal_,Hloc,iprint,wband_)
+    Gmats(:,:,:) = Gmats_(1,1,:,:,:)
+    Greal(:,:,:) = Greal_(1,1,:,:,:)
+    Smats(:,:,:) = Smats_(1,1,:,:,:)
+    Sreal(:,:,:) = Sreal_(1,1,:,:,:)
+  end subroutine ed_get_gloc_normal_bethe_mb
 
 end module ED_GLOC

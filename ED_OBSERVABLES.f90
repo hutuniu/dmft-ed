@@ -56,7 +56,8 @@ contains
     complex(8),dimension(:),pointer  :: gscvec
     integer,allocatable,dimension(:) :: Hmap,HJmap
     real(8),allocatable              :: vvinit(:)
-    !<DEBUG 
+    !<DEBUG
+    logical :: converged
     real(8) :: pdens
     !>DEBUG
 
@@ -91,11 +92,9 @@ contains
        idim    = getdim(isector)
        !
        if(ed_type=='d')then
-          allocate(gsvec(idim))
           gsvec  => es_return_vector(state_list,izero)
           norm=sqrt(dot_product(gsvec,gsvec))
        elseif(ed_type=='c')then
-          allocate(gscvec(idim))
           gscvec  => es_return_cvector(state_list,izero)
           norm=sqrt(dot_product(gscvec,gscvec))
        endif
@@ -146,14 +145,15 @@ contains
           s2tot = s2tot  + (sum(sz))**2*gs_weight
        enddo
        !<DEBUG  comment
-       print*,isector,getn(isector),idim,pdens       
-       call ed_buildH_d(isector)
-       allocate(vvec(idim))
-       call spHtimesV_dd(1,idim,gsvec,vvec)
-       if(spH0%status)call sp_delete_matrix(spH0)
-       do i=1,idim
-          if(abs(vvec(i)-Ei*gsvec(i))>1.d-12)write(100+isector,*)i,abs(vvec(i)-Ei*gsvec(i))
-       enddo
+       print*,"sectors contribution to dens:"
+       select case(ed_mode)
+       case default
+          print*,isector,getnup(isector),getndw(isector),pdens       
+       case ("superc")
+          print*,isector,getsz(isector),pdens       
+       case("nonsu2")
+          print*,isector,getn(isector),pdens       
+       end select
        !>DEBUG
        if(associated(gsvec))nullify(gsvec)
        if(associated(gscvec))nullify(gscvec)
