@@ -154,13 +154,11 @@ contains
           enddo
           !>DEBUG
        endif
-       !<DEBUG print sector's lowest eigenvalues:
        unit=free_unit()
        open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
        call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
        close(unit)
        if(ed_verbose<1)call print_eigenvalues_list(isector,eig_values(1:Neigen),LOGfile)
-       !>DEBUG
        !
        if(allocated(eig_values))deallocate(eig_values)
        if(allocated(eig_basis))deallocate(eig_basis)
@@ -224,19 +222,22 @@ contains
           Tflag=Tflag.AND.(getsz(isector)/=0)
        case("nonsu2")
           Tflag=Tflag.AND.(getn(isector)/=Ns)
-       end select
-       dim      = getdim(isector)
+       end select       !
+       !
+       Dim      = getdim(isector)
        Neigen   = min(dim,neigen_sector(isector))
        Nitermax = min(dim,lanc_niter)
-       Nblock   = min(dim,5*Neigen+10)
+       Nblock   = min(dim,lanc_ncv_factor*Neigen + lanc_ncv_add)!min(dim,5*Neigen+10)
        !
        lanc_solve  = .true.
        if(Neigen==dim)lanc_solve=.false.
-       if(dim<=max(512,ED_MPI_SIZE))lanc_solve=.false.
+       if(dim<=max(lanc_dim_threshold,ED_MPI_SIZE))lanc_solve=.false.
        !
        if(lanc_solve)then
+          if(allocated(eig_values))deallocate(eig_values)
+          if(allocated(eig_basis))deallocate(eig_basis)
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
-          eig_values=0.d0 ; eig_basis=zero
+          eig_values=0d0 ; eig_basis=0d0
           call ed_buildH_c(isector)
 #ifdef _MPI
           call lanczos_parpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
@@ -260,15 +261,17 @@ contains
              call es_add_state(state_list,eig_values(i),eig_basis(1:dim,i),isector,twin=Tflag,size=lanc_nstates_total)
           enddo
        else
-          enemin = eig_values(1)
-          if (enemin < oldzero-10.d0*gs_threshold)then
-             oldzero=enemin
-             call es_free_espace(state_list)
-             call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector,twin=Tflag)
-          elseif(abs(enemin-oldzero) <= gs_threshold)then
-             oldzero=min(oldzero,enemin)
-             call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector,twin=Tflag)
-          endif
+          do i=1,Neigen
+             enemin = eig_values(i)
+             if(enemin < oldzero-10.d0*gs_threshold)then
+                oldzero=enemin
+                call es_free_espace(state_list)
+                call es_add_state(state_list,enemin,eig_basis(1:dim,i),isector,twin=Tflag)
+             elseif(abs(enemin-oldzero) <= gs_threshold)then
+                oldzero=min(oldzero,enemin)
+                call es_add_state(state_list,enemin,eig_basis(1:dim,i),isector,twin=Tflag)
+             endif
+          enddo
        endif
        !
        if(allocated(eig_values))deallocate(eig_values)
