@@ -155,11 +155,11 @@ contains
           !>DEBUG
        endif
        !<DEBUG print sector's lowest eigenvalues:
-       unit=free_unit()
-       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
-       call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
-       close(unit)
-       if(ed_verbose<1)call print_eigenvalues_list(isector,eig_values(1:Neigen),LOGfile)
+       !unit=free_unit()
+       !open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+       !call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
+       !close(unit)
+       !if(ed_verbose<1)call print_eigenvalues_list(isector,eig_values(1:Neigen),LOGfile)
        !>DEBUG
        !
        if(allocated(eig_values))deallocate(eig_values)
@@ -260,15 +260,28 @@ contains
              call es_add_state(state_list,eig_values(i),eig_basis(1:dim,i),isector,twin=Tflag,size=lanc_nstates_total)
           enddo
        else
-          enemin = eig_values(1)
-          if (enemin < oldzero-10.d0*gs_threshold)then
-             oldzero=enemin
-             call es_free_espace(state_list)
-             call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector,twin=Tflag)
-          elseif(abs(enemin-oldzero) <= gs_threshold)then
-             oldzero=min(oldzero,enemin)
-             call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector,twin=Tflag)
-          endif
+          !<DEBUG
+          do i=1,Neigen
+             enemin = eig_values(i)
+             if(enemin < oldzero-10.d0*gs_threshold)then
+                oldzero=enemin
+                call es_free_espace(state_list)
+                call es_add_state(state_list,enemin,eig_basis(1:dim,i),isector,twin=Tflag)
+             elseif(abs(enemin-oldzero) <= gs_threshold)then
+                oldzero=min(oldzero,enemin)
+                call es_add_state(state_list,enemin,eig_basis(1:dim,i),isector,twin=Tflag)
+             endif
+          enddo
+          !>DEBUG
+          !enemin = eig_values(1)
+          !if (enemin < oldzero-10.d0*gs_threshold)then
+          !   oldzero=enemin
+          !   call es_free_espace(state_list)
+          !   call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector,twin=Tflag)
+          !elseif(abs(enemin-oldzero) <= gs_threshold)then
+          !   oldzero=min(oldzero,enemin)
+          !   call es_insert_state(state_list,enemin,eig_basis(1:dim,1),isector,twin=Tflag)
+          !endif
        endif
        !
        if(allocated(eig_values))deallocate(eig_values)

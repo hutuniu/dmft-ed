@@ -1,16 +1,4 @@
-!                    MODEL Hamiltonian is:
-!
-! |     h^{2x2}(k)             &          hso^{2x2}(k)        |
-! |     [hso^{2x2}]*(k)        &         [h^{2x2}]*(-k)       |
-!
-! h^{2x2}(k):=
-!
-! | m-(Cos{kx}+Cos{ky})         & \lambda*(Sin{kx}-i*Sin{ky}) |
-! | \lambda*(Sin{kx}+i*Sin{ky}) & -m+(Cos{kx}+Cos{ky})        |
-!
-! hso^{2x2}(k):=
-! | xi*rh*(sin(kx)-xi*sin(ky))  &         \delta              |
-! |         -\delta             &             0               |
+
 program ed_STO
   USE DMFT_ED
   USE SCIFOR
@@ -101,6 +89,7 @@ program ed_STO
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=0)
      call ed_get_weiss(Gmats,Smats,Delta,Hloc=my_reshape_A1_to_A2(Ti3dt2g_Hloc),iprint=0)
      !Fit the new bath, starting from the old bath + the supplied delta 
+     Bath_=bath
      if (ed_mode=="normal") then
         call ed_chi2_fitgf(delta,bath,ispin=1)
         call spin_symmetrize_bath(bath,save=.true.)
@@ -109,8 +98,9 @@ program ed_STO
      endif
 
      !MIXING:
-     if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
-     Bath_=Bath
+     !if(iloop>1)
+     Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
+     !Bath_=Bath
 
      do i=1,Lmats
         do ispin=1,Nspin
@@ -127,7 +117,7 @@ program ed_STO
      enddo
 
 
-     converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
+     converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0)converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0)converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
      !#ifdef _MPI
@@ -169,32 +159,20 @@ contains
     complex(8),dimension(Nso,Nso,Lreal) :: Greal
     real(8)                             :: wm(Lmats),wr(Lreal),dw
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for BHZ:"
-    !Lk=Nk**2
     Lk=Nk**3
     if(ED_MPI_ID==0)write(*,*)"# of k-points     :",Lk
     if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
     if(allocated(Hk))deallocate(Hk)
-    allocate(Hk(Nso,Nso,Lk))
-    allocate(wtk(Lk))
-    allocate(kxgrid(Nk),kygrid(Nk),kzgrid(Nk))
+    allocate(Hk(Nso,Nso,Lk));allocate(wtk(Lk));allocate(kxgrid(Nk),kygrid(Nk),kzgrid(Nk))
     kxgrid = kgrid(Nk)
     kygrid = kgrid(Nk)
     kzgrid = kgrid(Nk)
-
-    !Hk     = build_hk_model(hk_bhz,Nso,kxgrid,kygrid,[0d0])
 
     Hk     = build_hk_model(hk_Ti3dt2g,Nso,kxgrid,kygrid,kzgrid)
 
     wtk = 1.0d0/Lk
     if(ED_MPI_ID==0.AND.present(file))then
-       call write_hk_w90(file,Nso,&
-            Nd=Norb,&
-            Np=1,   &
-            Nineq=1,&
-            hk=Hk,  &
-            kxgrid=kxgrid,&
-            kygrid=kxgrid,&
-            kzgrid=kzgrid)
+       call write_hk_w90(file,Nso,Nd=Norb,Np=1,Nineq=1,hk=Hk,kxgrid=kxgrid,kygrid=kxgrid,kzgrid=kzgrid)
     endif
 
     allocate(Ti3dt2g_Hloc(Nso,Nso))
@@ -230,8 +208,7 @@ contains
     enddo
     do iorb=1,Nso
        call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_iw.ed",wm,Gmats(iorb,iorb,:))
-       call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_realw.ed",wr,&
-            -dimag(Greal(iorb,iorb,:))/pi,dreal(Greal(iorb,iorb,:)))
+       call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_realw.ed",wr,-dimag(Greal(iorb,iorb,:))/pi,dreal(Greal(iorb,iorb,:)))
     enddo
     !
   end subroutine build_hk
@@ -242,45 +219,37 @@ contains
     real(8),dimension(:)      :: kvec
     complex(8),dimension(N,N) :: hk
     complex(8),dimension(2,2) :: s_x,s_y,s_z
-    complex(8),dimension(2,2)    :: t_inter
+    complex(8),dimension(2,2) :: t_inter
     real(8)                   :: kx,ky,kz
     real(8)                   :: Eo,t1,t2,t3
     real(8)                   :: soc,ivb
-    integer                   :: N
+    integer                   :: N,ndx
     complex(8)                :: oneI
     if(N/=Nso)stop "hk_bhz error: N != Nspin*Norb == 4"
-
     oneI=cmplx(0.0d0,1.0d0)
-    s_x=cmplx(0.0d0,0.0d0)
-    s_y=cmplx(0.0d0,0.0d0)
-    s_z=cmplx(0.0d0,0.0d0)
-
-    s_x(1,2)=cmplx(1.0d0,0.0d0)
-    s_x(2,1)=cmplx(1.0d0,0.0d0)
-
-    s_y(1,2)=cmplx(0.0d0,-1.0d0)
-    s_y(2,1)=cmplx(0.0d0,1.0d0)
-
-    s_z(1,1)=cmplx(1.0d0,0.0d0)
-    s_z(2,2)=cmplx(-1.0d0,0.0d0)
-
-    kx=kvec(1)
-    ky=kvec(2)
-    kz=kvec(3)
+    s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
+    s_x(1,2)=cmplx(1.0d0,0.0d0); s_x(2,1)=cmplx(1.0d0,0.0d0)
+    s_y(1,2)=cmplx(0.0d0,-1.0d0);s_y(2,1)=cmplx(0.0d0,1.0d0)
+    s_z(1,1)=cmplx(1.0d0,0.0d0); s_z(2,2)=cmplx(-1.0d0,0.0d0)
+    kx=kvec(1);ky=kvec(2);kz=kvec(3)
 
     Eo = 3.31
     t1 = 0.277
     t2 = 0.031
     t3 = 0.076
-
     soc=0.0d0
     ivb=0.0d0
 
+    Hk = zero
 
-    Hk          = zero
+    do i=1,Norb
+       ndx=2*i-1
+       Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz,Eo,t1,t2,t3)
+    enddo
+    Hk(1,2)=0.5d0
+
     !Diagonale
-    Hk(1:2,1:2) = band_cos_omo(kx,ky,kz,Eo,t1,t2,t3)!band_yz(kx,ky,kz,Eo,t1,t2,t3)
-   ! Hk(3:4,3:4) = band_cos_omo(kx,ky,kz,Eo,t1,t2,t3)
+   ! Hk(1:2,1:2) = band_cos_omo(kx,ky,kz,Eo,t1,t2,t3)
    ! Hk(3:4,3:4) = band_zx(kx,ky,kz,Eo,t1,t2,t3)
    ! Hk(5:6,5:6) = band_xy(kx,ky,kz,Eo,t1,t2,t3)
 
@@ -300,6 +269,7 @@ contains
   
   end function hk_Ti3dt2g
 
+  !2x2 band structure
   function band_cos_omo(kx,ky,kz,Eo,t1,t2,t3) result(hk)
     real(8)                   :: kx,ky,kz
     real(8)                   :: Eo,t1,t2,t3
@@ -308,7 +278,6 @@ contains
     hk(1,1) = -2.*(cos(kx)+cos(ky)+cos(kz))
     hk(2,2) = hk(1,1)
   end function band_cos_omo
-
   function band_yz(kx,ky,kz,Eo,t1,t2,t3) result(hk)
     real(8)                   :: kx,ky,kz
     real(8)                   :: Eo,t1,t2,t3
@@ -317,7 +286,6 @@ contains
     hk(1,1) = Eo-2.*t2*cos(kx)-2.*t1*cos(ky)-2.*t1*cos(kz)-4.*t3*cos(ky)*cos(kz)
     hk(2,2) = hk(1,1)
   end function band_yz
-
   function band_zx(kx,ky,kz,Eo,t1,t2,t3) result(hk)
     real(8)                   :: kx,ky,kz
     real(8)                   :: Eo,t1,t2,t3
@@ -326,7 +294,6 @@ contains
     hk(1,1) = Eo-2.*t1*cos(kx)-2.*t2*cos(ky)-2.*t1*cos(kz)-4.*t3*cos(kz)*cos(kx)
     hk(2,2) = hk(1,1)
   end function band_zx
-
   function band_xy(kx,ky,kz,Eo,t1,t2,t3) result(hk)
     real(8)                   :: kx,ky,kz
     real(8)                   :: Eo,t1,t2,t3
@@ -339,12 +306,8 @@ contains
 
 
 
-
-
-
-
   function inverse_g0k(iw,hk) result(g0k)
-    complex(8)                  :: iw
+    complex(8)                                    :: iw
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: hk
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: g0k
     integer                                       :: i,ndx
@@ -353,9 +316,6 @@ contains
       ndx=2*i-1
       g0k(ndx:ndx+1,ndx:ndx+1)=inverse_g0k2x2(iw,hk(ndx:ndx+1,ndx:ndx+1))
     enddo
-    !g0k(1:2,1:2) = inverse_g0k2x2(iw,hk(1:2,1:2))
-    !g0k(3:4,3:4) = inverse_g0k2x2(iw,hk(3:4,3:4))
-    !g0k(5:6,5:6) = inverse_g0k2x2(iw,hk(5:6,5:6))
   end function inverse_g0k
   !
   function inverse_g0k2x2(iw,hk) result(g0k)
@@ -376,57 +336,9 @@ contains
 
 
 
-
-
-
-
-
-
   !--------------------------------------------------------------------!
   !TRANSFORMATION BETWEEN DIFFERENT BASIS AND OTHER ROUTINES
   !--------------------------------------------------------------------!
-  function so2j_index(ispin,iorb) result(isporb)
-    integer :: ispin,iorb
-    integer :: isporb
-    if(iorb>Norb)stop"error so2j_index: iorb>Norb"
-    if(ispin>Nspin)stop"error so2j_index: ispin>Nspin"
-    isporb=(ispin-1)*Nspin + iorb
-  end function so2j_index
-
-  function so2j(fg,Nso) result(g)
-    complex(8),dimension(Nspin,Nspin,Norb,Norb) :: fg
-    complex(8),dimension(Nso,Nso)               :: g
-    integer                                     :: Nso,i,j,iorb,jorb,ispin,jspin
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                i=so2j_index(ispin,iorb)
-                j=so2j_index(jspin,jorb)
-                g(i,j) = fg(ispin,jspin,iorb,jorb)
-             enddo
-          enddo
-       enddo
-    enddo
-  end function so2j
-
-  function j2so(fg) result(g)
-    complex(8),dimension(Nso,Nso)               :: fg
-    complex(8),dimension(Nspin,Nspin,Norb,Norb) :: g
-    integer                                     :: i,j,iorb,jorb,ispin,jspin
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                i=so2j_index(ispin,iorb)
-                j=so2j_index(jspin,jorb)
-                g(ispin,jspin,iorb,jorb)  = fg(i,j)
-             enddo
-          enddo
-       enddo
-    enddo
-  end function j2so
-
   function my_reshape_Z_to_A1(fg) result(g)
     complex(8),dimension(Nso,Nso)                   :: fg
     complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
@@ -451,9 +363,9 @@ contains
   end function my_reshape_Z_to_A1
 
   function my_reshape_A1_to_A2(fg) result(g)
-    complex(8),dimension(Nso,Nso)               :: fg
-    complex(8),dimension(Nspin,Nspin,Norb,Norb) :: g
-    integer                                     :: i,j,iorb,jorb,ispin,jspin,io,jo
+    complex(8),dimension(Nso,Nso)                   :: fg
+    complex(8),dimension(Nspin,Nspin,Norb,Norb)     :: g
+    integer                                         :: i,j,iorb,jorb,ispin,jspin,io,jo
        g = zero
        do ispin=1,Nspin
           do jspin=1,Nspin
