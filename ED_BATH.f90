@@ -379,7 +379,7 @@ contains
     endif
     !Get spin-keep yhbridizations
     do i=1,Nbath
-       dmft_bath_%v(:,:,i)=min(1.d-2,1.d0/sqrt(dble(Nbath)))
+       dmft_bath_%v(:,:,i)=min(1.d-1,1.d0/sqrt(dble(Nbath)))
     enddo
     !Get SC amplitudes
     if(ed_mode=="superc")dmft_bath_%d(:,:,:) = deltasc

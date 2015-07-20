@@ -23,7 +23,7 @@ program ed_STO
   integer,allocatable    :: ik2ix(:),ik2iy(:)
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
-  real(8)                :: mh,lambda,wmixing,sumdens
+  real(8)                :: soc,ivb,wmixing,sumdens
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   logical                :: spinsym
@@ -40,14 +40,14 @@ program ed_STO
 #endif
 
   !Parse additional variables && read Input && read H(k)^4x4
-  call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ.in')
-  call parse_input_variable(hkfile,"HKFILE",finput,default="hkfile.in")
-  call parse_input_variable(nk,"NK",finput,default=100)
-  call parse_input_variable(nkpath,"NKPATH",finput,default=500)
-  call parse_input_variable(mh,"MH",finput,default=0.d0)
+  call parse_cmd_variable(finput,   "FINPUT",        default='inputED_STO.in')
+  call parse_input_variable(hkfile, "HKFILE",finput, default="hkfile.in")
+  call parse_input_variable(nk,     "NK",finput,     default=100)
+  call parse_input_variable(nkpath, "NKPATH",finput, default=500)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   call parse_input_variable(spinsym,"SPINSYM",finput,default=.true.)
-  call parse_input_variable(lambda,"LAMBDA",finput,default=0.d0)
+  call parse_input_variable(soc,    "SOC",finput,    default=0.d0)
+  call parse_input_variable(ivb,    "IVB",finput,    default=0.d0)
   call ed_read_input(trim(finput))
 
   !if(Nspin/=2.OR.Norb/=2)stop "Wrong setup from input file: Nspin=Norb=2 -> 4Spin-Orbitals"
@@ -59,22 +59,17 @@ program ed_STO
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
-
   allocate(delta_conv(Nso,Nso,Lmats))
 
   !Buil the Hamiltonian on a grid or on  path
-
   call build_hk(trim(hkfile))
 
   !Setup solver
   Nb=get_bath_size()
-
-  write(*,*) "Nb dri",Nb
-
   allocate(Bath(Nb))
   allocate(Bath_(Nb))
   call ed_init_solver(bath)
-  call set_hloc(my_reshape_A1_to_A2(Ti3dt2g_Hloc))
+  call set_hloc(reshape_A1_to_A2(Ti3dt2g_Hloc))
 
   !DMFT loop
   iloop=0;converged=.false.
@@ -87,7 +82,7 @@ program ed_STO
      call ed_get_sigma_matsubara(Smats)
      call ed_get_sigma_real(Sreal)
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=0)
-     call ed_get_weiss(Gmats,Smats,Delta,Hloc=my_reshape_A1_to_A2(Ti3dt2g_Hloc),iprint=0)
+     call ed_get_weiss(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2(Ti3dt2g_Hloc),iprint=0)
      !Fit the new bath, starting from the old bath + the supplied delta 
      Bath_=bath
      if (ed_mode=="normal") then
@@ -118,6 +113,7 @@ program ed_STO
 
 
      converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
+    !converged = check_convergence(delta_conv,      dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0)converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0)converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
      !#ifdef _MPI
@@ -131,9 +127,6 @@ program ed_STO
 
      if(ED_MPI_ID==0)call end_loop
   enddo
-  !Get Kinetic Energy:
-  Eout = ed_kinetic_energy(Hk,Wtk,Smats)
-  !
 #ifdef _MPI
   call MPI_FINALIZE(ED_MPI_ERR)
 #endif
@@ -142,7 +135,7 @@ contains
 
 
   !---------------------------------------------------------------------
-  !PURPOSE: GET BHZ HAMILTONIAN (from the NonInteracting code)
+  !PURPOSE: H(k) file for main program and write G0_loc
   !---------------------------------------------------------------------
   subroutine build_hk(file)
     character(len=*),optional           :: file
@@ -179,7 +172,6 @@ contains
     Ti3dt2g_Hloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs((Ti3dt2g_Hloc))<1.d-9)Ti3dt2g_Hloc=0d0
 
-
     if(ED_MPI_ID==0) then
        call write_Hloc(Ti3dt2g_Hloc)
        write(*,*)
@@ -210,11 +202,11 @@ contains
        call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_iw.ed",wm,Gmats(iorb,iorb,:))
        call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_realw.ed",wr,-dimag(Greal(iorb,iorb,:))/pi,dreal(Greal(iorb,iorb,:)))
     enddo
-    !
   end subroutine build_hk
 
-
-
+  !---------------------------------------------------------------------
+  !PURPOSE: GET STO HAMILTONIAN in the A1 shape
+  !---------------------------------------------------------------------
   function hk_Ti3dt2g(kvec,N) result(hk)
     real(8),dimension(:)      :: kvec
     complex(8),dimension(N,N) :: hk
@@ -222,9 +214,9 @@ contains
     complex(8),dimension(2,2) :: t_inter
     real(8)                   :: kx,ky,kz
     real(8)                   :: Eo,t1,t2,t3
-    real(8)                   :: soc,ivb
     integer                   :: N,ndx
     complex(8)                :: oneI
+    !real(8)                   :: soc,ivb
     if(N/=Nso)stop "hk_bhz error: N != Nspin*Norb == 4"
     oneI=cmplx(0.0d0,1.0d0)
     s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
@@ -237,39 +229,43 @@ contains
     t1 = 0.277
     t2 = 0.031
     t3 = 0.076
-    soc=0.0d0
-    ivb=0.0d0
+    !soc=0.0d0
+    !ivb=0.0d0
 
-    Hk = zero
+    !Debug simple H(k) sum of cosine in 3D
+    !Hk = zero
+    !do i=1,Norb
+    !   ndx=2*i-1
+    !   Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz,Eo,t1,t2,t3)
+    !enddo
+    !Hk(1,2)=0.5d0
 
-    do i=1,Norb
-       ndx=2*i-1
-       Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz,Eo,t1,t2,t3)
-    enddo
-    Hk(1,2)=0.5d0
+    !3d T2g orbitals of STO (no inter-orbital components => fully diagonal H(k) )
+    !Z. shape: [Nspin*Nspin]*Norb
+    !Diagonal terms due to bands
+    Hk(1:2,1:2) = band_yz(kx,ky,kz,Eo,t1,t2,t3)
+    Hk(3:4,3:4) = band_zx(kx,ky,kz,Eo,t1,t2,t3)
+    Hk(5:6,5:6) = band_xy(kx,ky,kz,Eo,t1,t2,t3)
 
-    !Diagonale
-   ! Hk(1:2,1:2) = band_cos_omo(kx,ky,kz,Eo,t1,t2,t3)
-   ! Hk(3:4,3:4) = band_zx(kx,ky,kz,Eo,t1,t2,t3)
-   ! Hk(5:6,5:6) = band_xy(kx,ky,kz,Eo,t1,t2,t3)
-
-    !triangolo superiore
-   ! Hk(1:2,3:4)=oneI*s_z*soc/2.
-   ! Hk(1:2,5:6)=-1.*oneI*s_y*soc/2.+ivb*2*oneI*sin(kx)
-   ! Hk(3:4,5:6)=oneI*s_x*soc/2.+ivb*2*oneI*sin(ky)
-
-    !triangolo inferiore
+    !upper triangle due to constant SOC and IVB (in case of interface)
+    Hk(1:2,3:4)= oneI*s_z*soc/2.
+    Hk(1:2,5:6)=-oneI*s_y*soc/2.+ivb*2*oneI*sin(kx)
+    Hk(3:4,5:6)= oneI*s_x*soc/2.+ivb*2*oneI*sin(ky)
+    !lower triangle
     do i=1,N
        do j=1,N
           Hk(j,i)=conjg(Hk(i,j))
        enddo
     enddo
 
-    Hk = my_reshape_Z_to_A1(Hk)
+    !A1 shape: [Norb*Norb]*Nspin
+    Hk = reshape_Z_to_A1(Hk)
   
   end function hk_Ti3dt2g
 
-  !2x2 band structure
+  !---------------------------------------------------------------------
+  !PURPOSE: various 2x2 band BULK structures
+  !---------------------------------------------------------------------
   function band_cos_omo(kx,ky,kz,Eo,t1,t2,t3) result(hk)
     real(8)                   :: kx,ky,kz
     real(8)                   :: Eo,t1,t2,t3
@@ -303,9 +299,9 @@ contains
     hk(2,2) = hk(1,1)
   end function band_xy
 
-
-
-
+  !---------------------------------------------------------------------
+  !PURPOSE: G0_loc functions
+  !---------------------------------------------------------------------
   function inverse_g0k(iw,hk) result(g0k)
     complex(8)                                    :: iw
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: hk
@@ -317,7 +313,6 @@ contains
       g0k(ndx:ndx+1,ndx:ndx+1)=inverse_g0k2x2(iw,hk(ndx:ndx+1,ndx:ndx+1))
     enddo
   end function inverse_g0k
-  !
   function inverse_g0k2x2(iw,hk) result(g0k)
     integer                     :: i
     complex(8),dimension(2,2)   :: hk
@@ -334,12 +329,10 @@ contains
     g0k(2,1) = conjg(g0k(1,2))
   end function inverse_g0k2x2
 
-
-
-  !--------------------------------------------------------------------!
-  !TRANSFORMATION BETWEEN DIFFERENT BASIS AND OTHER ROUTINES
-  !--------------------------------------------------------------------!
-  function my_reshape_Z_to_A1(fg) result(g)
+  !---------------------------------------------------------------------
+  !PURPOSE: reshape functions
+  !---------------------------------------------------------------------
+  function reshape_Z_to_A1(fg) result(g)
     complex(8),dimension(Nso,Nso)                   :: fg
     complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
     integer                                         :: i,j,iorb,jorb,ispin,jspin
@@ -360,9 +353,8 @@ contains
              enddo
           enddo
        enddo
-  end function my_reshape_Z_to_A1
-
-  function my_reshape_A1_to_A2(fg) result(g)
+  end function reshape_Z_to_A1
+  function reshape_A1_to_A2(fg) result(g)
     complex(8),dimension(Nso,Nso)                   :: fg
     complex(8),dimension(Nspin,Nspin,Norb,Norb)     :: g
     integer                                         :: i,j,iorb,jorb,ispin,jspin,io,jo
@@ -378,7 +370,7 @@ contains
              enddo
           enddo
        enddo
-  end function my_reshape_A1_to_A2
+  end function reshape_A1_to_A2
 
 
 end program ed_STO
