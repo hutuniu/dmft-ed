@@ -11,7 +11,10 @@ MODULE ED_GREENS_FUNCTIONS
   USE SF_TIMER  
   USE SF_IOTOOLS, only: free_unit,reg,free_units,txtfy
   USE SF_ARRAYS,  only: arange,linspace
-  USE SF_LINALG,  only: inv
+  USE SF_LINALG,  only: matrix_inverse,inv
+  !<debug
+  USE DMFT_FFTGF
+  !>debug
   USE PLAIN_LANCZOS
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
@@ -50,8 +53,17 @@ MODULE ED_GREENS_FUNCTIONS
 
   !Spin Susceptibilities
   !=========================================================
-  real(8),allocatable,dimension(:,:)         :: Chitau
-  complex(8),allocatable,dimension(:,:)      :: Chiw,Chiiw
+  real(8),allocatable,dimension(:,:)         :: spinChi_tau
+  complex(8),allocatable,dimension(:,:)      :: spinChi_w
+  complex(8),allocatable,dimension(:,:)      :: spinChi_iv
+
+  real(8),allocatable,dimension(:,:)         :: densChi_tau
+  complex(8),allocatable,dimension(:,:)      :: densChi_w
+  complex(8),allocatable,dimension(:,:)      :: densChi_iv
+
+  real(8),allocatable,dimension(:,:)         :: phiChi_tau
+  complex(8),allocatable,dimension(:,:)      :: phiChi_w
+  complex(8),allocatable,dimension(:,:)      :: phiChi_iv
 
 
   public                                     :: buildgf_impurity
@@ -63,7 +75,11 @@ contains
   !PURPOSE  : Interface routine for Green's function calculation
   !+------------------------------------------------------------------+
   subroutine buildgf_impurity()
-    call allocate_grids
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr     = linspace(wini,wfin,Lreal)
+    !
     if(.not.allocated(impGmats))stop "build_gf_super: impGmats not allocated"
     if(.not.allocated(impGreal))stop "build_gf_super: impGreal not allocated"
     if(.not.allocated(impFmats))stop "build_gf_super: impFmats not allocated"
@@ -115,8 +131,6 @@ contains
     end select
     !
     if(allocated(wm))deallocate(wm)
-    if(allocated(vm))deallocate(vm)
-    if(allocated(tau))deallocate(tau)
     if(allocated(wr))deallocate(wr)
     if(allocated(GFpoles))deallocate(GFpoles)
     if(allocated(GFweights))deallocate(GFweights)
@@ -138,29 +152,55 @@ contains
   !PURPOSE  : Interface routine for Susceptibility calculation
   !+------------------------------------------------------------------+
   subroutine buildchi_impurity()
-    call allocate_grids()
-    if(.not.allocated(Chitau))allocate(Chitau(Norb+1,0:Ltau))
-    if(.not.allocated(Chiw))  allocate(Chiw(Norb+1,Lreal))
-    if(.not.allocated(Chiiw)) allocate(Chiiw(Norb+1,0:Lmats))
-    Chitau=zero
-    Chiw=zero
-    Chiiw=zero
+    integer :: i
+    if(.not.allocated(wm))allocate(wm(Lmats))
+    if(.not.allocated(vm))allocate(vm(0:Lmats))          !bosonic frequencies
+    if(.not.allocated(wr))allocate(wr(Lreal))
+    if(.not.allocated(tau))allocate(tau(0:Ltau))
+    wm     = pi/beta*(2*arange(1,Lmats)-1)
+    do i=0,Lmats
+       vm(i) = pi/beta*2*i
+    enddo
+    wr     = linspace(0d0,wfin,Lreal)
+    tau(0:)= linspace(0.d0,beta,Ltau+1)
+
+    if(.not.allocated(spinChi_tau))allocate(spinChi_tau(Norb+1,0:Ltau))
+    if(.not.allocated(spinChi_w))  allocate(spinChi_w(Norb+1,Lreal))
+    if(.not.allocated(spinChi_iv)) allocate(spinChi_iv(Norb+1,0:Lmats))
+    spinChi_tau=zero
+    spinChi_w=zero
+    spinChi_iv=zero
     !
     call build_chi_spin()
     call print_chi_spin()
+    !
+    !
+    if(.not.allocated(densChi_tau))allocate(densChi_tau(Norb+1,0:Ltau))
+    if(.not.allocated(densChi_w))  allocate(densChi_w(Norb+1,Lreal))
+    if(.not.allocated(densChi_iv)) allocate(densChi_iv(Norb+1,0:Lmats))
+    densChi_tau=zero
+    densChi_w=zero
+    densChi_iv=zero
+    !
+    call build_chi_dens()
+    call print_chi_dens()
     !
     if(allocated(wm))deallocate(wm)
     if(allocated(vm))deallocate(vm)
     if(allocated(tau))deallocate(tau)
     if(allocated(wr))deallocate(wr)
-    if(allocated(Chitau))deallocate(Chitau)
-    if(allocated(Chiw))deallocate(Chiw)
-    if(allocated(Chiiw))deallocate(Chiiw)
+    if(allocated(spinChi_tau))deallocate(spinChi_tau)
+    if(allocated(spinChi_w))deallocate(spinChi_w)
+    if(allocated(spinChi_iv))deallocate(spinChi_iv)
+    if(allocated(densChi_tau))deallocate(densChi_tau)
+    if(allocated(densChi_w))deallocate(densChi_w)
+    if(allocated(densChi_iv))deallocate(densChi_iv)
   end subroutine buildchi_impurity
   !+------------------------------------------------------------------+
   !                    SPIN SUSCPTIBILITY
   !+------------------------------------------------------------------+
   include 'ed_greens_funcs_build_chi_spin.f90'
+  include 'ed_greens_funcs_build_chi_dens.f90'
 
 
 
@@ -878,19 +918,19 @@ contains
     if(ED_MPI_ID==0)then
        do iorb=1,Norb
           unit(1)=free_unit()
-          open(unit(1),file="Chi_orb"//reg(txtfy(iorb))//"_tau"//reg(ed_file_suffix)//".ed")
+          open(unit(1),file="spinChi_orb"//reg(txtfy(iorb))//"_tau"//reg(ed_file_suffix)//".ed")
           unit(2)=free_unit()
-          open(unit(2),file="Chi_orb"//reg(txtfy(iorb))//"_realw"//reg(ed_file_suffix)//".ed")
+          open(unit(2),file="spinChi_orb"//reg(txtfy(iorb))//"_realw"//reg(ed_file_suffix)//".ed")
           unit(3)=free_unit()
-          open(unit(3),file="Chi_orb"//reg(txtfy(iorb))//"_iw"//reg(ed_file_suffix)//".ed")
+          open(unit(3),file="spinChi_orb"//reg(txtfy(iorb))//"_iw"//reg(ed_file_suffix)//".ed")
           do i=0,Ltau
-             write(unit(1),*)tau(i),chitau(iorb,i)
+             write(unit(1),*)tau(i),spinChi_tau(iorb,i)
           enddo
           do i=1,Lreal
-             if(wr(i)>=0.d0)write(unit(2),*)wr(i),dimag(chiw(iorb,i)),dreal(chiw(iorb,i))
+             if(wr(i)>=0.d0)write(unit(2),*)wr(i),dimag(spinChi_w(iorb,i)),dreal(spinChi_w(iorb,i))
           enddo
           do i=0,Lmats
-             write(unit(3),*)vm(i),dimag(chiiw(iorb,i)),dreal(chiiw(iorb,i))
+             write(unit(3),*)vm(i),dimag(spinChi_iv(iorb,i)),dreal(spinChi_iv(iorb,i))
           enddo
           close(unit(1))
           close(unit(2))
@@ -899,19 +939,19 @@ contains
        if(Norb>1)then
           iorb=Norb+1
           unit(1)=free_unit()
-          open(unit(1),file="Chi_tot_tau"//reg(ed_file_suffix)//".ed")
+          open(unit(1),file="spinChi_tot_tau"//reg(ed_file_suffix)//".ed")
           unit(2)=free_unit()
-          open(unit(2),file="Chi_tot_realw"//reg(ed_file_suffix)//".ed")
+          open(unit(2),file="spinChi_tot_realw"//reg(ed_file_suffix)//".ed")
           unit(3)=free_unit()
-          open(unit(3),file="Chi_tot_iv"//reg(ed_file_suffix)//".ed")
+          open(unit(3),file="spinChi_tot_iv"//reg(ed_file_suffix)//".ed")
           do i=0,Ltau
-             write(unit(1),*)tau(i),chitau(iorb,i)
+             write(unit(1),*)tau(i),spinChi_tau(iorb,i)
           enddo
           do i=1,Lreal
-             if(wr(i)>=0.d0)write(unit(2),*)wr(i),dimag(chiw(iorb,i)),dreal(chiw(iorb,i))
+             if(wr(i)>=0.d0)write(unit(2),*)wr(i),dimag(spinChi_w(iorb,i)),dreal(spinChi_w(iorb,i))
           enddo
           do i=0,Lmats
-             write(unit(3),*)vm(i),dimag(chiiw(iorb,i)),dreal(chiiw(iorb,i))
+             write(unit(3),*)vm(i),dimag(spinChi_iv(iorb,i)),dreal(spinChi_iv(iorb,i))
           enddo
           close(unit(1))
           close(unit(2))
@@ -919,6 +959,56 @@ contains
        endif
     endif
   end subroutine print_chi_spin
+
+
+
+  subroutine print_chi_dens
+    integer                               :: i,j,iorb
+    integer                               :: unit(3)
+    if(ED_MPI_ID==0)then
+       do iorb=1,Norb
+          unit(1)=free_unit()
+          open(unit(1),file="densChi_orb"//reg(txtfy(iorb))//"_tau"//reg(ed_file_suffix)//".ed")
+          unit(2)=free_unit()
+          open(unit(2),file="densChi_orb"//reg(txtfy(iorb))//"_realw"//reg(ed_file_suffix)//".ed")
+          unit(3)=free_unit()
+          open(unit(3),file="densChi_orb"//reg(txtfy(iorb))//"_iw"//reg(ed_file_suffix)//".ed")
+          do i=0,Ltau
+             write(unit(1),*)tau(i),densChi_tau(iorb,i)
+          enddo
+          do i=1,Lreal
+             if(wr(i)>=0.d0)write(unit(2),*)wr(i),dimag(densChi_w(iorb,i)),dreal(densChi_w(iorb,i))
+          enddo
+          do i=0,Lmats
+             write(unit(3),*)vm(i),dimag(densChi_iv(iorb,i)),dreal(densChi_iv(iorb,i))
+          enddo
+          close(unit(1))
+          close(unit(2))
+          close(unit(3))
+       enddo
+       if(Norb>1)then
+          iorb=Norb+1
+          unit(1)=free_unit()
+          open(unit(1),file="densChi_tot_tau"//reg(ed_file_suffix)//".ed")
+          unit(2)=free_unit()
+          open(unit(2),file="densChi_tot_realw"//reg(ed_file_suffix)//".ed")
+          unit(3)=free_unit()
+          open(unit(3),file="densChi_tot_iv"//reg(ed_file_suffix)//".ed")
+          do i=0,Ltau
+             write(unit(1),*)tau(i),densChi_tau(iorb,i)
+          enddo
+          do i=1,Lreal
+             if(wr(i)>=0.d0)write(unit(2),*)wr(i),dimag(densChi_w(iorb,i)),dreal(densChi_w(iorb,i))
+          enddo
+          do i=0,Lmats
+             write(unit(3),*)vm(i),dimag(densChi_iv(iorb,i)),dreal(densChi_iv(iorb,i))
+          enddo
+          close(unit(1))
+          close(unit(2))
+          close(unit(3))
+       endif
+    endif
+  end subroutine print_chi_dens
 
 
 
