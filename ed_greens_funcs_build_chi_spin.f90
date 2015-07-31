@@ -2,24 +2,26 @@
 !PURPOSE  : Evaluate Spin Susceptibility using Lanczos algorithm
 !+------------------------------------------------------------------+
 subroutine build_chi_spin()
-  integer :: iorb,jorb,ispin
-  logical :: verbose
-  verbose=.false.;if(ed_verbose<1)verbose=.true.
+  integer :: iorb
   write(LOGfile,"(A)")"Get impurity spin Chi:"
   do iorb=1,Norb
+     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_spin_l"//reg(txtfy(iorb))
      select case(ed_type)
      case default
-        call lanc_ed_build_spinChi_d(iorb,verbose)
+        call lanc_ed_build_spinChi_d(iorb)
      case ('c')
-        call lanc_ed_build_spinChi_c(iorb,verbose)
+        call lanc_ed_build_spinChi_c(iorb)
      end select
   enddo
-  select case(ed_type)
-  case default
-     call lanc_ed_build_spinChi_tot_d(verbose)
-  case ('c')
-     call lanc_ed_build_spinChi_tot_c(verbose)
-  end select
+  if(Norb>1)then
+     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_spin_tot"
+     select case(ed_type)
+     case default
+        call lanc_ed_build_spinChi_tot_d()
+     case ('c')
+        call lanc_ed_build_spinChi_tot_c()
+     end select
+  endif
   spinChi_tau = SpinChi_tau/zeta_function
   spinChi_w   = spinChi_w/zeta_function
   spinChi_iv  = spinChi_iv/zeta_function
@@ -32,7 +34,7 @@ end subroutine build_chi_spin
 !PURPOSE  : Evaluate the Spin susceptibility \Chi_spin for a 
 ! single orbital: \chi = <S_a(\tau)S_a(0)>
 !+------------------------------------------------------------------+
-subroutine lanc_ed_build_spinChi_d(iorb,iverbose)
+subroutine lanc_ed_build_spinChi_d(iorb)
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
@@ -44,8 +46,6 @@ subroutine lanc_ed_build_spinChi_d(iorb,iverbose)
   real(8),allocatable              :: vvinit(:)
   integer                          :: Nitermax
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
-  !
-  if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))//":"
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -85,7 +85,7 @@ subroutine lanc_ed_build_spinChi_d(iorb,iverbose)
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_build_spinChi_d
 
-subroutine lanc_ed_build_spinChi_c(iorb,iverbose)
+subroutine lanc_ed_build_spinChi_c(iorb)
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
@@ -146,7 +146,7 @@ end subroutine lanc_ed_build_spinChi_c
 !PURPOSE  : Evaluate the total Spin susceptibility \Chi_spin for a 
 ! single orbital: \chi = \sum_a <S_a(\tau)S_a(0)>
 !+------------------------------------------------------------------+
-subroutine lanc_ed_build_spinChi_tot_d(iverbose)
+subroutine lanc_ed_build_spinChi_tot_d()
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
@@ -197,7 +197,7 @@ subroutine lanc_ed_build_spinChi_tot_d(iverbose)
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_build_spinChi_tot_d
 
-subroutine lanc_ed_build_spinChi_tot_c(iverbose)
+subroutine lanc_ed_build_spinChi_tot_c()
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0

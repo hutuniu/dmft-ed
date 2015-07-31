@@ -2,24 +2,26 @@
 !PURPOSE  : Evaluate Spin Susceptibility using Lanczos algorithm
 !+------------------------------------------------------------------+
 subroutine build_chi_dens()
-  integer :: iorb,jorb,ispin
-  logical :: verbose
-  verbose=.false.;if(ed_verbose<1)verbose=.true. 
+  integer :: iorb
   write(LOGfile,"(A)")"Get impurity dens Chi:"
   do iorb=1,Norb
+     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_dens_l"//reg(txtfy(iorb))
      select case(ed_type)
      case default
-        call lanc_ed_build_densChi_d(iorb,verbose)
+        call lanc_ed_build_densChi_d(iorb)
      case ('c')
-        call lanc_ed_build_densChi_c(iorb,verbose)
+        call lanc_ed_build_densChi_c(iorb)
      end select
   enddo
-  select case(ed_type)
-  case default
-     call lanc_ed_build_densChi_tot_d(verbose)
-  case ('c')
-     call lanc_ed_build_densChi_tot_c(verbose)
-  end select
+  if(Norb>1)then
+     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_dens_tot"
+     select case(ed_type)
+     case default
+        call lanc_ed_build_densChi_tot_d()
+     case ('c')
+        call lanc_ed_build_densChi_tot_c()     
+     end select
+  endif
   denschi_tau = Denschi_tau/zeta_function
   denschi_w   = denschi_w/zeta_function
   denschi_iv  = denschi_iv/zeta_function
@@ -32,23 +34,18 @@ end subroutine build_chi_dens
 !PURPOSE  : Evaluate the Spin susceptibility \Chi_spin for a 
 ! single orbital: \chi = <S_a(\tau)S_a(0)>
 !+------------------------------------------------------------------+
-subroutine lanc_ed_build_densChi_d(iorb,iverbose)
+subroutine lanc_ed_build_densChi_d(iorb)
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
   real(8),allocatable              :: vvinit(:)
   integer                          :: Nitermax
-  logical,optional                 :: iverbose
-  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
-  !
-  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
-  if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating dens Chi_Orb"//reg(txtfy(iorb))//":"
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -64,7 +61,7 @@ subroutine lanc_ed_build_densChi_d(iorb,iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
@@ -88,22 +85,18 @@ subroutine lanc_ed_build_densChi_d(iorb,iverbose)
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_build_densChi_d
 
-subroutine lanc_ed_build_densChi_c(iorb,iverbose)
+subroutine lanc_ed_build_densChi_c(iorb)
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
   complex(8),allocatable           :: vvinit(:)
   integer                          :: Nitermax
-  logical,optional                 :: iverbose
-  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
-  !
-  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -120,7 +113,7 @@ subroutine lanc_ed_build_densChi_c(iorb,iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
@@ -153,22 +146,18 @@ end subroutine lanc_ed_build_densChi_c
 !PURPOSE  : Evaluate the total Spin susceptibility \Chi_spin for a 
 ! single orbital: \chi = \sum_a <S_a(\tau)S_a(0)>
 !+------------------------------------------------------------------+
-subroutine lanc_ed_build_densChi_tot_d(iverbose)
+subroutine lanc_ed_build_densChi_tot_d()
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
   real(8),allocatable              :: vvinit(:)
   integer                          :: Nitermax
-  logical,optional                 :: iverbose
-  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
-  !
-  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -184,7 +173,7 @@ subroutine lanc_ed_build_densChi_tot_d(iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0  
@@ -208,22 +197,18 @@ subroutine lanc_ed_build_densChi_tot_d(iverbose)
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_build_densChi_tot_d
 
-subroutine lanc_ed_build_densChi_tot_c(iverbose)
+subroutine lanc_ed_build_densChi_tot_c()
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
   integer                          :: iup0,idw0
-  integer                          :: ib(Ntot)
+  integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
   real(8),allocatable              :: alfa_(:),beta_(:)
   complex(8),allocatable           :: vvinit(:)
   integer                          :: Nitermax
-  logical,optional                 :: iverbose
-  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
-  !
-  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -240,7 +225,7 @@ subroutine lanc_ed_build_densChi_tot_c(iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m

@@ -1,18 +1,18 @@
 ##$ COMPILER: suppprted compilers are ifort, gnu >v4.7
 ##$ use mpif90 for parallel compiler
-FC=gfortran
+FC=mpif90
 
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=gnu
+PLAT=intel
 
 
 ##$ PRECOMPILATION FLAGS
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-FPP_INEQ=
+FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
 #FPP_ED=
