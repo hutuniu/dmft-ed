@@ -47,8 +47,8 @@ LIBDIR=/opt
 #EXE=ed_2x2bhz
 #EXE=ed_bhz
 #EXE=ed_bhz_afm
-#EXE=ed_bhz_edge
-EXE=ed_bhz_3d
+EXE=ed_bhz_edge
+#EXE=ed_bhz_3d
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder

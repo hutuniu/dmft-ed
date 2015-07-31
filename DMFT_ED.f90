@@ -28,7 +28,8 @@ MODULE DMFT_ED
        select_block          ,&
        stride_index          ,&
        extract_Hloc          ,&
-       reshape_Hloc          ,&
+       lso2nnn_reshape       ,&
+       nnn2lso_reshape       ,&
        get_independent_sites ,&  
                                 !OBSOLETE (to be removed)
        get_lattice_hamiltonian
@@ -99,7 +100,7 @@ MODULE DMFT_ED
 
   USE ED_GLOC,     only:  ed_get_gloc
   USE ED_WRAP_GLOC,only:  ed_get_gloc_lattice,ed_get_gij_lattice
-       
+
 
 
   USE ED_WEISS,    only:  ed_get_weiss

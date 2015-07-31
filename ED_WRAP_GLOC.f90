@@ -696,8 +696,8 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
-       call add_to_gloc_superc(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Fkmats)
-       call add_to_gloc_superc(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Fkreal)
+       call add_to_gij_superc(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Fkmats)
+       call add_to_gij_superc(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Fkreal)
        Gmats = Gmats + Gkmats*Wtk(ik)
        Fmats = Fmats + Fkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
