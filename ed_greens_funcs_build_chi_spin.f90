@@ -43,9 +43,12 @@ subroutine lanc_ed_build_spinChi_d(iorb,iverbose)
   real(8),allocatable              :: alfa_(:),beta_(:)
   real(8),allocatable              :: vvinit(:)
   integer                          :: Nitermax
+  logical,optional                 :: iverbose
+  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
   !
-  if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))//":"
+  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
+  if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating Chi_Orb"//reg(txtfy(iorb))//":"
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -61,7 +64,7 @@ subroutine lanc_ed_build_spinChi_d(iorb,iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
+     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
@@ -96,7 +99,11 @@ subroutine lanc_ed_build_spinChi_c(iorb,iverbose)
   real(8),allocatable              :: alfa_(:),beta_(:)
   complex(8),allocatable           :: vvinit(:)
   integer                          :: Nitermax
+  logical,optional                 :: iverbose
+  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  !
+  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -113,7 +120,7 @@ subroutine lanc_ed_build_spinChi_c(iorb,iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
+     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
@@ -157,7 +164,11 @@ subroutine lanc_ed_build_spinChi_tot_d(iverbose)
   real(8),allocatable              :: alfa_(:),beta_(:)
   real(8),allocatable              :: vvinit(:)
   integer                          :: Nitermax
+  logical,optional                 :: iverbose
+  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  !
+  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -173,7 +184,7 @@ subroutine lanc_ed_build_spinChi_tot_d(iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
+     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0  
@@ -208,7 +219,11 @@ subroutine lanc_ed_build_spinChi_tot_c(iverbose)
   real(8),allocatable              :: alfa_(:),beta_(:)
   complex(8),allocatable           :: vvinit(:)
   integer                          :: Nitermax
+  logical,optional                 :: iverbose
+  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  !
+  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -225,7 +240,7 @@ subroutine lanc_ed_build_spinChi_tot_c(iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
+     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
      call build_sector(isect0,HImap)
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m

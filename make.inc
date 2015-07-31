@@ -1,18 +1,18 @@
 ##$ COMPILER: suppprted compilers are ifort, gnu >v4.7
 ##$ use mpif90 for parallel compiler
-FC=gfortran
+FC=mpif90
 
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=gnu
+PLAT=intel
 
 
 ##$ PRECOMPILATION FLAGS
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-FPP_INEQ=
+FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
 #FPP_ED=
@@ -52,7 +52,7 @@ EXE=ed_bhz_edge
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
-#EXE=ed_hm_slab_hyb
+EXE=ed_hm_slab_hyb
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
@@ -68,7 +68,7 @@ EXE=ed_bhz_edge
 DIR=drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
-DIREXE=$(HOME)/.bin
+DIREXE=$(HOME)/.project_bin
 
 
 ifeq ($(PLAT),intel)
