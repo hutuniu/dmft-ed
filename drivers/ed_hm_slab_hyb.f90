@@ -47,7 +47,7 @@ program ed_slab
   !
   real(8),allocatable,dimension(:)      :: elocal,elocal_
   real(8)                               :: crystal_field,Vhyb  
-  logical                               :: converged,symmetry_flag,mu_ph
+  logical                               :: converged,symmetry_flag,mu_ph,rdmft_phsym
   real(8)                               :: DeltaV,ts,wmixing
   real(8),allocatable,dimension(:)      :: epsik,wt
   logical,allocatable,dimension(:)      :: hk_symm
@@ -87,12 +87,12 @@ program ed_slab
   call parse_input_variable(ts,"TS","inputRDMFT.in",default=0.5d0)
   call parse_input_variable(Vhyb,"Vhyb","inputRDMFT.in",default=0.d0)
   call parse_input_variable(symmetry_flag,"SYMMETRY_FLAG","inputRDMFT.in",default=.false.)
+  call parse_input_variable(rdmft_phsym,"RDMFT_PHSYM","inputRDMFT.in",default=.false.)
   call parse_input_variable(mu_ph,"MU_PH","inputRDMFT.in",default=.false.)
 
   !
   call ed_read_input("inputRDMFT.in")
   call set_store_size(1024)
-
   !<TMP TEST: RESTORE PH SYMM IN THE FULLY POLARIZED INSULATING PHASE 
   if(mu_ph.and.nread==0.d0) xmu=-Uloc(1)-crystal_field*0.5d0
   !>
