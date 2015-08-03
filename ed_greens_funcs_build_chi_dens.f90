@@ -69,8 +69,6 @@ subroutine build_chi_dens_mb()
   end do
 
 
-
-
   select case(ed_type)
   case default
      call lanc_ed_build_densChi_tot_d(verbose)
@@ -270,6 +268,7 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb,iverbose)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim0  = getdim(isect0)
      ! apply N_{iorb} + N_{jorb}
+
 
 
      allocate(HImap(idim0),vvinit(idim0),cvinit(idim0))
@@ -889,5 +888,4 @@ subroutine add_to_lanczos_mixChi(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb)
 
 
 end subroutine add_to_lanczos_mixChi
-
 

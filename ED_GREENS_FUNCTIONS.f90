@@ -57,6 +57,7 @@ MODULE ED_GREENS_FUNCTIONS
   complex(8),allocatable,dimension(:,:)   :: spinChi_w
   complex(8),allocatable,dimension(:,:)   :: spinChi_iv
 
+
   real(8),allocatable,dimension(:,:,:)    :: densChi_tau
   complex(8),allocatable,dimension(:,:,:) :: densChi_w
   complex(8),allocatable,dimension(:,:,:) :: densChi_iv
@@ -189,8 +190,8 @@ contains
     if(.not.allocated(densChi_tot_w))  allocate(densChi_tot_w(Lreal))
     if(.not.allocated(densChi_tot_iv)) allocate(densChi_tot_iv(0:Lmats))
 
-    if(.not.allocated(densChi_mix_w))  allocate(densChi_mix_w(Norb,Norb,Lreal))    
 
+    if(.not.allocated(densChi_mix_w))  allocate(densChi_mix_w(Norb,Norb,Lreal))    
     densChi_tau=zero
     densChi_w=zero
     densChi_iv=zero
@@ -199,8 +200,8 @@ contains
     densChi_tot_w=zero
     densChi_tot_iv=zero
 
-    densChi_mix_w=zero
 
+    densChi_mix_w=zero
     !
     call build_chi_dens_mb()
     call print_chi_dens_mb()
