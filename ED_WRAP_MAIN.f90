@@ -5,6 +5,8 @@ module ED_WRAP_MAIN
   USE ED_DIAG
   USE ED_BATH
   USE ED_MAIN
+  USE SF_ARRAYS, only: linspace,arange
+  USE SF_IOTOOLS, only: reg,store_data,txtfy
   USE SF_TIMER
   USE SF_LINALG
   implicit none
@@ -150,7 +152,8 @@ module ED_WRAP_MAIN
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: SAmatsii,SArealii    ![Nlat][Nspin][Nspin][Norb][Norb][L]
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Gmatsii,Grealii      ![Nlat][Nspin][Nspin][Norb][Norb][L]
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Fmatsii,Frealii      ![Nlat][Nspin][Nspin][Norb][Norb][L]
-
+  real(8),dimension(:),allocatable :: wr,wm
+  character(len=20)                :: suffix
 
 contains
 
@@ -184,9 +187,10 @@ contains
   !PURPOSE: solve the impurity problems for each independent
   ! lattice site using ED. 
   !-------------------------------------------------------------------------------------------
-  subroutine ed_solve_impurity_sites_eloc(bath,Eloc,Uloc_ii,Ust_ii,Jh_ii)
+  subroutine ed_solve_impurity_sites_eloc(bath,Eloc,iprint,Uloc_ii,Ust_ii,Jh_ii)
     real(8)                  :: bath(:,:)                       ![Nlat][Nb]
     real(8),optional         :: Eloc(size(bath,1)*Norb*Nspin)   !A compact version of Hloc_ilat
+    integer :: iprint
     real(8),optional         :: Uloc_ii(size(bath,1),Norb)
     real(8),optional         :: Ust_ii(size(bath,1))
     real(8),optional         :: Jh_ii(size(bath,1))
@@ -206,7 +210,7 @@ contains
     real(8)                  :: eii_tmp(size(bath,1),4)
     real(8)                  :: ddii_tmp(size(bath,1),4)
     !
-    integer                  :: ilat,i,Nsites,iorb,ispin
+    integer                  :: ilat,i,Nsites,iorb,jorb,ispin,jspin
     logical                  :: check_dim
     character(len=5)         :: tmp_suffix
     complex(8)               :: Hloc(Nspin,Nspin,Norb,Norb)
@@ -342,15 +346,84 @@ contains
     eii      = eii_tmp
     ddii     = ddii_tmp
 #endif
+    if(ed_verbose>4)then
+       if(mpiID==0)then
+          if(allocated(wm))deallocate(wm)
+          if(allocated(wr))deallocate(wr)
+          allocate(wm(Lmats))
+          allocate(wr(Lreal))
+          wm = pi/beta*(2*arange(1,Lmats)-1)
+          wr = linspace(wini,wfin,Lreal)
+          select case(iprint)
+          case (0)
+             write(LOGfile,*)"Sigma not written on file."
+          case(1)                  !print only diagonal elements
+             write(LOGfile,*)"write spin-orbital diagonal elements:"
+             do ispin=1,Nspin
+                do iorb=1,Norb
+                   suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,ispin,iorb,iorb,:),wm)
+                   suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                   call store_data("LSigma"//reg(suffix),Srealii(:,ispin,ispin,iorb,iorb,:),wr)
+                   if(ed_mode=="superc")then
+                      suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                      call store_data("LSelf"//reg(suffix),SAmatsii(:,ispin,ispin,iorb,iorb,:),wm)
+                      suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                      call store_data("LSelf"//reg(suffix),SArealii(:,ispin,ispin,iorb,iorb,:),wr)
+                   endif
+                enddo
+             enddo
+          case(2)                  !print spin-diagonal, all orbitals 
+             write(LOGfile,*)"write spin diagonal and all orbitals elements:"
+             do ispin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                      call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,ispin,iorb,jorb,:),wm)
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                      call store_data("LSigma"//reg(suffix),Srealii(:,ispin,ispin,iorb,jorb,:),wr)
+                      if(ed_mode=="superc")then
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                         call store_data("LSelf"//reg(suffix),SAmatsii(:,ispin,ispin,iorb,jorb,:),wm)
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                         call store_data("LSelf"//reg(suffix),SArealii(:,ispin,ispin,iorb,jorb,:),wr)
+                      endif
+                   enddo
+                enddo
+             enddo
+          case default                  !print all off-diagonals
+             write(LOGfile,*)"write all elements:"
+             do ispin=1,Nspin
+                do jspin=1,Nspin
+                   do iorb=1,Norb
+                      do jorb=1,Norb
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                         call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,jspin,iorb,jorb,:),wm)
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
+                         call store_data("LSigma"//reg(suffix),Srealii(:,ispin,jspin,iorb,jorb,:),wr)
+                         if(ed_mode=="superc")then
+                            suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                            call store_data("LSelf"//reg(suffix),Smatsii(:,ispin,jspin,iorb,jorb,:),wm)
+                            suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
+                            call store_data("LSelf"//reg(suffix),Srealii(:,ispin,jspin,iorb,jorb,:),wr)
+                         endif
+                      enddo
+                   enddo
+                enddo
+             enddo
+          end select
+       endif
+    endif
   end subroutine ed_solve_impurity_sites_eloc
 
 
 
   !-------------------------------- HLOC  -------------------------------------
-  subroutine ed_solve_impurity_sites_hloc(bath,Hloc,Uloc_ii,Ust_ii,Jh_ii)
+  subroutine ed_solve_impurity_sites_hloc(bath,Hloc,iprint,Uloc_ii,Ust_ii,Jh_ii)
     !inputs
     real(8)                  :: bath(:,:) ![Nlat][Nb]
     complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    integer                  :: iprint
     real(8),optional         :: Uloc_ii(size(bath,1),Norb)
     real(8),optional         :: Ust_ii(size(bath,1))
     real(8),optional         :: Jh_ii(size(bath,1))
@@ -370,7 +443,7 @@ contains
     real(8)                  :: eii_tmp(size(bath,1),4)
     real(8)                  :: ddii_tmp(size(bath,1),4)
     ! 
-    integer                  :: ilat
+    integer                  :: ilat,iorb,jorb,ispin,jspin
     integer                  :: Nsites
     logical                  :: check_dim
     character(len=5)         :: tmp_suffix
@@ -498,6 +571,74 @@ contains
     eii      = eii_tmp
     ddii     = ddii_tmp
 #endif
+    if(ed_verbose>4)then
+       if(mpiID==0)then
+          if(allocated(wm))deallocate(wm)
+          if(allocated(wr))deallocate(wr)
+          allocate(wm(Lmats))
+          allocate(wr(Lreal))
+          wm = pi/beta*(2*arange(1,Lmats)-1)
+          wr = linspace(wini,wfin,Lreal)
+          select case(iprint)
+          case (0)
+             write(LOGfile,*)"Sigma not written on file."
+          case(1)                  !print only diagonal elements
+             write(LOGfile,*)"write spin-orbital diagonal elements:"
+             do ispin=1,Nspin
+                do iorb=1,Norb
+                   suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,ispin,iorb,iorb,:),wm)
+                   suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                   call store_data("LSigma"//reg(suffix),Srealii(:,ispin,ispin,iorb,iorb,:),wr)
+                   if(ed_mode=="superc")then
+                      suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                      call store_data("LSelf"//reg(suffix),SAmatsii(:,ispin,ispin,iorb,iorb,:),wm)
+                      suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                      call store_data("LSelf"//reg(suffix),SArealii(:,ispin,ispin,iorb,iorb,:),wr)
+                   endif
+                enddo
+             enddo
+          case(2)                  !print spin-diagonal, all orbitals 
+             write(LOGfile,*)"write spin diagonal and all orbitals elements:"
+             do ispin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                      call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,ispin,iorb,jorb,:),wm)
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                      call store_data("LSigma"//reg(suffix),Srealii(:,ispin,ispin,iorb,jorb,:),wr)
+                      if(ed_mode=="superc")then
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                         call store_data("LSelf"//reg(suffix),SAmatsii(:,ispin,ispin,iorb,jorb,:),wm)
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                         call store_data("LSelf"//reg(suffix),SArealii(:,ispin,ispin,iorb,jorb,:),wr)
+                      endif
+                   enddo
+                enddo
+             enddo
+          case default                  !print all off-diagonals
+             write(LOGfile,*)"write all elements:"
+             do ispin=1,Nspin
+                do jspin=1,Nspin
+                   do iorb=1,Norb
+                      do jorb=1,Norb
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                         call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,jspin,iorb,jorb,:),wm)
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
+                         call store_data("LSigma"//reg(suffix),Srealii(:,ispin,jspin,iorb,jorb,:),wr)
+                         if(ed_mode=="superc")then
+                            suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                            call store_data("LSelf"//reg(suffix),Smatsii(:,ispin,jspin,iorb,jorb,:),wm)
+                            suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
+                            call store_data("LSelf"//reg(suffix),Srealii(:,ispin,jspin,iorb,jorb,:),wr)
+                         endif
+                      enddo
+                   enddo
+                enddo
+             enddo
+          end select
+       endif
+    endif
   end subroutine ed_solve_impurity_sites_hloc
 
 

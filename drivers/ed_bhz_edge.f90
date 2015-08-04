@@ -85,11 +85,6 @@ program ed_bhz_edge
   !Buil the Hamiltonian on a grid or on  path
   call build_hkr(trim(hkfile))
   Hloc = lso2nnn_reshape(bhzHloc,Nlat,Nspin,Norb)
-  if(mpiID==0)then
-     do ilat=1,Nlat
-        call write_Hloc(Hloc(ilat,:,:,:,:))
-     enddo
-  endif
 
   !Setup solver
   Nb=get_bath_size()
@@ -98,12 +93,12 @@ program ed_bhz_edge
 
   !DMFT loop:
   iloop=0 ; converged=.false.
-  do while(.not.converged.AND.iloop<nloop) 
+  do while(.not.converged.AND.iloop<nloop)
      iloop=iloop+1
      if(mpiID==0) call start_loop(iloop,nloop,"DMFT-loop")   
      bath_prev=bath
      ! solve the impurities on each y-layer
-     call ed_solve_lattice(bath,Hloc)
+     call ed_solve_lattice(bath,Hloc,iprint=1)
      ! retrieve the self-energies
      call ed_get_sigma_matsubara_lattice(Smats,Nlat)
      call ed_get_sigma_real_lattice(Sreal,Nlat)
