@@ -128,7 +128,7 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
         !
      end select
      !
-     if(ed_verbose<5)write(LOGfile,"(A,ES18.9,A,I5,A)")&
+     write(LOGfile,"(A,ES18.9,A,I5,A)")&
           'chi^2|iter'//reg(ed_file_suffix)//'=',chi," | ",iter,&
           "  <--  Orb"//reg(txtfy(iorb))//" Spin"//reg(txtfy(ispin))
      !

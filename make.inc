@@ -47,12 +47,12 @@ LIBDIR=/opt
 #EXE=ed_2x2bhz
 #EXE=ed_bhz
 #EXE=ed_bhz_afm
-EXE=ed_bhz_edge
-#EXE=ed_bhz_3d
+#EXE=ed_bhz_edge
+EXE=ed_bhz_3d
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
-EXE=ed_hm_slab_hyb
+#EXE=ed_hm_slab_hyb
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
@@ -68,7 +68,7 @@ EXE=ed_hm_slab_hyb
 DIR=drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
-DIREXE=$(HOME)/.project_bin
+DIREXE=$(HOME)/.bin
 
 
 ifeq ($(PLAT),intel)

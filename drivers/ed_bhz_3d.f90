@@ -100,8 +100,8 @@ program ed_bhz
      call build_z2_indices( so2j(Smats(:,:,:,:,1),Nso) ) !so2j transforms a Nspin:Nspin:Norb:Norb into a Nso:Nso matrix
 
      !Get the Local GF and the Weiss field/Delta function to be fitted
-     call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=2)
-     call ed_get_weiss(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=2)
+     call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
+     call ed_get_weiss(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=1)
 
      !Fit the new bath, starting from the old bath + the supplied delta
      call ed_chi2_fitgf(delta(1,1,:,:,:),bath,ispin=1)
