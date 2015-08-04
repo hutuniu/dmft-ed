@@ -85,11 +85,7 @@ program ed_bhz_edge
   !Buil the Hamiltonian on a grid or on  path
   call build_hkr(trim(hkfile))
   Hloc = lso2nnn_reshape(bhzHloc,Nlat,Nspin,Norb)
-  if(mpiID==0)then
-     do ilat=1,Nlat
-        call write_Hloc(Hloc(ilat,:,:,:,:))
-     enddo
-  endif
+
 
   !Setup solver
   Nb=get_bath_size()
@@ -111,7 +107,7 @@ program ed_bhz_edge
      ! compute the local gf:
      call ed_get_gloc_lattice(Hkr,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
      ! compute the Weiss field
-     call ed_get_weiss_lattice(Nlat,Gmats,Smats,Delta,Hloc)
+     call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc,iprint=1)
      ! fit baths and mix result with old baths
      call ed_chi2_fitgf_lattice(bath,Delta,Hloc,ispin=1)
      if(.not.spinsym)then
