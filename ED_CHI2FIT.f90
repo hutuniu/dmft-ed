@@ -1,28 +1,14 @@
-!########################################################################
-!PURPOSE  : Perform the \Chi^2 fit procedure on the Delta function
-! chi2fit_interface
-!
-! fit_irred
-!  + chi2_anderson/functions
-!  + chi2_weiss/functions
-!
-! fit_irred_SC
-!  + chi2_anderson_sc/functions
-!  + chi2_weiss_sc/functinos
-!
-! fit_hybrd
-!  + chi2_anderson/functions
-!  + chi2_weiss/functions
-!########################################################################
 MODULE ED_CHI2FIT
   USE SF_CONSTANTS
   USE SF_OPTIMIZE, only:fmin_cg,fmin_cgplus,fmin_cgminimize
   USE SF_LINALG,   only:eye,inv
   USE SF_IOTOOLS,  only:reg,free_unit,txtfy
   USE SF_ARRAYS,   only:arange
+  USE SF_MISC,     only:assert_shape
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_BATH
+  USE ED_AUX_FUNX, only:set_Hloc
 
   implicit none
   private
@@ -34,8 +20,19 @@ MODULE ED_CHI2FIT
      module procedure chi2_fitgf_generic_superc_NOSPIN
   end interface ed_chi2_fitgf
 
-  public :: ed_chi2_fitgf
+  interface ed_chi2_fitgf_lattice
+     module procedure ed_fit_bath_sites_normal
+     module procedure ed_fit_bath_sites_normal_1b
+     module procedure ed_fit_bath_sites_normal_mb
+     !
+     module procedure ed_fit_bath_sites_superc
+     module procedure ed_fit_bath_sites_superc_1b
+     module procedure ed_fit_bath_sites_superc_mb
+  end interface ed_chi2_fitgf_lattice
 
+
+  public :: ed_chi2_fitgf
+  public :: ed_chi2_fitgf_lattice
   integer                               :: Ldelta
   complex(8),dimension(:,:),allocatable :: Gdelta
   complex(8),dimension(:,:),allocatable :: Fdelta
@@ -68,10 +65,7 @@ contains
     integer                         :: ispin_
     ispin_=1;if(present(ispin))ispin_=ispin
     if(ED_MPI_ID==0)then
-       if(size(fg,1)/=Nspin)stop"chi2_fitgf_generic_normal error: size[fg,1] != Nspin"
-       if(size(fg,2)/=Nspin)stop"chi2_fitgf_generic_normal error: size[fg,2] != Nspin"
-       if(size(fg,3)/=Norb)stop"chi2_fitgf_generic_normal error: size[fg,3] != Norb"
-       if(size(fg,4)/=Norb)stop"chi2_fitgf_generic_normal error: size[fg,4] != Norb"
+       call assert_shape(fg,[Nspin,Nspin,Norb,Norb,size(fg,5)],"chi2_fitgf_generic_normal","fg")
        select case(cg_method)
        case (0)
           if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
@@ -134,6 +128,21 @@ contains
     trim_state_list=.true.
   end subroutine chi2_fitgf_generic_normal
 
+  subroutine chi2_fitgf_generic_normal_NOSPIN(fg,bath,ispin)
+    complex(8),dimension(:,:,:)                      :: fg ![Norb][Norb][Niw]
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lfit) :: fg_
+    real(8),dimension(:),intent(inout)               :: bath
+    integer,optional                                 :: ispin
+    integer                                          :: ispin_
+    ispin_=1;if(present(ispin))ispin_=ispin
+    if(size(fg,3)<Lfit)stop "chi2_fitgf_generic_normal_NOSPIN error: size[fg,3] < Lfit"
+    fg_=zero
+    fg_(ispin_,ispin_,:,:,1:Lfit) = fg(:,:,1:Lfit)
+    call chi2_fitgf_generic_normal(fg_,bath,ispin_)
+  end subroutine chi2_fitgf_generic_normal_NOSPIN
+
+
+
 
   !SUPERC:
   subroutine chi2_fitgf_generic_superc(fg,bath,ispin)
@@ -143,11 +152,7 @@ contains
     integer                         :: ispin_
     ispin_=1;if(present(ispin))ispin_=ispin
     if(ED_MPI_ID==0)then
-       if(size(fg,1)/=2)stop"chi2_fitgf_generic_normal error: size[fg,1] != 2"
-       if(size(fg,2)/=Nspin)stop"chi2_fitgf_generic_normal error: size[fg,2] != Nspin"
-       if(size(fg,3)/=Nspin)stop"chi2_fitgf_generic_normal error: size[fg,3] != Nspin"
-       if(size(fg,4)/=Norb)stop"chi2_fitgf_generic_normal error: size[fg,4] != Norb"
-       if(size(fg,5)/=Norb)stop"chi2_fitgf_generic_normal error: size[fg,5] != Norb"
+       call assert_shape(fg,[2,Nspin,Nspin,Norb,Norb,size(fg,6)],"chi2_fitgf_generic_superc","fg")
        select case(cg_method)
        case (0)
           if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
@@ -196,24 +201,6 @@ contains
     trim_state_list=.true.
   end subroutine chi2_fitgf_generic_superc
 
-
-
-
-
-  !ADDITIONAL INTERFACES:
-  subroutine chi2_fitgf_generic_normal_NOSPIN(fg,bath,ispin)
-    complex(8),dimension(:,:,:)                      :: fg ![Norb][Norb][Niw]
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lfit) :: fg_
-    real(8),dimension(:),intent(inout)               :: bath
-    integer,optional                                 :: ispin
-    integer                                          :: ispin_
-    ispin_=1;if(present(ispin))ispin_=ispin
-    if(size(fg,3)<Lfit)stop "chi2_fitgf_generic_normal_NOSPIN error: size[fg,3] < Lfit"
-    fg_=zero
-    fg_(ispin_,ispin_,:,:,1:Lfit) = fg(:,:,1:Lfit)
-    call chi2_fitgf_generic_normal(fg_,bath,ispin_)
-  end subroutine chi2_fitgf_generic_normal_NOSPIN
-
   subroutine chi2_fitgf_generic_superc_NOSPIN(fg,bath,ispin)
     complex(8),dimension(:,:,:,:)                      :: fg ![2][Norb][Norb][Niw]
     complex(8),dimension(2,Nspin,Nspin,Norb,Norb,Lfit) :: fg_
@@ -226,6 +213,9 @@ contains
     fg_(:,ispin_,ispin_,:,:,1:Lfit) = fg(:,:,:,1:Lfit)
     call chi2_fitgf_generic_superc(fg_,bath,ispin_)
   end subroutine chi2_fitgf_generic_superc_NOSPIN
+
+
+
 
 
 
@@ -248,5 +238,177 @@ contains
   !*****************************************************************************
   !*****************************************************************************
   !*****************************************************************************
+
+
+
+
+
+
+  !+-----------------------------------------------------------------------------+!
+  ! PURPOSE: given a number of independent baths, evaluate N independent Delta/G0
+  ! functions and fit them to update the effective baths for ED.
+  ! - NORMAL
+  !+-----------------------------------------------------------------------------+!
+  subroutine ed_fit_bath_sites_normal(bath,Delta,Hloc,ispin)
+    real(8),intent(inout)    :: bath(:,:)
+    complex(8),intent(inout) :: Delta(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    integer,optional         :: ispin
+    !MPI auxiliary vars
+    real(8)                  :: bath_tmp(size(bath,1),size(bath,2))
+    integer                  :: ilat,i,iorb,ispin_
+    integer                  :: Nsites
+    logical                  :: check_dim
+    character(len=5)         :: tmp_suffix
+    !
+    ! Check dimensions !
+    Nsites=size(bath,1)
+    !
+    do ilat=1+mpiID,Nsites,mpiSIZE
+       check_dim = check_bath_dimension(bath(ilat,:))
+       if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
+    end do
+    !
+    bath_tmp=0d0
+    do ilat=1+mpiID,Nsites,mpiSIZE
+       bath_tmp(ilat,:)=bath(ilat,:)
+       call set_Hloc(Hloc(ilat,:,:,:,:))
+       write(tmp_suffix,'(I4.4)') ilat
+       ed_file_suffix="_site"//trim(tmp_suffix)
+       if(present(ispin))then
+          ispin_=ispin
+          if(ispin_>Nspin)stop "ed_fit_bath_sites error: required spin index > Nspin"
+          call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin=ispin_)
+       else
+          do ispin_=1,Nspin
+             call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin=ispin_)
+          enddo
+       end if
+    end do
+#ifdef _MPI_INEQ
+    call MPI_ALLREDUCE(bath_tmp,bath,size(bath),MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+    bath = bath_tmp
+#endif
+  end subroutine ed_fit_bath_sites_normal
+
+  subroutine ed_fit_bath_sites_normal_1b(bath,Delta,Hloc,spin)
+    real(8),intent(inout)    :: bath(:,:)
+    complex(8),intent(inout) :: Delta(size(bath,1),Lmats)
+    complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    integer,optional         :: spin
+    complex(8)               :: Delta_(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    if(Norb>1)stop "ed_fit_bath_sites_hloc_1b error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop "ed_fit_bath_sites_hloc_1b error: Nspin > 1 in 1-band routine" 
+    Delta_(:,1,1,1,1,:) = Delta
+    if(present(spin))then
+       call ed_fit_bath_sites_normal(bath,Delta_,Hloc,spin)
+    else
+       call ed_fit_bath_sites_normal(bath,Delta_,Hloc)
+    endif
+  end subroutine ed_fit_bath_sites_normal_1b
+
+  subroutine ed_fit_bath_sites_normal_mb(bath,Delta,Hloc,spin)
+    real(8),intent(inout)    :: bath(:,:)
+    complex(8),intent(inout) :: Delta(size(bath,1),Norb,Norb,Lmats)
+    complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    integer,optional         :: spin
+    complex(8)               :: Delta_(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    if(Nspin>1)stop "ed_fit_bath_sites_hloc_mb error: Nspin > 1 in M-band routine" 
+    Delta_(:,1,1,:,:,:) = Delta
+    if(present(spin))then
+       call ed_fit_bath_sites_normal(bath,Delta_,Hloc,spin)
+    else
+       call ed_fit_bath_sites_normal(bath,Delta_,Hloc)
+    endif
+  end subroutine ed_fit_bath_sites_normal_mb
+
+
+
+
+
+
+
+  !+-----------------------------------------------------------------------------+!
+  ! PURPOSE: given a number of independent baths, evaluate N independent Delta/G0
+  ! functions and fit them to update the effective baths for ED.
+  ! - SUPERC
+  !+-----------------------------------------------------------------------------+!
+  subroutine ed_fit_bath_sites_superc(bath,Delta,Hloc,ispin)
+    real(8),intent(inout)    :: bath(:,:)
+    complex(8),intent(inout) :: Delta(2,size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    integer,optional         :: ispin
+    !MPI auxiliary
+    real(8)                  :: bath_tmp(size(bath,1),size(bath,2))
+    integer                  :: ilat,i,iorb,ispin_,Nsites
+    logical                  :: check_dim
+    character(len=5)         :: tmp_suffix
+    !
+    Nsites=size(bath,1)
+    !
+    do ilat=1+mpiID,Nsites,mpiSIZE
+       check_dim = check_bath_dimension(bath(ilat,:))
+       if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
+    end do
+    !
+    bath_tmp=0.d0
+    !
+    do ilat=1+mpiID,Nsites,mpiSIZE
+       !
+       bath_tmp(ilat,:) = bath(ilat,:)
+       !
+       call set_Hloc(Hloc(ilat,:,:,:,:))
+       write(tmp_suffix,'(I4.4)') ilat
+       ed_file_suffix="_site"//trim(tmp_suffix)
+       if(present(ispin))then
+          ispin_=ispin
+          if(ispin_>Nspin)stop "ed_fit_bath_sites error: required spin index > Nspin"
+          call ed_chi2_fitgf(Delta(:,ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin_)
+       else
+          do ispin_=1,Nspin
+             call ed_chi2_fitgf(Delta(:,ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin_)
+          enddo
+       endif
+    end do
+#ifdef _MPI_INEQ
+    call MPI_ALLREDUCE(bath_tmp,bath,size(bath),MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+    bath = bath_tmp
+#endif
+  end subroutine ed_fit_bath_sites_superc
+
+  subroutine ed_fit_bath_sites_superc_1b(bath,Delta,Hloc,ispin)
+    real(8),intent(inout)    :: bath(:,:)
+    complex(8),intent(inout) :: Delta(2,size(bath,1),Lmats)
+    complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    integer,optional         :: ispin
+    complex(8)               :: Delta_(2,size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    if(Norb>1)stop "ed_fit_bath_sites_superc_1b error: Norb > 1 in 1-band routine" 
+    if(Nspin>1)stop "ed_fit_bath_sites_superc_1b error: Nspin > 1 in 1-band routine" 
+    Delta_(:,:,1,1,1,1,:) = Delta
+    if(present(ispin))then
+       call ed_fit_bath_sites_superc(bath,Delta_,Hloc,ispin)
+    else
+       call ed_fit_bath_sites_superc(bath,Delta_,Hloc)
+    endif
+  end subroutine ed_fit_bath_sites_superc_1b
+
+  subroutine ed_fit_bath_sites_superc_mb(bath,Delta,Hloc,ispin)
+    real(8),intent(inout)    :: bath(:,:)
+    complex(8),intent(inout) :: Delta(2,size(bath,1),Norb,Norb,Lmats)
+    complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    integer,optional         :: ispin
+    complex(8)               :: Delta_(2,size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    if(Nspin>1)stop "ed_fit_bath_sites_superc_mb error: Nspin > 1 in M-band routine" 
+    Delta_(:,:,1,1,:,:,:) = Delta
+    if(present(ispin))then
+       call ed_fit_bath_sites_superc(bath,Delta_,Hloc,ispin)
+    else
+       call ed_fit_bath_sites_superc(bath,Delta_,Hloc)
+    endif
+  end subroutine ed_fit_bath_sites_superc_mb
+
+
 
 end MODULE ED_CHI2FIT
