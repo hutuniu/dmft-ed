@@ -5,7 +5,7 @@ FC=mpif90
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=gnu
+PLAT=intel
 
 
 ##$ PRECOMPILATION FLAGS
@@ -52,7 +52,7 @@ EXE=ed_bhz_edge
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
-#EXE=ed_hm_slab_hyb
+EXE=ed_hm_slab_hyb
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
@@ -68,7 +68,7 @@ EXE=ed_bhz_edge
 DIR=drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
-DIREXE=$(HOME)/.bin
+DIREXE=$(HOME)/.project_bin
 
 
 ifeq ($(PLAT),intel)
