@@ -32,6 +32,7 @@ contains
   ! GS, build the Green's functions calling all the necessary routines
   !+------------------------------------------------------------------+
   subroutine diagonalize_impurity
+    if(ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
     select case(ed_type)
     case default
        call ed_diag_d
@@ -65,7 +66,6 @@ contains
     oldzero=1000.d0
     numgs=0
     if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer()
-    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
     iter=0
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
@@ -179,7 +179,6 @@ contains
     oldzero=1000.d0
     numgs=0
     if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer()
-    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
     iter=0
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated

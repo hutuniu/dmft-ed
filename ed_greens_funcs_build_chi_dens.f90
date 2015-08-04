@@ -34,21 +34,19 @@ end subroutine build_chi_dens
 !+------------------------------------------------------------------+
 subroutine build_chi_dens_mb()
   integer :: iorb,jorb,ispin
-  logical :: verbose
-  verbose=.false.;if(ed_verbose<1)verbose=.true. 
   write(LOGfile,"(A)")"Get impurity dens Chi:"
   do iorb=1,Norb
      select case(ed_type)
      case default
-        call lanc_ed_build_densChi_d(iorb,verbose)
+        call lanc_ed_build_densChi_d(iorb)
      case ('c')
-        call lanc_ed_build_densChi_c(iorb,verbose)
+        call lanc_ed_build_densChi_c(iorb)
      end select
   enddo
 
   do iorb=1,Norb
      do jorb=iorb+1,Norb
-        call lanc_ed_build_densChi_mix_d(iorb,jorb,verbose)
+        call lanc_ed_build_densChi_mix_d(iorb,jorb)
      end do
   end do
   
@@ -72,9 +70,9 @@ subroutine build_chi_dens_mb()
 
   select case(ed_type)
   case default
-     call lanc_ed_build_densChi_tot_d(verbose)
+     call lanc_ed_build_densChi_tot_d()
   case ('c')
-     call lanc_ed_build_densChi_tot_c(verbose)
+     call lanc_ed_build_densChi_tot_c()
   end select
   denschi_tau = Denschi_tau/zeta_function
   denschi_w   = denschi_w/zeta_function
@@ -93,7 +91,7 @@ subroutine lanc_ed_build_densChi_d(iorb)
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
-  integer                          :: iup0,idw0
+  integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
@@ -169,7 +167,7 @@ subroutine lanc_ed_build_densChi_c(iorb)
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
-  integer                          :: iup0,idw0
+  integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
@@ -225,7 +223,7 @@ end subroutine lanc_ed_build_densChi_c
 
 
 
-subroutine lanc_ed_build_densChi_mix_d(iorb,jorb,iverbose)
+subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
   integer                          :: iorb,jorb,isite,isect0,izero,isign
   integer                          :: numstates
   integer                          :: nlanc,idim0
@@ -238,12 +236,7 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb,iverbose)
   real(8),allocatable              :: vvinit(:)
   complex(8),allocatable              :: cvinit(:)
   integer                          :: Nitermax
-  logical,optional                 :: iverbose
-  logical                          :: iverbose_
   integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
-  !
-  iverbose_=.false.;if(present(iverbose))iverbose_=iverbose
-  if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Evaluating dens Chi_Orb"//reg(txtfy(iorb))//":"
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -267,7 +260,7 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb,iverbose)
      call build_sector(isect0,HImap)
 
      !build the (N_iorb+N_jorb)|gs> state
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_{iorb} + N_{jorb}:'
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_{iorb} + N_{jorb}:'
      vvinit=0.d0
      do m=1,idim0                     !loop over |gs> components m
         i=HImap(m)
@@ -291,7 +284,7 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb,iverbose)
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
 
      !build the (N_iorb-xi*N_jorb)|gs> state
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N_iorb + xi*N_jorb:'
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N_iorb + xi*N_jorb:'
      cvinit=zero
      do m=1,idim0                     !loop over |gs> components m
         i=HImap(m)
@@ -313,7 +306,7 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb,iverbose)
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
 
      !apply N_{iorb} + xi*N_{jorb}
-     if(iverbose_.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
      cvinit=zero
      do m=1,idim0                     !loop over |gs> components m
         i=HImap(m)
@@ -357,7 +350,7 @@ subroutine lanc_ed_build_densChi_tot_d()
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
-  integer                          :: iup0,idw0
+  integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   complex(8)                       :: cnorm2
@@ -413,7 +406,7 @@ subroutine lanc_ed_build_densChi_tot_c()
   integer                          :: iorb,isite,isect0,izero
   integer                          :: numstates
   integer                          :: nlanc,idim0
-  integer                          :: iup0,idw0
+  integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   complex(8)                       :: cnorm2
@@ -539,7 +532,7 @@ subroutine lanc_ed_build_Chi_mix_d(iorb,jorb,ispin)
            endif
         enddo
      end if
-     
+
      !<DEBUG
      ! deallocate(vvinit); allocate(vvinit(idim))
      ! vvinit=0.d0
@@ -595,7 +588,7 @@ subroutine lanc_ed_build_Chi_mix_d(iorb,jorb,ispin)
            endif
         enddo
      end if
-     
+
 
      norm2=dot_product(vvinit_,vvinit_)
      vvinit_=vvinit_/sqrt(norm2)
@@ -608,9 +601,9 @@ subroutine lanc_ed_build_Chi_mix_d(iorb,jorb,ispin)
 
      deallocate(HJmap,HJmap_)
      deallocate(vvinit,vvinit_)
-        
 
-     
+
+
      !+- Apply c^dg_iorb c_jorb -+!
      ispin=1
      isite=impIndex(jorb,ispin)

@@ -52,7 +52,7 @@ EXE=ed_bhz_edge
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
-EXE=ed_hm_slab_hyb
+#EXE=ed_hm_slab_hyb
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
@@ -68,7 +68,7 @@ EXE=ed_hm_slab_hyb
 DIR=drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
-DIREXE=$(HOME)/.project_bin
+DIREXE=$(HOME)/.bin
 
 
 ifeq ($(PLAT),intel)

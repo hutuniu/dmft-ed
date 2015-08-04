@@ -9,7 +9,6 @@ subroutine build_gf_nonsu2()
   if(.not.allocated(impGreal))stop "build_gf_nonsu2: Greal not allocated"
   impGmats=zero
   impGreal=zero
-  write(LOGfile,"(A)")"Get impurity Greens functions:"
 
   !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
   do ispin=1,Nspin

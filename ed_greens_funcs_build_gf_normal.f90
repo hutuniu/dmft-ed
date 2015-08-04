@@ -4,7 +4,6 @@
 subroutine build_gf_normal()
   integer :: iorb,jorb,ispin,i
   !
-  write(LOGfile,"(A)")"Get impurity Greens functions:"
   do ispin=1,Nspin
      do iorb=1,Norb
         if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
