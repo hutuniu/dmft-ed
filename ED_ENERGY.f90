@@ -2,17 +2,19 @@
 !purpose  : Obtain some physical quantities and print them out
 !########################################################################
 MODULE ED_ENERGY
-  USE SF_CONSTANTS, only:zero,pi,xi
-  USE SF_IOTOOLS, only:free_unit,reg,txtfy
-  USE SF_ARRAYS, only: arange
-  USE SF_TIMER
-  USE SF_LINALG, only: inv
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
   USE ED_BATH
+  USE ED_SETUP
   USE ED_AUX_FUNX
   USE ED_MATVEC
+  USE SF_CONSTANTS, only:zero,pi,xi
+  USE SF_IOTOOLS, only:free_unit,reg,txtfy
+  USE SF_ARRAYS, only: arange
+  USE SF_TIMER
+  USE SF_LINALG, only: inv,eye,zeye
+  USE SF_MISC,  only:assert_shape
   implicit none
   private
 
@@ -26,8 +28,25 @@ MODULE ED_ENERGY
      module procedure kinetic_energy_impurity_superc_MB
   end interface ed_kinetic_energy
 
-  public  :: ed_kinetic_energy     !PUBLIC in DMFT
-  public  :: local_energy_impurity !INTERNAL in DMFT
+  interface ed_kinetic_energy_lattice
+     module procedure kinetic_energy_lattice_normal_main
+     module procedure kinetic_energy_lattice_superc_main
+     module procedure kinetic_energy_lattice_normal_1
+     module procedure kinetic_energy_lattice_normal_2
+     module procedure kinetic_energy_lattice_normal_1B
+     module procedure kinetic_energy_lattice_superc_1
+     module procedure kinetic_energy_lattice_superc_2
+     module procedure kinetic_energy_lattice_superc_1B
+  end interface ed_kinetic_energy_lattice
+
+  !PUBLIC in DMFT
+  public :: ed_kinetic_energy
+  public :: ed_kinetic_energy_lattice
+
+  !INTERNAL in DMFT
+  public :: local_energy_impurity
+
+  real(8),dimension(:),allocatable        :: wm
 
 contains 
 
@@ -275,38 +294,38 @@ contains
 
 
 
+
+
   !-------------------------------------------------------------------------------------------
   !PURPOSE: Evaluate the Kinetic energy for the lattice model, given 
-  ! the Hamiltonian matrix Hk and the DMFT self-energy Sigma.
+  ! the Hamiltonian matrix H(k) and the DMFT self-energy Sigma.
   ! The main routine accept self-energy as:
-  ! - Sigma: [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+  ! - Sigma: [Nspin*Norb][Nspin*Norb][L]
+  ! - Sigma: [L]
+  ! - Sigma: [Nspin][Nspin][Norb][Norb][L]
   !-------------------------------------------------------------------------------------------
   function kinetic_energy_impurity_normal_main(Hk,Wtk,Sigma) result(Eout)
-    integer                                  :: Lk,Nso,Liw
-    integer                                  :: i,ik
-    complex(8),dimension(:,:,:)              :: Hk
-    complex(8),dimension(:,:,:)              :: Sigma
-    real(8),dimension(size(Hk,3))            :: Wtk
+    complex(8),dimension(:,:,:)                 :: Hk ![Nspin*Norb][Nspin*Norb][Lk]
+    complex(8),dimension(:,:,:)                 :: Sigma ![Nspin][Nspin][Norb][Norb][Liw]
+    real(8),dimension(size(Hk,3))               :: Wtk   ![Lk]
+    integer                                     :: Lk,Nso,Liw
+    integer                                     :: i,ik
     !
-    real(8),dimension(:,:),allocatable       :: Sigma_HF
-    real(8),dimension(:),allocatable         :: wm
-    complex(8),dimension(:,:),allocatable    :: Ak,Bk,Ck,Zk,Dk,Hloc
-    complex(8),dimension(:,:),allocatable    :: Zeta,Gk,Tk
-    real(8)                                  :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
+    real(8),dimension(size(Hk,1),size(Hk,1))    :: Sigma_HF
+    complex(8),dimension(size(Hk,1),size(Hk,1)) :: Ak,Bk,Ck,Dk,Hloc
+    complex(8),dimension(size(Hk,1),size(Hk,1)) :: Gk,Tk
+    real(8)                                     :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
     !
-    real(8)                                  :: H0,Hl,ed_Ekin,ed_Eloc
-    real(8)                                  :: Eout(2)
+    real(8)                                     :: H0,Hl,ed_Ekin,ed_Eloc
+    real(8)                                     :: Eout(2)
     !
     Nso = size(Hk,1)
-    Lk = size(Hk,3)
-    Liw= size(Sigma,3)
-    if(Nso/=size(Hk,2))stop "kinetic_energy_impurity_normal error: size(Hk,1)!=size(Hk,2) [Norb_total]"
-    if(Nso/=size(Sigma,1).OR.Nso/=size(Sigma,2))&
-         stop "kinetic_energy_impurity_normal error: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
+    Lk  = size(Hk,3)
+    Liw = size(Sigma,3)
+    call assert_shape(Hk,[Nso,Nso,Lk],"kinetic_energy_impurity_normal_main","Hk")
+    call assert_shape(Sigma,[Nso,Nso,Liw],"kinetic_energy_impurity_normal_main","Sigma")
     !
-    allocate(wm(Liw))
-    allocate(Sigma_HF(Nso,Nso))
-    allocate(Ak(Nso,Nso),Bk(Nso,Nso),Ck(Nso,Nso),Dk(Nso,Nso),Hloc(Nso,Nso),Zk(Nso,Nso),Zeta(Nso,Nso),Gk(Nso,Nso),Tk(Nso,Nso))
+    if(allocated(wm))deallocate(wm);allocate(wm(Liw))
     !
     wm = pi/beta*dble(2*arange(1,Liw)-1)
     !
@@ -319,19 +338,18 @@ contains
     if(ED_MPI_ID==0)call start_timer()
     H0=0d0
     Hl=0d0
-    Zk=0d0 ; forall(i=1:Nso)Zk(i,i)=1d0
     do ik=1,Lk
        Ak = Hk(:,:,ik) - Hloc(:,:)
        Bk =-Hk(:,:,ik) - Sigma_HF(:,:)
        do i=1,Liw
-          Gk = (xi*wm(i)+xmu)*Zk(:,:) - Hk(:,:,ik) - Sigma(:,:,i)
+          Gk = (xi*wm(i)+xmu)*eye(Nso) - Sigma(:,:,i) - Hk(:,:,ik) 
           select case(Nso)
           case default
              call inv(Gk)
           case(1)
              Gk = 1d0/Gk
           end select
-          Tk = Zk(:,:)/(xi*wm(i)) - Bk(:,:)/(xi*wm(i))**2
+          Tk = eye(Nso)/(xi*wm(i)) - Bk(:,:)/(xi*wm(i))**2
           Ck = matmul(Ak  ,Gk - Tk)
           Dk = matmul(Hloc,Gk - Tk)
           H0 = H0 + Wtk(ik)*trace_matrix(Ck,Nso)
@@ -344,18 +362,6 @@ contains
     H0=H0/beta*2.d0*spin_degeneracy
     Hl=Hl/beta*2.d0*spin_degeneracy
     !
-    ! Tail0=0d0
-    ! Tail1=0d0
-    ! do ik=1,Lk
-    !    Ak= Hk(:,:,ik)
-    !    Bk=-Hk(:,:,ik)-Sigma_HF(:,:)
-    !    Ck= matmul(Ak,Bk)
-    !    Tail0 = Tail0 + 0.5d0*Wtk(ik)*trace_matrix(Ak,Nso)
-    !    Tail1 = Tail1 + 0.25d0*Wtk(ik)*trace_matrix(Ck,Nso)
-    ! enddo
-    ! Tail0=spin_degeneracy*Tail0
-    ! Tail1=spin_degeneracy*Tail1*beta
-    ! ed_Ekin=H0+Tail0+Tail1
     Tail0=0d0
     Tail1=0d0
     Lail0=0d0
@@ -376,10 +382,42 @@ contains
     ed_Ekin=H0+Tail0+Tail1
     ed_Eloc=Hl+Lail0+Lail1
     Eout = [ed_Ekin,ed_Eloc]
-    deallocate(wm,Sigma_HF,Ak,Bk,Ck,Dk,Hloc,Zk,Zeta,Gk,Tk)
+    deallocate(wm)
     call write_kinetic_info()
     call write_kinetic(Eout)
   end function kinetic_energy_impurity_normal_main
+
+  function kinetic_energy_impurity_normal_1B(Hk,Wtk,Sigma) result(Eout)
+    complex(8),dimension(:)               :: Sigma
+    complex(8),dimension(:)               :: Hk
+    real(8),dimension(size(Hk))           :: Wtk
+    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
+    complex(8),dimension(1,1,size(Hk))    :: Hk_
+    real(8),dimension(2)                  :: Eout
+    Sigma_(1,1,:) = Sigma
+    Hk_(1,1,:)    = Hk
+    Eout = kinetic_energy_impurity_normal_main(Hk_,Wtk,Sigma_)
+  end function kinetic_energy_impurity_normal_1B
+
+  function kinetic_energy_impurity_normal_MB(Hk,Wtk,Sigma) result(Eout)
+    complex(8),dimension(:,:,:)             :: Hk
+    real(8),dimension(size(Hk,3))           :: Wtk
+    complex(8),dimension(:,:,:,:,:)         :: Sigma ![Nspin][Nspin][Norb][Norb][Lmats]
+    complex(8),dimension(:,:,:),allocatable :: Sigma_
+    integer                                 :: Nspin,Norb,Lmats,Nso,i,iorb,jorb,ispin,jspin,io,jo
+    real(8),dimension(2)                    :: Eout
+    !
+    Nspin = size(Sigma,1)
+    Norb  = size(Sigma,3)
+    Lmats = size(Sigma,5)
+    Nso   = Nspin*Norb
+    call assert_shape(Sigma,[Nspin,Nspin,Norb,Norb,Lmats],"kinetic_energy_impurity_normal_MB","Sigma")
+    allocate(Sigma_(Nso,Nso,Lmats))
+    do i=1,Lmats
+       Sigma_(:,:,i) = nn2so_reshape(Sigma(:,:,:,:,i),Nspin,Norb)
+    enddo
+    Eout = kinetic_energy_impurity_normal_main(Hk,Wtk,Sigma_)
+  end function kinetic_energy_impurity_normal_MB
 
 
 
@@ -391,48 +429,45 @@ contains
   ! the Hamiltonian matrix Hk and the DMFT self-energy Sigma.
   ! The main routine accept self-energy as
   ! - Sigma: [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+  ! - Sigma: [L]
+  ! - Sigma: [Nspin][Nspin][Norb][Norb][L]
   !-------------------------------------------------------------------------------------------
   function kinetic_energy_impurity_superc_main(Hk,Wtk,Sigma,SigmaA) result(Eout)
-    integer                               :: Lk,Nso,Liw
-    integer                               :: i,ik,iorb,jorb,inambu,jnambu,n,m
-    complex(8),dimension(:,:,:)           :: Hk
-    complex(8),dimension(:,:,:)           :: Sigma,SigmaA
-    real(8),dimension(size(Hk,3))         :: Wtk
+    integer                                         :: Lk,Nso,Liw
+    integer                                         :: i,ik,iorb,jorb,inambu,jnambu,n,m
+    complex(8),dimension(:,:,:)                     :: Hk
+    complex(8),dimension(:,:,:)                     :: Sigma,SigmaA
+    real(8),dimension(size(Hk,3))                   :: Wtk
     !
-    real(8),dimension(:,:),allocatable    :: Sigma_HF,SigmaA_HF
-    real(8),dimension(:),allocatable      :: wm
-    complex(8),dimension(:,:),allocatable :: Ak,Bk,Ck,Dk,Zk,Hloc
-    complex(8),dimension(:,:),allocatable :: Zeta,Gk,Tk,Gk_Nambu
-    complex(8),dimension(2,2)             :: Gk_Nambu_ij
+    real(8),dimension(size(Hk,1),size(Hk,1))        :: Sigma_HF,SigmaA_HF
+    complex(8),dimension(size(Hk,1),size(Hk,1))     :: Ak,Bk,Ck,Dk,Hloc
+    complex(8),dimension(size(Hk,1),size(Hk,1))     :: Gk,Tk
+    complex(8),dimension(2*size(Hk,1),2*size(Hk,1)) :: Gk_Nambu
+    complex(8),dimension(2,2)                       :: Gk_Nambu_ij
     !
-    real(8)                               :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
+    real(8)                                         :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
     !
-    real(8)                               :: H0,Hl,ed_Ekin,ed_Eloc
-    real(8)                               :: Eout(2)
+    real(8)                                         :: H0,Hl,ed_Ekin,ed_Eloc
+    real(8)                                         :: Eout(2)
     !
     Nso = size(Hk,1)
-    Lk = size(Hk,3)
-    Liw= size(Sigma,3)
-    if(Nso/=size(Hk,2))stop "kinetic_energy_impurity_superc error: size(Hk,1)!=size(Hk,2) [Nsorb_total]"
-    if(Nso/=size(Sigma,1).OR.Nso/=size(Sigma,2))stop "kinetic_energy_impurity_superc error: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
-    if(Nso/=size(SigmaA,1).OR.Nso/=size(SigmaA,2))stop "kinetic_energy_impurity_superc error: size(Sigma,1/2)!=size(Hk,1) [Norb_total]"
-    if(Lk/=size(Wtk))stop "kinetic_energy_impurity_superc error: size(Wtk)!=size(Hk,3) [L_k]"
+    Lk  = size(Hk,3)
+    Liw = size(Sigma,3)
+    call assert_shape(Hk,[Nso,Nso,Lk],"kinetic_energy_impurity_superc_main","Hk")
+    call assert_shape(Sigma,[Nso,Nso,Liw],"kinetic_energy_impurity_superc_main","Sigma")
+    call assert_shape(SigmaA,[Nso,Nso,Liw],"kinetic_energy_impurity_superc_main","Self")
     !
-    allocate(wm(Liw))
-    allocate(Sigma_HF(Nso,Nso),SigmaA_HF(Nso,Nso))
-    allocate(Ak(Nso,Nso),Bk(Nso,Nso),Ck(Nso,Nso),Dk(Nso,Nso),Zk(Nso,Nso),Hloc(Nso,Nso),Zeta(Nso,Nso),Gk(Nso,Nso),Tk(Nso,Nso))
-    allocate(Gk_Nambu(2*Nso,2*Nso))
+    if(allocated(wm))deallocate(wm);allocate(wm(Liw))
     !
     wm = pi/beta*dble(2*arange(1,Liw)-1)
     !
     Sigma_HF = dreal(Sigma(:,:,Liw))
-    !
+    !    
     Hloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
     if(ED_MPI_ID==0)call print_hloc(Hloc)
     !
     H0=0d0
-    Zk=0d0 ; forall(i=1:Nso)Zk(i,i)=1d0
     do ik=1,Lk
        Ak= Hk(:,:,ik)-Hloc
        Bk=-Hk(:,:,ik)-Sigma_HF(:,:)
@@ -468,7 +503,7 @@ contains
                 Gk(iorb,jorb) =  Gk_Nambu(m,n)
              enddo
           enddo
-          Tk = Zk(:,:)/(xi*wm(i)) - Bk(:,:)/(xi*wm(i))**2
+          Tk = eye(Nso)/(xi*wm(i)) - Bk(:,:)/(xi*wm(i))**2
           Ck = matmul(Ak,Gk - Tk)
           Dk = matmul(Hloc,Gk - Tk)
           H0 = H0 + Wtk(ik)*trace_matrix(Ck,Nso)
@@ -479,23 +514,6 @@ contains
     H0=H0/beta*2.d0*spin_degeneracy
     Hl=Hl/beta*2.d0*spin_degeneracy          
     !
-    ! Tail0=0d0
-    ! Tail1=0d0
-    ! do ik=1,Lk
-    !    Ak= Hk(:,:,ik)
-    !    Bk=-Hk(:,:,ik)-Sigma_HF(:,:)
-    !    Ck= matmul(Ak,Bk)
-    !    do iorb=1,Nso
-    !       Tail0 = Tail0 + 0.5d0*Wtk(ik)*Ak(iorb,iorb)!trace_matrix(Ak,Nso)
-    !       Tail1 = Tail1 + 0.25d0*Wtk(ik)*Ck(iorb,iorb)!trace_matrix(Ck,Nso)
-    !    end do
-    ! enddo
-    ! Tail0=spin_degeneracy*Tail0
-    ! Tail1=spin_degeneracy*Tail1*beta
-    ! ed_Ekin=H0+Tail0+Tail1
-    ! deallocate(wm,Sigma_HF,Ak,Bk,Ck,Zk,Zeta,Gk,Tk)
-    ! call write_kinetic_info(ed_Ekin)
-    ! call write_kinetic(ed_Ekin)
     Tail0=0d0
     Tail1=0d0
     Lail0=0d0
@@ -515,95 +533,47 @@ contains
     Lail1=spin_degeneracy*Lail1*beta
     ed_Ekin=H0+Tail0+Tail1
     ed_Eloc=Hl+Lail0+Lail1
-    deallocate(wm,Sigma_HF,Ak,Bk,Ck,Dk,Hloc,Zk,Zeta,Gk,Tk)
+    deallocate(wm)
     Eout = [ed_Ekin,ed_Eloc]
     call write_kinetic_info()
     call write_kinetic(Eout)
   end function kinetic_energy_impurity_superc_main
 
-
-
-
-
-
-
-
-  !+-----------------------------------------------------------------------------+!
-  !PURPOSE: additional interfaces as used in drivers with different allocation 
-  ! of the required functions
-  ! Then we distinguish different interface according to other shapes of the self-energy:
-  ! - Sigma: [Nlat][Nspin*Norb][Nspin*Norb][L]
-  ! - Sigma: [Nlat][Nspin][Nspin][Norb][Norb][L]
-  ! - Sigma: [Nlat][L]
-  !+-----------------------------------------------------------------------------+!
-  function kinetic_energy_impurity_normal_1B(Hk,Wtk,Sigma) result(Eout)
-    complex(8),dimension(:)               :: Sigma
-    complex(8),dimension(:)               :: Hk
-    real(8),dimension(size(Hk))           :: Wtk
-    complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Hk))    :: Hk_
-    real(8),dimension(2)                  :: Eout
-    Sigma_(1,1,:) = Sigma
-    Hk_(1,1,:)    = Hk
-    Eout = kinetic_energy_impurity_normal_main(Hk_,Wtk,Sigma_)
-  end function kinetic_energy_impurity_normal_1B
-  !
-  function kinetic_energy_impurity_normal_MB(Hk,Wtk,Sigma) result(Eout)
-    complex(8),dimension(:,:,:)                               :: Hk
-    real(8),dimension(size(Hk,3))                             :: Wtk
-    complex(8),dimension(:,:,:,:,:)                           :: Sigma
-    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Sigma,5)) :: Sigma_
-    integer                                                   :: iorb,jorb,ispin,jspin,io,jo
-    real(8),dimension(2)                                      :: Eout
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                Sigma_(io,jo,:) = Sigma(ispin,jspin,iorb,jorb,:)
-             enddo
-          enddo
-       enddo
-    enddo
-    Eout = kinetic_energy_impurity_normal_main(Hk,Wtk,Sigma_)
-  end function kinetic_energy_impurity_normal_MB
-
   function kinetic_energy_impurity_superc_1B(Hk,Wtk,Sigma,Self) result(Eout)
     real(8),dimension(:)                  :: Hk
     real(8),dimension(size(Hk))           :: Wtk
-    complex(8),dimension(:)               :: Sigma,Self
+    complex(8),dimension(:)               :: Sigma
+    complex(8),dimension(size(Sigma))     :: Self
     complex(8),dimension(1,1,size(Sigma)) :: Sigma_
-    complex(8),dimension(1,1,size(Self))  :: Self_
+    complex(8),dimension(1,1,size(Sigma)) :: Self_
     complex(8),dimension(1,1,size(Hk))    :: Hk_
     real(8)                               :: Eout(2)
-    if(size(Sigma)/=size(Self)) stop "ed_kinetic_energy_sc: Normal and Anomalous self-energies have different size!"
     Sigma_(1,1,:)  = Sigma(:)
     Self_(1,1,:)   = Self(:)
     Hk_(1,1,:)     = Hk
     Eout = kinetic_energy_impurity_superc_main(Hk_,Wtk,Sigma_,Self_)
   end function kinetic_energy_impurity_superc_1B
-  !
+
   function kinetic_energy_impurity_superc_MB(Hk,Wtk,Sigma,Self) result(Eout)
-    complex(8),dimension(:,:,:)                               :: Hk
-    real(8),dimension(size(Hk,3))                             :: Wtk
-    complex(8),dimension(:,:,:,:,:)                           :: Sigma
-    complex(8),dimension(:,:,:,:,:)                           :: Self
-    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Sigma,5)) :: Sigma_
-    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(Self,5))  :: Self_
-    integer                                                   :: iorb,jorb,ispin,jspin,io,jo
-    real(8)                                                   :: Eout(2)
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                Sigma_(io,jo,:) = Sigma(ispin,jspin,iorb,jorb,:)
-                Self_(io,jo,:)  = Self(ispin,jspin,iorb,jorb,:)
-             enddo
-          enddo
-       enddo
+    complex(8),dimension(:,:,:)             :: Hk
+    real(8),dimension(size(Hk,3))           :: Wtk
+    complex(8),dimension(:,:,:,:,:)         :: Sigma
+    complex(8),dimension(:,:,:,:,:)         :: Self
+    complex(8),dimension(:,:,:),allocatable :: Sigma_
+    complex(8),dimension(:,:,:),allocatable :: Self_
+    integer                                 :: Nspin,Norb,Lmats,Nso,i,iorb,jorb,ispin,jspin,io,jo
+    real(8)                                 :: Eout(2)
+    Nspin = size(Sigma,1)
+    Norb  = size(Sigma,3)
+    Lmats = size(Sigma,5)
+    Nso   = Nspin*Norb
+    call assert_shape(Sigma,[Nspin,Nspin,Norb,Norb,Lmats],"kinetic_energy_impurity_superc_MB","Sigma")
+    call assert_shape(Self,[Nspin,Nspin,Norb,Norb,Lmats],"kinetic_energy_impurity_superc_MB","Self")    
+    allocate(Sigma_(Nso,Nso,Lmats))
+    allocate(Self_(Nso,Nso,Lmats))
+    do i=1,Lmats
+       Sigma_(:,:,i) = nn2so_reshape(Sigma(:,:,:,:,i),Nspin,Norb)
+       Self_(:,:,i)  = nn2so_reshape(Self(:,:,:,:,i),Nspin,Norb)
     enddo
     Eout = kinetic_energy_impurity_superc_main(Hk,Wtk,Sigma_,Self_)
   end function kinetic_energy_impurity_superc_MB
@@ -620,13 +590,480 @@ contains
 
 
 
+
+
+
+
+  !-------------------------------------------------------------------------------------------
+  !PURPOSE: Evaluate the Kinetic energy for the general lattice case, given 
+  ! the Hamiltonian matrix Hk and the DMFT self-energy Sigma.
+  ! The main routine accept:
+  ! - Sigma: [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+  ! - Sigma: [Nlat][L]
+  ! - Sigma: [Nlat][Nspin*Norb][Nspin*Norb][L]
+  ! - Sigma: [Nlat][Nspin][Nspin][Norb][Norb][L]
+  !-------------------------------------------------------------------------------------------
+  function kinetic_energy_lattice_normal_main(Hk,Wtk,Sigma) result(Eout)
+    complex(8),dimension(:,:,:)                                     :: Hk        ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                                   :: wtk       ! [Nk]
+    complex(8),dimension(:,:,:)                                     :: Sigma     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    !aux
+    integer                                                         :: Lk,Nlso,Liw
+    integer                                                         :: ik
+    integer                                                         :: i,iorb,ilat,ispin,io,is
+    integer                                                         :: j,jorb,jlat,jspin,jo,js
+    real(8),dimension(size(Hk,1),size(Hk,1))                        :: Sigma_HF
+    complex(8),dimension(size(Hk,1),size(Hk,1))                     :: Ak,Bk,Ck,Dk,Hloc
+    complex(8),dimension(size(Hk,1),size(Hk,1))                     :: Tk
+    complex(8),dimension(size(Hk,1),size(Hk,1))                     :: Gk
+    real(8)                                                         :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
+    !
+    real(8)                                                         :: H0,H0k,H0ktmp,Hl,Hlk,Hlktmp
+    real(8)                                                         :: ed_Ekin_lattice,ed_Eloc_lattice
+    real(8)                                                         :: Eout(2)
+    !
+    Nlso = size(Hk,1)
+    Lk   = size(Hk,3)
+    Liw  = size(Sigma,3)
+    call assert_shape(Hk,[Nlso,Nlso,Lk],"kinetic_energy_lattice_normal_main","Hk")
+    call assert_shape(Sigma,[Nlso,Nlso,Liw],"kinetic_energy_lattice_normal_main","Sigma")
+    !
+    !Allocate and setup the Matsubara freq.
+    if(allocated(wm))deallocate(wm);allocate(wm(Liw))
+    wm = pi/beta*(2*arange(1,Liw)-1)
+    !
+    ! Get the block diagonal part of the local Hamiltonian 
+    ! This term gives rise to an additional E_loc = Hloc*n
+    Hloc = sum(Hk(:,:,:),dim=3)/Lk
+    where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
+    if(ED_MPI_ID==0)call print_hloc(Hloc)
+    !
+    !Get HF part of the self-energy
+    Sigma_HF(:,:) = dreal(Sigma(:,:,Liw))
+    !
+    !Start the timer:
+    if(mpiID==0) write(LOGfile,*) "Kinetic energy computation"
+    if(mpiID==0)call start_timer
+    ed_Ekin_lattice = 0d0
+    ed_Eloc_lattice = 0d0
+    H0              = 0d0
+    Hl              = 0d0
+    !Get principal part: Tr[ Hk.(Gk-Tk) ]
+    do ik=1,Lk
+       Ak    =  Hk(:,:,ik) - Hloc(:,:)
+       Bk    = -Hk(:,:,ik) - Sigma_HF(:,:)
+       H0ktmp= 0d0
+       Hlktmp= 0d0
+       H0k   = 0d0
+       Hlk   = 0d0
+       do i=1+mpiID,Lmats,mpiSIZE
+          Gk = (xi*wm(i)+xmu)*eye(Nlso) - Sigma(:,:,i) - Hk(:,:,ik)
+          call inv(Gk(:,:))
+          Tk = zeye(Nlso)/(xi*wm(i)) - Bk/(xi*wm(i))**2
+          Ck = matmul(Ak,Gk(:,:) - Tk)
+          Dk = matmul(Hloc,Gk(:,:) - Tk)
+          H0ktmp = H0ktmp + Wtk(ik)*trace_matrix(Ck,Nlso)
+          Hlktmp = Hlktmp + Wtk(ik)*trace_matrix(Dk,Nlso)
+       enddo
+#ifdef _MPI_INEQ
+       call MPI_ALLREDUCE(H0ktmp,H0k,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+       call MPI_ALLREDUCE(Hlktmp,Hlk,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+       H0k=H0ktmp
+       Hlk=Hlktmp
+#endif
+       H0 = H0 + H0k
+       Hl = Hl + Hlk
+       if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+    enddo
+    if(mpiID==0)call stop_timer
+    spin_degeneracy=3.d0-Nspin !2 if Nspin=1, 1 if Nspin=2
+    H0 = H0/beta*2d0*spin_degeneracy
+    Hl = Hl/beta*2d0*spin_degeneracy
+    !
+    !get tail subtracted contribution: Tr[ Hk.Tk ]
+    Tail0=0d0
+    Tail1=0d0
+    Lail0=0d0
+    Lail1=0d0
+    do ik=1,Lk
+       Ak    =  Hk(:,:,ik) - Hloc(:,:)
+       Bk    = -Hk(:,:,ik) - Sigma_HF(:,:)
+       Ck= matmul(Ak,Bk)
+       Dk= matmul(Hloc,Bk)
+       Tail0 = Tail0 + 0.5d0*Wtk(ik)*trace_matrix(Ak,Nlso)
+       Tail1 = Tail1 + 0.25d0*Wtk(ik)*trace_matrix(Ck,Nlso)
+       Lail0 = Lail0 + 0.5d0*Wtk(ik)*trace_matrix(Hloc(:,:),Nlso)
+       Lail1 = Lail1 + 0.25d0*Wtk(ik)*trace_matrix(Dk,Nlso)
+    enddo
+    Tail0=spin_degeneracy*Tail0
+    Tail1=spin_degeneracy*Tail1*beta
+    Lail0=spin_degeneracy*Lail0
+    Lail1=spin_degeneracy*Lail1*beta
+    ed_Ekin_lattice=H0+Tail0+Tail1
+    ed_Eloc_lattice=Hl+Lail0+Lail1
+    ed_Ekin_lattice=ed_Ekin_lattice/dble(Nlat)
+    ed_Eloc_lattice=ed_Eloc_lattice/dble(Nlat)
+    Eout = [ed_Ekin_lattice,ed_Eloc_lattice]
+    deallocate(wm)
+    call write_kinetic_info()
+    call write_kinetic(Eout)
+  end function kinetic_energy_lattice_normal_main
+
+  function kinetic_energy_lattice_normal_1(Hk,Wtk,Sigma) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
+    complex(8),dimension(:,:,:,:)                             :: Sigma  ! [Nlat][Nspin*Norb][Nspin*Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,4)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    integer                                                   :: ilat,jlat,iorb,jorb,ispin,jspin,io,jo,is,js
+    integer                                                   :: Nlat,Nlso,Nso,Lk,Liw
+    real(8)                                                   :: ed_Ekin_lattice(2)
+    Nlat = size(Sigma,1)
+    Nlso = size(Hk,1)
+    Nso  = size(Sigma,2)
+    Lk   = size(Hk,3)
+    Liw  = size(Sigma,4)
+    Nlso = Nlat*Nso
+    call assert_shape(Hk,[Nlso,Nlso,Lk],"kinetic_energy_lattice_normal_1","Hk")
+    call assert_shape(Sigma,[Nlat,Nso,Nso,Liw],"kinetic_energy_lattice_normal_1","Sigma")
+    Sigma_ = zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Nspin*Norb
+                   Sigma_(is,js,:) = Sigma(ilat,io,jo,:)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_normal_main(Hk,Wtk,Sigma_)
+  end function kinetic_energy_lattice_normal_1
+
+  function kinetic_energy_lattice_normal_2(Hk,Wtk,Sigma) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
+    complex(8),dimension(:,:,:,:,:,:)                         :: Sigma  ! [Nlat][Nspin][Nspin][Norb][Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,6)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    integer                                                   :: ilat,jlat,iorb,jorb,ispin,jspin,io,jo,is,js
+    integer                                                   :: Nlat,Nspin,Norb,Nlso,Nso,Lk,Liw
+    real(8)                                                   :: ed_Ekin_lattice(2)
+    !Get generalized Lattice-Spin-Orbital index
+    Nlat = size(Sigma,1)
+    Nspin= size(Sigma,2)
+    Norb = size(Sigma,4)
+    Nlso = size(Hk,1)
+    Liw  = size(Sigma,6)
+    Lk   = size(Hk,3)
+    Nlso = Nlat*Nspin*Norb
+    call assert_shape(Hk,[Nlso,Nlso,Lk],"kinetic_energy_lattice_normal_2","Hk")
+    call assert_shape(Sigma,[Nlat,Nspin,Nspin,Norb,Norb,Liw],"kinetic_energy_lattice_normal_2","Sigma")
+    Sigma_ = zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Nspin*Norb
+                   Sigma_(is,js,:) = Sigma(ilat,ispin,jspin,iorb,jorb,:)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_normal_main(Hk,Wtk,Sigma_)
+  end function kinetic_energy_lattice_normal_2
+
+  function kinetic_energy_lattice_normal_1B(Hk,Wtk,Sigma) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
+    complex(8),dimension(:,:)                                 :: Sigma  ! [Nlat][L]
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,2)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb]][L]
+    integer                                                   :: ilat
+    integer                                                   :: Nlat,Nlso,Nso,Lk
+    real(8)                                                   :: ed_Ekin_lattice(2)
+    Nlat = size(Sigma,1)
+    Nlso = size(Hk,1)
+    Lk   = size(Hk,3)
+    Nlso = Nlat*1*1
+    call assert_shape(Hk,[Nlso,Nlso,Lk],"kinetic_energy_lattice_normal_1B","Hk")
+    Sigma_ = zero
+    do ilat=1,Nlat
+       Sigma_(ilat,ilat,:) = Sigma(ilat,:)
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_normal_main(Hk,Wtk,Sigma_)
+  end function kinetic_energy_lattice_normal_1B
+
+
+
+
+
+
+
+
+
+
+  !-------------------------------------------------------------------------------------------
+  !PURPOSE: Evaluate the Kinetic energy for the general lattice case, given 
+  ! the Hamiltonian matrix Hk and the DMFT self-energy Sigma.
+  ! The main routine accept:
+  ! - Sigma: [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+  ! - Sigma: [Nlat][Nspin*Norb][Nspin*Norb][L]
+  ! - Sigma: [Nlat][Nspin][Nspin][Norb][Norb][L]
+  ! - Sigma: [Nlat][L]
+  !-------------------------------------------------------------------------------------------
+  function kinetic_energy_lattice_superc_main(Hk,Wtk,Sigma,SigmaA) result(Eout)
+    complex(8),dimension(:,:,:)                     :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                   :: wtk    ! [Nk]
+    complex(8),dimension(:,:,:)                     :: Sigma  ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    complex(8),dimension(:,:,:)                     :: SigmaA ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]  
+    !aux
+    integer                                         :: Lk,Nlso,Liw
+    integer                                         :: ik
+    integer                                         :: i,iorb,ilat,ispin,io,is
+    integer                                         :: j,jorb,jlat,jspin,jo,js
+    real(8),dimension(size(Hk,1),size(Hk,2))        :: Sigma_HF
+    complex(8),dimension(size(Hk,1),size(Hk,2))     :: Ak,Bk,Ck,Dk,Hloc
+    complex(8),dimension(size(Hk,1),size(Hk,2))     :: Tk
+    complex(8),dimension(size(Hk,1),size(Hk,2))     :: Gk
+    complex(8),dimension(2*size(Hk,1),2*size(Hk,2)) :: Gknambu
+    real(8)                                         :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
+    !
+    real(8)                                         :: H0,H0k,H0ktmp,Hl,Hlk,Hlktmp
+    real(8)                                         :: ed_Ekin_lattice,ed_Eloc_lattice
+    real(8)                                         :: Eout(2)
+    !Get generalized Lattice-Spin-Orbital index
+    Nlso = size(Hk,1)
+    Lk   = size(Hk,3)
+    Liw  = size(Sigma,3)
+    call assert_shape(Hk,[Nlso,Nlso,Lk],"kinetic_energy_lattice_superc_main","Hk")
+    call assert_shape(Sigma,[Nlso,Nlso,Liw],"kinetic_energy_lattice_superc_main","Sigma")
+    call assert_shape(SigmaA,[Nlso,Nlso,Liw],"kinetic_energy_lattice_superc_main","Self")
+    !
+    !Allocate and setup the Matsubara freq.
+    if(allocated(wm))deallocate(wm);allocate(wm(Liw))
+    wm = pi/beta*(2*arange(1,Liw)-1)
+    !
+    ! Get the block diagonal part of the local Hamiltonian 
+    ! This term gives rise to an additional E_loc = Hloc*n
+    ! This latter was already evaluated in the previous version of the code
+    ! by means of Eii = Epot + Eknot in the WRAP_ED module.
+    ! Thus we had to remove the corresponding part of the Hamiltonian.
+    ! Get the block diagonal part of the local Hamiltonian 
+    ! This term gives rise to an additional E_loc = Hloc*n
+    Hloc = sum(Hk(:,:,:),dim=3)/Lk
+    where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
+    if(ED_MPI_ID==0)call print_hloc(Hloc)
+    !
+    !Get HF part of the self-energy
+    Sigma_HF(1:Nlso,1:Nlso) = dreal(Sigma(1:Nlso,1:Nlso,Liw))
+    !
+    !Start the timer:
+    if(mpiID==0) write(LOGfile,*) "Kinetic energy computation"
+    if(mpiID==0)call start_timer
+    ed_Ekin_lattice = 0d0
+    ed_Eloc_lattice = 0d0
+    H0              = 0d0
+    Hl              = 0d0
+    !Get principal part: Tr[ Hk.(Gk-Tk) ]
+    do ik=1,Lk
+       Ak    = Hk(:,:,ik) - Hloc(:,:)
+       Gk    = zero
+       H0ktmp= 0d0      
+       H0k   = 0d0
+       Hlktmp= 0d0      
+       Hlk   = 0d0
+       !
+       do i=1+mpiID,Lmats,mpiSIZE
+          Gknambu=zero
+          Gknambu(1:Nlso,1:Nlso)               = (xi*wm(i) + xmu)*eye(Nlso) -       Sigma(:,:,i)  - Hk(:,:,ik)
+          Gknambu(1:Nlso,Nlso+1:2*Nlso)        =                            -       SigmaA(:,:,i)
+          Gknambu(Nlso+1:2*Nlso,1:Nlso)        =                            -       SigmaA(:,:,i)
+          Gknambu(Nlso+1:2*Nlso,Nlso+1:2*Nlso) = (xi*wm(i) - xmu)*eye(Nlso) + conjg(Sigma(:,:,i)) + Hk(:,:,ik)
+          call inv(Gknambu(:,:))
+          !extract the 11-block component:
+          Gk(:,:) = Gknambu(1:Nlso,1:Nlso)
+          Tk = zeye(Nlso)/(xi*wm(i)) - (-Hk(:,:,ik) - Sigma_HF(:,:))/(xi*wm(i))**2
+          Ck = matmul(Ak,Gk(:,:) - Tk)
+          Dk = matmul(Hloc,Gk(:,:) - Tk)
+          H0ktmp = H0ktmp + Wtk(ik)*trace_matrix(Ck,Nlso)
+          Hlktmp = Hlktmp + Wtk(ik)*trace_matrix(Dk,Nlso)
+       enddo
+#ifdef _MPI_INEQ
+       call MPI_ALLREDUCE(H0ktmp,H0k,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+       call MPI_ALLREDUCE(Hlktmp,Hlk,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+       H0k = H0ktmp
+       Hlk = Hlktmp
+#endif
+       H0 = H0 + H0k
+       Hl = Hl + Hlk
+       if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+    enddo
+    if(mpiID==0)call stop_timer
+    spin_degeneracy=3.d0-Nspin !2 if Nspin=1, 1 if Nspin=2
+    H0 = H0/beta*2d0*spin_degeneracy
+    Hl = Hl/beta*2d0*spin_degeneracy
+    !
+    !get tail subtracted contribution: Tr[ Hk.Tk ]
+    Tail0=0d0
+    Tail1=0d0
+    Lail0=0d0
+    Lail1=0d0
+    do ik=1,Lk
+       Ak    = Hk(:,:,ik) - Hloc(:,:)
+       Ck= matmul(Ak,(-Hk(:,:,ik)-Sigma_HF(:,:)))
+       Dk= matmul(Hloc,(-Hk(:,:,ik)-Sigma_HF(:,:)))
+       Tail0 = Tail0 + 0.5d0*Wtk(ik)*trace_matrix(Ak,Nlso)
+       Tail1 = Tail1 + 0.25d0*Wtk(ik)*trace_matrix(Ck,Nlso)
+       Lail0 = Lail0 + 0.5d0*Wtk(ik)*trace_matrix(Hloc(:,:),Nlso)
+       Lail1 = Lail1 + 0.25d0*Wtk(ik)*trace_matrix(Dk,Nlso)
+    enddo
+    Tail0=spin_degeneracy*Tail0
+    Tail1=spin_degeneracy*Tail1*beta
+    Lail0=spin_degeneracy*Lail0
+    Lail1=spin_degeneracy*Lail1*beta
+    ed_Ekin_lattice=H0+Tail0+Tail1
+    ed_Eloc_lattice=Hl+Lail0+Lail1
+    ed_Ekin_lattice=ed_Ekin_lattice/dble(Nlat)
+    ed_Eloc_lattice=ed_Eloc_lattice/dble(Nlat)
+    Eout = [ed_Ekin_lattice,ed_Eloc_lattice]
+    deallocate(wm)
+    call write_kinetic_info()
+    call write_kinetic(Eout)
+  end function kinetic_energy_lattice_superc_main
+
+  function kinetic_energy_lattice_superc_1(Hk,Wtk,Sigma,SigmaA) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
+    complex(8),dimension(:,:,:,:)                             :: Sigma  ! [Nlat][Nspin*Norb][Nspin*Norb][L]
+    complex(8),dimension(:,:,:,:)                             :: SigmaA ! [Nlat][Nspin*Norb][Nspin*Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,4)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,4)) :: SigmaA_! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    integer                                                   :: i,iorb,ilat,ispin,io,is
+    integer                                                   :: j,jorb,jlat,jspin,jo,js
+    integer                                                   :: Nlat,Nlso,Nso,Lk,Liw
+    real(8)                                                   :: ed_Ekin_lattice(2)
+    !Get generalized Lattice-Spin-Orbital index
+    Nlat = size(Sigma,1)
+    Nlso = size(Hk,1)
+    Nso  = size(Sigma,2)
+    Lk   = size(Hk,3)
+    Liw  = size(Sigma,4)
+    Nlso = Nlat*Nso
+    call assert_shape(Hk,[Nlso,Nlso,Lk],"kinetic_energy_lattice_superc_1","Hk")
+    call assert_shape(Sigma,[Nlat,Nso,Nso,Liw],"kinetic_energy_lattice_superc_1","Sigma")
+    call assert_shape(SigmaA,[Nlat,Nso,Nso,Liw],"kinetic_energy_lattice_superc_1","Self")
+    Sigma_=zero
+    SigmaA_=zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb !spin-orbit stride
+                   jo = jorb + (jspin-1)*Norb !spin-orbit stride
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   Sigma_(is,js,:) = Sigma(ilat,io,jo,:)
+                   SigmaA_(is,js,:)= SigmaA(ilat,io,jo,:)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_superc_main(Hk,Wtk,Sigma_,SigmaA_)
+  end function kinetic_energy_lattice_superc_1
+
+  function kinetic_energy_lattice_superc_2(Hk,Wtk,Sigma,SigmaA) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                               :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                             :: wtk    ! [Nk]
+    complex(8),dimension(:,:,:,:,:,:)                         :: Sigma  ! [Nlat][Nspin][Nspin][Norb][Norb][L]
+    complex(8),dimension(:,:,:,:,:,:)                         :: SigmaA ! [Nlat][Nspin][Nspin][Norb][Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,6)) :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,6)) :: SigmaA_! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    integer                                                   :: i,iorb,ilat,ispin,io,is
+    integer                                                   :: j,jorb,jlat,jspin,jo,js
+    integer                                                   :: Nlat,Nspin,Norb,Nlso,Nso,Lk,Liw
+    real(8)                                                   :: ed_Ekin_lattice(2)
+    !Get generalized Lattice-Spin-Orbital index
+    Nlat = size(Sigma,1)
+    Nspin= size(Sigma,2)
+    Norb = size(Sigma,4)
+    Nlso = size(Hk,1)
+    Liw  = size(Sigma,6)
+    Lk   = size(Hk,3)
+    Nlso = Nlat*Nspin*Norb
+    call assert_shape(Hk,[Nlso,Nlso,Lk],"kinetic_energy_lattice_superc_2","Hk")
+    call assert_shape(Sigma,[Nlat,Nspin,Nspin,Norb,Norb,Liw],"kinetic_energy_lattice_superc_2","Sigma")
+    call assert_shape(SigmaA,[Nlat,Nspin,Nspin,Norb,Norb,Liw],"kinetic_energy_lattice_superc_2","Self")
+    Sigma_=zero
+    SigmaA_=zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   Sigma_(is,js,:) = Sigma(ilat,ispin,jspin,iorb,jorb,:)
+                   SigmaA_(is,js,:)= SigmaA(ilat,ispin,jspin,iorb,jorb,:)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_superc_main(Hk,Wtk,Sigma_,SigmaA_)
+  end function kinetic_energy_lattice_superc_2
+
+  function kinetic_energy_lattice_superc_1B(Hk,Wtk,Sigma,SigmaA) result(ed_Ekin_lattice)
+    complex(8),dimension(:,:,:)                                 :: Hk     ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3))                               :: wtk    ! [Nk]
+    complex(8),dimension(:,:)                                   :: Sigma  ! [Nlat][L]
+    complex(8),dimension(size(Sigma,1),size(Sigma,2))           :: SigmaA ! [Nlat][L]  
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,2))   :: Sigma_ ! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    complex(8),dimension(size(Hk,1),size(Hk,1),size(Sigma,2))   :: SigmaA_! [Nlat*Nspin*Norb][Nlat*Nspin*Norb][L]
+    integer                                                     :: i,iorb,ilat,ispin,io,is
+    integer                                                     :: j,jorb,jlat,jspin,jo,js
+    integer                                                     :: Nlat,Nlso,Nso,Lk,Liw
+    real(8)                                                     :: ed_Ekin_lattice(2)
+    Nlat = size(Sigma,1)
+    Nlso = size(Hk,1)
+    Lk   = size(Hk,3)
+    Nlso = Nlat*1*1
+    call assert_shape(Hk,[Nlso,Nlso,Lk],"kinetic_energy_lattice_superc_1B","Hk")
+    Sigma_=zero
+    SigmaA_=zero
+    do ilat=1,Nlat
+       Sigma_(ilat,ilat,:)  = Sigma(ilat,:)
+       SigmaA_(ilat,ilat,:) = SigmaA(ilat,:)
+    enddo
+    ed_Ekin_lattice = kinetic_energy_lattice_superc_main(Hk,Wtk,Sigma_,SigmaA_)
+  end function kinetic_energy_lattice_superc_1B
+
+
+
+
+
+
+
+
+
   !####################################################################
   !                    COMPUTATIONAL ROUTINES
   !####################################################################
   function trace_matrix(M,dim) result(tr)
     integer                       :: dim
     complex(8),dimension(dim,dim) :: M
-    complex(8) :: tr
+    complex(8)                    :: tr
     integer                       :: i
     tr=dcmplx(0d0,0d0)
     do i=1,dim

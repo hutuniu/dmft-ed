@@ -20,7 +20,7 @@ MODULE ED_GREENS_FUNCTIONS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
   USE ED_BATH
-  USE ED_AUX_FUNX
+  USE ED_SETUP
   USE ED_HAMILTONIAN
   USE ED_MATVEC
   !
@@ -196,7 +196,7 @@ contains
     densChi_tau=zero
     densChi_w=zero
     densChi_iv=zero
-    
+
     densChi_tot_tau=zero
     densChi_tot_w=zero
     densChi_tot_iv=zero

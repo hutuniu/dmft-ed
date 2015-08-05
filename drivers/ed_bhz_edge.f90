@@ -86,6 +86,7 @@ program ed_bhz_edge
   call build_hkr(trim(hkfile))
   Hloc = lso2nnn_reshape(bhzHloc,Nlat,Nspin,Norb)
 
+
   !Setup solver
   Nb=get_bath_size()
   allocate(Bath(Nlat,Nb), Bath_Prev(Nlat,Nb) )
@@ -106,7 +107,7 @@ program ed_bhz_edge
      ! compute the local gf:
      call ed_get_gloc_lattice(Hkr,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
      ! compute the Weiss field
-     call ed_get_weiss_lattice(Nlat,Gmats,Smats,Delta,Hloc)
+     call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc,iprint=1)
      ! fit baths and mix result with old baths
      call ed_chi2_fitgf_lattice(bath,Delta,Hloc,ispin=1)
      if(.not.spinsym)then

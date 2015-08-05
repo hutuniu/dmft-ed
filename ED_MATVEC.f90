@@ -2,7 +2,6 @@ MODULE ED_MATVEC
   USE SF_CONSTANTS, only:zero
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
-  USE ED_AUX_FUNX
   implicit none
   private
 

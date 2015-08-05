@@ -1088,7 +1088,7 @@ contains
     real(8)                :: sign
     logical,optional       :: save
     logical                :: save_
-    save_=.false.;if(present(save))save_=save
+    save_=.true.;if(present(save))save_=save
     call allocate_bath(dmft_bath_)
     call set_bath(bath_,dmft_bath_)
     dmft_bath_%e(1,:,:)    =dmft_bath_%e(1,:,:)      + sign*field
@@ -1103,7 +1103,7 @@ contains
     type(effective_bath)   :: dmft_bath_
     logical,optional       :: save
     logical                :: save_
-    save_=.false.;if(present(save))save_=save
+    save_=.true.;if(present(save))save_=save
     if(Nspin==1)then
        if(ED_MPI_ID==0)write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
        return
@@ -1124,7 +1124,7 @@ contains
     integer                :: i
     logical,optional       :: save
     logical                :: save_
-    save_=.false.;if(present(save))save_=save
+    save_=.true.;if(present(save))save_=save
     call allocate_bath(dmft_bath_)
     call set_bath(bath_,dmft_bath_)
     if(Nbath==1)return
@@ -1154,7 +1154,7 @@ contains
     integer                :: i
     logical,optional       :: save
     logical                :: save_
-    save_=.false.;if(present(save))save_=save
+    save_=.true.;if(present(save))save_=save
     call allocate_bath(dmft_bath_)
     call allocate_bath(tmp_dmft_bath)
     call set_bath(bath_,dmft_bath_)
@@ -1190,7 +1190,7 @@ contains
     type(effective_bath)   :: dmft_bath_
     logical,optional       :: save
     logical                :: save_
-    save_=.false.;if(present(save))save_=save
+    save_=.true.;if(present(save))save_=save
     call allocate_bath(dmft_bath_)
     call set_bath(bath_,dmft_bath_)
     if(ed_mode=="superc")dmft_bath_%d(:,:,:)=0.d0
