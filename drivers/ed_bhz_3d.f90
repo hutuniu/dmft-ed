@@ -1,17 +1,4 @@
-!                    MODEL Hamiltonian is:
-!
-! |     h^{2x2}(k)             &          hso^{2x2}(k)        |
-! |     [hso^{2x2}]*(k)        &         [h^{2x2}]*(-k)       |
-!
-! h^{2x2}(k):=
-!
-! | m-(Cos{kx}+Cos{ky})         & \lambda*(Sin{kx}-i*Sin{ky}) |
-! | \lambda*(Sin{kx}+i*Sin{ky}) & -m+(Cos{kx}+Cos{ky})        |
-!
-! hso^{2x2}(k):=
-! | xi*rh*(sin(kx)-xi*sin(ky))  &         \delta              |
-! |         -\delta             &             0               |
-program ed_bhz
+program ed_bhz_3d
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
@@ -39,7 +26,9 @@ program ed_bhz
   real(8)                :: wmixing
   character(len=16)      :: finput
   character(len=32)      :: hkfile
-  logical                :: spinsym
+  logical                :: spinsym,getpoles
+  !
+  type(finter_type)      :: finter_func
   !
   real(8),dimension(2)   :: Eout
   !
@@ -64,6 +53,7 @@ program ed_bhz
   !
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.75d0)
   call parse_input_variable(spinsym,"SPINSYM",finput,default=.true.)
+  call parse_input_variable(getpoles,"GETPOLES",finput,default=.false.)
   !
   call ed_read_input(trim(finput))
   !
@@ -76,6 +66,12 @@ program ed_bhz
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
+  !
+  !
+  if(getpoles)then
+     call get_poles
+     stop
+  endif
   !
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
@@ -223,15 +219,11 @@ contains
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
     Npts = 9
     Lk=(Npts-1)*Nkpath
+    print*,Lk
     if(allocated(Hk))deallocate(Hk)
     if(allocated(wtk))deallocate(wtk)
-    if(allocated(kxgrid))deallocate(kxgrid)
-    if(allocated(kygrid))deallocate(kygrid)
     allocate(Hk(Nso,Nso,Lk))
     allocate(wtk(Lk))
-    allocate(kxgrid(Lk))
-    allocate(kygrid(Lk))
-    allocate(kzgrid(Lk))
     allocate(kpath(Npts,3))
     kpath(1,:)=[0,0,0]!G
     kpath(2,:)=[1,0,0]!X
@@ -243,10 +235,7 @@ contains
     kpath(8,:)=[1,1,1]!R
     kpath(9,:)=[0,0,0]!G
     kpath=kpath*pi
-    kxgrid = kgrid_from_path(kpath,Npts,Nkpath,1)
-    kygrid = kgrid_from_path(kpath,Npts,Nkpath,2)
-    kzgrid = kgrid_from_path(kpath,Npts,Nkpath,3)
-    Hk     = build_hk_model(hk_bhz,Nso,kxgrid,kygrid,kzgrid)
+    Hk     = build_hk_model(hk_bhz,Nso,kpath,Nkpath)
     wtk    = 1d0/Lk
     if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_bhz,Nso,kpath,Lk,&
          colors_name=[character(len=20) :: 'red','blue','red','blue'],&
@@ -282,6 +271,115 @@ contains
     Hk(3:4,1:2) = lambda*sin(kz)*pauli_tau_x
   end function hk_bhz
 
+
+
+
+  !---------------------------------------------------------------------
+  !PURPOSE: GET POLES ON THE REAL AXIS
+  !---------------------------------------------------------------------
+  subroutine get_poles
+    USE IOFILE
+    integer                                     :: i,j,ik,ix,iy
+    integer                                     :: iorb,jorb
+    integer                                     :: isporb,jsporb
+    integer                                     :: ispin,jspin
+    integer                                     :: iso,unit
+    real(8),dimension(Nso)                      :: dzeta
+    complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta,fgk
+    complex(8),dimension(:,:,:,:,:),allocatable :: gloc,Sreal,Smats
+    complex(8),dimension(:,:,:,:),allocatable   :: gk,gfoo,ReSmat
+    complex(8)                                  :: iw
+    complex(8),dimension(:,:),allocatable       :: detGiw
+    real(8)                                     :: wr(Lreal),wm(Lmats)
+    real(8),dimension(Lreal)                    :: Den
+    real(8),dimension(:),allocatable            :: Ipoles,Xcsign,Iweight
+    real(8),dimension(:,:),allocatable          :: Ipoles3d
+    real(8),dimension(:,:),allocatable          :: Mpoles,Mweight
+    real(8),dimension(:,:,:),allocatable        :: Mpoles3d
+    integer                                     :: Linterval
+    integer                                     :: count,Ninterval,maxNinterval,int
+    real(8)                                     :: sign,sign_old
+    wr = linspace(wini,wfin,Lreal)
+    wm = pi/beta*(2*arange(1,Lmats)-1)
+    allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
+    allocate(Smats(Nspin,Nspin,Norb,Norb,Lmats))
+    call read_sigma(Sreal)
+    call read_sigma(Smats)
+    !
+    call build_hk_path
+    !
+    Linterval = 150 !Maximum number of allowed intervals to look for zeros&poles
+    !
+    allocate(Xcsign(0:Linterval))
+    allocate(Ipoles(Lk),Iweight(Lk))
+    allocate(Mpoles(Lk,Linterval),Mweight(Lk,Linterval))
+    !
+    !FINDING THE POLES:
+    !assume \eps=0.d0 ==> the ImSigma(poles)=0 this condition should be automatically
+    !verified at the pole from definition of the pole (the ImSigma at the pole is just
+    !an artificial broadening of an otherwise delta function, whose position should be 
+    !determined by ReSigma only.
+    Ipoles=0.d0   
+    Mpoles=0.d0
+    write(LOGfile,*)"Solving for the poles..."
+    maxNinterval=-1
+    do ik=1,Lk
+       do i=1,Lreal
+          zeta(:,:) = (wr(i)+xmu)*eye(Nso) - dreal(so2j(Sreal(:,:,:,:,i),Nso))
+          Den(i) = dreal((zeta(1,1) - Hk(1,1,ik))*(zeta(2,2) - Hk(2,2,ik))) - Hk(1,2,ik)*Hk(2,1,ik)
+       enddo
+       Xcsign(0)=0.d0
+       count=0
+       sign_old=sgn(Den(Lreal/2+1))
+       do i=Lreal/2+1,Lreal
+          sign=sgn(Den(i))
+          if(sign*sign_old<1)then
+             count=count+1
+             if(count>Linterval)stop"Allocate Xcsign to a larger array."
+             Xcsign(count)=wr(i)
+          endif
+          sign_old=sign
+       enddo
+       Ninterval=count
+       if(count>maxNinterval)maxNinterval=count
+       call init_finter(finter_func,wr,Den,3)
+       do int=1,Ninterval
+          Mpoles(ik,int) = fzero_brentq(det_poles,Xcsign(int-1),Xcsign(int))
+          Mweight(ik,int)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1),Nso))
+       enddo
+       ipoles(ik) = fzero_brentq(det_poles,0.d0,wr(Lreal))
+       iweight(ik)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1),Nso))
+       call delete_finter(finter_func)
+    enddo
+    call splot("BHZpoles.ed",(/(ik-1,ik=1,Lk)/),ipoles(:),iweight(:))
+    unit=free_unit()
+    open(unit,file="BHZpoles_all.ed")
+    do int=1,maxNinterval
+       if(any((Mpoles(:,int)/=0.d0)))then
+          do ik=1,Lk
+             if(Mpoles(ik,int)/=0.d0)write(unit,*)ik-1,Mpoles(ik,int),Mweight(ik,int)
+          enddo
+          write(unit,*)""
+       endif
+    enddo
+    close(unit)
+    !
+  end subroutine get_poles
+
+  function det_poles(w) result(det)
+    real(8),intent(in) :: w
+    real(8)            :: det
+    det = finter(finter_func,w)
+  end function det_poles
+
+  function get_weight(hk) result(wt)
+    complex(8),dimension(4,4) :: hk,foo
+    real(8),dimension(4)      :: eigv
+    real(8) :: wt
+    foo = hk
+    call matrix_diagonalize(foo,eigv)
+    wt = sum(foo(:,1))
+  end function Get_Weight
 
 
 
@@ -420,7 +518,7 @@ contains
   end function j2so
 
 
-end program ed_bhz
+end program ed_bhz_3d
 
 
 
