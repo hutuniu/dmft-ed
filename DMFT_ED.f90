@@ -6,7 +6,7 @@ MODULE DMFT_ED
        icol        ,&
        irow        ,&
        ij2site     ,&
-       H0          ,&
+       ! H0          ,&
        impSmats    ,&
        impSAmats   ,&
        impSreal    ,&
@@ -28,7 +28,6 @@ MODULE DMFT_ED
        lso2nnn_reshape       ,&
        nnn2lso_reshape       ,&
        get_independent_sites ,&  
-       get_lattice_hamiltonian,& !OBSOLETE (to be removed)
        search_chemical_potential
 
 

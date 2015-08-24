@@ -71,8 +71,6 @@ MODULE ED_INPUT_VARS
   !RDMFT VARIABLES:
   !=========================================================
   integer              :: Nside            !linear size of the cluster to be solved.
-  logical              :: pbcflag          !periodic boundary conditions flag
-  logical              :: symmflag         !Enforce trap cubic symmetry in the xy-plane.
   real(8)              :: rdmft_nread      !density value for chemical potential search.
   real(8)              :: rdmft_nerror     ! max error in adjusting chemical potential. 
   real(8)              :: rdmft_ndelta     !starting value for chemical potential shift.
@@ -151,8 +149,6 @@ contains
     ! call parse_input_variable(rdmft_lrsym,"RDMFT_LRSYM",INPUTunit,default=.false.)
     call parse_input_variable(fileSig,"FILESIG",INPUTunit,default="LSigma.data")
     call parse_input_variable(fileSelf,"FILESELF",INPUTunit,default="LSelf.data")
-    ! call parse_input_variable(symmflag,"SYMMFLAG",INPUTunit,default=.false.)
-    call parse_input_variable(pbcflag,"PBCFLAG",INPUTunit,default=.true.)
     call parse_input_variable(mix_type,"MIX_TYPE",INPUTunit,default=0)
 
     call substring_delete(ed_file_suffix,".ed")

@@ -70,7 +70,6 @@ MODULE ED_AUX_FUNX
   public :: stride_index
   public :: get_independent_sites  
   !OBSOLETE (to be removed)
-  public :: get_lattice_hamiltonian      !+- produce the 2D square/ slab-chain Hamiltonian -+! 
   public :: search_chemical_potential
 
 contains
@@ -670,102 +669,6 @@ contains
 
 
 
-  !+--------------------------------------------------------------------------------+!
-  ! !!!!! OBSOLETE ROUTINE !!!!!!! Hlattice defined in the driver
-  ! THIS IS LEFT ONLY FOR BACK COMPATIBILITY WITH OLD CODES (TO BE REMOVED)
-  ! SUPERSEDED BY DMFT_TIGHT_BINDING PROCEDURES GENERATING SQUARE LATTICE TB HAMILTONIAN
-  ! VIA DFT OF THE k-space FUNCTION.
-  !+--------------------------------------------------------------------------------+!
-  subroutine get_lattice_hamiltonian(Nrow,Ncol,pbc_row,pbc_col,ts)
-    integer          :: Nrow
-    integer,optional :: Ncol
-    logical,optional :: pbc_row,pbc_col
-    logical          :: pbc_row_,pbc_col_
-    real(8),optional :: ts
-    real(8)          :: ts_
-    integer          :: i,jj,row,col,link(4)
-    integer          :: unit
-    !
-    pbc_row_=.false.;pbc_col_=.false.
-    if(pbcflag) then
-       pbc_row_=.true.
-       pbc_col_=.true.
-    end if
-    if(present(pbc_row)) pbc_row_=pbc_row
-    if(present(pbc_col)) pbc_col_=pbc_col
-    ts_=0.5d0;if(present(ts))ts_=ts
-    !
-    allocate(H0(Nlat,Nlat))
-    H0 = 0.d0
-    unit=free_unit()
-    if(mpiID==0) open(unit,file='rdmft_sites.lattice')
-    if(present(Ncol)) then 
-       !+- 2D LATTICE (NROW x NCOL) -+!
-       if(Nlat /= Nrow*Ncol) stop "Nlat != Nrow*Ncol"
-       allocate(icol(Nlat),irow(Nlat))
-       allocate(ij2site(Nrow,Ncol))
-       do row=0,Nrow-1
-          do col=0,Ncol-1
-             i=col+ 1 + row*Ncol
-             !
-             irow(i)=row+1
-             icol(i)=col+1
-             ij2site(row+1,col+1)=i
-             !
-             if(mpiID==0) write(unit,*) dble(col+1),dble(row+1)
-             !right hop
-             link(1)= i + 1     
-             if((col+1)==Ncol) then
-                if(pbc_col_) then
-                   link(1)=1+row*Ncol  
-                else
-                   link(1)=0  
-                end if
-             end if
-             !left  hop
-             link(3)= i - 1    
-             if((col-1)<0)     then
-                if(pbc_col_) then
-                   link(3)=Ncol+row*Ncol
-                else
-                   link(3)=0  
-                end if
-             end if
-             !up    hop
-             link(2)= i + Ncol 
-             if((row+1)==Nrow) then
-                if(pbc_row_) then
-                   link(2)=col+1
-                else
-                   link(2)=0  
-                end if
-             end if
-             !down  hop
-             link(4)= i - Ncol 
-             if((row-1)<0)     then
-                if(pbc_row_) then
-                   link(4)=col+1+(Nrow-1)*Ncol
-                else
-                   link(4)=0  
-                end if
-             end if
-             !
-             do jj=1,4
-                if(link(jj)>0)H0(i,link(jj))=-ts_ !! ts must be negative.
-             enddo
-             !
-          enddo
-       enddo
-    else
-       !+- 1D LATTICE (CHAIN) -+!
-       if(Nlat /= Nrow) stop "Nlat != Nrow"
-       do i=1,Nrow-1
-          H0(i,i+1)=-ts_
-          H0(i+1,i)=-ts_
-       end do
-    end if
-    if(mpiID==0) close(unit)
-  end subroutine get_lattice_hamiltonian
 
 
 

@@ -5,7 +5,7 @@ FC=mpif90
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=gnu
+PLAT=intel
 
 
 ##$ PRECOMPILATION FLAGS
@@ -92,7 +92,7 @@ endif
 ##$ 
 ##$ ELSE:
 ##$ 
-ARGS= -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas  -larpack 
+ARGS= -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas -larpack 
 
 
 

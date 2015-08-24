@@ -119,7 +119,7 @@ MODULE ED_VARS_GLOBAL
   !=========================================================
   integer,dimension(:),allocatable            :: icol,irow
   integer,dimension(:,:),allocatable          :: ij2site
-  real(8),dimension(:,:),allocatable          :: H0
+  ! real(8),dimension(:,:),allocatable          :: H0
 
 
 END MODULE ED_VARS_GLOBAL
