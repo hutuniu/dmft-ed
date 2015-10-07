@@ -71,8 +71,8 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
   !
   Spin_indx=ispin
   !
-  call allocate_bath(dmft_bath)
-  call set_bath(bath_,dmft_bath)
+  call allocate_dmft_bath(dmft_bath)
+  call set_dmft_bath(bath_,dmft_bath)
   !
   !E_{\s,1}(:)  [ 1 ][ 1 ][Nbath]
   !V_{\s,:}(:)  [ 1 ][ Norb][Nbath]
@@ -157,14 +157,14 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
      enddo
   enddo
   !
-  if(ed_verbose<2)call write_bath(dmft_bath,LOGfile)
+  if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
   !
-  call save_bath(dmft_bath)
+  call save_dmft_bath(dmft_bath)
   !
   if(ed_verbose<3)call write_fit_result(ispin)
   !
-  call copy_bath(dmft_bath,bath_)
-  call deallocate_bath(dmft_bath)
+  call get_dmft_bath(dmft_bath,bath_)
+  call deallocate_dmft_bath(dmft_bath)
   deallocate(Gdelta,Xdelta,Wdelta)
   deallocate(getIorb,getJorb)
   !
