@@ -5,7 +5,7 @@ FC=mpif90
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=intel
+PLAT=gnu
 
 
 ##$ PRECOMPILATION FLAGS
@@ -56,6 +56,7 @@ EXE=ed_bhz_3d
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
+EXE=hartree_nano
 
 ##$ --> Extended Hubbard models 
 #EXE=ed_cdwhm_bethe
