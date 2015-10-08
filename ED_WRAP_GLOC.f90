@@ -495,6 +495,7 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
+       !>DEBUG
        if(present(Gamma_mats))then
           call add_to_gij_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=Gamma_mats)
        else
@@ -520,10 +521,13 @@ contains
              do iorb=1,Norb
                 suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
                 call store_data("Gij"//reg(suffix),Gmats(:,:,ispin,ispin,iorb,iorb,:),wm)
+                !call store_data("G11"//reg(suffix),Gmats(1,1,ispin,ispin,iorb,iorb,:),wm)
                 suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
                 call store_data("Gij"//reg(suffix),Greal(:,:,ispin,ispin,iorb,iorb,:),wr)
+                !call store_data("G11"//reg(suffix),Greal(1,1,ispin,ispin,iorb,iorb,:),wr)
              enddo
           enddo
+          !>DEBUG
        case(2)                  !print spin-diagonal, all orbitals 
           write(LOGfile,*)"write spin diagonal and all orbitals elements:"
           do ispin=1,Nspin

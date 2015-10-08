@@ -33,7 +33,7 @@ program ed_nano
   character(len=32)                               :: finput
   character(len=32)                               :: nfile,hijfile
   !
-  logical                                         :: phsym,hyb2env,conduct
+  logical                                         :: phsym,conduct
   !non-local Green's function:
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gijmats,Gijreal
   !hybridization function to environment
@@ -55,12 +55,13 @@ program ed_nano
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   call parse_input_variable(phsym,"phsym",finput,default=.false.)
 
-  ! parse environment & transport flags
-  call parse_input_variable(hyb2env,"hyb2env",finput,default=.false.)
+  ! parse postprocessing flags
   call parse_input_variable(conduct,"conduct",finput,default=.false.)
 
-  ! read input
+
+
   call ed_read_input(trim(finput))
+
 
 
   ! set input structure hamiltonian
@@ -68,7 +69,7 @@ program ed_nano
 
 
   ! allocate hybridization matrix
-  if(hyb2env) call set_hyb()
+  call set_hyb()
 
 
   ! allocate weiss field:
@@ -111,13 +112,8 @@ program ed_nano
      ! allocates and extracts non-local Green's function
      allocate(Gijmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
      allocate(Gijreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-     if(hyb2env)then
-        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
-        call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=0,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
-     else
-        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
-        call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=1)
-     endif
+     call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+     call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=0,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
 
      ! extract the linear response (zero-bias) transmission function
      ! i.e. the conductance in units of the quantum G0 [e^2/h]
@@ -139,8 +135,6 @@ program ed_nano
 
   do ineq=1,Nineq
      ilat = ineq2lat(ineq)
-     ! break SU(2) symmetry for magnetic solutions
-     if(Nspin>1) call break_symmetry_bath(Bath_ineq(ineq,:),sb_field,dble(sb_field_sign(ineq)))
      Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
   enddo
 
@@ -151,16 +145,13 @@ program ed_nano
      if(mpiID==0) call start_loop(iloop,nloop,"DMFT-loop")   
      bath_prev=bath_ineq
 
-     ! solve impurities on each inequivalent site:
+     ! solve the impurities on each inequivalent site:
      call ed_solve_lattice(bath_ineq,Hloc_ineq)
-
-     ! retrieve self-energies and occupations(Nineq,Norb=1)
-     call ed_get_sigma_matsubara_lattice(Smats_ineq,Nineq)
-     call ed_get_sigma_real_lattice(Sreal_ineq,Nineq)
+     ! retrieve the self-energies and spread them to all lattice sites
      dens_ineq = ed_get_dens_lattice(Nineq,1)
      docc_ineq = ed_get_docc_lattice(Nineq,1)
-     !  
-     ! spread self-energies and occupation to all lattice sites
+     call ed_get_sigma_matsubara_lattice(Smats_ineq,Nineq)
+     call ed_get_sigma_real_lattice(Sreal_ineq,Nineq)
      do ilat=1,Nlat
         ineq = lat2ineq(ilat)
         dens(ilat) = dens_ineq(ineq)
@@ -170,11 +161,7 @@ program ed_nano
      enddo
 
      ! compute the local gf:
-     if(hyb2env)then
-        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
-     else
-        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
-     endif
+     call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
      do ineq=1,Nineq
         ilat = ineq2lat(ineq)
         Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
@@ -183,9 +170,8 @@ program ed_nano
      call ed_get_weiss_lattice(Nineq,Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq)
 
      ! fit baths and mix result with old baths
-     do ispin=1,Nspin
-        call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin)
-     enddo
+     call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin=1)
+     !call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin=2)
      if(phsym)then
         do ineq=1,Nineq
            call ph_symmetrize_bath(bath_ineq(ineq,:),save=.true.)
@@ -194,8 +180,7 @@ program ed_nano
      Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
      if(mpiID==0)then
         converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
-       ! alternative convergency criteria
-       !converged = check_convergence_local(docc_ineq,dmft_error,nsuccess,nloop)
+
         if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
      endif
 #ifdef _MPI_INEQ
@@ -597,6 +582,7 @@ contains
     complex(8),dimension(:,:),allocatable :: transe               ![Nspin][Lreal]
     !
     integer,dimension(:),allocatable      :: rmask,lmask          ![Nlat]
+    logical,dimension(:,:),allocatable    :: RightMask,LeftMask
     !
     real(8),dimension(:),allocatable      :: wr
     integer                               :: ilat,jlat,ispin,jspin,iorb,jorb,io,jo,is,js,i,Nlso,Nlo

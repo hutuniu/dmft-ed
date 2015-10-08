@@ -56,7 +56,7 @@ program ed_nano
   call parse_input_variable(phsym,"phsym",finput,default=.false.)
 
   ! parse environment & transport flags
-  call parse_input_variable(hyb2env,"hyb2env",finput,default=.false.)
+  call parse_input_variable(conduct,"hyb2env",finput,default=.false.)
   call parse_input_variable(conduct,"conduct",finput,default=.false.)
 
   ! read input
@@ -116,7 +116,7 @@ program ed_nano
         call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=0,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
      else
         call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
-        call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=1)
+        call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=0)
      endif
 
      ! extract the linear response (zero-bias) transmission function
@@ -597,6 +597,7 @@ contains
     complex(8),dimension(:,:),allocatable :: transe               ![Nspin][Lreal]
     !
     integer,dimension(:),allocatable      :: rmask,lmask          ![Nlat]
+    logical,dimension(:,:),allocatable    :: RightMask,LeftMask
     !
     real(8),dimension(:),allocatable      :: wr
     integer                               :: ilat,jlat,ispin,jspin,iorb,jorb,io,jo,is,js,i,Nlso,Nlo

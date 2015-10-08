@@ -160,7 +160,7 @@ contains
     !check finiteT
     finiteT=.true.              !assume doing finite T per default
     if(lanc_nstates_total==1)then     !is you only want to keep 1 state
-       lanc_nstates_sector=1            !set the required eigen per sector to 1 see later for neigen_sector
+       !lanc_nstates_sector=1            !set the required eigen per sector to 1 see later for neigen_sector
        finiteT=.false.          !set to do zero temperature calculations
        if(ED_MPI_ID==0)write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
     endif
