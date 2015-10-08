@@ -11,7 +11,7 @@ MODULE ED_GREENS_FUNCTIONS
   USE SF_TIMER  
   USE SF_IOTOOLS, only: free_unit,reg,free_units,txtfy,splot
   USE SF_ARRAYS,  only: arange,linspace
-  USE SF_LINALG,  only: inv
+  USE SF_LINALG,  only: inv,inv_sym,inv_her
   USE PLAIN_LANCZOS
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
@@ -356,30 +356,74 @@ contains
     invG0real(:,:,:,:,:)=invg0_bath_real(dcmplx(wr(:),eps),dmft_bath)
     !
     select case(bath_type)
-    case default
        !
-       !Get Gimp^-1
-       !Get Sigma functions: Sigma= G0^-1 - G^-1
-       do iorb=1,Norb
-          do i=1,Lmats
-             invGimp(:,:) = impGmats(:,:,iorb,iorb,i)
-             call inv(invGimp) !<--- get [G_{imp}]^-1
-             impSmats(:,:,iorb,iorb,i) = invG0mats(:,:,iorb,iorb,i) - invGimp(:,:) !<-- calG0_imp^-1 - Gimp^-1
+       case ("normal")
+       !
+       !Get Gimp^-1 - Matsubara freq.
+       do i=1,Lmats
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      if (iorb.eq.jorb) then
+                         io = iorb + (ispin-1)*Norb
+                         jo = jorb + (jspin-1)*Norb
+                         invGimp(io,jo) = impGmats(ispin,jspin,iorb,jorb,i)
+                      endif
+                   enddo
+                enddo
+             enddo
           enddo
-          !
-          do i=1,Lreal
-             invGimp(:,:) = impGreal(:,:,iorb,iorb,i)
-             call inv(invGimp) !<--- get [G_{imp}]^-1
-             impSreal(:,:,iorb,iorb,i) = invG0real(:,:,iorb,iorb,i) - invGimp(:,:) !<-- calG0_imp^-1 - Gimp^-1
+          call inv(invGimp)!<--- get [G_{imp}]^-1
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      if (iorb.eq.jorb) then
+                         io = iorb + (ispin-1)*Norb
+                         jo = jorb + (jspin-1)*Norb
+                         impSmats(ispin,jspin,iorb,jorb,i) = invG0mats(ispin,jspin,iorb,jorb,i) - invGimp(io,jo) !<-- calG0_imp^-1 - Gimp^-1
+                      endif
+                   enddo
+                enddo
+             enddo
+          enddo
+       enddo
+       !Get Gimp^-1 - Real freq.
+       do i=1,Lreal
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      if (iorb.eq.jorb) then
+                         io = iorb + (ispin-1)*Norb
+                         jo = jorb + (jspin-1)*Norb
+                         invGimp(io,jo) = impGreal(ispin,jspin,iorb,jorb,i)
+                      endif
+                   enddo
+                enddo
+             enddo
+          enddo
+          call inv(invGimp)!<--- get [G_{imp}]^-1
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      if (iorb.eq.jorb) then
+                         io = iorb + (ispin-1)*Norb
+                         jo = jorb + (jspin-1)*Norb
+                         impSreal(ispin,jspin,iorb,jorb,i) = invG0real(ispin,jspin,iorb,jorb,i) - invGimp(io,jo) !<-- calG0_imp^-1 - Gimp^-1
+                      endif
+                   enddo
+                enddo
+             enddo
           enddo
        enddo
        !
-    case ("hybrid")
+       case ("hybrid")
        !
-       !Get Gimp^-1
-       !Get Sigma functions: Sigma= G0^-1 - G^-1
+       !Get Gimp^-1 - Matsubara freq.
        do i=1,Lmats
-          !
           do ispin=1,Nspin
              do jspin=1,Nspin
                 do iorb=1,Norb
@@ -391,9 +435,7 @@ contains
                 enddo
              enddo
           enddo
-          !
-          call inv(invGimp) !<--- get [G_{imp}]^-1
-          !
+          call inv(invGimp)!<--- get [G_{imp}]^-1
           do ispin=1,Nspin
              do jspin=1,Nspin
                 do iorb=1,Norb
@@ -406,7 +448,7 @@ contains
              enddo
           enddo
        enddo
-       !
+       !Get Gimp^-1 - Real freq.
        do i=1,Lreal
           do ispin=1,Nspin
              do jspin=1,Nspin
@@ -419,9 +461,7 @@ contains
                 enddo
              enddo
           enddo
-          !
-          call inv(invGimp) !<--- get [G_{imp}]^-1
-          !
+          call inv(invGimp)!<--- get [G_{imp}]^-1
           do ispin=1,Nspin
              do jspin=1,Nspin
                 do iorb=1,Norb
@@ -440,6 +480,7 @@ contains
     !Get G0and:
     impG0mats(:,:,:,:,:) = g0and_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
     impG0real(:,:,:,:,:) = g0and_bath_real(dcmplx(wr(:),eps),dmft_bath)
+    !
     !
   end subroutine get_sigma_nonsu2
 

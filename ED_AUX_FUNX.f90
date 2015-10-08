@@ -53,10 +53,190 @@ MODULE ED_AUX_FUNX
   public :: twin_sector_order
   public :: get_twin_sector
 
+  public :: symmetrize_alloc
+  public :: symmetrize_no_alloc
+  public :: symmetrize_quarter_block
+
 
 contains
 
 
+
+
+
+  subroutine symmetrize_quarter_block(A)
+  implicit none
+    complex(8),intent(inout)           :: A(Nspin,Nspin,Norb,Norb)
+    complex(8)                         :: Areshape(Nspin*Norb,Nspin*Norb)
+    complex(8),dimension(Norb,Norb)    :: NE,NW,SE,SW
+    integer                            :: isp,jsp,irb,jrb
+    integer                            :: io,jo
+
+    do isp=1,Nspin
+       do jsp=1,Nspin
+          do irb=1,Norb
+             do jrb=1,Norb
+                io = irb + (isp-1)*Norb
+                jo = jrb + (jsp-1)*Norb
+                Areshape(io,jo) = A(isp,jsp,irb,jrb)
+             enddo
+          enddo
+       enddo
+    enddo
+
+    NE=Areshape(1:Norb,1:Norb)
+    NW=Areshape(1:Norb,Norb+1:2*Norb)
+    SE=Areshape(Norb+1:2*Norb,1:Norb)
+    SW=Areshape(Norb+1:2*Norb,Norb+1:2*Norb)
+
+    do io=1,Norb
+       do jo=io+1,Norb
+          NE(jo,io) = (NE(io,jo))
+          SW(jo,io) = (SW(io,jo))
+          NW(jo,io) = (NW(io,jo))
+       enddo
+    enddo
+
+    SE = transpose((NW))
+
+    Areshape=cmplx(0.0d0,0.0d0)
+
+    Areshape(1:Norb,1:Norb)=NE
+    Areshape(1:Norb,Norb+1:2*Norb)=NW
+    Areshape(Norb+1:2*Norb,1:Norb)=SE
+    Areshape(Norb+1:2*Norb,Norb+1:2*Norb)=SW
+
+    do isp=1,Nspin
+       do jsp=1,Nspin
+          do irb=1,Norb
+             do jrb=1,Norb
+
+                io = irb + (isp-1)*Norb
+                jo = jrb + (jsp-1)*Norb
+
+                A(isp,jsp,irb,jrb) = Areshape(io,jo)
+
+             enddo
+          enddo
+       enddo
+    enddo
+
+
+  end subroutine symmetrize_quarter_block
+
+
+
+
+
+
+
+
+
+  subroutine symmetrize_no_alloc(A)
+  implicit none
+    complex(8),intent(inout) :: A(Nspin,Nspin,Norb,Norb)
+    complex(8)               :: Areshape(Nspin*Norb,Nspin*Norb)
+    integer                              :: isp,jsp,irb,jrb
+    integer                              :: io,jo
+
+    do isp=1,Nspin
+       do jsp=1,Nspin
+          do irb=1,Norb
+             do jrb=1,Norb
+
+                io = irb + (isp-1)*Norb
+                jo = jrb + (jsp-1)*Norb
+
+                Areshape(io,jo) = A(isp,jsp,irb,jrb)
+
+             enddo
+          enddo
+       enddo
+    enddo
+
+    do io=1,Nspin*Norb
+       do jo=io+1,Nspin*Norb
+          Areshape(jo,io) = conjg(Areshape(io,jo))
+       enddo
+    enddo
+
+    do isp=1,Nspin
+       do jsp=1,Nspin
+          do irb=1,Norb
+             do jrb=1,Norb
+
+                io = irb + (isp-1)*Norb
+                jo = jrb + (jsp-1)*Norb
+
+                A(isp,jsp,irb,jrb) = Areshape(io,jo)
+
+             enddo
+          enddo
+       enddo
+    enddo
+
+
+  end subroutine symmetrize_no_alloc
+
+
+
+
+  subroutine symmetrize_alloc(A)
+  implicit none
+    complex(8),allocatable,intent(inout) :: A(:,:,:,:,:)
+    complex(8),allocatable               :: Areshape(:,:,:)
+    integer                              :: dim1,dim2,dim3,dim4,dim5
+    integer                              :: i1,i2,i3,i4,i5
+    integer                              :: io,jo
+    dim1=size(A,dim=1)
+    dim2=size(A,dim=2)
+    dim3=size(A,dim=3)
+    dim4=size(A,dim=4)
+    dim5=size(A,dim=5)
+
+    if(dim1.ne.dim2) write(*,*) "something wrong index 1&2"
+    if(dim3.ne.dim4) write(*,*) "something wrong index 3&4"
+
+    allocate(Areshape(dim1*dim3,dim1*dim3,dim5))
+
+    do i1=1,dim1
+       do i2=1,dim1
+          do i3=1,dim3
+             do i4=1,dim3
+
+                io = i3 + (i1-1)*dim3
+                jo = i4 + (i2-1)*dim3
+
+                Areshape(io,jo,:) = A(i1,i2,i3,i4,:)
+
+             enddo
+          enddo
+       enddo
+    enddo
+
+    do io=1,dim1*dim3
+       do jo=io+1,dim1*dim3
+          Areshape(jo,io,:) = conjg(Areshape(io,jo,:))
+       enddo
+    enddo
+
+    do i1=1,dim1
+       do i2=1,dim1
+          do i3=1,dim3
+             do i4=1,dim3
+
+                io = i3 + (i1-1)*dim3
+                jo = i4 + (i2-1)*dim3
+
+                A(i1,i2,i3,i4,:) = Areshape(io,jo,:)
+
+             enddo
+          enddo
+       enddo
+    enddo
+
+
+  end subroutine symmetrize_alloc
 
 
 

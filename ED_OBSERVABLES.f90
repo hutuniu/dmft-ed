@@ -380,7 +380,8 @@ contains
     endif
     !
     unit = free_unit()
-    open(unit,file="observables_last"//reg(ed_file_suffix)//".ed")
+    !open(unit,file="observables_last"//reg(ed_file_suffix)//".ed")
+    open(unit,file="observables_last"//reg(ed_file_suffix)//".ed",action="write",position="append")
     select case(ed_mode)
     case default
        write(unit,"(90(F15.9,1X))")&

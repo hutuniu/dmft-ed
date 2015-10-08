@@ -419,7 +419,7 @@ contains
                       suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw"//reg(ed_file_suffix)//".ed"
                       call splot("Gloc"//reg(suffix),wm,Gmats(ispin,jspin,iorb,jorb,:))
                       suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw"//reg(ed_file_suffix)//".ed"
-                      call splot("Gloc"//reg(suffix),wr,-dimag(Greal(ispin,jspin,iorb,jorb,:))/pi,dreal(Greal(ispin,jspin,iorb,jorb,:)))
+                      call splot("Gloc"//reg(suffix),wr,dimag(Greal(ispin,jspin,iorb,jorb,:)),dreal(Greal(ispin,jspin,iorb,jorb,:)))
                    enddo
                 enddo
              enddo

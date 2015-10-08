@@ -371,7 +371,7 @@ contains
        enddo
     else
        de=hwband_/Nh
-       dmft_bath_%e(:,:,Nh+1)= 0.d0
+       dmft_bath_%e(:,:,Nh+1)= 0.0001d0
        do i=2,Nh
           dmft_bath_%e(:,:,i)        =-hwband_ + (i-1)*de
           dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de
@@ -379,7 +379,7 @@ contains
     endif
     !Get spin-keep yhbridizations
     do i=1,Nbath
-       dmft_bath_%v(:,:,i)=min(1.d-1,1.d0/sqrt(dble(Nbath)))
+       dmft_bath_%v(:,:,i)=min(1.d-2,1.d0/sqrt(dble(Nbath)))
     enddo
     !Get SC amplitudes
     if(ed_mode=="superc")dmft_bath_%d(:,:,:) = deltasc

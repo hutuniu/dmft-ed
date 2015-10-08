@@ -20,15 +20,16 @@ program ed_STO
   complex(8),allocatable :: Hk(:,:,:),bhzHloc(:,:),Ti3dt2g_Hloc(:,:)
   real(8),allocatable    :: Wtk(:)
   real(8),allocatable    :: kxgrid(:),kygrid(:),kzgrid(:)
-  integer,allocatable    :: ik2ix(:),ik2iy(:)
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
   real(8)                :: soc,ivb,wmixing,sumdens
+  logical                :: surface,Hk_test
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   logical                :: spinsym
   !convergence function
-  complex(8),allocatable :: delta_conv(:,:,:)
+  complex(8),allocatable :: delta_conv(:,:,:),delta_conv_avrg(:)
+
   !
   real(8),dimension(2)   :: Eout
 #ifdef _MPI
@@ -40,14 +41,16 @@ program ed_STO
 #endif
 
   !Parse additional variables && read Input && read H(k)^4x4
-  call parse_cmd_variable(finput,   "FINPUT",        default='inputED_STO.in')
-  call parse_input_variable(hkfile, "HKFILE",finput, default="hkfile.in")
-  call parse_input_variable(nk,     "NK",finput,     default=100)
-  call parse_input_variable(nkpath, "NKPATH",finput, default=500)
-  call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
-  call parse_input_variable(spinsym,"SPINSYM",finput,default=.true.)
-  call parse_input_variable(soc,    "SOC",finput,    default=0.d0)
-  call parse_input_variable(ivb,    "IVB",finput,    default=0.d0)
+  call parse_cmd_variable(finput,   "FINPUT",           default='inputED_STO.in')
+  call parse_input_variable(hkfile, "HKFILE",finput,    default="hkfile.in")
+  call parse_input_variable(nk,     "NK",finput,        default=10)
+  call parse_input_variable(nkpath, "NKPATH",finput,    default=500)
+  call parse_input_variable(wmixing,"WMIXING",finput,   default=0.5d0)
+  call parse_input_variable(spinsym,"SPINSYM",finput,   default=.true.)
+  call parse_input_variable(soc,    "SOC",finput,       default=0.25d0)
+  call parse_input_variable(ivb,    "IVB",finput,       default=0.02d0)
+  call parse_input_variable(surface,"SURFACE",finput,   default=.false.)
+  call parse_input_variable(Hk_test,"HK_TEST",finput,   default=.false.)
   call ed_read_input(trim(finput))
 
   !if(Nspin/=2.OR.Norb/=2)stop "Wrong setup from input file: Nspin=Norb=2 -> 4Spin-Orbitals"
@@ -60,6 +63,7 @@ program ed_STO
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
   allocate(delta_conv(Nso,Nso,Lmats))
+  allocate(delta_conv_avrg(Lmats))
 
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
@@ -93,27 +97,33 @@ program ed_STO
      endif
 
      !MIXING:
-     !if(iloop>1)
-     Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
-     !Bath_=Bath
+     if(iloop>1) Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
+     Bath_=Bath
 
+     delta_conv=zero
+     delta_conv_avrg=zero
      do i=1,Lmats
         do ispin=1,Nspin
            do jspin=1,Nspin
               do iorb=1,Norb
                  do jorb=1,Norb
-                    io = iorb + (ispin-1)*Norb
-                    jo = jorb + (jspin-1)*Norb
-                    delta_conv(io,jo,i)=delta(ispin,jspin,iorb,jorb,i)
+                    if((ispin.eq.jspin).and.(iorb.eq.jorb)) then
+                       io = iorb + (ispin-1)*Norb
+                       jo = jorb + (jspin-1)*Norb
+                       delta_conv(io,jo,i)=delta(ispin,jspin,iorb,jorb,i)
+                       delta_conv_avrg(i)=delta_conv_avrg(i)+delta_conv(io,jo,i)
+                    endif
                  enddo
               enddo
            enddo
         enddo
      enddo
+     delta_conv_avrg=delta_conv_avrg/Nso
 
 
-     converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
-    !converged = check_convergence(delta_conv,      dmft_error,nsuccess,nloop)
+     converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
+     !converged = check_convergence_global(delta_conv,dmft_error,nsuccess,nloop)
+
      !if(ED_MPI_ID==0)converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0)converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
      !#ifdef _MPI
@@ -134,6 +144,9 @@ contains
 
 
 
+!_______________________________________________________________________
+!                            HAMILTONIAN
+!_______________________________________________________________________
   !---------------------------------------------------------------------
   !PURPOSE: H(k) file for main program and write G0_loc
   !---------------------------------------------------------------------
@@ -192,7 +205,7 @@ contains
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     do ik=1,Lk
        do i=1,Lmats
-          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+xmu,Hk(:,:,ik))/Lk
+          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+xmu , Hk(:,:,ik) )/Lk
        enddo
        do i=1,Lreal
           Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/Lk
@@ -216,7 +229,6 @@ contains
     real(8)                   :: Eo,t1,t2,t3
     integer                   :: N,ndx
     complex(8)                :: oneI
-    !real(8)                   :: soc,ivb
     if(N/=Nso)stop "hk_bhz error: N != Nspin*Norb == 4"
     oneI=cmplx(0.0d0,1.0d0)
     s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
@@ -229,28 +241,45 @@ contains
     t1 = 0.277
     t2 = 0.031
     t3 = 0.076
-    !soc=0.0d0
-    !ivb=0.0d0
 
-    !Debug simple H(k) sum of cosine in 3D
-    !Hk = zero
-    !do i=1,Norb
-    !   ndx=2*i-1
-    !   Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz,Eo,t1,t2,t3)
-    !enddo
-    !Hk(1,2)=0.5d0
+    Hk = zero
 
-    !3d T2g orbitals of STO (no inter-orbital components => fully diagonal H(k) )
-    !Z. shape: [Nspin*Nspin]*Norb
-    !Diagonal terms due to bands
-    Hk(1:2,1:2) = band_yz(kx,ky,kz,Eo,t1,t2,t3)
-    Hk(3:4,3:4) = band_zx(kx,ky,kz,Eo,t1,t2,t3)
-    Hk(5:6,5:6) = band_xy(kx,ky,kz,Eo,t1,t2,t3)
+    !1) Diagonal part in Z shape
+    if(Hk_test) then
+       do i=1,Norb
+          ndx=2*i-1
+          Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz,Eo,t1,t2,t3)
+       enddo
+       !forall(i=1:Nso,j=1:Nso,i.ne.j)Hk(i,j)=soc
+    else
+       if(surface) then
+          Hk(1:2,1:2) = band_yz_surface(kx,ky,kz,Eo,t1,t2,t3)
+          Hk(3:4,3:4) = band_zx_surface(kx,ky,kz,Eo,t1,t2,t3)
+          Hk(5:6,5:6) = band_xy_surface(kx,ky,kz,Eo,t1,t2,t3)
+       else
+          Hk(1:2,1:2) = band_yz(kx,ky,kz,Eo,t1,t2,t3)
+          Hk(3:4,3:4) = band_zx(kx,ky,kz,Eo,t1,t2,t3)
+          Hk(5:6,5:6) = band_xy(kx,ky,kz,Eo,t1,t2,t3)
+       endif
+    endif
 
-    !upper triangle due to constant SOC and IVB (in case of interface)
-    Hk(1:2,3:4)= oneI*s_z*soc/2.
-    Hk(1:2,5:6)=-oneI*s_y*soc/2.+ivb*2*oneI*sin(kx)
-    Hk(3:4,5:6)= oneI*s_x*soc/2.+ivb*2*oneI*sin(ky)
+    !2) Off-diagonal part due to constant SOC and/or IVB
+    if(.not.Hk_test) then
+       Hk(1:2,3:4)= oneI*s_z*soc/2.
+       Hk(1:2,5:6)=-oneI*s_y*soc/2.+ivb*2*oneI*sin(kx)
+       Hk(3:4,5:6)= oneI*s_x*soc/2.+ivb*2*oneI*sin(ky)
+    else
+       do i=1,Norb
+          ndx=2*i-1 !here whatever
+          Hk(ndx,ndx+1)=soc
+          Hk(ndx+1,ndx)=soc
+          if (Norb.gt.1) then
+            Hk(ndx,ndx+2)=soc/2
+            Hk(ndx+2,ndx)=soc/2
+          endif
+       enddo
+    endif
+
     !lower triangle
     do i=1,N
        do j=1,N
@@ -300,37 +329,73 @@ contains
   end function band_xy
 
   !---------------------------------------------------------------------
-  !PURPOSE: G0_loc functions
+  !PURPOSE: various 2x2 band SURFACE structures
+  !---------------------------------------------------------------------
+  function band_yz_surface(kx,ky,kz,Eo,t1,t2,t3) result(hk)
+    real(8)                   :: kx,ky,kz
+    real(8)                   :: Eo,t1,t2,t3
+    complex(8),dimension(2,2) :: hk
+    hk = zero
+    hk(1,1) = Eo-2.*t2*cos(kx)-2.*t1*cos(ky) -t1 -2.*t3*cos(ky)
+    hk(2,2) = hk(1,1)
+  end function band_yz_surface
+  function band_zx_surface(kx,ky,kz,Eo,t1,t2,t3) result(hk)
+    real(8)                   :: kx,ky,kz
+    real(8)                   :: Eo,t1,t2,t3
+    complex(8),dimension(2,2) :: hk
+    hk = zero
+    hk(1,1) = Eo-2.*t1*cos(kx)-2.*t2*cos(ky)- t1 -2.*t3*cos(kz)*cos(kx)
+    hk(2,2) = hk(1,1)
+  end function band_zx_surface
+  function band_xy_surface(kx,ky,kz,Eo,t1,t2,t3) result(hk)
+    real(8)                   :: kx,ky,kz
+    real(8)                   :: Eo,t1,t2,t3
+    complex(8),dimension(2,2) :: hk
+    hk = zero
+    hk(1,1) = Eo-2.*t1*cos(kx)-2.*t1*cos(ky) -t2 -4.*t3*cos(kx)*cos(ky)
+    hk(2,2) = hk(1,1)
+  end function band_xy_surface
+
+
+!_______________________________________________________________________
+!                                    Gfs
+!_______________________________________________________________________
+  !---------------------------------------------------------------------
+  !PURPOSE: G0_loc functions DA RIFARE ATTENZIONE CHE H(k) è nella forma A1
   !---------------------------------------------------------------------
   function inverse_g0k(iw,hk) result(g0k)
+    implicit none
     complex(8)                                    :: iw
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: hk
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: g0k
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: g0k,g0k_tmp
     integer                                       :: i,ndx
-    g0k=zero
-    do i=1,Norb
-      ndx=2*i-1
-      g0k(ndx:ndx+1,ndx:ndx+1)=inverse_g0k2x2(iw,hk(ndx:ndx+1,ndx:ndx+1))
-    enddo
-  end function inverse_g0k
-  function inverse_g0k2x2(iw,hk) result(g0k)
-    integer                     :: i
-    complex(8),dimension(2,2)   :: hk
-    complex(8)                  :: iw
-    complex(8),dimension(2,2)   :: g0k
-    complex(8)                  :: delta,ppi,vmix
-    g0k=zero
-    delta = iw - hk(1,1)
-    ppi   = iw - hk(2,2)
-    vmix  = -hk(1,2)
-    g0k(1,1) = one/(delta - abs(vmix)**2/ppi)
-    g0k(2,2) = one/(ppi - abs(vmix)**2/delta)
-    g0k(1,2) = -vmix/(ppi*delta - abs(vmix)**2)
-    g0k(2,1) = conjg(g0k(1,2))
-  end function inverse_g0k2x2
+    integer (kind=4), dimension(6)                :: ipiv
+    integer (kind=1)                              :: ok
+    integer (kind=4), parameter                   :: lwork=2000
+    complex (kind=8), dimension(lwork)            :: work
+    real    (kind=8), dimension(lwork)            :: rwork
 
+    g0k=zero
+    g0k_tmp=zero
+
+    g0k=iw*eye(Nspin*Norb)-hk
+    g0k_tmp=g0k
+
+    call inv(g0k)
+    call inversion_test(g0k,g0k_tmp,1.e-9)
+
+  end function inverse_g0k
+
+
+
+!_______________________________________________________________________
+!                            reshape functions
+!_______________________________________________________________________
   !---------------------------------------------------------------------
   !PURPOSE: reshape functions
+  !  Z  = [Nspin,Nspin]*Norb
+  !  A1 = [Norb*Norb]*Nspin
+  !  A2 = [Nspin,Nspin,Norb,Norb]
   !---------------------------------------------------------------------
   function reshape_Z_to_A1(fg) result(g)
     complex(8),dimension(Nso,Nso)                   :: fg
@@ -372,8 +437,29 @@ contains
        enddo
   end function reshape_A1_to_A2
 
+  !---------------------------------------------------------------------
+  !PURPOSE: Inversion test
+  !---------------------------------------------------------------------
+  subroutine inversion_test(A,B,tol)
+    implicit none
+    complex (kind=8), intent(in)   ::   A(Nspin*Norb,Nspin*Norb)
+    complex (kind=8), intent(in)   ::   B(Nspin*Norb,Nspin*Norb)
+    real    (kind=4), intent(in)   ::   tol
+    integer (kind=2)               ::   dime
+
+    if (size(A).ne.size(B)) then
+       write(*,*) "Matrices not equal cannot perform inversion test"
+       stop
+    endif
+    dime=maxval(shape(A))
+    if (abs(float(dime)-real(sum(matmul(A,B)))).gt.tol) write(*,'(A30)') "inversion test fail"
+  end subroutine inversion_test
+
 
 end program ed_STO
+
+
+
 
 
 

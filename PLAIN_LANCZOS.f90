@@ -170,8 +170,8 @@ contains
        call lanczos_plain_iteration_c(iter,vin,vout,a_,b_)
        if(verb)print*,iter,a_,b_
        alanc(iter)=a_
-       if(abs(b_)<threshold_)exit
        if(iter<nitermax)blanc(iter+1)=b_
+       if(abs(b_)<threshold_)exit
     enddo
     if(iter==nitermax)print*,"LANCZOS_SIMPLE: reach Nitermax"
   end subroutine lanczos_plain_tridiag_c
