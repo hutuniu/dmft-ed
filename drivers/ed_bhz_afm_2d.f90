@@ -52,7 +52,6 @@ program ed_bhz_afm_2d
   if(Nspin/=2)stop "Nspin != 2"
   if(Nso/=4)stop "Nso != 4"
   if(Nlso/=16)stop "Nlso != 16"
-  if(sitesym.AND.fullsym)stop "sitesym AND fullsym both .true.! chose one symmetry!"
 
   if(fullsym)then
      Nineq=1
@@ -370,10 +369,6 @@ contains
           close(unit)
        enddo
     enddo
-    if(sitesym)then
-       Sigma(4,:,:,:,:,:) = Sigma(1,:,:,:,:,:)
-       Sigma(3,:,:,:,:,:) = Sigma(2,:,:,:,:,:)
-    endif
     if(fullsym)then
        do ispin=1,2
           Sigma(2,ispin,ispin,:,:,:)=Sigma(1,3-ispin,3-ispin,:,:,:)
