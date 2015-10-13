@@ -59,7 +59,7 @@ EXE=ed_hm_bethe
 
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
-DIR =drivers
+DIR=drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
 DIREXE=$(HOME)/.bin
