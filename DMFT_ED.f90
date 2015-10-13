@@ -6,7 +6,6 @@ MODULE DMFT_ED
        icol        ,&
        irow        ,&
        ij2site     ,&
-       ! H0          ,&
        impSmats    ,&
        impSAmats   ,&
        impSreal    ,&
@@ -31,14 +30,24 @@ MODULE DMFT_ED
        search_chemical_potential
 
 
-  USE ED_BATH, only: &
-       get_bath_size        ,&
-       check_bath_dimension ,&
-       spin_symmetrize_bath ,&
-       ph_symmetrize_bath   ,&
-       ph_trans_bath        ,&
-       break_symmetry_bath  ,&
-       enforce_normal_bath
+  USE ED_BATH_USER, only: &
+       get_bath_size,get_size_bath,      &
+       get_component_size_bath,           &
+       get_spin_component_size_bath,     &
+       get_orb_component_size_bath,      &
+       get_spin_orb_component_size_bath, &
+       get_component_bath,               &
+       set_component_bath,               &      
+       copy_component_bath,              &
+       save_bath,                        &
+       spin_symmetrize_bath ,            &
+       ph_symmetrize_bath   ,            &
+       ph_trans_bath        ,            &
+       break_symmetry_bath  ,            &
+       enforce_normal_bath ,             &
+       check_bath_dimension,             &
+       check_size_bath
+
 
 
   USE ED_MAIN,      only: &

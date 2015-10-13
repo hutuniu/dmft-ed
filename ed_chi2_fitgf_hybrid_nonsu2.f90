@@ -73,8 +73,8 @@ subroutine chi2_fitgf_hybrid_nonsu2(fg,bath_)
      Wdelta=Xdelta
   end select
   !
-  call allocate_bath(dmft_bath)
-  call set_bath(bath_,dmft_bath)
+  call allocate_dmft_bath(dmft_bath)
+  call set_dmft_bath(bath_,dmft_bath)
   !
   do i=1,totNso
      Gdelta(i,1:Ldelta) = fg(getIspin(i),getJspin(i),getIorb(i),getJorb(i),1:Ldelta)
@@ -254,14 +254,14 @@ subroutine chi2_fitgf_hybrid_nonsu2(fg,bath_)
      enddo
   end select
   !
-  if(ed_verbose<2)call write_bath(dmft_bath,LOGfile)
+  if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
   !
-  call save_bath(dmft_bath)
+  call save_dmft_bath(dmft_bath)
   !
   if(ed_verbose<3)call write_fit_result(ispin)
   !
-  call copy_bath(dmft_bath,bath_)
-  call deallocate_bath(dmft_bath)
+  call get_dmft_bath(dmft_bath,bath_)
+  call deallocate_dmft_bath(dmft_bath)
   deallocate(Gdelta,Xdelta,Wdelta)
   deallocate(getIspin,getJspin)
   deallocate(getIorb,getJorb)

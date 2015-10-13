@@ -1,22 +1,23 @@
-!include "MIXING.f90"
 program ed_bhz_afm
   USE DMFT_ED
-  ! USE MIXING
   USE SCIFOR
+  USE DMFT_TOOLS
   implicit none
-  integer                :: ip,iloop,Lk,Nso,afmNso,ispin,iorb
+  integer                :: ip,iloop,Lk,Nso,Nlso,ispin,iorb
   logical                :: converged
   integer                :: Nindep,Nsites
   !Bath:
-  integer                :: Nb(2)
-  real(8),allocatable    :: Bath(:,:,:),Bath_(:,:,:)
+  integer                :: Nb
+  real(8),allocatable    :: Bath(:,:),Bath_prev(:,:)
   !The local hybridization function:
-  complex(8),allocatable :: Delta(:,:,:,:,:,:),Amix(:,:,:,:),Amix_old(:,:,:,:)
+  complex(8),allocatable :: Delta(:,:,:,:,:,:)
   complex(8),allocatable :: Smats(:,:,:,:,:,:)
   complex(8),allocatable :: Sreal(:,:,:,:,:,:)
+  complex(8),allocatable :: Gmats(:,:,:,:,:,:)
+  complex(8),allocatable :: Greal(:,:,:,:,:,:)
   !Hamiltonian input:
-  complex(8),allocatable :: Hk(:,:,:),bhzHloc(:,:)
-  real(8),allocatable    :: dos_wt(:)
+  complex(8),allocatable :: Hk(:,:,:),bhzHloc(:,:),Hloc(:,:,:,:,:)
+  real(8),allocatable    :: Wtk(:)
   !variables for the model:
   integer                :: Nk
   real(8)                :: mh,lambda,wmixing,akrange
@@ -25,7 +26,7 @@ program ed_bhz_afm
   logical                :: waverage,spinsym,sitesym,fullsym,getak,getdelta
 
   !Parse additional variables && read Input && read H(k)^4x4
-  call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ.in')
+  call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ.conf')
   call parse_input_variable(getak,"GETAK",finput,default=.false.)
   call parse_input_variable(getdelta,"GETDELTA",finput,default=.false.)
   call parse_input_variable(akrange,"AKRANGE",finput,default=10.d0)
@@ -38,14 +39,26 @@ program ed_bhz_afm
   call parse_input_variable(sitesym,"sitesym",finput,default=.false.)
   call parse_input_variable(fullsym,"fullsym",finput,default=.true.)
   call parse_input_variable(lambda,"LAMBDA",finput,default=0.d0)
-  ! call parse_input_variable(Mbroyden,"MBROYDEN",finput,default=0)
-  ! call parse_input_variable(wBroyden,"WBROYDEN",finput,default=.false.)
   call ed_read_input(trim(finput))
 
   if(sitesym.AND.fullsym)stop "sitesym AND fullsym both .true.! chose one symmetry!"
 
   Nindep=4                      !number of independent sites, 4 for AFM ordering
   Nsites=Nindep
+
+  if(fullsym)then
+     Nsites=1
+     write(*,*)"Using Nindep sites=",Nsites
+     write(*,*)"(site=2,l,s)=(site=1,l,-s)"
+     write(*,*)"(site=3,l,s)=(site=1,l,-s)"
+     write(*,*)"(site=4,l,s)=(site=1,l,s)"
+     open(999,file="symmetries.used")
+     write(999,*)"Symmetries used are:"
+     write(999,*)"(site=2,l,s)=(site=1,l,-s)"
+     write(999,*)"(site=3,l,s)=(site=1,l,-s)"
+     write(999,*)"(site=4,l,s)=(site=1,l,s)"
+     close(999)
+  endif
 
   if(sitesym)then
      Nsites=2
@@ -58,52 +71,33 @@ program ed_bhz_afm
      write(999,*)"(site=3,l,s)=(site=2,l,s)"
      close(999)
   endif
-  if(fullsym)then
-     Nsites=1
-     write(*,*)"Using Nindep sites=",Nsites
-     write(999,*)"(site=2,l,s)=(site=1,l,-s)"
-     write(999,*)"(site=4,l,s)=(site=1,l,s)"
-     write(999,*)"(site=3,l,s)=(site=2,l,s)"
-     open(999,file="symmetries.used")
-     write(999,*)"Symmetries used are:"
-     write(999,*)"(site=2,l,s)=(site=1,l,-s)"
-     write(999,*)"(site=4,l,s)=(site=1,l,s)"
-     write(999,*)"(site=3,l,s)=(site=2,l,s)"
-     close(999)
-  endif
 
   if(Nspin/=2.OR.Norb/=2)stop "wrong setup from input file: Nspin=Norb=2 -> 4Spin-Orbitals"
   Nso=Nspin*Norb
-  afmNso=Nindep*Nso!=16
+  Nlso=Nindep*Nso!=16
   if(spinsym)sb_field=0.d0
 
   !Allocate Weiss Field:
   allocate(delta(Nindep,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Smats(Nindep,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nindep,Nspin,Nspin,Norb,Norb,Lreal))
-  !if(wBroyden)allocate(Amix(Nsites,Nspin,Norb,Lfit),Amix_old(Nsites,Nspin,Norb,Lfit))
+  allocate(Gmats(Nindep,Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Greal(Nindep,Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(Hloc(Nindep,Nspin,Nspin,Norb,Norb))
 
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
-
-  !get A(k,w):
-  if(getdelta.OR.getak)then
-     call get_delta()
-     stop
-  endif
-
+  Hloc = lso2nnn_reshape(bhzHloc,Nindep,Nspin,Norb)
 
   !Setup solver
   Nb=get_bath_size()
-  allocate(bath(Nindep,Nb(1),Nb(2)))
-  allocate(Bath_(Nindep,Nb(1),Nb(2)))
+  allocate(bath(Nindep,Nb))
+  allocate(Bath_prev(Nindep,Nb))
   do ip=1,Nindep
      ed_file_suffix="_is"//reg(txtfy(ip))
-     call init_ed_solver(bath(ip,:,:))
-     call break_symmetry_bath(bath(ip,:,:),sb_field,(-1.d0)**(ip+1))
-     Hloc = bhzHloc_site(ip)
+     call ed_init_solver(bath(ip,:))
+     call break_symmetry_bath(bath(ip,:),sb_field,(-1.d0)**(ip+1))
      write(LOGfile,*)"Updated Hloc, site:",ip
-     call print_Hloc(Hloc)
   enddo
 
 
@@ -117,16 +111,16 @@ program ed_bhz_afm
      do ip=1,Nsites
         write(LOGfile,*)"Solving site:",ip
         ed_file_suffix="_is"//reg(txtfy(ip))
-        Hloc = bhzHloc_site(ip)
-        call ed_solver(bath(ip,:,:))
+        call set_hloc(Hloc(ip,:,:,:,:))
+        call ed_solve(bath(ip,:))
         Smats(ip,:,:,:,:,:) = impSmats
         Sreal(ip,:,:,:,:,:) = impSreal
      enddo
      if(sitesym)then
-        Smats(4,:,:,:,:,:) = Smats(1,:,:,:,:,:)
-        Sreal(4,:,:,:,:,:) = Sreal(1,:,:,:,:,:)
         Smats(3,:,:,:,:,:) = Smats(2,:,:,:,:,:)
         Sreal(3,:,:,:,:,:) = Sreal(2,:,:,:,:,:)
+        Smats(4,:,:,:,:,:) = Smats(1,:,:,:,:,:)
+        Sreal(4,:,:,:,:,:) = Sreal(1,:,:,:,:,:)
      endif
      if(fullsym)then
         !step 1 extend the solution to ip=2 using the relations
@@ -136,57 +130,56 @@ program ed_bhz_afm
            Sreal(2,ispin,ispin,:,:,:)=Sreal(1,3-ispin,3-ispin,:,:,:)
         enddo
         !step 2 extend the solution to other ip=3,4
-        Smats(4,:,:,:,:,:) = Smats(1,:,:,:,:,:)
-        Sreal(4,:,:,:,:,:) = Sreal(1,:,:,:,:,:)
         Smats(3,:,:,:,:,:) = Smats(2,:,:,:,:,:)
         Sreal(3,:,:,:,:,:) = Sreal(2,:,:,:,:,:)
+        Smats(4,:,:,:,:,:) = Smats(1,:,:,:,:,:)
+        Sreal(4,:,:,:,:,:) = Sreal(1,:,:,:,:,:)
      endif
 
 
-     !Get the Weiss field/Delta function to be fitted (user defined)
-     call get_delta
-     ! if(wbroyden)then
-     !    Amix_old=Amix
-     !    forall(ispin=1:Nspin,iorb=1:Norb)Amix(1:Nsites,ispin,iorb,:)=Delta(1:Nsites,ispin,ispin,iorb,iorb,1:Lfit)
-     !    if(iloop>1)call broyden_mix(pack(Amix,.true.),pack(Amix_old,.true.),1.d0,Mbroyden,iloop-1)
-     !    forall(ispin=1:Nspin,iorb=1:Norb)Delta(1:Nsites,ispin,ispin,iorb,iorb,:Lfit)=Amix(1:Nsites,ispin,iorb,:)
-     ! endif
+     ! !Get the Weiss field/Delta function to be fitted (user defined)
+     ! call get_delta
+     ! compute the local gf:
+     call ed_get_gloc_lattice(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
+     ! compute the Weiss field
+     call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc,iprint=1)
 
      !Fit the new bath, starting from the old bath + the supplied delta
      do ip=1,Nsites
         ed_file_suffix="_is"//reg(txtfy(ip))
-        Hloc = bhzHloc_site(ip)
-        call chi2_fitgf(delta(ip,1,1,:,:,:),bath(ip,:,:),ispin=1)
+        call set_hloc(Hloc(ip,:,:,:,:))
+        call ed_chi2_fitgf(delta(ip,1,1,:,:,:),bath(ip,:),ispin=1)
         if(.not.spinsym)then
-           call chi2_fitgf(delta(ip,2,2,:,:,:),bath(ip,:,:),ispin=2)
+           call ed_chi2_fitgf(delta(ip,2,2,:,:,:),bath(ip,:),ispin=2)
         else
-           call spin_symmetrize_bath(bath(ip,:,:))
+           call spin_symmetrize_bath(bath(ip,:))
         endif
      enddo
 
 
      if(fullsym)then
         do ispin=1,2
-           bath(2,:,ispin)=bath(1,:,3-ispin)
+           !bath(2,:,ispin)=bath(1,:,3-ispin)
+           call copy_component_bath(bath(1,:),3-ispin,bath(2,:),ispin)
         enddo
-        bath(3,:,:)=bath(2,:,:)
-        bath(4,:,:)=bath(1,:,:)
+        bath(3,:)=bath(2,:)
+        bath(4,:)=bath(1,:)
      elseif(sitesym)then
-        bath(3,:,:)=bath(2,:,:)
-        bath(4,:,:)=bath(1,:,:)
+        bath(3,:)=bath(2,:)
+        bath(4,:)=bath(1,:)
      elseif(.not.fullsym.AND..not.sitesym)then
         if(waverage)then
-           bath(1,:,:)=(bath(1,:,:)+bath(4,:,:))/2.d0
-           bath(2,:,:)=(bath(2,:,:)+bath(3,:,:))/2.d0
-           bath(3,:,:)=bath(2,:,:)
-           bath(4,:,:)=bath(1,:,:)
+           bath(1,:)=(bath(1,:)+bath(4,:))/2.d0
+           bath(2,:)=(bath(2,:)+bath(3,:))/2.d0
+           bath(3,:)=bath(2,:)
+           bath(4,:)=bath(1,:)
         endif
      endif
 
      !MIXING:
      do ip=1,Nsites
-        if(iloop>1)bath(ip,:,:) = wmixing*bath(ip,:,:) + (1.d0-wmixing)*Bath_(ip,:,:)
-        Bath_(ip,:,:)=bath(ip,:,:)
+        if(iloop>1)bath(ip,:) = wmixing*bath(ip,:) + (1.d0-wmixing)*Bath_prev(ip,:)
+        Bath_prev(ip,:)=bath(ip,:)
      enddo
      converged = check_convergence(delta(1,1,1,1,1,1:Lfit),dmft_error,nsuccess,nloop)
 
@@ -196,6 +189,133 @@ program ed_bhz_afm
 
 
 contains
+
+
+
+  !--------------------------------------------------------------------!
+  !PURPOSE: BUILD THE H(k) FOR THE BHZ-AFM MODEL.
+  !--------------------------------------------------------------------!
+  subroutine build_hk(file)
+    character(len=*)                          :: file
+    integer                                   :: i,j,ik=0
+    integer                                   :: ix,iy
+    real(8)                                   :: kx,ky    
+    integer                                   :: iorb,jorb
+    integer                                   :: isporb,jsporb
+    integer                                   :: ispin,jspin
+    real(8)                                   :: foo
+    integer                                   :: unit
+    complex(8),dimension(Nlso,Nlso)       :: Hkmix
+    complex(8),dimension(Lmats,Nlso,Nlso) :: fg
+    complex(8),dimension(Lreal,Nlso,Nlso) :: fgr
+    real(8)                                   :: wm(Lmats),wr(Lreal),dw,n0(Nlso),eig(Nlso)
+    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr = linspace(wini,wfin,Lreal,mesh=dw)
+    call start_progress(LOGfile)
+    write(LOGfile,*)"Build H(k) AFM-BHZ:"
+    Lk=Nk**2
+    allocate(Hk(Nlso,Nlso,Lk))
+    unit=free_unit()
+    open(unit,file=file)
+    fg=zero
+    fgr=zero
+    do ix=1,Nk
+       kx = -pi + 2.d0*pi*dble(ix-1)/dble(Nk)
+       do iy=1,Nk
+          ky = -pi + 2.d0*pi*dble(iy-1)/dble(Nk)
+          ik=ik+1
+          Hk(:,:,ik) = hk_bhz_afm(kx,ky)
+          write(unit,"(3(F10.7,1x))")kx,ky,pi
+          do i=1,Nlso
+             write(unit,"(100(2F10.7,1x))")(Hk(i,j,ik),j=1,size(Hk,2))
+          enddo
+          if(Nk<=15)then
+             do i=1,Lreal
+                fgr(i,:,:)=fgr(i,:,:) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/dble(Lk)
+             enddo
+             do i=1,Lmats
+                fg(i,:,:) =fg(i,:,:)  + inverse_g0k(xi*wm(i)+xmu,Hk(:,:,ik))/dble(Lk)
+             enddo
+          endif
+          call progress(ik,Lk)
+       enddo
+    enddo
+    call stop_progress()
+    write(unit,*)""
+    allocate(Wtk(Lk))
+    Wtk=1.d0/dble(Lk)
+    if(Nk<=15)then
+       do i=1,Nlso
+          n0(i) = -2.d0*sum(dimag(fgr(:,i,i))*fermi(wr(:),beta))*dw/pi
+       enddo
+       write(unit,"(24F20.12)")mh,lambda,xmu,(n0(i),i=1,Nlso),sum(n0)
+       write(LOGfile,"(24F20.12)")mh,lambda,xmu,(n0(i),i=1,Nlso),sum(n0)
+       open(10,file="U0_DOS.ed")
+       do i=1,Lreal
+          write(10,"(100(F25.12))") wr(i),(-dimag(fgr(i,iorb,iorb))/pi,iorb=1,Nlso)
+       enddo
+       close(10)
+       open(11,file="U0_Gloc_iw.ed")
+       do i=1,Lmats
+          write(11,"(20(2F20.12))") wm(i),(fg(i,iorb,iorb),iorb=1,Nlso)
+       enddo
+       close(11)
+    endif
+    allocate(bhzHloc(Nlso,Nlso))
+    bhzHloc = sum(Hk(:,:,:),dim=3)/dble(Lk)
+    where(abs(dreal(bhzHloc))<1.d-9)bhzHloc=0.d0
+    ! endif
+    !
+    write(*,*)"# of k-points     :",Lk
+    write(*,*)"# of SO-bands     :",Nso
+    write(*,*)"# of AFM-SO-bands :",Nlso
+  end subroutine build_hk
+
+
+
+
+
+
+
+  !--------------------------------------------------------------------!
+  !BHZ - AFM HAMILTONIAN:
+  !--------------------------------------------------------------------!
+  function hk_bhz_afm(kx,ky) result(hk)
+    real(8)                     :: kx,ky
+    complex(8),dimension(16,16) :: hk,hktmp
+    hktmp            = zero
+    hktmp(1:8,1:8)   = hk_bhz_afm8x8(kx,ky)
+    hktmp(9:16,9:16) = conjg(hk_bhz_afm8x8(-kx,-ky))
+    hk = iso2site(hktmp)
+  end function hk_bhz_afm
+
+  !--------------------------------------------------------------------!
+  !PURPOSE: 
+  !--------------------------------------------------------------------!
+  function hk_bhz_afm8x8(kx,ky) result(hk)
+    real(8)                     :: kx,ky
+    complex(8),dimension(8,8)   :: hk
+    hk(1,1:8)=[one*mh,zero,-one/2.d0,xi*lambda/2.d0,-one/2.d0,-one*lambda/2.d0,zero,zero]
+    hk(2,1:8)=[zero,-one*mh,xi*lambda/2.d0,one/2.d0,one*lambda/2.d0,one/2.d0,zero,zero]
+    hk(3,1:8)=[-one/2.d0,-xi*lambda/2.d0,one*mh,zero,zero,zero,-one/2.d0,-one*lambda/2.d0]
+    hk(4,1:8)=[-xi*lambda/2.d0,one/2.d0,zero,-one*mh,zero,zero,one*lambda/2.d0,one/2.d0]
+    hk(5,1:8)=[-one/2.d0,one*lambda/2.d0,zero,zero,one*mh,zero,-one/2.d0,xi*lambda/2.d0]
+    hk(6,1:8)=[-one*lambda/2.d0,one/2.d0,zero,zero,zero,-one*mh,xi*lambda/2.d0,one/2.d0]
+    hk(7,1:8)=[zero,zero,-one/2.d0,one*lambda/2.d0,-one/2.d0,-xi*lambda/2.d0,one*mh,zero]
+    hk(8,1:8)=[zero,zero,-one*lambda/2.d0,one/2.d0,-xi*lambda/2.d0,one/2.d0,zero,-one*mh]
+    !
+    hk(1,1:8)=hk(1,1:8)+[zero,zero,exp(-xi*2.d0*kx)*(-0.5d0),exp(-xi*2.d0*kx)*(-xi*lambda/2.d0),exp(xi*2.d0*ky)*(-0.5d0),exp(xi*2.d0*ky)*(lambda/2.d0),zero,zero]
+    hk(2,1:8)=hk(2,1:8)+[zero,zero,exp(-xi*2.d0*kx)*(-xi*lambda/2.d0),exp(-xi*2.d0*kx)*(0.5d0),exp(xi*2.d0*ky)*(-lambda/2.d0),exp(xi*2.d0*ky)*(0.5d0),zero,zero]
+    hk(3,1:8)=hk(3,1:8)+[exp(xi*2.d0*kx)*(-0.5d0),exp(xi*2.d0*kx)*(xi*lambda/2.d0),zero,zero,zero,zero,exp(xi*2.d0*ky)*(-0.5d0),exp(xi*2.d0*ky)*(lambda/2.d0)]
+    hk(4,1:8)=hk(4,1:8)+[exp(xi*2.d0*kx)*(xi*lambda/2.d0),exp(xi*2.d0*kx)*(0.5d0),zero,zero,zero,zero,exp(xi*2.d0*ky)*(-lambda/2.d0),exp(xi*2.d0*ky)*(0.5d0)]
+    hk(5,1:8)=hk(5,1:8)+[exp(-xi*2.d0*ky)*(-0.5d0),exp(-xi*2.d0*ky)*(-lambda/2.d0),zero,zero,zero,zero,exp(-xi*2.d0*kx)*(-0.5d0),exp(-xi*2.d0*kx)*(-xi*lambda/2.d0)]
+    hk(6,1:8)=hk(6,1:8)+[exp(-xi*2.d0*ky)*(lambda/2.d0),exp(-xi*2.d0*ky)*(0.5d0),zero,zero,zero,zero,exp(-xi*2.d0*kx)*(-xi*lambda/2.d0),exp(-xi*2.d0*kx)*(0.5d0)]
+    hk(7,1:8)=hk(7,1:8)+[zero,zero,exp(-xi*2.d0*ky)*(-0.5d0),exp(-xi*2.d0*ky)*(-lambda/2.d0),exp(xi*2.d0*kx)*(-0.5d0),exp(xi*2.d0*kx)*(xi*lambda/2.d0),zero,zero]
+    hk(8,1:8)=hk(8,1:8)+[zero,zero,exp(-xi*2.d0*ky)*(lambda/2.d0),exp(-xi*2.d0*ky)*(0.5d0),exp(xi*2.d0*kx)*(xi*lambda/2.d0),exp(xi*2.d0*kx)*(0.5d0),zero,zero]
+  end function hk_bhz_afm8x8
+
+
+
 
 
   subroutine read_sigma(sigma)
@@ -242,20 +362,23 @@ contains
   end subroutine read_sigma
 
 
+
+
+
   !---------------------------------------------------------------------
   !PURPOSE: GET DELTA FUNCTION
   !---------------------------------------------------------------------
   subroutine get_delta
     integer                                       :: i,j,ik,iorb,jorb,ispin,jspin,iso,jso
     complex(8),dimension(Nindep,Nso,Nso)          :: zeta_site,fg_site,fgk_site
-    complex(8),dimension(afmNso,afmNso)           :: zeta,fg,fgk
+    complex(8),dimension(Nlso,Nlso)           :: zeta,fg,fgk
     complex(8),dimension(Nso,Nso)                 :: gdelta,self
     complex(8),dimension(:,:,:,:,:,:),allocatable :: gloc
     complex(8),dimension(:,:,:,:,:),allocatable   :: gk
     complex(8),dimension(:,:,:,:),allocatable     :: gfoo
     complex(8)                                    :: iw
-    complex(8),dimension(Lmats,afmNso,afmNso)     :: gmats
-    complex(8),dimension(Lreal,afmNso,afmNso)     :: greal
+    complex(8),dimension(Lmats,Nlso,Nlso)     :: gmats
+    complex(8),dimension(Lreal,Nlso,Nlso)     :: greal
     real(8)                                       :: wm(Lmats),wr(Lreal),reS(Nspin),imS(Nspin),ww
     character(len=32)                             :: suffix
     integer :: unit
@@ -263,96 +386,6 @@ contains
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal)
     delta=zero
-
-    if(getak)then
-       print*,"Get A(k,w):"
-       call read_sigma(Sreal)
-       allocate(gk(Lk,Nindep,Nspin,Norb,Lreal))
-       allocate(gfoo(Nspin,Nspin,Norb,Norb))
-       call start_progress(LOGfile)
-       do i=1,Lreal
-          iw=dcmplx(wr(i),eps)
-          zeta_site=zero
-          do ip=1,Nindep
-             forall(iso=1:Nso)zeta_site(ip,iso,iso)=iw+xmu
-             zeta_site(ip,:,:) = zeta_site(ip,:,:)-so2j(Sreal(ip,:,:,:,:,i))
-          enddo
-          zeta = blocks_to_matrix(zeta_site)
-          do ik=1,Lk
-             fgk = inverse_gk(zeta,Hk(:,:,ik))
-             fgk_site = matrix_to_blocks(fgk)
-             do ip=1,Nindep
-                gfoo(:,:,:,:) = j2so(fgk_site(ip,:,:))
-                forall(ispin=1:Nspin,iorb=1:Norb)gk(ik,ip,ispin,iorb,i) = gfoo(ispin,ispin,iorb,iorb)
-             enddo
-          enddo
-          call progress(i,Lreal)
-       enddo
-       call stop_progress()
-       !PRINT
-       do ip=1,Nsites
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                unit=free_unit()
-                suffix="_is"//reg(txtfy(ip))//"_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                print*,"printing: Ak"//reg(suffix)
-                call splot3d("Ak"//reg(suffix),(/(dble(ik),ik=1,Lk)/),wr,-dimag(gk(:,ip,ispin,iorb,:))/pi,ymin=-akrange,ymax=akrange,nosurface=.true.)
-             enddo
-          enddo
-       enddo
-       deallocate(gk,gfoo)
-       return
-    endif
-
-
-
-
-    if(getdelta)then
-       print*,"Get Delta(w):"
-       call read_sigma(Sreal)
-       if(allocated(delta))deallocate(delta)
-       allocate(delta(Nindep,Nspin,Nspin,Norb,Norb,Lmats))
-       call start_progress(LOGfile)
-       do i=1,Lreal
-          iw=dcmplx(wr(i),eps)
-          zeta_site=zero
-          do ip=1,Nindep
-             forall(iso=1:Nso)zeta_site(ip,iso,iso)=iw+xmu
-             zeta_site(ip,:,:) = zeta_site(ip,:,:)-so2j(Sreal(ip,:,:,:,:,i))
-          enddo
-          zeta = blocks_to_matrix(zeta_site)
-          fg   = zero
-          do ik=1,Lk
-             fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
-          enddo
-          fg_site = matrix_to_blocks(fg)
-          do ip=1,Nindep
-             call matrix_inverse(fg_site(ip,:,:)) !Get G_loc^{-1} used later
-             if(cg_scheme=='weiss')then
-                gdelta = fg_site(ip,:,:) + so2j(Smats(ip,:,:,:,:,i))
-                call matrix_inverse(gdelta)
-             else
-                gdelta = zeta_site(ip,:,:) - so2j(bhzHloc_site(ip)) - fg_site(ip,:,:)
-             endif
-             delta(ip,:,:,:,:,i) = j2so(gdelta)
-          enddo
-          call progress(i,Lreal)
-       enddo
-       call stop_progress()
-       !PRINT
-       do ip=1,Nsites
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                suffix="_is"//reg(txtfy(ip))//"_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                call splot("Delta"//reg(suffix),wr,-dimag(Delta(ip,ispin,ispin,iorb,iorb,:))/pi,dreal(Delta(ip,ispin,ispin,iorb,iorb,:)))
-             enddo
-          enddo
-       enddo
-       return
-    endif
-
-
-
     !MATSUBARA AXIS
     print*,"Get Gloc_iw:"
     allocate(gloc(Nindep,Nspin,Nspin,Norb,Norb,Lmats))
@@ -363,12 +396,12 @@ contains
           forall(iso=1:Nso)zeta_site(ip,iso,iso)=iw+xmu
           zeta_site(ip,:,:) = zeta_site(ip,:,:)-so2j(Smats(ip,:,:,:,:,i))
        enddo
-       zeta = blocks_to_matrix(zeta_site)
+       zeta = blocks_to_matrix_(zeta_site)
        fg   = zero
        do ik=1,Lk
           fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
        enddo
-       fg_site = matrix_to_blocks(fg)
+       fg_site = matrix_to_blocks_(fg)
        do ip=1,Nindep
           gloc(ip,:,:,:,:,i) = j2so(fg_site(ip,:,:))
           call matrix_inverse(fg_site(ip,:,:)) !Get G_loc^{-1} used later
@@ -383,6 +416,7 @@ contains
           delta(ip,:,:,:,:,i) = j2so(gdelta)
           !
        enddo
+
     enddo
     !PRINT
     do ip=1,Nsites
@@ -408,12 +442,12 @@ contains
           forall(iso=1:Nso)zeta_site(ip,iso,iso)=iw+xmu
           zeta_site(ip,:,:) = zeta_site(ip,:,:)-so2j(Sreal(ip,:,:,:,:,i))
        enddo
-       zeta = blocks_to_matrix(zeta_site)
+       zeta = blocks_to_matrix_(zeta_site)
        fg   = zero
        do ik=1,Lk
           fg = fg + inverse_gk(zeta,Hk(:,:,ik))*dos_wt(ik)
        enddo
-       fg_site = matrix_to_blocks(fg)
+       fg_site = matrix_to_blocks_(fg)
        do ip=1,Nindep
           gloc(ip,:,:,:,:,i) = j2so(fg_site(ip,:,:))
        enddo
@@ -436,186 +470,16 @@ contains
 
 
 
-
-
-  !--------------------------------------------------------------------!
-  !PURPOSE: BUILD THE H(k) FOR THE BHZ-AFM MODEL.
-  !--------------------------------------------------------------------!
-  subroutine build_hk(file)
-    character(len=*)                          :: file
-    integer                                   :: i,j,ik=0
-    integer                                   :: ix,iy
-    real(8)                                   :: kx,ky    
-    integer                                   :: iorb,jorb
-    integer                                   :: isporb,jsporb
-    integer                                   :: ispin,jspin
-    real(8)                                   :: foo
-    integer                                   :: unit
-    complex(8),dimension(afmNso,afmNso)       :: Hkmix
-    complex(8),dimension(Lmats,afmNso,afmNso) :: fg
-    complex(8),dimension(Lreal,afmNso,afmNso) :: fgr
-    real(8)                                   :: wm(Lmats),wr(Lreal),dw,n0(afmNso),eig(afmNso)
-    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
-    wr = linspace(wini,wfin,Lreal,mesh=dw)
-    call start_progress(LOGfile)
-    if(getak)then
-       write(LOGfile,*)"Build H(k) AFM-BHZ on the path GXMG:"
-       unit=free_unit() 
-       open(unit,file="Eigenbands.dat")
-       Lk=3*Nk
-       ik = 0
-       allocate(Hk(afmNso,afmNso,Lk))
-       !From \Gamma=(0,0) to X=(pi,0): Nk steps
-       do ix=1,Nk
-          ik=ik+1
-          kx = 0.d0 + pi*real(ix-1,8)/dble(Nk)
-          ky = 0.d0
-          Hk(:,:,ik) = iso2site(hk_bhz_afm(kx,ky))
-          eig        = Eigk_afm(Hk(:,:,ik))
-          call progress(ik,Lk)
-          write(unit,"(I,16F25.12)")ik,(eig(i),i=1,afmNso)
-       enddo
-       !From X=(pi,0) to M=(pi,pi): Nk steps
-       do iy=1,Nk
-          ik=ik+1
-          kx = pi
-          ky = 0.d0 + pi*real(iy-1,8)/dble(Nk)
-          Hk(:,:,ik) = iso2site(hk_bhz_afm(kx,ky))
-          eig        = Eigk_afm(Hk(:,:,ik))
-          call progress(ik,Lk)
-          write(unit,"(I,16F25.12)")ik,(eig(i),i=1,afmNso)
-       enddo
-       !From M=(pi,pi) to \Gamma=(0,0): Nk steps
-       do ix=1,Nk
-          ik=ik+1
-          iy=ix
-          kx = pi - pi*real(ix-1,8)/dble(Nk)
-          ky = pi - pi*real(iy-1,8)/dble(Nk)
-          Hk(:,:,ik) = iso2site(hk_bhz_afm(kx,ky))
-          eig        = Eigk_afm(Hk(:,:,ik))
-          call progress(ik,Lk)
-          write(unit,"(I,16F25.12)")ik,(eig(i),i=1,afmNso)
-       enddo
-       close(unit)
-
-    else
-       write(LOGfile,*)"Build H(k) AFM-BHZ:"
-       Lk=Nk**2
-       allocate(Hk(afmNso,afmNso,Lk))
-       unit=free_unit()
-       open(unit,file=file)
-       fg=zero
-       fgr=zero
-       do ix=1,Nk
-          kx = -pi + 2.d0*pi*dble(ix-1)/dble(Nk)
-          do iy=1,Nk
-             ky = -pi + 2.d0*pi*dble(iy-1)/dble(Nk)
-             ik=ik+1
-             Hkmix         = hk_bhz_afm(kx,ky)
-             Hk(:,:,ik)    = iso2site(Hkmix)
-             write(unit,"(3(F10.7,1x))")kx,ky,pi
-             do i=1,afmNso
-                write(unit,"(100(2F10.7,1x))")(Hk(i,j,ik),j=1,size(Hk,2))
-             enddo
-             if(Nk<=15)then
-                do i=1,Lreal
-                   fgr(i,:,:)=fgr(i,:,:) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/dble(Lk)
-                enddo
-                do i=1,Lmats
-                   fg(i,:,:) =fg(i,:,:)  + inverse_g0k(xi*wm(i)+xmu,Hk(:,:,ik))/dble(Lk)
-                enddo
-             endif
-             call progress(ik,Lk)
-          enddo
-       enddo
-       call stop_progress()
-       write(unit,*)""
-       allocate(dos_wt(Lk))
-       dos_wt=1.d0/dble(Lk)
-       if(Nk<=15)then
-          do i=1,afmNso
-             n0(i) = -2.d0*sum(dimag(fgr(:,i,i))*fermi(wr(:),beta))*dw/pi
-          enddo
-          write(unit,"(24F20.12)")mh,lambda,xmu,(n0(i),i=1,afmNso),sum(n0)
-          write(LOGfile,"(24F20.12)")mh,lambda,xmu,(n0(i),i=1,afmNso),sum(n0)
-          open(10,file="U0_DOS.ed")
-          do i=1,Lreal
-             write(10,"(100(F25.12))") wr(i),(-dimag(fgr(i,iorb,iorb))/pi,iorb=1,afmNso)
-          enddo
-          close(10)
-          open(11,file="U0_Gloc_iw.ed")
-          do i=1,Lmats
-             write(11,"(20(2F20.12))") wm(i),(fg(i,iorb,iorb),iorb=1,afmNso)
-          enddo
-          close(11)
-       endif
-       allocate(bhzHloc(afmNso,afmNso))
-       bhzHloc = sum(Hk(:,:,:),dim=3)/dble(Lk)
-       where(abs(dreal(bhzHloc))<1.d-9)bhzHloc=0.d0
-    endif
-    !
-    write(*,*)"# of k-points     :",Lk
-    write(*,*)"# of SO-bands     :",Nso
-    write(*,*)"# of AFM-SO-bands :",afmNso
-  end subroutine build_hk
-
-
-
-
-
-
-
-  !--------------------------------------------------------------------!
-  !BHZ - AFM HAMILTONIAN:
-  !--------------------------------------------------------------------!
-
-  !--------------------------------------------------------------------!
-  !PURPOSE: 
-  !--------------------------------------------------------------------!
-  function hk_bhz_afm(kx,ky) result(hk)
-    real(8)                     :: kx,ky
-    complex(8),dimension(16,16) :: hk
-    hk            = zero
-    hk(1:8,1:8)   = hk_bhz_afm8x8(kx,ky)
-    hk(9:16,9:16) = conjg(hk_bhz_afm8x8(-kx,-ky))
-  end function hk_bhz_afm
-
-  !--------------------------------------------------------------------!
-  !PURPOSE: 
-  !--------------------------------------------------------------------!
-  function hk_bhz_afm8x8(kx,ky) result(hk)
-    real(8)                     :: kx,ky
-    complex(8),dimension(8,8)   :: hk
-    hk(1,1:8)=[one*mh,zero,-one/2.d0,xi*lambda/2.d0,-one/2.d0,-one*lambda/2.d0,zero,zero]
-    hk(2,1:8)=[zero,-one*mh,xi*lambda/2.d0,one/2.d0,one*lambda/2.d0,one/2.d0,zero,zero]
-    hk(3,1:8)=[-one/2.d0,-xi*lambda/2.d0,one*mh,zero,zero,zero,-one/2.d0,-one*lambda/2.d0]
-    hk(4,1:8)=[-xi*lambda/2.d0,one/2.d0,zero,-one*mh,zero,zero,one*lambda/2.d0,one/2.d0]
-    hk(5,1:8)=[-one/2.d0,one*lambda/2.d0,zero,zero,one*mh,zero,-one/2.d0,xi*lambda/2.d0]
-    hk(6,1:8)=[-one*lambda/2.d0,one/2.d0,zero,zero,zero,-one*mh,xi*lambda/2.d0,one/2.d0]
-    hk(7,1:8)=[zero,zero,-one/2.d0,one*lambda/2.d0,-one/2.d0,-xi*lambda/2.d0,one*mh,zero]
-    hk(8,1:8)=[zero,zero,-one*lambda/2.d0,one/2.d0,-xi*lambda/2.d0,one/2.d0,zero,-one*mh]
-    !
-    hk(1,1:8)=hk(1,1:8)+[zero,zero,exp(-xi*2.d0*kx)*(-0.5d0),exp(-xi*2.d0*kx)*(-xi*lambda/2.d0),exp(xi*2.d0*ky)*(-0.5d0),exp(xi*2.d0*ky)*(lambda/2.d0),zero,zero]
-    hk(2,1:8)=hk(2,1:8)+[zero,zero,exp(-xi*2.d0*kx)*(-xi*lambda/2.d0),exp(-xi*2.d0*kx)*(0.5d0),exp(xi*2.d0*ky)*(-lambda/2.d0),exp(xi*2.d0*ky)*(0.5d0),zero,zero]
-    hk(3,1:8)=hk(3,1:8)+[exp(xi*2.d0*kx)*(-0.5d0),exp(xi*2.d0*kx)*(xi*lambda/2.d0),zero,zero,zero,zero,exp(xi*2.d0*ky)*(-0.5d0),exp(xi*2.d0*ky)*(lambda/2.d0)]
-    hk(4,1:8)=hk(4,1:8)+[exp(xi*2.d0*kx)*(xi*lambda/2.d0),exp(xi*2.d0*kx)*(0.5d0),zero,zero,zero,zero,exp(xi*2.d0*ky)*(-lambda/2.d0),exp(xi*2.d0*ky)*(0.5d0)]
-    hk(5,1:8)=hk(5,1:8)+[exp(-xi*2.d0*ky)*(-0.5d0),exp(-xi*2.d0*ky)*(-lambda/2.d0),zero,zero,zero,zero,exp(-xi*2.d0*kx)*(-0.5d0),exp(-xi*2.d0*kx)*(-xi*lambda/2.d0)]
-    hk(6,1:8)=hk(6,1:8)+[exp(-xi*2.d0*ky)*(lambda/2.d0),exp(-xi*2.d0*ky)*(0.5d0),zero,zero,zero,zero,exp(-xi*2.d0*kx)*(-xi*lambda/2.d0),exp(-xi*2.d0*kx)*(0.5d0)]
-    hk(7,1:8)=hk(7,1:8)+[zero,zero,exp(-xi*2.d0*ky)*(-0.5d0),exp(-xi*2.d0*ky)*(-lambda/2.d0),exp(xi*2.d0*kx)*(-0.5d0),exp(xi*2.d0*kx)*(xi*lambda/2.d0),zero,zero]
-    hk(8,1:8)=hk(8,1:8)+[zero,zero,exp(-xi*2.d0*ky)*(lambda/2.d0),exp(-xi*2.d0*ky)*(0.5d0),exp(xi*2.d0*kx)*(xi*lambda/2.d0),exp(xi*2.d0*kx)*(0.5d0),zero,zero]
-  end function hk_bhz_afm8x8
-
-
   !--------------------------------------------------------------------!
   !PURPOSE: 
   !--------------------------------------------------------------------!
   function inverse_gk(zeta,hk) result(gk)
-    complex(8),dimension(afmNso,afmNso)   :: zeta,hk
-    complex(8),dimension(afmNso,afmNso)   :: gk
+    complex(8),dimension(16,16)   :: zeta,hk
+    complex(8),dimension(16,16)   :: gk
     integer :: i
     ! gk=zeta-Hk
     gk = -Hk
-    forall(i=1:afmNso)gk(i,i)=zeta(i,i) - hk(i,i)
+    forall(i=1:Nlso)gk(i,i)=zeta(i,i) - hk(i,i)
     call matrix_inverse(gk)
   end function inverse_gk
 
@@ -649,17 +513,6 @@ contains
   end function inverse_g0k_8x8
 
 
-  function Eigk_afm(hk) result(eig)
-    complex(8),dimension(:,:) :: hk
-    complex(8),dimension(size(hk,1),size(hk,2)) :: M
-    real(8),dimension(size(hk,1))     :: eig
-    M=Hk
-    call matrix_diagonalize(M,eig)
-  end function Eigk_afm
-
-
-
-
 
 
 
@@ -677,7 +530,7 @@ contains
     integer                              :: isite
     complex(8),dimension(Nindep,Nso,Nso) :: Vblocks
     complex(8)                           :: H(Nspin,Nspin,Norb,Norb)
-    Vblocks = matrix_to_blocks(bhzHloc)
+    Vblocks = matrix_to_blocks_(bhzHloc)
     H = j2so(Vblocks(isite,:,:))
   end function bhzHloc_site
 
@@ -685,25 +538,25 @@ contains
   !--------------------------------------------------------------------!
   !PURPOSE: 
   !--------------------------------------------------------------------!
-  function blocks_to_matrix(Vblocks) result(Matrix)
+  function blocks_to_matrix_(Vblocks) result(Matrix)
     complex(8),dimension(Nindep,Nso,Nso) :: Vblocks
-    complex(8),dimension(afmNso,afmNso)  :: Matrix
-    integer                                    :: i,j,ip
+    complex(8),dimension(Nlso,Nlso)  :: Matrix
+    integer                              :: i,j,ip
     Matrix=zero
     do ip=1,Nindep
        i = (ip-1)*Nso + 1
        j = ip*Nso
        Matrix(i:j,i:j) =  Vblocks(ip,:,:)
     enddo
-  end function blocks_to_matrix
+  end function blocks_to_matrix_
 
 
   !--------------------------------------------------------------------!
   !PURPOSE: 
   !--------------------------------------------------------------------!
-  function matrix_to_blocks(Matrix) result(Vblocks)
+  function matrix_to_blocks_(Matrix) result(Vblocks)
     complex(8),dimension(Nindep,Nso,Nso) :: Vblocks
-    complex(8),dimension(afmNso,afmNso)  :: Matrix
+    complex(8),dimension(Nlso,Nlso)  :: Matrix
     integer                                    :: i,j,ip
     Vblocks=zero
     do ip=1,Nindep
@@ -711,7 +564,7 @@ contains
        j = ip*Nso
        Vblocks(ip,:,:) = Matrix(i:j,i:j)
     enddo
-  end function matrix_to_blocks
+  end function matrix_to_blocks_
 
 
 
@@ -720,7 +573,7 @@ contains
   !--------------------------------------------------------------------!
   function matrix_to_block(ip,Matrix) result(Vblock)
     complex(8),dimension(Nso,Nso) :: Vblock
-    complex(8),dimension(afmNso,afmNso)  :: Matrix
+    complex(8),dimension(Nlso,Nlso)  :: Matrix
     integer                              :: i,j,ip
     Vblock=zero
     i = (ip-1)*Nso + 1
@@ -747,7 +600,7 @@ contains
   !--------------------------------------------------------------------!
   function so2j(fg) result(g)
     complex(8),dimension(Nspin,Nspin,Norb,Norb) :: fg
-    complex(8),dimension(Nso,Nso)         :: g
+    complex(8),dimension(4,4)         :: g
     integer                                     :: i,j,iorb,jorb,ispin,jspin
     do ispin=1,Nspin
        do jspin=1,Nspin

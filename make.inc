@@ -15,7 +15,7 @@ PLAT=gnu
 FPP_INEQ=
 
 ##$ parallelism on the ed code flag: MPI
-#FPP_ED=
+#FPP_ED=MPI
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
@@ -44,11 +44,13 @@ EXE=ed_hm_bethe
 #EXE=ed_tddpam_bethe
 
 ##$ --> B-H-Z MODELS
-#EXE=ed_2x2bhz
-#EXE=ed_bhz
-#EXE=ed_bhz_afm
+#EXE=ed_bhz_2d
+#EXE=ed_bhz_3d
 #EXE=ed_bhz_edge
-EXE=ed_bhz_3d
+#EXE=ed_bhz_afm_2d
+EXE=ed_bhz_afm_3d
+
+
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
@@ -56,6 +58,7 @@ EXE=ed_bhz_3d
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
+EXE=hartree_nano
 
 ##$ --> Extended Hubbard models 
 #EXE=ed_cdwhm_bethe

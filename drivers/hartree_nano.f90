@@ -9,17 +9,17 @@ program ed_nano
 
   integer                                         :: iloop
   logical                                         :: converged
-  integer                                         :: ilat,ineq,ispin,iorb
+  integer                                         :: ilat,ineq,ispin,iorb,ifreq
   !bath:
-  integer                                         :: Nb
-  real(8),allocatable                             :: Bath_prev(:,:),Bath_ineq(:,:)
+!  integer                                         :: Nb
+!  real(8),allocatable                             :: Bath_prev(:,:),Bath_ineq(:,:)
   !local hybridization function:
-  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Weiss_ineq
+!  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Weiss_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Smats,Smats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Sreal,Sreal_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Gmats,Gmats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Greal,Greal_ineq
-  real(8), allocatable,dimension(:)               :: dens,dens_ineq
+  real(8), allocatable,dimension(:,:)             :: dens,dens_ineq,dens_prev
   real(8), allocatable,dimension(:)               :: docc,docc_ineq
   !hamiltonian input:
   complex(8),allocatable                          :: Hij(:,:,:)      ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk==1]
@@ -32,6 +32,9 @@ program ed_nano
   !input files:
   character(len=32)                               :: finput
   character(len=32)                               :: nfile,hijfile
+  !output files:
+  integer                                         :: unit
+  character(len=32)                               :: ilabel
   !
   logical                                         :: phsym,hyb2env,conduct
   !non-local Green's function:
@@ -72,7 +75,7 @@ program ed_nano
 
 
   ! allocate weiss field:
-  allocate(Weiss_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
+!  allocate(Weiss_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
   !
   allocate(Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Smats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
@@ -89,8 +92,9 @@ program ed_nano
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))
   allocate(Hloc_ineq(Nineq,Nspin,Nspin,Norb,Norb))
   !
-  allocate(dens(Nlat))
-  allocate(dens_ineq(Nineq))
+  allocate(dens(Nlat,2))
+  allocate(dens_ineq(Nineq,2))
+  allocate(dens_prev(Nineq,2))
   !
   allocate(docc(Nlat))
   allocate(docc_ineq(Nineq))
@@ -131,39 +135,62 @@ program ed_nano
 
 
   ! setup solver
-  Nb=get_bath_size()
+!  Nb=get_bath_size()
 
-  allocate(Bath_ineq(Nineq,Nb))
-  allocate(Bath_prev(Nineq,Nb))
-  call ed_init_solver_lattice(Bath_ineq)
+!  allocate(Bath_ineq(Nineq,Nb))
+!  allocate(Bath_prev(Nineq,Nb))
+!  call ed_init_solver_lattice(Bath_ineq)
 
+
+  ! initial guess density
   do ineq=1,Nineq
-     ilat = ineq2lat(ineq)
      ! break SU(2) symmetry for magnetic solutions
-     if(Nspin>1) call break_symmetry_bath(Bath_ineq(ineq,:),sb_field,dble(sb_field_sign(ineq)))
-     Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
+     dens_ineq(ineq,1) = 0.5d0 - sb_field*sb_field_sign(ineq)
+     dens_ineq(ineq,2) = 0.5d0 + sb_field*sb_field_sign(ineq)
+     ! initialize self-energy
+     Smats_ineq(ineq,1,1,1,1,:) = Uloc(1)*(dens_ineq(ineq,2)-0.5d0)
+     Smats_ineq(ineq,2,2,1,1,:) = Uloc(1)*(dens_ineq(ineq,1)-0.5d0)
+     Sreal_ineq(ineq,1,1,1,1,:) = Uloc(1)*(dens_ineq(ineq,2)-0.5d0)
+     Sreal_ineq(ineq,2,2,1,1,:) = Uloc(1)*(dens_ineq(ineq,1)-0.5d0)
+     ! initialize (uncorrelated) double occupations
+     docc_ineq(ineq) = dens_ineq(ineq,1)*dens_ineq(ineq,2)
   enddo
+
+  if(MPIID==0)then
+     do ineq=1,Nineq
+       write(6,*) ineq, dens_ineq(ineq,1), dens_ineq(ineq,2)
+     enddo
+   endif
+
+!  do ineq=1,Nineq
+!     ilat = ineq2lat(ineq)
+!     ! break SU(2) symmetry for magnetic solutions
+!     if(Nspin>1) call break_symmetry_bath(Bath_ineq(ineq,:),sb_field,dble(sb_field_sign(ineq)))
+!     Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
+!  enddo
 
 
   iloop=0 ; converged=.false.
   do while(.not.converged.AND.iloop<nloop) 
      iloop=iloop+1
      if(mpiID==0) call start_loop(iloop,nloop,"DMFT-loop")   
-     bath_prev=bath_ineq
+     !bath_prev=bath_ineq
+     dens_prev = dens_ineq
 
-     ! solve impurities on each inequivalent site:
-     call ed_solve_lattice(bath_ineq,Hloc_ineq)
+!     ! solve impurities on each inequivalent site:
+!     call ed_solve_lattice(bath_ineq,Hloc_ineq)
+!
+!     ! retrieve self-energies and occupations(Nineq,Norb=1)
+!     call ed_get_sigma_matsubara_lattice(Smats_ineq,Nineq)
+!     call ed_get_sigma_real_lattice(Sreal_ineq,Nineq)
+!     dens_ineq = ed_get_dens_lattice(Nineq,1)
+!     docc_ineq = ed_get_docc_lattice(Nineq,1)
+!     !  
 
-     ! retrieve self-energies and occupations(Nineq,Norb=1)
-     call ed_get_sigma_matsubara_lattice(Smats_ineq,Nineq)
-     call ed_get_sigma_real_lattice(Sreal_ineq,Nineq)
-     dens_ineq = ed_get_dens_lattice(Nineq,1)
-     docc_ineq = ed_get_docc_lattice(Nineq,1)
-     !  
      ! spread self-energies and occupation to all lattice sites
      do ilat=1,Nlat
         ineq = lat2ineq(ilat)
-        dens(ilat) = dens_ineq(ineq)
+        dens(ilat,:) = dens_ineq(ineq,:)
         docc(ilat) = docc_ineq(ineq)
         Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
         Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
@@ -171,33 +198,85 @@ program ed_nano
 
      ! compute the local gf:
      if(hyb2env)then
-        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=0,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
      else
-        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
+        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=0)
      endif
      do ineq=1,Nineq
         ilat = ineq2lat(ineq)
         Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
      enddo
      ! compute the Weiss field
-     call ed_get_weiss_lattice(Nineq,Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq)
+     !call ed_get_weiss_lattice(Nineq,Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq)
 
-     ! fit baths and mix result with old baths
-     do ispin=1,Nspin
-        call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin)
+     ! compute observables
+     do ineq=1,Nineq
+        ! compute occupations
+        dens_ineq(ineq,1) = fft_get_density(Gmats_ineq(ineq,1,1,1,1,:),beta)
+        if(phsym)then
+           dens_ineq(ineq,2) = 1.d0-dens_ineq(ineq,1)
+        else
+           dens_ineq(ineq,2) = fft_get_density(Gmats_ineq(ineq,2,2,1,1,:),beta)
+        endif
+        ! compute self-energies
+        Smats_ineq(ineq,1,1,1,1,:) = Uloc(1)*(dens_ineq(ineq,2)-0.5d0)
+        Smats_ineq(ineq,2,2,1,1,:) = Uloc(1)*(dens_ineq(ineq,1)-0.5d0)
+        Sreal_ineq(ineq,1,1,1,1,:) = Uloc(1)*(dens_ineq(ineq,2)-0.5d0)
+        Sreal_ineq(ineq,2,2,1,1,:) = Uloc(1)*(dens_ineq(ineq,1)-0.5d0)
+        ! compute (uncorrelated) double occupations
+        docc_ineq(ineq) = dens_ineq(ineq,1)*dens_ineq(ineq,2)
      enddo
-     if(phsym)then
+
+     ! write observables 
+     if(MPIID==0)then
+        unit = free_unit()
+        open(unit,file="observables_info.hartree")
+        write(unit,*) '#   1dens_1         2docc_1          3nup_1          4ndw_1          5mag_1             6s2'
+        close(unit)
         do ineq=1,Nineq
-           call ph_symmetrize_bath(bath_ineq(ineq,:),save=.true.)
+           write (ilabel,'(I4.4)') ineq
+           unit = free_unit()
+           open(unit,file="observables_last_site"//trim(ilabel)//".hartree")
+           write(unit,"(90(F15.9,1X))")&
+                 dens_ineq(ineq,1)+dens_ineq(ineq,2),&
+                 docc_ineq(ineq),&
+                 dens_ineq(ineq,1),&
+                 dens_ineq(ineq,1),&
+                 dens_ineq(ineq,1)-dens_ineq(ineq,2),&
+                 dens_ineq(ineq,1)+dens_ineq(ineq,2)-2.d0*docc_ineq(ineq)
+           close(unit)
         enddo
      endif
-     Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
-     if(mpiID==0)then
-        converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
-       ! alternative convergency criteria
-       !converged = check_convergence_local(docc_ineq,dmft_error,nsuccess,nloop)
+
+
+
+
+
+ 
+!     ! fit baths and mix result with old baths
+!     do ispin=1,Nspin
+!        call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin)
+!     enddo
+!     if(phsym)then
+!        do ineq=1,Nineq
+!           call ph_symmetrize_bath(bath_ineq(ineq,:),save=.true.)
+!        enddo
+!     endif
+!     Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
+!     if(mpiID==0)then
+!        converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
+!       ! alternative convergency criteria
+!       !converged = check_convergence_local(docc_ineq,dmft_error,nsuccess,nloop)
+!        if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
+!     endif
+
+      dens_ineq=wmixing*dens_ineq + (1.d0-wmixing)*dens_prev
+      if(mpiID==0)then
+        ! convergency criteria
+        converged = check_convergence_local(dens_ineq,dmft_error,nsuccess,nloop)
         if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
-     endif
+      endif
+
 #ifdef _MPI_INEQ
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
      call MPI_BCAST(xmu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
@@ -205,7 +284,13 @@ program ed_nano
      if(mpiID==0) call end_loop()
   end do
 
-
+  ! compute the local gf:
+  if(hyb2env)then
+     call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+  else
+     call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
+  endif
+ 
   call save_sigma(Smats_ineq,Sreal_ineq)
 
   Eout = ed_kinetic_energy_lattice(Hij,[1d0],Smats)

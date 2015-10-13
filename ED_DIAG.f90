@@ -140,10 +140,9 @@ contains
              call es_add_state(state_list,eig_values(i),eig_basis(1:dim,i),isector,twin=Tflag,size=lanc_nstates_total)
           enddo
        else
-          !<DEBUG
           do i=1,Neigen
              enemin = eig_values(i)
-             if(enemin < oldzero-10.d0*gs_threshold)then
+             if (enemin < oldzero-10.d0*gs_threshold)then
                 oldzero=enemin
                 call es_free_espace(state_list)
                 call es_add_state(state_list,enemin,eig_basis(1:dim,i),isector,twin=Tflag)
@@ -152,7 +151,6 @@ contains
                 call es_add_state(state_list,enemin,eig_basis(1:dim,i),isector,twin=Tflag)
              endif
           enddo
-          !>DEBUG
        endif
        unit=free_unit()
        open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")

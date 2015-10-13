@@ -7,7 +7,9 @@ MODULE ED_CHI2FIT
   USE SF_MISC,     only:assert_shape
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
-  USE ED_BATH
+  USE ED_BATH_DMFT
+  USE ED_BATH_USER
+  USE ED_BATH_FUNCTIONS
   USE ED_AUX_FUNX, only:set_Hloc
 
   implicit none
