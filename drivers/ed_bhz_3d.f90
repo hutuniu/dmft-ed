@@ -199,7 +199,6 @@ contains
        call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_iw.ed",wm,Gmats(iorb,iorb,:))
        call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_realw.ed",wr,&
             -dimag(Greal(iorb,iorb,:))/pi,dreal(Greal(iorb,iorb,:)))
-       n0(iorb) = fft_get_density(Gmats(iorb,iorb,:),beta)
     enddo
     !
   end subroutine build_hk
@@ -315,9 +314,10 @@ contains
     call read_sigma(Sreal)
     call read_sigma(Smats)
     !
-    allocate(kpath(2,3))
-    kpath(1,:)=[0,0,0]!G
-    kpath(2,:)=[1,0,0]!X
+    allocate(kpath(3,3))
+    kpath(1,:)=[-0.125,-0.125,-0.125]!G-e<-M
+    kpath(2,:)=[0,0,0]!G
+    kpath(3,:)=[0.125,0.125,0.125]!G+e->M
     kpath=kpath*pi
     call build_hk_path(kpath)
     !
@@ -365,17 +365,16 @@ contains
        call delete_finter(finter_func)
     enddo
     call splot("BHZpoles.ed",(/(ik-1,ik=1,Lk)/),ipoles(:),iweight(:))
-    unit=free_unit()
-    open(unit,file="BHZpoles_all.ed")
     do int=1,maxNinterval
+       unit=free_unit()
+       open(unit,file="BHZpoles_int"//reg(txtfy(int))//".ed")
        if(any((Mpoles(:,int)/=0.d0)))then
           do ik=1,Lk
              if(Mpoles(ik,int)/=0.d0)write(unit,*)ik-1,Mpoles(ik,int),Mweight(ik,int)
           enddo
-          write(unit,*)""
        endif
+       close(unit)
     enddo
-    close(unit)
     !
   end subroutine get_poles
 

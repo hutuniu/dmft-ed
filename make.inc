@@ -1,18 +1,18 @@
 ##$ COMPILER: suppprted compilers are ifort, gnu >v4.7
 ##$ use mpif90 for parallel compiler
-FC=mpif90
+FC=ifort
 
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=gnu
+PLAT=intel
 
 
 ##$ PRECOMPILATION FLAGS
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-FPP_INEQ=MPI_INEQ
+#FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
 #FPP_ED=MPI
@@ -76,11 +76,13 @@ DIREXE=$(HOME)/.bin
 
 ifeq ($(PLAT),intel)
 FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
+DFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
 endif
 
 ifeq ($(PLAT),gnu)
 INCARGS=-I$(LIBDIR)/scifor/gnu/include -I$(LIBDIR)/dmft_tools/gnu/include
 FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
+DFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 endif
 
 
