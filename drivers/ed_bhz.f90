@@ -226,20 +226,14 @@ contains
     Lk=(Npts-1)*Nkpath
     if(allocated(Hk))deallocate(Hk)
     if(allocated(wtk))deallocate(wtk)
-    if(allocated(kxgrid))deallocate(kxgrid)
-    if(allocated(kygrid))deallocate(kygrid)
     allocate(Hk(Nso,Nso,Lk))
     allocate(wtk(Lk))
-    allocate(kxgrid(Lk))
-    allocate(kygrid(Lk))
     allocate(kpath(Npts,2))
     kpath(1,:)=kpoint_Gamma
     kpath(2,:)=kpoint_M1
     kpath(3,:)=kpoint_X1
     kpath(4,:)=kpoint_Gamma
-    kxgrid = kgrid_from_path(kpath,Npts,Nkpath,1)
-    kygrid = kgrid_from_path(kpath,Npts,Nkpath,2)
-    Hk     = build_hk_model(hk_bhz,Nso,kxgrid,kygrid,[0d0])
+    Hk     = build_hk_model(hk_bhz,Nso,kpath,Nkpath)
     wtk = 1d0/Lk
     if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_bhz,Nso,kpath,Lk,&
          colors_name=[character(len=20) :: 'red','blue','red','blue'],&

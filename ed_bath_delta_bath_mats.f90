@@ -63,10 +63,16 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
            whel = get_Whyb_matrix(dmft_bath_%v(1:Nspin,iorb,1:Nbath),dmft_bath_%u(1:Nspin,iorb,1:Nbath))
            do ispin=1,Nspin
               do jspin=1,Nspin
+<<<<<<< HEAD
                  do i=1,L
                     do ih=1,Nspin
                        Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + &
                             sum( whel(ispin,ih,:)*whel(jspin,ih,:)/(x(i) - ehel(ih,:)) )
+=======
+                 do ih=1,Nspin
+                    do i=1,L
+                       Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x(i) - hps(ih,:)) )
+>>>>>>> cf79c6c3cd11f5192504bb6f160ff78efe0d76f1
                     enddo
                  enddo
               enddo
@@ -147,10 +153,17 @@ function delta_bath_mats_main(x,dmft_bath_) result(Delta)
            do jorb=1,Norb
               do ispin=1,Nspin
                  do jspin=1,Nspin
+<<<<<<< HEAD
                     do i=1,L
                        do ih=1,Nspin
                           Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
                                sum( wohel(ispin,ih,iorb,:)*wohel(jspin,ih,jorb,:)/(x(i) - ehel(ih,:)) )
+=======
+                    do ih=1,Nspin
+                       do i=1,L
+                          Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
+                               sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x(i) - hps(ih,:)) )
+>>>>>>> cf79c6c3cd11f5192504bb6f160ff78efe0d76f1
                        enddo
                     enddo
                  enddo

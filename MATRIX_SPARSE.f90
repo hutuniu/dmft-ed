@@ -203,7 +203,7 @@ contains
   !+------------------------------------------------------------------+
   subroutine sp_delete_matrix_ll(sparse)    
     type(sparse_matrix),intent(inout) :: sparse
-    integer                           :: i,Ndim
+    integer                           :: i
     if(.not.sparse%status)stop "Warning SPARSE/sp_delete_matrix: sparse not allocated already."
     do i=1,sparse%Nrow
        call delete_row(sparse%row(i))
@@ -216,7 +216,6 @@ contains
   !
   subroutine sp_delete_matrix_csr(sparse)    
     type(sparse_matrix_csr),intent(inout) :: sparse
-    integer                               :: i,Ndim
     if(.not.sparse%status)stop "Warning SPARSE/sp_delete_matrix: sparse not allocated already."
     deallocate(sparse%values)
     deallocate(sparse%columns)
@@ -320,8 +319,7 @@ contains
 
   function sp_get_nnz_csr(sparse) result(Nnz)
     type(sparse_matrix_csr) :: sparse
-    integer             :: i
-    integer             :: Nnz
+    integer                 :: Nnz
     Nnz=size(sparse%values)
   end function sp_get_nnz_csr
 
@@ -394,7 +392,6 @@ contains
     real(8) ,intent(in)               :: value
     integer, intent(in)               :: column
     type(sparse_element),pointer      :: p,c
-    integer                           :: i
     logical                           :: iadd
     p => row%root
     c => p%next
@@ -429,7 +426,6 @@ contains
     complex(8) ,intent(in)            :: value
     integer, intent(in)               :: column
     type(sparse_element),pointer      :: p,c
-    integer                           :: i
     logical :: iadd
     p => row%root
     c => p%next
@@ -477,7 +473,7 @@ contains
   subroutine sp_get_diagonal_d(sparse,diag)
     type(sparse_matrix),intent(inout) :: sparse
     real(8),dimension(:)              :: diag
-    integer                           :: Ndim,i,j
+    integer                           :: Ndim,i
     Ndim=size(diag);if(Ndim/=sparse%Nrow)stop "sp_get_diagonal: error in diag dimension." 
     do i=1,Ndim
        call get_element_from_row_d(sparse%row(i),diag(i),i)
@@ -487,7 +483,7 @@ contains
   subroutine sp_get_diagonal_c(sparse,diag)
     type(sparse_matrix),intent(inout) :: sparse
     complex(8),dimension(:)           :: diag
-    integer                           :: Ndim,i,j
+    integer                           :: Ndim,i
     Ndim=size(diag);if(Ndim/=sparse%Nrow)stop "sp_get_diagonal: error in diag dimension." 
     do i=1,Ndim
        call get_element_from_row_c(sparse%row(i),diag(i),i)
@@ -497,7 +493,7 @@ contains
   subroutine sp_get_diagonal_csr(sparse,diag)
     type(sparse_matrix_csr),intent(inout) :: sparse
     real(8),dimension(:)               :: diag
-    integer                               :: Nrow,i,j
+    integer                               :: Nrow,i
     Nrow=size(diag);if(Nrow/=sparse%Nrow)stop "sp_get_diagonal: error in diag dimension." 
     do i=1,Nrow
        diag(i)=sp_get_element_csr(sparse,i,i)
@@ -749,7 +745,7 @@ contains
     type(sparse_matrix),intent(in)        :: sparse
     real(8),dimension(:,:),intent(inout)  :: matrix
     type(sparse_element),pointer          :: c
-    integer                               :: i,j,Ndim1,Ndim2
+    integer                               :: i,Ndim1,Ndim2
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
     !if(Ndim1/=Ndim2)print*,"Warning: SPARSE_MATRIX/sp_dump_matrix_d: Ndim1/=Ndim2"
@@ -769,7 +765,7 @@ contains
     type(sparse_matrix),intent(in)          :: sparse
     complex(8),dimension(:,:),intent(inout) :: matrix
     type(sparse_element),pointer            :: c
-    integer                                 :: i,j,Ndim1,Ndim2
+    integer                                 :: i,Ndim1,Ndim2
     Ndim1=size(matrix,1)
     Ndim2=size(matrix,2)
     !if(Ndim1/=Ndim2)print*,"Warning: SPARSE_MATRIX/sp_dump_matrix_d: Ndim1/=Ndim2"
@@ -800,7 +796,7 @@ contains
     type(sparse_matrix)          :: sparse
     type(sparse_matrix_csr)      :: M
     type(sparse_element),pointer :: c
-    integer                      :: i,j,count,Nrow,Nnz
+    integer                      :: i,count,Nrow,Nnz
     if(.not.sparse%status)stop "sp_dump_sparse: sparse not allocated"
     if(.not.M%status)stop "sp_dump_sparse: M not allocated"
     Nnz  = sp_get_nnz(sparse)
@@ -832,7 +828,7 @@ contains
     type(sparse_matrix)          :: sparse
     type(sparse_matrix_csr)      :: M
     type(sparse_element),pointer :: c,p
-    integer                      :: i,j,count,Nrow,Nnz
+    integer                      :: i,count,Nrow,Nnz
     if(.not.sparse%status)stop "sp_dump_sparse: sparse not allocated"
     if(.not.M%status)stop "sp_dump_sparse: M not allocated"
     Nnz  = sp_get_nnz(sparse)
@@ -906,8 +902,13 @@ contains
        if(full_)then
           write(*,*)"Print sparse matrix (full mode < 100) ->",unit_
           do i=1,Ns
+<<<<<<< HEAD
              write(unit_,"(100("//trim(fmt_)//",A1,"//trim(fmt_)//",2X))")(&
                   real(sp_get_element_c(sparse,i,j)),",",imag(sp_get_element_c(sparse,i,j)),j=1,Ns)
+=======
+             write(*,"(100("//trim(fmt_)//",A1,"//trim(fmt_)//",2X))")(&
+                  dreal(sp_get_element_c(sparse,i,j)),",",dimag(sp_get_element_c(sparse,i,j)),j=1,Ns)
+>>>>>>> cf79c6c3cd11f5192504bb6f160ff78efe0d76f1
           enddo
        else
           write(*,*)"Print sparse matrix (compact mode) ->",unit_
@@ -951,7 +952,7 @@ contains
   subroutine print_row_d(row,unit,fmt)
     type(sparse_row),intent(in)  :: row
     type(sparse_element),pointer :: c
-    integer                      :: count=0,i
+    integer                      :: count=0
     integer                      :: unit
     character(len=*)             :: fmt
     c => row%root%next   !assume is associated,ie list exists
@@ -1040,11 +1041,11 @@ contains
   end subroutine sp_matrix_vector_product_dc
   !+------------------------------------------------------------------+
   subroutine sp_matrix_vector_product_csr(Nrow,sparse,vin,vout)
-    integer                               :: Nrow,Nnz
+    integer                               :: Nrow
     type(sparse_matrix_csr),intent(in)    :: sparse
     real(8),dimension(Nrow),intent(in)    :: vin
     real(8),dimension(Nrow),intent(inout) :: vout
-    integer                               :: i,j,pos
+    integer                               :: i,pos
     vout=0.d0
     do i=1,Nrow
        do pos=sparse%rowIndex(i),sparse%rowIndex(i+1)-1

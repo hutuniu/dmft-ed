@@ -26,7 +26,7 @@ LIBDIR=/opt
 ##$ CHOOSE THE MODEL BY SELECTING THE PROGRAM DRIVER
 ##$ if needed add yours to the list:
 ##$ --> HUBBARD MODELS:
-EXE=ed_hm_bethe
+#EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
 #EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
@@ -92,7 +92,7 @@ endif
 ##$ 
 ##$ ELSE:
 ##$ 
-ARGS= -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas -larpack 
+ARGS= -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas  -larpack 
 
 
 

@@ -645,7 +645,7 @@ contains
   subroutine set_bath(bath_,dmft_bath_)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
-    integer                :: i,iorb,jorb,ispin,jspin,stride,io
+    integer                :: i,iorb,ispin,stride,io
     logical                :: check
     if(.not.dmft_bath_%status)stop "SET_BATH: bath not allocated"
     check = check_bath_dimension(bath_)
@@ -823,7 +823,7 @@ contains
   subroutine copy_bath(dmft_bath_,bath_)
     type(effective_bath)   :: dmft_bath_
     real(8),dimension(:)   :: bath_
-    integer                :: iorb,jorb,ispin,jspin,stride,io,i
+    integer                :: iorb,ispin,stride,io,i
     logical                :: check
     if(.not.dmft_bath_%status)stop "COPY_BATH: bath not allocated"
     check=check_bath_dimension(bath_)
@@ -1082,7 +1082,7 @@ contains
     real(8)                :: sign
     logical,optional       :: save
     logical                :: save_
-    save_=.false.;if(present(save))save_=save
+    save_=.true.;if(present(save))save_=save
     call allocate_bath(dmft_bath_)
     call set_bath(bath_,dmft_bath_)
     dmft_bath_%e(1,:,:)    =dmft_bath_%e(1,:,:)      + sign*field
@@ -1097,7 +1097,7 @@ contains
     type(effective_bath)   :: dmft_bath_
     logical,optional       :: save
     logical                :: save_
-    save_=.false.;if(present(save))save_=save
+    save_=.true.;if(present(save))save_=save
     if(Nspin==1)then
        if(ED_MPI_ID==0)write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
        return
@@ -1118,7 +1118,7 @@ contains
     integer                :: i
     logical,optional       :: save
     logical                :: save_
-    save_=.false.;if(present(save))save_=save
+    save_=.true.;if(present(save))save_=save
     call allocate_bath(dmft_bath_)
     call set_bath(bath_,dmft_bath_)
     if(Nbath==1)return
@@ -1148,7 +1148,7 @@ contains
     integer                :: i
     logical,optional       :: save
     logical                :: save_
-    save_=.false.;if(present(save))save_=save
+    save_=.true.;if(present(save))save_=save
     call allocate_bath(dmft_bath_)
     call allocate_bath(tmp_dmft_bath)
     call set_bath(bath_,dmft_bath_)
@@ -1182,10 +1182,9 @@ contains
   subroutine enforce_normal_bath(bath_,save)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
-    integer                :: i
     logical,optional       :: save
     logical                :: save_
-    save_=.false.;if(present(save))save_=save
+    save_=.true.;if(present(save))save_=save
     call allocate_bath(dmft_bath_)
     call set_bath(bath_,dmft_bath_)
     if(ed_mode=="superc")dmft_bath_%d(:,:,:)=0.d0

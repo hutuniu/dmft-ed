@@ -62,7 +62,7 @@ EXE=ed_ahm_stripe
 DIR =drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
-DIREXE=$(HOME)/.bin
+DIREXE=$(HOME)/.project_bin
 
 
 ifeq ($(PLAT),intel)

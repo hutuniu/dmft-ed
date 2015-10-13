@@ -8,7 +8,7 @@ MODULE ED_HAMILTONIAN
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_BATH
-  USE ED_AUX_FUNX
+  USE ED_SETUP
   implicit none
   private
 
@@ -24,12 +24,14 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_buildH_d(isector,Hmat)
     real(8),dimension(:,:),optional    :: Hmat
+#ifdef _MPI
     real(8),dimension(:,:),allocatable :: Hredux
+#endif
     integer                            :: isector
     integer,dimension(:),allocatable   :: Hmap    !map of the Sector S to Hilbert space H
     integer,dimension(Nlevels)         :: ib
     integer                            :: mpiQ,mpiR                
-    integer                            :: dim,iup,idw
+    integer                            :: dim
     integer                            :: i,j,m,ms,iorb,jorb,ispin,impi,ishift
     integer                            :: kp,k1,k2,k3,k4
     real(8)                            :: sg1,sg2,sg3,sg4
@@ -96,12 +98,14 @@ contains
   !+------------------------------------------------------------------+
   subroutine ed_buildH_c(isector,Hmat)
     complex(8),dimension(:,:),optional    :: Hmat
+#ifdef _MPI
     complex(8),dimension(:,:),allocatable :: Hredux
+#endif
     integer                               :: isector
     integer,dimension(:),allocatable      :: Hmap    !map of the Sector S to Hilbert space H
     integer,dimension(Nlevels)            :: ib
     integer                               :: mpiQ,mpiR                
-    integer                               :: dim,iup,idw
+    integer                               :: dim
     integer                               :: i,j,m,ms,iorb,jorb,ispin,impi,ishift
     integer                               :: kp,k1,k2,k3,k4
     real(8)                               :: sg1,sg2,sg3,sg4

@@ -10,7 +10,7 @@ function invg0_bath_mats_main(x,dmft_bath_) result(G0and)
   complex(8),dimension(:),intent(in)                  :: x
   type(effective_bath)                                :: dmft_bath_
   complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: G0and,Delta,Fdelta
-  integer                                             :: iorb,jorb,ispin,jspin,io,jo,Nso,i,L
+  integer                                             :: i,iorb,jorb,ispin,jspin,io,jo,Nso,L
   real(8),dimension(size(x))                          :: det
   complex(8),dimension(size(x))                       :: fg,ff
   complex(8),dimension(:,:),allocatable               :: fgorb,zeta
@@ -170,7 +170,6 @@ function invg0_bath_mats_ispin_jspin_(ispin,jspin,x,bath_) result(G0out)
   complex(8),dimension(Norb,Norb,size(x)) :: G0out
   real(8),dimension(:)                    :: bath_
   logical                                 :: check
-  integer                                 :: iorb,jorb
   check= check_bath_dimension(bath_)
   if(.not.check)stop "invg0_bath_mats_ error: wrong bath dimensions"
   call allocate_bath(dmft_bath_)
@@ -296,7 +295,6 @@ function invf0_bath_mats_ispin_jspin_(ispin,jspin,x,bath_) result(F0out)
   complex(8),dimension(Norb,Norb,size(x)) :: F0out
   real(8),dimension(:)                    :: bath_
   logical                                 :: check
-  integer                                 :: iorb,jorb
   check= check_bath_dimension(bath_)
   if(.not.check)stop "invf0_bath_mats_ispin_jspin_ error: wrong bath dimensions"
   call allocate_bath(dmft_bath_)

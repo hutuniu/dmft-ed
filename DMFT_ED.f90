@@ -6,7 +6,7 @@ MODULE DMFT_ED
        icol        ,&
        irow        ,&
        ij2site     ,&
-       H0          ,&
+       ! H0          ,&
        impSmats    ,&
        impSAmats   ,&
        impSreal    ,&
@@ -20,20 +20,17 @@ MODULE DMFT_ED
   USE ED_AUX_FUNX, only:&
        set_Hloc,&
        get_Hloc,&
-       search_chemical_potential
-
-  USE ED_WRAP_AUX_FUNX       , only:&
+       extract_Hloc          ,&
        blocks_to_matrix      ,&
        matrix_to_blocks      ,&
        select_block          ,&
-       stride_index          ,&
-       extract_Hloc          ,&
-       reshape_Hloc          ,&
+       stride_index          ,&       
+       lso2nnn_reshape       ,&
+       nnn2lso_reshape       ,&
        get_independent_sites ,&  
-                                !OBSOLETE (to be removed)
-       get_lattice_hamiltonian
+       search_chemical_potential
 
-  !USE ED_BATH_TYPE
+
   USE ED_BATH, only: &
        get_bath_size        ,&
        check_bath_dimension ,&
@@ -68,9 +65,7 @@ MODULE DMFT_ED
        ed_get_dust            ,&
        ed_get_dund            ,&
        ed_get_dse             ,&
-       ed_get_dph
-
-  USE ED_WRAP_MAIN, only: &
+       ed_get_dph             ,&
        ed_init_solver_lattice         ,&
        ed_solve_lattice               ,&
        ed_get_sigma_matsubara_lattice ,&
@@ -97,21 +92,19 @@ MODULE DMFT_ED
        ed_get_dph_lattice
 
 
-  USE ED_GLOC,     only:  ed_get_gloc
-  USE ED_WRAP_GLOC,only:  ed_get_gloc_lattice
+  USE ED_GLOC,     only:&
+       ed_get_gloc,&
+       ed_get_gloc_lattice,&
+       ed_get_gij_lattice
 
 
-  USE ED_WEISS,    only:  ed_get_weiss
-  USE ED_WRAP_WEISS,only: ed_get_weiss_lattice
-  !USE ED_WRAP_WEISS,only: ed_get_weiss_lattice_hloc,ed_get_weiss_lattice_eloc
+  USE ED_WEISS,    only: ed_get_weiss,ed_get_weiss_lattice
 
 
-  USE ED_ENERGY, only:    ed_kinetic_energy
-  USE ED_WRAP_ENERGY,only:ed_kinetic_energy_lattice
+  USE ED_ENERGY,   only: ed_kinetic_energy,ed_kinetic_energy_lattice
 
 
-  USE ED_CHI2FIT,     only: ed_chi2_fitgf
-  USE ED_WRAP_CHI2FIT,only: ed_chi2_fitgf_lattice
+  USE ED_CHI2FIT,  only: ed_chi2_fitgf,ed_chi2_fitgf_lattice
 
 
 END MODULE DMFT_ED

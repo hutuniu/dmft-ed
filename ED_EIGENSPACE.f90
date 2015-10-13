@@ -1,6 +1,6 @@
 module ED_EIGENSPACE
   USE ED_VARS_GLOBAL
-  USE ED_AUX_FUNX
+  USE ED_SETUP
   implicit none
   private
 
@@ -191,8 +191,7 @@ contains        !some routine to perform simple operation on the lists
     real(8),dimension(:),intent(in)   :: vec
     integer,intent(in)                :: sector
     logical                           :: twin
-    type(sparse_estate),pointer       :: p,c,pn,pt
-    integer                           :: step
+    type(sparse_estate),pointer       :: p,c
     p => space%root
     c => p%next
     do                            !traverse the list until obj < value (ordered list)
@@ -341,7 +340,7 @@ contains        !some routine to perform simple operation on the lists
     real(8),optional               :: gsthreshold
     real(8)                        :: gsthreshold_
     integer                        :: numzero,pos
-    type(sparse_estate),pointer    :: p,c
+    type(sparse_estate),pointer    :: c
     real(8)                        :: oldzero,enemin
     gsthreshold_=1.d-9;if(present(gsthreshold))gsthreshold_=gsthreshold
     if(.not.space%status) stop "es_return_gs_degeneracy: espace not allocated"
@@ -456,7 +455,7 @@ contains        !some routine to perform simple operation on the lists
     real(8),dimension(:),pointer     :: vector
     type(sparse_estate),pointer      :: c
     integer                          :: i,pos
-    integer                          :: dim,sector
+    integer                          :: dim
     integer,dimension(:),allocatable :: order
     if(.not.space%status) stop "es_return_vector: espace not allocated"
     pos= space%size ; if(present(n))pos=n
@@ -484,12 +483,12 @@ contains        !some routine to perform simple operation on the lists
   end function es_return_vector
 
   function es_return_cvector(space,n) result(vector)
-    type(sparse_espace),intent(in)  :: space
-    integer,optional,intent(in)    :: n
-    complex(8),dimension(:),pointer :: vector
-    type(sparse_estate),pointer     :: c
-    integer                         :: i,pos
-    integer                          :: dim,sector
+    type(sparse_espace),intent(in)   :: space
+    integer,optional,intent(in)      :: n
+    complex(8),dimension(:),pointer  :: vector
+    type(sparse_estate),pointer      :: c
+    integer                          :: i,pos
+    integer                          :: dim
     integer,dimension(:),allocatable :: order
     if(.not.space%status) stop "es_return_cvector: espace not allocated"
     pos= space%size ; if(present(n))pos=n
@@ -528,7 +527,7 @@ contains        !some routine to perform simple operation on the lists
   subroutine es_print_espace(space,unit,wvec)
     type(sparse_espace),intent(in) :: space
     type(sparse_estate),pointer    :: c
-    integer                        :: counter,i
+    integer                        :: counter
     integer,optional               :: unit
     integer                        :: unit_
     logical,optional               :: wvec

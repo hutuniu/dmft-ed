@@ -57,9 +57,11 @@ contains
     real(8),dimension(size(vin)),intent(inout) :: vout
     real(8),dimension(size(vin))               :: tmp!,dummy
     real(8),intent(inout)                      :: a,b
-    integer                                    :: i,iter,ndim,nloc
+    integer                                    :: iter,ndim,nloc
     real(8)                                    :: norm
+#ifdef _MPI
     integer                                    :: mpiQ,mpiR
+#endif
     ndim=size(vin)
     if(iter==1)then
        norm=sqrt(dot_product(vin,vin))
@@ -88,9 +90,11 @@ contains
     complex(8),dimension(size(vin)),intent(inout) :: vout
     complex(8),dimension(size(vin))               :: tmp!,dummy
     real(8),intent(inout)                         :: a,b
-    integer                                       :: i,iter,ndim,nloc
+    integer                                       :: iter,ndim,nloc
     real(8)                                       :: norm
+#ifdef _MPI
     integer                                       :: mpiQ,mpiR
+#endif
     ndim=size(vin)
     if(iter==1)then
        norm=sqrt(dot_product(vin,vin))
@@ -127,9 +131,9 @@ contains
     real(8),dimension(nitermax),intent(inout) :: alanc
     real(8),dimension(nitermax),intent(inout) :: blanc
     procedure(lanc_htimesv_d)                 :: Hprod
-    integer                                   :: i,nitermax,ierr
-    integer                                   :: iter,nlanc
-    real(8)                                   :: a_,b_,diff
+    integer                                   :: nitermax
+    integer                                   :: iter
+    real(8)                                   :: a_,b_
     real(8),optional                          :: threshold
     logical,optional                          :: iverbose
     if(present(iverbose))verb=iverbose
@@ -154,9 +158,9 @@ contains
     real(8),dimension(nitermax),intent(inout) :: alanc
     real(8),dimension(nitermax),intent(inout) :: blanc
     procedure(lanc_htimesv_c)                 :: Hprod
-    integer                                   :: i,nitermax,ierr
-    integer                                   :: iter,nlanc
-    real(8)                                   :: a_,b_,diff
+    integer                                   :: nitermax
+    integer                                   :: iter
+    real(8)                                   :: a_,b_
     real(8),optional                          :: threshold
     logical,optional                          :: iverbose
     if(present(iverbose))verb=iverbose
@@ -194,7 +198,7 @@ contains
     real(8),dimension(Nitermax,Nitermax) :: Z
     real(8),dimension(Nitermax)          :: diag,subdiag,esave
     real(8)                              :: a_,b_,norm,diff
-    integer                              :: i,j,ierr
+    integer                              :: i,ierr
     real(8),optional                     :: threshold
     integer,optional                     :: ncheck
     logical,optional                     :: iverbose
@@ -291,7 +295,7 @@ contains
     real(8),dimension(Nitermax,Nitermax) :: Z
     real(8),dimension(Nitermax)          :: diag,subdiag,esave
     real(8)                              :: a_,b_,norm,diff,ran(2)
-    integer                              :: i,j,ierr
+    integer                              :: i,ierr
     real(8),optional                     :: threshold
     integer,optional                     :: ncheck
     logical,optional                     :: iverbose
