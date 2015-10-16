@@ -65,7 +65,7 @@ function delta_bath_real_main(x,dmft_bath_) result(Delta)
                  do i=1,L
                     do ih=1,Nspin
                        Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + &
-                            sum( whel(ispin,ih,:)*whel(jspin,ih,:)/(x(i) - ehel(ih,:)) )
+                            sum( whel(ispin,ih,:)*whel(ih,jspin,:)/(x(i) - ehel(ih,:)) )
                     enddo
                  enddo
               enddo
@@ -150,7 +150,7 @@ function delta_bath_real_main(x,dmft_bath_) result(Delta)
                     do i=1,L
                        do ih=1,Nspin
                           Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
-                               sum( wohel(ispin,ih,iorb,:)*wohel(jspin,ih,jorb,:)/(x(i) - ehel(ih,:)) )
+                               sum( wohel(ispin,ih,iorb,:)*wohel(ih,jspin,jorb,:)/(x(i) - ehel(ih,:)) )
                        enddo
                     enddo
                  enddo

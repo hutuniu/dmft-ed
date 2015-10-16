@@ -1,26 +1,34 @@
 #include make.inc
 
 #COMPILER (PARALLEL IF FPP_INEQ or FPP_ED ARE SET)
+#FC=mpif90
 FC=mpif90
 PLAT=gnu
-
 
 #PRECOMPILATION FLAG (leave blank for serial code)
 #this is the flag for the inequivalent parallelism [MPI_INEQ]
 FPP_INEQ=
 #this is the flag for the ed parallelism [MPI]
-FPP_ED=
+FPP_ED=MPI
 
 .SUFFIXES: .f90
 
 ifeq ($(PLAT),intel)
 FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
+#FFLAG +=-traceback -g -std03 -check all -fstack-protector -assume protect_parens -implicitnone
 endif
 
 ifeq ($(PLAT),gnu)
 #questi mi includono le libreirie customizzate (-ldmftt -lscifor), le altre (-lminpack -llapack -lblas  -larpack -lparpack) sono in /usr/lib
-INCARGS=-I/home/xps13/Documenti/PhD/thesis/adriano/SciFor/gnu/include -I/home/xps13/Documenti/PhD/thesis/adriano/dmft_tools/gnu/include
+INCARGS=  -I/home/xps13/Documenti/PhD/programs/libraries/scifor/gnu/include 
+INCARGS+= -I/home/xps13/Documenti/PhD/programs/libraries/dmft_tools/gnu/include
+INCARGS+= -I/home/xps13/Documenti/PhD/programs/libraries/fftpack/gnu/include
+INCARGS+= -I/home/xps13/Documenti/PhD/programs/libraries/mpich-3.0.4/gnu/include
+INCARGS+= -I/home/xps13/Documenti/PhD/programs/libraries/arpack/gnu/include
+INCARGS+= -I/home/xps13/Documenti/PhD/programs/libraries/parpack/gnu/include
+
 #FFLAG +=-O0 -p -g -Wall -fbacktrace -fimplicit-none  -Wall  -Wline-truncation  -Wcharacter-truncation  -Wsurprising  -Waliasing  -Wimplicit-interface  -Wunused-parameter  -fwhole-file  -fcheck=all  -pedantic  -fbacktrace -fcheck=bounds
+
 FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 endif
 
@@ -29,7 +37,7 @@ endif
 #MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
 #ARGS=-ldmftt -lscifor $(MKLARGS) -larpack -lparpack 
 #ELSE:
-ARGS=  -ldmftt -lscifor -lminpack -llapack -lblas  -larpack -lparpack #-lfftpack
+ARGS=  -ldmftt -lscifor -lminpack -llapack -lblas  -larpack -lparpack -lfftpack
 
 
 #REVISION SOFTWARE GIT:
@@ -85,7 +93,7 @@ DIREXE=/home/xps13/Documenti/PhD/thesis/adriano/dmft_ed/STO_vs_doping
 OBJS= MATRIX_SPARSE.o ED_BATH_TYPE.o ED_VARS_GLOBAL.o ED_INPUT_VARS.o ARPACK_LANCZOS.o PLAIN_LANCZOS.o ED_AUX_FUNX.o ED_EIGENSPACE.o ED_BATH.o ED_MATVEC.o ED_HAMILTONIAN.o ED_GREENS_FUNCTIONS.o ED_OBSERVABLES.o  ED_GLOC.o ED_WEISS.o ED_ENERGY.o ED_CHI2FIT.o ED_DIAG.o ED_MAIN.o ED_WRAP_AUX_FUNX.o ED_WRAP_MAIN.o ED_WRAP_GLOC.o ED_WRAP_WEISS.o ED_WRAP_ENERGY.o ED_WRAP_CHI2FIT.o DMFT_ED.o
 
 
-all: version compile completion
+all: version compile completion 
 
 compile: $(OBJS)
 	@echo " ..................... compile ........................... "

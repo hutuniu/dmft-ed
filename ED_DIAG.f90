@@ -237,24 +237,27 @@ contains
           if(allocated(eig_values))deallocate(eig_values)
           if(allocated(eig_basis))deallocate(eig_basis)
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
-          eig_values=0d0 ; eig_basis=0d0
+          eig_values=0d0 ; eig_basis=zero
           call ed_buildH_c(isector)
 #ifdef _MPI
           call lanczos_parpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
 #else
           call lanczos_arpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
 #endif
-          if(spH0%status)call sp_delete_matrix(spH0)
        else
-          allocate(eig_values(Dim),eig_basis(Dim,dim))
-          eig_values=0.d0 ; eig_basis=zero
+          if(allocated(eig_values))deallocate(eig_values)
+          if(allocated(eig_basis))deallocate(eig_basis)
+          allocate(eig_values(dim),eig_basis(dim,dim))
+          eig_values=0d0 ; eig_basis=zero
           call ed_buildH_c(isector,eig_basis)
-          if(spH0%status)call sp_delete_matrix(spH0)
           call matrix_diagonalize(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=one
        endif
        !
-       ! egs_values(isector)=eig_values(1)
+
+   write(1000,*)eig_basis(:,1)
+
+       if(spH0%status)call sp_delete_matrix(spH0)
        !
        if(finiteT)then
           do i=1,Neigen

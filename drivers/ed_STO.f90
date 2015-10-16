@@ -121,14 +121,14 @@ program ed_STO
      delta_conv_avrg=delta_conv_avrg/Nso
 
 
-     converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
+     if(ED_MPI_ID==0) converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
      !converged = check_convergence_global(delta_conv,dmft_error,nsuccess,nloop)
 
      !if(ED_MPI_ID==0)converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0)converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
-     !#ifdef _MPI
-     !call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
-     !#endif
+#ifdef _MPI
+     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
 
      sumdens=sum(ed_get_dens())
      write(*,*) "sumdens",sumdens,"xmu",xmu,"converged",converged
@@ -265,9 +265,9 @@ contains
 
     !2) Off-diagonal part due to constant SOC and/or IVB
     if(.not.Hk_test) then
-       Hk(1:2,3:4)= oneI*s_z*soc/2.
-       Hk(1:2,5:6)=-oneI*s_y*soc/2.+ivb*2*oneI*sin(kx)
-       Hk(3:4,5:6)= oneI*s_x*soc/2.+ivb*2*oneI*sin(ky)
+       Hk(1:2,3:4)= (soc/2.)*oneI*s_z
+       Hk(1:2,5:6)=-(soc/2.)*oneI*s_y + ivb*2*oneI*eye(2)*sin(kx)
+       Hk(3:4,5:6)= (soc/2.)*oneI*s_x + ivb*2*oneI*eye(2)*sin(ky)
     else
        do i=1,Norb
           ndx=2*i-1 !here whatever

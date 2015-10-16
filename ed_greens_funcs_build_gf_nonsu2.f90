@@ -885,7 +885,11 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      state_e    =  es_return_energy(state_list,istate)
      state_cvec  => es_return_cvector(state_list,istate)
      norm0=sqrt(dot_product(state_cvec,state_cvec))
-     if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
+     !if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
+     if(abs(norm0-1.d0)>1.d-9)then
+       write(*,*)"GS is not normalized",norm0
+       stop 
+     endif
      idim  = getdim(isector)
      allocate(HImap(idim))
      call build_sector(isector,HImap)

@@ -450,7 +450,7 @@ function delta_hybrid_nonsu2(a) result(Delta)
               do i=1,Ldelta
                  do ih=1,Nspin
                     Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
-                         sum( wohel(ispin,ih,iorb,:)*wohel(jspin,ih,jorb,:)/(xi*Xdelta(i) - hps(ih,:)) )
+                         sum( wohel(ispin,ih,iorb,:)*wohel(ih,jspin,jorb,:)/(xi*Xdelta(i) - hps(ih,:)) )
                  enddo
               enddo
            enddo
