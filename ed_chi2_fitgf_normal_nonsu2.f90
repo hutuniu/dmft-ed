@@ -68,7 +68,6 @@ subroutine chi2_fitgf_normal_nonsu2(fg,bath_)
   call allocate_dmft_bath(dmft_bath)
   call set_dmft_bath(bath_,dmft_bath)
   !
-
   select case(ed_para)
   case (.true.)
      ! E_{:,\a}(:) [1][ 1 ][Nbath]
@@ -419,25 +418,6 @@ function delta_normal_nonsu2(a) result(Delta)
         enddo
      enddo
   enddo
-  !
-  ! do i=1,Ldelta
-  !    do ispin=1,Nspin
-  !       !Diagonal elements
-  !       Delta(ispin,ispin,i) = &
-  !            sum( vps(ispin,:)*vps(ispin,:)/(xi*Xdelta(i) - hps(ispin,:)) ) + &
-  !            sum( ups(ispin,:)*ups(ispin,:)/(xi*Xdelta(i) - hps((Nspin+1)-ispin,:)) )
-  !       !Off-diagonal elements
-  !       do jspin=ispin+1,Nspin
-  !          Delta(ispin,jspin,i) = &
-  !               sum( vps(ispin,:)*ups(jspin,:)/(xi*Xdelta(i) - hps(ispin,:)) ) + &
-  !               sum( ups(ispin,:)*vps(jspin,:)/(xi*Xdelta(i) - hps((Nspin+1)-ispin,:)) )
-  !          !
-  !          Delta(jspin,ispin,i) = &
-  !               sum( vps(jspin,:)*ups(ispin,:)/(xi*Xdelta(i) - hps(jspin,:)) ) + &
-  !               sum( ups(jspin,:)*vps(ispin,:)/(xi*Xdelta(i) - hps((Nspin+1)-jspin,:)) )
-  !       enddo
-  !    enddo
-  ! enddo
   !
 end function delta_normal_nonsu2
 

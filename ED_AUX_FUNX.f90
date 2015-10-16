@@ -272,46 +272,6 @@ contains
   end function extract_Hloc_2
 
 
-! <<<<<<< HEAD
-!   !
-!   !NON SU(2) SYMMETRIC
-!   !
-!   subroutine setup_pointers_nonsu2
-!     integer                          :: i,dim,isector,jsector
-!     integer                          :: in,jn,iorb,jorb,ntot
-!     integer :: nt,idim,ivec(Nlevels)
-!     integer,dimension(:),allocatable :: imap
-!     if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
-!     if(ED_MPI_ID==0)call start_timer
-!     isector=0
-!     do in=0,Nlevels
-!        isector=isector+1
-!        getsector(in,1)=isector
-!        getn(isector)=in
-!        dim = get_nonsu2_sector_dimension(in)
-!        getdim(isector)=dim
-!        neigen_sector(isector) = min(dim,lanc_nstates_sector)
-!     enddo
-!     twin_mask=.true.
-!     !<TODO 
-!     !build the twin sector statements in the non-SU2 channel.
-!     if(ed_twin)then
-!        do isector=1,Nsectors
-!           ntot=getn(isector)
-!           if(ntot>Nlevels/2)twin_mask(isector)=.false.
-!           print*,twin_mask(isector),ntot
-!        enddo
-!        if(ED_MPI_ID==0)write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
-!     endif
-!     !>TODO
-!     if(ED_MPI_ID==0)call stop_timer
-
-!     do in=1,Norb
-!        impIndex(in,1)=in
-!        impIndex(in,2)=in+Ns
-!     enddo
-! =======
-! >>>>>>> cf79c6c3cd11f5192504bb6f160ff78efe0d76f1
 
 
 

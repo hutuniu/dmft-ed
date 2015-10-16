@@ -195,8 +195,6 @@ contains
        !  post processing (Other modes may require
        !  more complicated post processing than mode1.)
        rvec = .true.
-       ! call dseupd(rvec,'All',select,d,v,ldv,sigma,bmat,n,which,&
-       !      nev,tol,resid,ncv,v,ldv,iparam,ipntr,workd,workl,lworkl,ierr)
        call dseupd(rvec,'All',select,d,v,ldv,sigma,bmat,n,which,&
             nev,tol,resid,ncv,v,ldv,iparam,ipntr,workd,workl,lworkl,ierr)
        !  Eigenvalues are returned in the first column of the two dimensional 
@@ -204,10 +202,6 @@ contains
        !  NCONV (=IPARAM(5)) columns of the two dimensional array V if requested.
        !  Otherwise, an orthogonal basis for the invariant subspace corresponding 
        !  to the eigenvalues in D is returned in V.
-       ! !<DEBUG        
-       ! print*,d(1:ncv,1)
-       ! print*,""
-       ! !>DEBUG
        do j=1,neigen
           eval(j)=d(j,1)
           do i=1,ns

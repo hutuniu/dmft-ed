@@ -16,7 +16,7 @@
 !PURPOSE  : Chi^2 interface for Irreducible bath normal phase
 !+-------------------------------------------------------------+
 subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
-  complex(8),dimension(:,:,:,:,:)    :: fg ![Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),dimension(:,:,:)        :: fg ![Norb][Norb][Lmats]
   real(8),dimension(:),intent(inout) :: bath_
   integer                            :: ispin
   real(8),dimension(:),allocatable   :: array_bath
@@ -27,15 +27,13 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
   character(len=20)                  :: suffix
   integer                            :: unit
   !
-  if(size(fg,1)/=Nspin)stop"chi2_fitgf_normal_normal error: size[fg,1]!=Nspin"
-  if(size(fg,2)/=Nspin)stop"chi2_fitgf_normal_normal error: size[fg,2]!=Nspin"
-  if(size(fg,3)/=Norb)stop"chi2_fitgf_normal_normal error: size[fg,3]!=Norb"
-  if(size(fg,4)/=Norb)stop"chi2_fitgf_normal_normal error: size[fg,4]!=Norb"
+  if(size(fg,1)/=Norb)stop"chi2_fitgf_normal_normal error: size[fg,1]!=Norb"
+  if(size(fg,2)/=Norb)stop"chi2_fitgf_normal_normal error: size[fg,2]!=Norb"
   !
   check= check_bath_dimension(bath_)
   if(.not.check)stop "chi2_fitgf_normal_normal error: wrong bath dimensions"
   !
-  Ldelta = Lfit ; if(Ldelta>size(fg,5))Ldelta=size(fg,5)
+  Ldelta = Lfit ; if(Ldelta>size(fg,3))Ldelta=size(fg,3)
   !
   allocate(Gdelta(1,Ldelta))
   allocate(Xdelta(Ldelta))
@@ -67,7 +65,7 @@ subroutine chi2_fitgf_normal_normal(fg,bath_,ispin)
      Orb_indx=iorb
      Spin_indx=ispin
      !
-     Gdelta(1,1:Ldelta) = fg(ispin,ispin,iorb,iorb,1:Ldelta)
+     Gdelta(1,1:Ldelta) = fg(iorb,iorb,1:Ldelta)
      !
      !Nbath + Nbath
      stride = 0
@@ -164,7 +162,7 @@ contains
     real(8)           :: w
     do iorb=1,Norb
        suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
-       Gdelta(1,1:Ldelta) = fg(ispin,ispin,iorb,iorb,1:Ldelta)
+       Gdelta(1,1:Ldelta) = fg(iorb,iorb,1:Ldelta)
        unit=free_unit()
        if(cg_scheme=='weiss')then
           open(unit,file="fit_weiss"//reg(suffix)//".ed")
