@@ -21,7 +21,6 @@ module ED_DIAG
 
   public :: diagonalize_impurity
 
-  ! real(8),allocatable,dimension(:) :: egs_values
 
 
 contains
@@ -54,9 +53,9 @@ contains
     integer             :: i,j,iter,unit
     integer             :: Nitermax,Neigen,Nblock
     real(8)             :: oldzero,enemin,Ei
-    real(8),allocatable :: eig_values(:),Vvec(:),gsvec(:)
+    real(8),allocatable :: eig_values(:)
     real(8),allocatable :: eig_basis(:,:)
-    logical             :: lanc_solve,Tflag,lanc_verbose,converged
+    logical             :: lanc_solve,Tflag,lanc_verbose
     !
     if(state_list%status)call es_delete_espace(state_list)
     state_list=es_init_espace()
@@ -71,10 +70,9 @@ contains
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
-       !
        if(ED_MPI_ID==0)then
           if(ed_verbose<0)then
-             dim     = getdim(isector)
+             dim      = getdim(isector)
              select case(ed_mode)
              case default
                 nup  = getnup(isector)
@@ -88,11 +86,11 @@ contains
                 write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15)")iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector)
              end select
           elseif(ed_verbose<2)then
-             !call eta(iter,count(twin_mask),LOGfile)
+             call eta(iter,count(twin_mask),LOGfile)
           endif
        endif
-       !
-       Tflag   = twin_mask(isector).AND.ed_twin
+       ! Tflag    = twin_mask(isector).AND.ed_twin.AND.(getnup(isector)/=getndw(isector))
+       Tflag    = twin_mask(isector).AND.ed_twin
        select case(ed_mode)
        case default
           Tflag = Tflag.AND.(getnup(isector)/=getndw(isector))
@@ -101,8 +99,6 @@ contains
        case("nonsu2")
           Tflag = Tflag.AND.(getn(isector)/=Ns)
        end select
-       !
-       !
        Dim      = getdim(isector)
        Neigen   = min(dim,neigen_sector(isector))
        Nitermax = min(dim,lanc_niter)
@@ -167,8 +163,6 @@ contains
 
 
 
-
-
   !+-------------------------------------------------------------------+
   !PURPOSE  : diagonalize the Hamiltonian in each sector and find the 
   ! spectrum DOUBLE COMPLEX
@@ -220,7 +214,6 @@ contains
        case("nonsu2")
           Tflag=Tflag.AND.(getn(isector)/=Ns)
        end select       !
-       !
        Dim      = getdim(isector)
        Neigen   = min(dim,neigen_sector(isector))
        Nitermax = min(dim,lanc_niter)
@@ -241,17 +234,15 @@ contains
 #else
           call lanczos_arpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
 #endif
-          if(spH0%status)call sp_delete_matrix(spH0)
        else
           allocate(eig_values(Dim),eig_basis(Dim,dim))
           eig_values=0.d0 ; eig_basis=zero
           call ed_buildH_c(isector,eig_basis)
-          if(spH0%status)call sp_delete_matrix(spH0)
           call matrix_diagonalize(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=one
        endif
        !
-       ! egs_values(isector)=eig_values(1)
+       if(spH0%status)call sp_delete_matrix(spH0)
        !
        if(finiteT)then
           do i=1,Neigen
@@ -270,6 +261,12 @@ contains
              endif
           enddo
        endif
+       !
+	   unit=free_unit()
+       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+       call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
+       close(unit)
+       if(ed_verbose<1)call print_eigenvalues_list(isector,eig_values(1:Neigen),LOGfile)
        !
        if(allocated(eig_values))deallocate(eig_values)
        if(allocated(eig_basis))deallocate(eig_basis)

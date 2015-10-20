@@ -821,6 +821,9 @@ contains
 
 
 
+
+
+
   !+------------------------------------------------------------------+
   !PURPOSE: copy a sparse LL matrix into a sparse CSR
   !+------------------------------------------------------------------+
@@ -855,6 +858,7 @@ contains
     sparse%Nrow=0
     sparse%status=.false.
   end subroutine sp_move_ll2csr
+
 
 
 
@@ -902,13 +906,8 @@ contains
        if(full_)then
           write(*,*)"Print sparse matrix (full mode < 100) ->",unit_
           do i=1,Ns
-<<<<<<< HEAD
              write(unit_,"(100("//trim(fmt_)//",A1,"//trim(fmt_)//",2X))")(&
                   real(sp_get_element_c(sparse,i,j)),",",imag(sp_get_element_c(sparse,i,j)),j=1,Ns)
-=======
-             write(*,"(100("//trim(fmt_)//",A1,"//trim(fmt_)//",2X))")(&
-                  dreal(sp_get_element_c(sparse,i,j)),",",dimag(sp_get_element_c(sparse,i,j)),j=1,Ns)
->>>>>>> cf79c6c3cd11f5192504bb6f160ff78efe0d76f1
           enddo
        else
           write(*,*)"Print sparse matrix (compact mode) ->",unit_

@@ -450,34 +450,13 @@ function delta_hybrid_nonsu2(a) result(Delta)
               do i=1,Ldelta
                  do ih=1,Nspin
                     Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
-                         sum( wohel(ispin,ih,iorb,:)*wohel(jspin,ih,jorb,:)/(xi*Xdelta(i) - hps(ih,:)) )
+                         sum( wohel(ispin,ih,iorb,:)*wohel(ih,jspin,jorb,:)/(xi*Xdelta(i) - hps(ih,:)) )
                  enddo
               enddo
            enddo
         enddo
      enddo
   enddo
-  !
-  ! do iorb=1,Norb
-  !    do jorb=1,Norb
-  !       do i=1,Ldelta  
-  !          do ispin=1,Nspin
-  !             Delta(ispin,ispin,iorb,jorb,i) = &
-  !                  sum( vops(ispin,iorb,:)*vops(ispin,jorb,:)/(xi*Xdelta(i) - hps(ispin,:)) ) + &
-  !                  sum( uops(ispin,iorb,:)*uops(ispin,jorb,:)/(xi*Xdelta(i) - hps((Nspin+1)-ispin,:)) )
-  !             do jspin=ispin+1,Nspin
-  !                Delta(ispin,jspin,iorb,jorb,i) = &
-  !                     sum( vops(ispin,iorb,:)*uops(jspin,jorb,:)/(xi*Xdelta(i) - hps(ispin,:)) ) + &
-  !                     sum( uops(ispin,iorb,:)*vops(jspin,jorb,:)/(xi*Xdelta(i) - hps((Nspin+1)-ispin,:)) )
-  !                !
-  !                Delta(jspin,ispin,iorb,jorb,i) = &
-  !                     sum( vops(jspin,iorb,:)*uops(ispin,jorb,:)/(xi*Xdelta(i) - hps(ispin,:)) ) + &
-  !                     sum( uops(jspin,iorb,:)*vops(ispin,jorb,:)/(xi*Xdelta(i) - hps((Nspin+1)-jspin,:)) )
-  !             enddo
-  !          enddo
-  !       enddo
-  !    enddo
-  ! enddo
   !
 end function delta_hybrid_nonsu2
 

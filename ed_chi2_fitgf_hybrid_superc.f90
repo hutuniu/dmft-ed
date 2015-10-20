@@ -17,7 +17,7 @@
 !PURPOSE  : Chi^2 interface for Irreducible bath Superconducting phase
 !+-------------------------------------------------------------+
 subroutine chi2_fitgf_hybrid_superc(fg,bath_,ispin)
-  complex(8),dimension(:,:,:,:,:,:)    :: fg ![2][Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),dimension(:,:,:,:)        :: fg ![2][Norb][Norb][Lmats]
   real(8),dimension(:),intent(inout)   :: bath_
   integer                              :: ispin
   real(8),dimension(:),allocatable     :: array_bath
@@ -30,11 +30,9 @@ subroutine chi2_fitgf_hybrid_superc(fg,bath_,ispin)
   character(len=20)                    :: suffix
   integer                              :: unit
   !
-  if(size(fg,1)/=2)stop"chi2_fitgf_hybrid_superc error: size[fg,1]!=2"
-  if(size(fg,2)/=Nspin)stop"chi2_fitgf_hybrid_superc error: size[fg,2]!=Nspin"
-  if(size(fg,3)/=Nspin)stop"chi2_fitgf_hybrid_superc error: size[fg,3]!=Nspin"
-  if(size(fg,4)/=Norb)stop"chi2_fitgf_hybrid_superc error: size[fg,4]!=Norb"
-  if(size(fg,5)/=Norb)stop"chi2_fitgf_hybrid_superc error: size[fg,5]!=Norb"
+  if(size(fg,1)/=2)stop"chi2_fitgf_normal_superc error: size[fg,1]!=2"
+  if(size(fg,2)/=Norb)stop"chi2_fitgf_normal_superc error: size[fg,2]!=Norb"
+  if(size(fg,3)/=Norb)stop"chi2_fitgf_normal_superc error: size[fg,3]!=Norb"
   !
   check= check_bath_dimension(bath_)
   if(.not.check)stop "chi2_fitgf_hybrid_superc: wrong bath dimensions"
@@ -59,8 +57,8 @@ subroutine chi2_fitgf_hybrid_superc(fg,bath_,ispin)
   allocate(Wdelta(Ldelta))
   !
   do i=1,totNorb
-     Gdelta(i,1:Ldelta) = fg(1,ispin,ispin,getIorb(i),getJorb(i),1:Ldelta)
-     Fdelta(i,1:Ldelta) = fg(2,ispin,ispin,getIorb(i),getJorb(i),1:Ldelta)
+     Gdelta(i,1:Ldelta) = fg(1,getIorb(i),getJorb(i),1:Ldelta)
+     Fdelta(i,1:Ldelta) = fg(2,getIorb(i),getJorb(i),1:Ldelta)
   enddo
   !
   Xdelta = pi/beta*(2*arange(1,Ldelta)-1)
@@ -430,7 +428,7 @@ function grad_delta_hybrid_superc(a) result(dDelta)
   forall(i=1:Ldelta,k=1:Nbath)& !den(k) = (w_n**2 + E_{a}(k)**2 + \D_{a}(k)**2
        Den(i,k) = Xdelta(i)**2 + eps(k)**2 + dps(k)**2 
   !
-  delta_orb = zeye(Norb)
+  delta_orb = eye(Norb)
   !
   do iorb=1,Norb
      do jorb=1,Norb
@@ -474,8 +472,8 @@ function g0and_hybrid_superc(a) result(G0and)
   !
   do i=1,Ldelta
      fgorb=zero
-     zeta(1,:,:) = (xi*Xdelta(i)+xmu)*zeye(Norb)
-     zeta(2,:,:) = (xi*Xdelta(i)-xmu)*zeye(Norb)
+     zeta(1,:,:) = (xi*Xdelta(i)+xmu)*eye(Norb)
+     zeta(2,:,:) = (xi*Xdelta(i)-xmu)*eye(Norb)
      fgorb(1:Norb,1:Norb)                     = zeta(1,:,:) - impHloc(ispin,ispin,:,:)  - Delta(1,:,:,i)
      fgorb(1:Norb,Norb+1:Norb+Norb)           =                                         - Delta(2,:,:,i)
      fgorb(Norb+1:Norb+Norb,1:Norb)           =                                         - Delta(2,:,:,i)

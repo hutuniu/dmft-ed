@@ -16,7 +16,7 @@
 !PURPOSE  : Chi^2 interface for Hybrid bath normal phase
 !+-------------------------------------------------------------+
 subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
-  complex(8),dimension(:,:,:,:,:)      :: fg ![Nspin][Nspin][Norb][Norb][Lmats]
+  complex(8),dimension(:,:,:)          :: fg ![Norb][Norb][Lmats]
   real(8),dimension(:),intent(inout)   :: bath_
   integer                              :: ispin
   real(8),dimension(:),allocatable     :: array_bath
@@ -28,15 +28,13 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
   character(len=20)                    :: suffix
   integer                              :: unit
   !
-  if(size(fg,1)/=Nspin)stop"chi2_fitgf_hybrid_normal error: size[fg,1]!=Nspin"
-  if(size(fg,2)/=Nspin)stop"chi2_fitgf_hybrid_normal error: size[fg,2]!=Nspin"
-  if(size(fg,3)/=Norb)stop"chi2_fitgf_hybrid_normal error: size[fg,3]!=Norb"
-  if(size(fg,4)/=Norb)stop"chi2_fitgf_hybrid_normal error: size[fg,4]!=Norb"
+  if(size(fg,1)/=Norb)stop"chi2_fitgf_hybrid_normal error: size[fg,1]!=Norb"
+  if(size(fg,2)/=Norb)stop"chi2_fitgf_hybrid_normal error: size[fg,2]!=Norb"
   !
   check= check_bath_dimension(bath_)
   if(.not.check)stop "chi2_fitgf_hybrid_normal error: wrong bath dimensions"
   !
-  Ldelta = Lfit ; if(Ldelta>size(fg,5))Ldelta=size(fg,5)
+  Ldelta = Lfit ; if(Ldelta>size(fg,3))Ldelta=size(fg,3)
   !
   allocate(getIorb(Norb*(Norb+1)/2),getJorb(Norb*(Norb+1)/2))
   corb=0
@@ -55,7 +53,7 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
   allocate(Wdelta(Ldelta))
   !
   do i=1,totNorb
-     Gdelta(i,1:Ldelta) = fg(ispin,ispin,getIorb(i),getJorb(i),1:Ldelta)
+     Gdelta(i,1:Ldelta) = fg(getIorb(i),getJorb(i),1:Ldelta)
   enddo
   !
   Xdelta = pi/beta*(2*arange(1,Ldelta)-1)
@@ -363,7 +361,7 @@ function grad_delta_hybrid_normal(a) result(dDelta)
      enddo
   enddo
   !
-  delta_orb = zeye(Norb)
+  delta_orb = eye(Norb)
   !
   do iorb=1,Norb
      do jorb=1,Norb
@@ -396,7 +394,7 @@ function g0and_hybrid_normal(a) result(G0and)
   !
   do i=1,Ldelta
      fgorb=zero
-     zeta = (xi*Xdelta(i)+xmu)*zeye(Norb)
+     zeta = (xi*Xdelta(i)+xmu)*eye(Norb)
      fgorb(:,:)   = zeta(:,:) - impHloc(ispin,ispin,:,:) - Delta(:,:,i)
      call inv(fgorb)
      G0and(:,:,i) = fgorb

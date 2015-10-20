@@ -49,13 +49,13 @@ contains
     real(8)                          :: peso
     real(8)                          :: norm
     real(8),dimension(Norb)          :: nup,ndw,Sz,nt
-    real(8),dimension(:),pointer     :: gsvec,vvec
+    real(8),dimension(:),pointer     :: gsvec
     complex(8),dimension(:),pointer  :: gscvec
     integer,allocatable,dimension(:) :: Hmap,HJmap
     real(8),allocatable              :: vvinit(:)
-    !<DEBUG
-    logical :: converged
-    real(8) :: pdens
+    !!<DEBUG
+    !logical :: converged
+    !real(8) :: pdens
     !>DEBUG
 
     !
@@ -103,7 +103,7 @@ contains
        allocate(Hmap(idim))
        call build_sector(isector,Hmap)
        !
-       pdens=0d0
+       !pdens=0d0
        do i=1,idim
           m=Hmap(i)
           call bdecomp(m,ib)
@@ -122,7 +122,7 @@ contains
              nt(iorb) =  nup(iorb) + ndw(iorb)
           enddo
           !
-          pdens     = pdens      +  nt(1)*gs_weight*zeta_function
+          !pdens     = pdens      +  nt(1)*gs_weight*zeta_function
           !Evaluate averages of observables:
           do iorb=1,Norb
              dens(iorb)     = dens(iorb)      +  nt(iorb)*gs_weight
@@ -141,21 +141,20 @@ contains
           enddo
           s2tot = s2tot  + (sum(sz))**2*gs_weight
        enddo
-       !<DEBUG  comment
-       print*,"sectors contribution to dens:"
-       select case(ed_mode)
-       case default
-          print*,isector,getnup(isector),getndw(isector),pdens       
-       case ("superc")
-          print*,isector,getsz(isector),pdens       
-       case("nonsu2")
-          print*,isector,getn(isector),pdens       
-       end select
-       !>DEBUG
+       !!<DEBUG  comment
+       !print*,"sectors contribution to dens:"
+       !select case(ed_mode)
+       !case default
+       !   print*,isector,getnup(isector),getndw(isector),pdens       
+       !case ("superc")
+       !   print*,isector,getsz(isector),pdens       
+       !case("nonsu2")
+       !   print*,isector,getn(isector),pdens       
+       !end select
+       !!>DEBUG
        if(associated(gsvec))nullify(gsvec)
        if(associated(gscvec))nullify(gscvec)
        deallocate(Hmap)
-
     enddo
     !
     !SUPERCONDUCTING ORDER PARAMETER
@@ -377,8 +376,7 @@ contains
     endif
     !
     unit = free_unit()
-    !open(unit,file="observables_last"//reg(ed_file_suffix)//".ed")
-    open(unit,file="observables_last"//reg(ed_file_suffix)//".ed",action="write",position="append")
+    open(unit,file="observables_last"//reg(ed_file_suffix)//".ed")
     select case(ed_mode)
     case default
        write(unit,"(90(F15.9,1X))")&
