@@ -81,7 +81,7 @@ contains
     if(present(Hmat))then
        if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "ED_HAMILTONIAN/ed_buildH_d: wrong dimensions in Hmat"
 #ifdef _MPI
-       allocate(Hredux(dim,dim))
+       allocate(Hredux(dim,dim));Hredux=0.0d0
        call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
        call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Precision,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
 #else
@@ -158,7 +158,7 @@ contains
     if(present(Hmat))then
        if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "ED_HAMILTONIAN/ed_buildH_d: wrong dimensions in Hmat"
 #ifdef _MPI
-       allocate(Hredux(dim,dim))
+       allocate(Hredux(dim,dim));Hredux=zero
        call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
        call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Complex,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
 #else

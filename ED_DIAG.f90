@@ -148,10 +148,10 @@ contains
              endif
           enddo
        endif
-       unit=free_unit()
-       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
-       call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
-       close(unit)
+       !unit=free_unit()
+       !open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+       !call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
+       !close(unit)
        if(ed_verbose<1)call print_eigenvalues_list(isector,eig_values(1:Neigen),LOGfile)
        !
        if(allocated(eig_values))deallocate(eig_values)
@@ -227,7 +227,7 @@ contains
           if(allocated(eig_values))deallocate(eig_values)
           if(allocated(eig_basis))deallocate(eig_basis)
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
-          eig_values=0d0 ; eig_basis=0d0
+          eig_values=0d0 ; eig_basis=zero
           call ed_buildH_c(isector)
 #ifdef _MPI
           call lanczos_parpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
@@ -262,10 +262,10 @@ contains
           enddo
        endif
        !
-	   unit=free_unit()
-       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
-       call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
-       close(unit)
+       !unit=free_unit()
+       !open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+       !call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
+       !close(unit)
        if(ed_verbose<1)call print_eigenvalues_list(isector,eig_values(1:Neigen),LOGfile)
        !
        if(allocated(eig_values))deallocate(eig_values)

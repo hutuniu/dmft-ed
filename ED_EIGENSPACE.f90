@@ -527,7 +527,7 @@ contains        !some routine to perform simple operation on the lists
   subroutine es_print_espace(space,unit,wvec)
     type(sparse_espace),intent(in) :: space
     type(sparse_estate),pointer    :: c
-    integer                        :: counter
+    integer                        :: counter,i
     integer,optional               :: unit
     integer                        :: unit_
     logical,optional               :: wvec

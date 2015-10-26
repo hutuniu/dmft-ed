@@ -273,7 +273,7 @@ contains
           ndx=2*i-1 !here whatever
           Hk(ndx,ndx+1)=soc
           Hk(ndx+1,ndx)=soc
-          if (Norb.gt.1) then
+          if ((Norb.gt.1).and.(i.lt.Norb)) then
             Hk(ndx,ndx+2)=soc/2
             Hk(ndx+2,ndx)=soc/2
           endif
