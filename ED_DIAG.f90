@@ -148,10 +148,10 @@ contains
              endif
           enddo
        endif
-       unit=free_unit()
-       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
-       call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
-       close(unit)
+       !unit=free_unit()
+       !open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+       !call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
+       !close(unit)
        if(ed_verbose<1)call print_eigenvalues_list(isector,eig_values(1:Neigen),LOGfile)
        !
        if(allocated(eig_values))deallocate(eig_values)
@@ -262,10 +262,10 @@ contains
           enddo
        endif
        !
-	   unit=free_unit()
-       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
-       call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
-       close(unit)
+       !unit=free_unit()
+       !open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+       !call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
+       !close(unit)
        if(ed_verbose<1)call print_eigenvalues_list(isector,eig_values(1:Neigen),LOGfile)
        !
        if(allocated(eig_values))deallocate(eig_values)

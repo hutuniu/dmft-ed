@@ -266,14 +266,14 @@ contains
     !2) Off-diagonal part due to constant SOC and/or IVB
     if(.not.Hk_test) then
        Hk(1:2,3:4)= oneI*s_z*soc/2.
-       Hk(1:2,5:6)=-oneI*s_y*soc/2.+ivb*2*oneI*sin(kx)
-       Hk(3:4,5:6)= oneI*s_x*soc/2.+ivb*2*oneI*sin(ky)
+       Hk(1:2,5:6)=-oneI*s_y*soc/2.+ivb*2*oneI*sin(kx)*eye(2)
+       Hk(3:4,5:6)= oneI*s_x*soc/2.+ivb*2*oneI*sin(ky)*eye(2)
     else
        do i=1,Norb
           ndx=2*i-1 !here whatever
           Hk(ndx,ndx+1)=soc
           Hk(ndx+1,ndx)=soc
-          if (Norb.gt.1) then
+          if ((Norb.gt.1).and.(i.lt.Norb)) then
             Hk(ndx,ndx+2)=soc/2
             Hk(ndx+2,ndx)=soc/2
           endif

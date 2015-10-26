@@ -1,7 +1,7 @@
 MODULE ED_BATH_FUNCTIONS
   USE SF_CONSTANTS, only: zero
   USE SF_IOTOOLS, only:free_unit,reg,file_length,txtfy
-  USE SF_LINALG, only: eye,inv
+  USE SF_LINALG, only: eye,inv,zeye
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_BATH_DMFT
@@ -228,6 +228,10 @@ contains
     real(8),dimension(Nspin,Nbath)                      :: hps
     real(8),dimension(Nspin,Nspin,Nbath)                :: wps
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wops
+    !
+    real(8),dimension(Nspin,Nbath)                      :: ehel
+    real(8),dimension(Nspin,Nspin,Nbath)                :: whel
+    real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
     !
     Delta=zero
     !
@@ -569,6 +573,10 @@ contains
     real(8),dimension(Nspin,Nbath)                      :: hps
     real(8),dimension(Nspin,Nspin,Nbath)                :: wps
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wops
+    !
+    real(8),dimension(Nspin,Nbath)                      :: ehel
+    real(8),dimension(Nspin,Nspin,Nbath)                :: whel
+    real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
     !
     Delta=zero
     !

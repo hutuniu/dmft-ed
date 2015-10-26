@@ -845,7 +845,7 @@ contains
     allocate(v(ldv,ncv))
     allocate(workd(3*ldv))
     allocate(workev(3*ncv))
-    allocate(workl(lworkl))
+    allocate(workl(ncv*(3*ncv+5) + 10))
     allocate(rwork(ncv))
     allocate(rd(ncv,3))
     allocate(select(ncv))
@@ -958,13 +958,13 @@ contains
        do j=1,neigen
           eval(j)=d(j)
        enddo
-       evec=0.d0
+       evec=zero
        do j=1,neigen
           evec_tmp=zero
           do i=ED_MPI_ID*mpiQ+1,(ED_MPI_ID+1)*mpiQ+mpiR
              evec_tmp(i)=v(i-ED_MPI_ID*mpiQ,j)
           enddo
-          call MPI_ALLREDUCE(evec_tmp,evec(:,j),Ns,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,ED_MPI_ERR)
+          call MPI_ALLREDUCE(evec_tmp,evec(:,j),Ns,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,ED_MPI_ERR)
        enddo
        nconv =  iparam(5)
        !=========================================================================
