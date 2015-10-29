@@ -509,7 +509,7 @@ contains        !some routine to perform simple operation on the lists
        call twin_sector_order(c%twin%sector,Order)
        allocate(vector(dim))
        do i=1,dim
-          vector(i) = c%twin%vec(Order(i))
+          vector(i) = c%twin%cvec(Order(i))
        enddo
        deallocate(order)
     endif
@@ -527,7 +527,7 @@ contains        !some routine to perform simple operation on the lists
   subroutine es_print_espace(space,unit,wvec)
     type(sparse_espace),intent(in) :: space
     type(sparse_estate),pointer    :: c
-    integer                        :: counter
+    integer                        :: counter,i
     integer,optional               :: unit
     integer                        :: unit_
     logical,optional               :: wvec
@@ -543,16 +543,20 @@ contains        !some routine to perform simple operation on the lists
           counter=counter+1
           write(unit_,"(A10,I5)")   "Index   : ",counter
           write(unit_,"(A10,I5)")   "Sector  : ",c%sector
-          write(unit_,"(A10,3L)")   "Twin    : ",c%itwin,associated(c%vec),associated(c%cvec)
+          write(unit_,"(A10,3L3)")  "Twin    : ",c%itwin,associated(c%vec),associated(c%cvec)
           write(unit_,"(A10,I5)")   "Size    : ",getdim(c%sector)!size(c%vec)
           write(unit_,"(A10,f18.9)")"Energy  : ",c%e
           if(wvec_)then
              if(c%isreal)then
                 write(unit_,"(A10)")"Vec     : "
-                write(unit_,*)c%vec
+                do i=1,size(c%vec)
+                   write(unit_,*)c%vec(i)
+                enddo
              else
                 write(unit_,"(A10)")"Vec     : "
-                write(unit_,*)c%cvec
+                do i=1,size(c%vec)
+                   write(unit_,*)c%cvec(i)
+                enddo
              endif
           endif
           c => c%next  !traverse list

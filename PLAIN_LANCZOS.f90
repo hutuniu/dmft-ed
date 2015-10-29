@@ -27,7 +27,7 @@ MODULE PLAIN_LANCZOS
   procedure(lanc_htimesv_d),pointer     :: dp_hprod
   procedure(lanc_htimesv_c),pointer     :: cp_hprod
   logical                               :: verb=.false.
-  real(8)                               :: threshold_=1.d-15
+  real(8)                               :: threshold_=1.d-13
   integer                               :: ncheck_=10
 
   public :: lanczos_plain_iteration_d
@@ -146,8 +146,8 @@ contains
     do iter=1,nitermax
        call lanczos_plain_iteration_d(iter,vin,vout,a_,b_)
        if(verb)print*,iter,a_,b_
-       if(abs(b_)<threshold_)exit
        alanc(iter)=a_
+       if(abs(b_)<threshold_)exit
        if(iter<nitermax)blanc(iter+1)=b_
     enddo
   end subroutine lanczos_plain_tridiag_d
@@ -173,9 +173,9 @@ contains
     do iter=1,nitermax
        call lanczos_plain_iteration_c(iter,vin,vout,a_,b_)
        if(verb)print*,iter,a_,b_
-       if(abs(b_)<threshold_)exit
        alanc(iter)=a_
        if(iter<nitermax)blanc(iter+1)=b_
+       if(abs(b_)<threshold_)exit
     enddo
     if(iter==nitermax)print*,"LANCZOS_SIMPLE: reach Nitermax"
   end subroutine lanczos_plain_tridiag_c

@@ -1,7 +1,7 @@
 MODULE ED_CHI2FIT
   USE SF_CONSTANTS
   USE SF_OPTIMIZE, only:fmin_cg,fmin_cgplus,fmin_cgminimize
-  USE SF_LINALG,   only:eye,inv
+  USE SF_LINALG,   only:eye,zeye,inv
   USE SF_IOTOOLS,  only:reg,free_unit,txtfy
   USE SF_ARRAYS,   only:arange
   USE SF_MISC,     only:assert_shape
@@ -43,7 +43,7 @@ MODULE ED_CHI2FIT
   integer,dimension(:),allocatable      :: getIorb,getJorb,getIspin,getJspin
   integer                               :: Orb_indx,Spin_indx
   type(effective_bath)                  :: chi2_bath
-
+  integer                               :: cg_iter_count=0  
 
 contains
 
@@ -91,7 +91,7 @@ contains
        case ("nonsu2")
           !
           if(present(ispin))then
-             write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=nonsu2 but only ONE spin orientation required. disregarded"
+             write(LOGfile,"(A)")"chi2_fitgf_generic_normal WARNING: ed_mode=nonsu2 but only ONE spin orientation required. disregarded"
              call sleep(1)
           endif
           call chi2_fitgf_normal_nonsu2(fg(:,:,:,:,:),bath)
@@ -111,7 +111,7 @@ contains
        case ("nonsu2")
           !
           if(present(ispin))then
-             write(LOGfile,"(A)")"chi2_fitgf WARNING: ed_mode=nonsu2 but only ONE spin orientation required. disregarded"
+             write(LOGfile,"(A)")"chi2_fitgf_generic_normal WARNING: ed_mode=nonsu2 but only ONE spin orientation required. disregarded"
              call sleep(1)
           endif
           call chi2_fitgf_hybrid_nonsu2(fg(:,:,:,:,:),bath)

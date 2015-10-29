@@ -15,7 +15,7 @@ PLAT=intel
 FPP_INEQ=
 
 ##$ parallelism on the ed code flag: MPI
-#FPP_ED=MPI
+FPP_ED=
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
@@ -26,7 +26,7 @@ LIBDIR=/opt
 ##$ CHOOSE THE MODEL BY SELECTING THE PROGRAM DRIVER
 ##$ if needed add yours to the list:
 ##$ --> HUBBARD MODELS:
-EXE=ed_hm_bethe
+#EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
 #EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
@@ -44,13 +44,10 @@ EXE=ed_hm_bethe
 #EXE=ed_tddpam_bethe
 
 ##$ --> B-H-Z MODELS
-#EXE=ed_bhz_2d
-#EXE=ed_bhz_3d
+#EXE=ed_2x2bhz
+EXE=ed_bhz
+#EXE=ed_bhz_afm
 #EXE=ed_bhz_edge
-#EXE=ed_bhz_afm_2d
-EXE=ed_bhz_afm_3d
-
-
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
@@ -58,31 +55,23 @@ EXE=ed_bhz_afm_3d
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
-EXE=hartree_nano
-
-##$ --> Extended Hubbard models 
 #EXE=ed_cdwhm_bethe
-#EXE=ed_cdwhm_bethe_loop
-#EXE=ed_ehm_bethe
-#EXE=ed_ed_ehm_bethe_loop
 
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
-DIR=drivers
+DIR =drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
 DIREXE=$(HOME)/.bin
 
 
 ifeq ($(PLAT),intel)
-FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
-DFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
+FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
 endif
 
 ifeq ($(PLAT),gnu)
 INCARGS=-I$(LIBDIR)/scifor/gnu/include -I$(LIBDIR)/dmft_tools/gnu/include
 FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
-DFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 endif
 
 
@@ -97,7 +86,7 @@ endif
 ##$ 
 ##$ ELSE:
 ##$ 
-ARGS= -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas -larpack 
+ARGS=  -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas  -larpack -lparpack
 
 
 

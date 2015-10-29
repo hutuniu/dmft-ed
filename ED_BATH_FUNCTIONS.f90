@@ -1,7 +1,7 @@
 MODULE ED_BATH_FUNCTIONS
   USE SF_CONSTANTS, only: zero
   USE SF_IOTOOLS, only:free_unit,reg,file_length,txtfy
-  USE SF_LINALG, only: eye,inv
+  USE SF_LINALG, only: eye,inv,zeye
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_BATH_DMFT
@@ -229,6 +229,10 @@ contains
     real(8),dimension(Nspin,Nspin,Nbath)                :: wps
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wops
     !
+    real(8),dimension(Nspin,Nbath)                      :: ehel
+    real(8),dimension(Nspin,Nspin,Nbath)                :: whel
+    real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
+    !
     Delta=zero
     !
     L = size(x)
@@ -266,15 +270,16 @@ contains
           !
        case ("nonsu2")
           !
-          !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(iw_n - H_{a}^{h}(k))]
+          !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{s`h}(k)/(iw_n - H_{a}^{h}(k))]
           do iorb=1,Norb
-             hps = dmft_bath_%e(1:Nspin,iorb,1:Nbath)
-             wps = get_Whyb_matrix(dmft_bath_%v(1:Nspin,iorb,1:Nbath),dmft_bath_%u(1:Nspin,iorb,1:Nbath))
+             ehel = dmft_bath_%e(1:Nspin,iorb,1:Nbath)
+             whel = get_Whyb_matrix(dmft_bath_%v(1:Nspin,iorb,1:Nbath),dmft_bath_%u(1:Nspin,iorb,1:Nbath))
              do ispin=1,Nspin
                 do jspin=1,Nspin
-                   do ih=1,Nspin
-                      do i=1,L
-                         Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x(i) - hps(ih,:)) )
+                   do i=1,L
+                      do ih=1,Nspin
+                         Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + &
+                              sum( whel(ispin,ih,:)*whel(ih,jspin,:)/(x(i) - ehel(ih,:)) )
                       enddo
                    enddo
                 enddo
@@ -319,17 +324,17 @@ contains
           !
        case ("nonsu2")
           !
-          !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(iw_n - H^{h}(k))]
-          hps  = dmft_bath_%e(1:Nspin,1     ,1:Nbath)
-          wops = get_Whyb_matrix(dmft_bath_%v(1:Nspin,1:Norb,1:Nbath),dmft_bath_%u(1:Nspin,1:Norb,1:Nbath))
+          !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{s`h}(k)/(iw_n - H^{h}(k))]
+          ehel  = dmft_bath_%e(1:Nspin,1,1:Nbath)
+          wohel = get_Whyb_matrix(dmft_bath_%v(1:Nspin,1:Norb,1:Nbath),dmft_bath_%u(1:Nspin,1:Norb,1:Nbath))
           do iorb=1,Norb
              do jorb=1,Norb
                 do ispin=1,Nspin
                    do jspin=1,Nspin
-                      do ih=1,Nspin
-                         do i=1,L
+                      do i=1,L
+                         do ih=1,Nspin
                             Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
-                                 sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x(i) - hps(ih,:)) )
+                                 sum( wohel(ispin,ih,iorb,:)*wohel(ih,jspin,jorb,:)/(x(i) - ehel(ih,:)) )
                          enddo
                       enddo
                    enddo
@@ -569,6 +574,10 @@ contains
     real(8),dimension(Nspin,Nspin,Nbath)                :: wps
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wops
     !
+    real(8),dimension(Nspin,Nbath)                      :: ehel
+    real(8),dimension(Nspin,Nspin,Nbath)                :: whel
+    real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
+    !
     Delta=zero
     !
     L = size(x)
@@ -606,16 +615,16 @@ contains
           !
        case ("nonsu2")
           !
-          !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(w+i\h - H_{a}^{h}(k))]
+          !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{s`h}(k)/(w+i\h - H_{a}^{h}(k))]
           do iorb=1,Norb
-             hps = dmft_bath_%e(        1:Nspin,iorb,1:Nbath)
-             wps = get_Whyb_matrix(dmft_bath_%v(1:Nspin,iorb,1:Nbath),dmft_bath_%u(1:Nspin,iorb,1:Nbath))
+             ehel = dmft_bath_%e(1:Nspin,iorb,1:Nbath)
+             whel = get_Whyb_matrix(dmft_bath_%v(1:Nspin,iorb,1:Nbath),dmft_bath_%u(1:Nspin,iorb,1:Nbath))
              do ispin=1,Nspin
                 do jspin=1,Nspin
-                   do ih=1,Nspin
-                      do i=1,L
+                   do i=1,L
+                      do ih=1,Nspin
                          Delta(ispin,jspin,iorb,iorb,i) = Delta(ispin,jspin,iorb,iorb,i) + &
-                              sum( wps(ispin,ih,:)*wps(ih,jspin,:)/(x(i) - hps(ih,:)) )
+                              sum( whel(ispin,ih,:)*whel(ih,jspin,:)/(x(i) - ehel(ih,:)) )
                       enddo
                    enddo
                 enddo
@@ -660,17 +669,17 @@ contains
           enddo
        case ("nonsu2")
           !
-          !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{hs`}(k)/(w+i\h - H^{h}(k))]
-          hps  = dmft_bath_%e(        1:Nspin,1     ,1:Nbath)
-          wops = get_Whyb_matrix(dmft_bath_%v(1:Nspin,1:Norb,1:Nbath),dmft_bath_%u(1:Nspin,1:Norb,1:Nbath))
+          !\Delta_{ab}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{b}^{s`h}(k)/(w+i\h - H^{h}(k))]
+          ehel  = dmft_bath_%e(1:Nspin,1,1:Nbath)
+          wohel = get_Whyb_matrix(dmft_bath_%v(1:Nspin,1:Norb,1:Nbath),dmft_bath_%u(1:Nspin,1:Norb,1:Nbath))
           do iorb=1,Norb
              do jorb=1,Norb
                 do ispin=1,Nspin
                    do jspin=1,Nspin
-                      do ih=1,Nspin
-                         do i=1,L
-                            Delta(ispin,ispin,iorb,iorb,i) = Delta(ispin,ispin,iorb,iorb,i) + &
-                                 sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(x(i) - hps(ih,:)) )
+                      do i=1,L
+                         do ih=1,Nspin
+                            Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
+                                 sum( wohel(ispin,ih,iorb,:)*wohel(ih,jspin,jorb,:)/(x(i) - ehel(ih,:)) )
                          enddo
                       enddo
                    enddo
@@ -963,7 +972,7 @@ contains
           allocate(fgorb(Nspin,Nspin),zeta(Nspin,Nspin))
           Delta = delta_bath_mats(x,dmft_bath_)
           do i=1,L
-             zeta  = (x(i) + xmu)*eye(Nspin)
+             zeta  = (x(i) + xmu)*zeye(Nspin)
              fgorb = zero
              do iorb=1,Norb
                 do ispin=1,Nspin
@@ -1040,7 +1049,7 @@ contains
           allocate(fgorb(Nso,Nso),zeta(Nso,Nso))
           Delta = delta_bath_mats(x,dmft_bath_)
           do i=1,L
-             zeta  = (x(i) + xmu)*eye(Nso)
+             zeta  = (x(i) + xmu)*zeye(Nso)
              fgorb = zero
              do ispin=1,Nspin
                 do jspin=1,Nspin
@@ -1340,7 +1349,7 @@ contains
           Delta = delta_bath_real(x,dmft_bath_)
           allocate(fgorb(Nspin,Nspin),zeta(Nspin,Nspin))
           do i=1,L
-             zeta  = (x(i) + xmu)*eye(Nspin)
+             zeta  = (x(i) + xmu)*zeye(Nspin)
              fgorb = zero
              !
              do iorb=1,Norb
@@ -1418,7 +1427,7 @@ contains
           Delta = delta_bath_real(x,dmft_bath_)
           allocate(fgorb(Nso,Nso),zeta(Nso,Nso))
           do i=1,L
-             zeta  = (x(i) + xmu)*eye(Nso)
+             zeta  = (x(i) + xmu)*zeye(Nso)
              fgorb = zero
              do ispin=1,Nspin
                 do jspin=1,Nspin
@@ -1720,7 +1729,7 @@ contains
           Delta = delta_bath_mats(x,dmft_bath_)
           allocate(zeta(Nspin,Nspin))
           do i=1,L
-             zeta  = (x(i) + xmu)*eye(Nspin)        
+             zeta  = (x(i) + xmu)*zeye(Nspin)
              do iorb=1,Norb
                 do ispin=1,Nspin
                    do jspin=1,Nspin
@@ -1779,7 +1788,7 @@ contains
           allocate(zeta(Nso,Nso))
           Delta = delta_bath_mats(x,dmft_bath_)
           do i=1,L
-             zeta  = (x(i) + xmu)*eye(Nso)
+             zeta  = (x(i) + xmu)*zeye(Nso)
              do ispin=1,Nspin
                 do jspin=1,Nspin
                    do iorb=1,Norb
@@ -2042,7 +2051,7 @@ contains
           Delta = delta_bath_real(x,dmft_bath_)
           allocate(zeta(Nspin,Nspin))
           do i=1,L
-             zeta  = (x(i) + xmu)*eye(Nspin)
+             zeta  = (x(i) + xmu)*zeye(Nspin)
              do iorb=1,Norb
                 do ispin=1,Nspin
                    do jspin=1,Nspin
@@ -2096,7 +2105,7 @@ contains
           allocate(zeta(Nso,Nso))
           Delta = delta_bath_real(x,dmft_bath_)
           do i=1,L
-             zeta  = (x(i) + xmu)*eye(Nso)
+             zeta  = (x(i) + xmu)*zeye(Nso)
              do ispin=1,Nspin
                 do jspin=1,Nspin
                    do iorb=1,Norb

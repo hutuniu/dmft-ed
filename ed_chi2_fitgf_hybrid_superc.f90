@@ -114,7 +114,7 @@ subroutine chi2_fitgf_hybrid_superc(fg,bath_,ispin)
         call fmin_cg(array_bath,chi2_delta_hybrid_superc,grad_chi2_delta_hybrid_superc,&
              iter,chi,itmax=cg_niter,ftol=cg_Ftol,istop=cg_stop,eps=cg_eps)
      case default
-        stop "chi2_fitgf_normal_superc error: cg_scheme != [weiss,delta]"
+        stop "chi2_fitgf_hybrid_superc error: cg_scheme != [weiss,delta]"
      end select
      !
   case (1)
@@ -126,7 +126,7 @@ subroutine chi2_fitgf_hybrid_superc(fg,bath_,ispin)
         call fmin_cgminimize(array_bath,chi2_delta_hybrid_superc,&
              iter,chi,itmax=cg_niter,ftol=cg_Ftol)
      case default
-        stop "chi2_fitgf_normal_superc error: cg_scheme != [weiss,delta]"
+        stop "chi2_fitgf_hybrid_superc error: cg_scheme != [weiss,delta]"
      end select
      !
   case (2)

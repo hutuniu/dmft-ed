@@ -27,8 +27,8 @@ subroutine chi2_fitgf_hybrid_nonsu2(fg,bath_)
   character(len=20)                  :: suffix
   integer                            :: unit
   !
-  if(size(fg,1)/=Norb)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,1]!=Nspin"
-  if(size(fg,2)/=Norb)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,2]!=Nspin"
+  if(size(fg,1)/=Nspin)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,1]!=Nspin"
+  if(size(fg,2)/=Nspin)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,2]!=Nspin"
   if(size(fg,3)/=Norb)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,3]!=Norb"
   if(size(fg,4)/=Norb)stop "chi2_fitgf_hybrid_nonsu2 error: size[fg,4]!=Norb"
   !
@@ -76,42 +76,76 @@ subroutine chi2_fitgf_hybrid_nonsu2(fg,bath_)
   call allocate_dmft_bath(dmft_bath)
   call set_dmft_bath(bath_,dmft_bath)
   !
-  !E_{:,1}(:)  [Nspin][  1 ][Nbath]
-  !V_{:,:}(:)  [Nspin][Norb][Nbath]
-  !U_{:,:}(:)  [Nspin][Norb][Nbath]
-  Asize = Nspin*Nbath + Nspin*Norb*Nbath + Nspin*Norb*Nbath
-  allocate(array_bath(Asize))
-  !
   do i=1,totNso
      Gdelta(i,1:Ldelta) = fg(getIspin(i),getJspin(i),getIorb(i),getJorb(i),1:Ldelta)
   enddo
   !
-  ! Nspin*Nbath + Nspin*Norb*Nbath + Nspin*Norb*Nbath
-  stride = 0
-  do ispin=1,Nspin
+  select case(ed_para)
+  case (.true.)
+     !E_{1,1}(:)  [1][  1 ][Nbath]
+     !V_{1,:}(:)  [1][Norb][Nbath]
+     !U_{1,:}(:)  [1][Norb][Nbath]
+     Asize = Nbath + Norb*Nbath + Norb*Nbath
+     allocate(array_bath(Asize))
+  case (.false.)
+     !E_{:,1}(:)  [Nspin][  1 ][Nbath]
+     !V_{:,:}(:)  [Nspin][Norb][Nbath]
+     !U_{:,:}(:)  [Nspin][Norb][Nbath]
+     Asize = Nspin*Nbath + Nspin*Norb*Nbath + Nspin*Norb*Nbath
+     allocate(array_bath(Asize))
+  end select
+  !
+  select case(ed_para)
+  case (.true.)
+     ! size = Nbath + Norb*Nbath + Norb*Nbath
+     ispin  = 1
+     stride = 0
      do i=1,Nbath
         io = stride + i + (ispin-1)*Nbath
-        array_bath(io) = dmft_bath%e(ispin,iorb,i)
+        array_bath(io) = dmft_bath%e(ispin,1,i)
      enddo
-  enddo
-  stride = Nspin*Nbath
-  do ispin=1,Nspin
+     stride = Nbath
      do iorb=1,Norb
         do i=1,Nbath
            io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
            array_bath(io) = dmft_bath%v(ispin,iorb,i)
         enddo
      enddo
-  enddo
-  stride =  Nspin*Nbath + Nspin*Norb*Nbath
-  do ispin=1,Nspin
+     stride =  Nbath + Norb*Nbath
      do iorb=1,Norb
         do i=1,Nbath
            io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
            array_bath(io) = dmft_bath%u(ispin,iorb,i)
         enddo
      enddo
-  enddo
+  case (.false.)
+     ! size = Nspin*Nbath + Nspin*Norb*Nbath + Nspin*Norb*Nbath
+     stride = 0
+     do ispin=1,Nspin
+        do i=1,Nbath
+           io = stride + i + (ispin-1)*Nbath
+           array_bath(io) = dmft_bath%e(ispin,1,i)
+        enddo
+     enddo
+     stride = Nspin*Nbath
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           do i=1,Nbath
+              io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
+              array_bath(io) = dmft_bath%v(ispin,iorb,i)
+           enddo
+        enddo
+     enddo
+     stride =  Nspin*Nbath + Nspin*Norb*Nbath
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           do i=1,Nbath
+              io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
+              array_bath(io) = dmft_bath%u(ispin,iorb,i)
+           enddo
+        enddo
+     enddo
+  end select
   !
   select case(cg_method)     !0=NR-CG[default]; 1=CG-MINIMIZE; 2=CG+
   case default
@@ -165,32 +199,60 @@ subroutine chi2_fitgf_hybrid_nonsu2(fg,bath_)
      close(unit)
   endif
   !
-  ! Nspin*Nbath + Nspin*Norb*Nbath + Nspin*Norb*Nbath
-  stride = 0
-  do ispin=1,Nspin
+  select case(ed_para)
+  case (.true.)
+     ! size = Nbath + Norb*Nbath + Norb*Nbath
+     ispin  = 1
+     stride = 0
      do i=1,Nbath
         io = stride + i + (ispin-1)*Nbath
-        dmft_bath%e(ispin,iorb,i) = array_bath(io)
+        dmft_bath%e(ispin,1,i) = array_bath(io)
      enddo
-  enddo
-  stride = Nspin*Nbath
-  do ispin=1,Nspin
+     stride = Nbath
      do iorb=1,Norb
         do i=1,Nbath
            io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
            dmft_bath%v(ispin,iorb,i) = array_bath(io)
         enddo
      enddo
-  enddo
-  stride =  Nspin*Nbath + Nspin*Norb*Nbath
-  do ispin=1,Nspin
+     stride =  Nbath + Norb*Nbath
      do iorb=1,Norb
         do i=1,Nbath
            io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
            dmft_bath%u(ispin,iorb,i) = array_bath(io)
         enddo
      enddo
-  enddo
+     dmft_bath%e(Nspin,1,:) = dmft_bath%e(1,1,:)
+     dmft_bath%v(Nspin,:,:) = dmft_bath%v(1,:,:)
+     dmft_bath%u(Nspin,:,:) = dmft_bath%u(1,:,:)
+  case (.false.)
+     ! size = Nspin*Nbath + Nspin*Norb*Nbath + Nspin*Norb*Nbath
+     stride = 0
+     do ispin=1,Nspin
+        do i=1,Nbath
+           io = stride + i + (ispin-1)*Nbath
+           dmft_bath%e(ispin,1,i) = array_bath(io)
+        enddo
+     enddo
+     stride = Nspin*Nbath
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           do i=1,Nbath
+              io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
+              dmft_bath%v(ispin,iorb,i) = array_bath(io)
+           enddo
+        enddo
+     enddo
+     stride =  Nspin*Nbath + Nspin*Norb*Nbath
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           do i=1,Nbath
+              io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
+              dmft_bath%u(ispin,iorb,i) = array_bath(io)
+           enddo
+        enddo
+     enddo
+  end select
   !
   if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
   !
@@ -257,7 +319,7 @@ end subroutine chi2_fitgf_hybrid_nonsu2
 function chi2_delta_hybrid_nonsu2(a) result(chi2)
   real(8),dimension(:)                               ::  a
   real(8)                                            ::  chi2
-  real(8),dimension(totNspin)                        ::  chi2_so
+  real(8),dimension(totNso)                          ::  chi2_so
   complex(8),dimension(Nspin,Nspin,Norb,Norb,Ldelta) ::  Delta
   integer                                            ::  i,l,iorb,jorb,ispin,jspin
   !
@@ -268,7 +330,7 @@ function chi2_delta_hybrid_nonsu2(a) result(chi2)
      jorb = getJorb(l)
      ispin = getIspin(l)
      jspin = getJspin(l)
-     chi2_so(l) = sum(abs(Gdelta(l,:)-Delta(ispin,jspin,iorb,jorb,:))**2/Wdelta(:))
+     chi2_so(l) = sum( abs(Gdelta(l,:)-Delta(ispin,jspin,iorb,jorb,:))**2/Wdelta(:) )
   enddo
   !
   chi2=sum(chi2_so)
@@ -284,7 +346,7 @@ end function chi2_delta_hybrid_nonsu2
 function chi2_weiss_hybrid_nonsu2(a) result(chi2)
   real(8),dimension(:)                               :: a
   real(8)                                            :: chi2
-  real(8),dimension(totNspin)                        :: chi2_so
+  real(8),dimension(totNso)                          :: chi2_so
   complex(8),dimension(Nspin,Nspin,Norb,Norb,Ldelta) :: g0and
   integer                                            :: i,l,iorb,jorb,ispin,jspin
   !
@@ -295,7 +357,7 @@ function chi2_weiss_hybrid_nonsu2(a) result(chi2)
      jorb = getJorb(l)
      ispin = getIspin(l)
      jspin = getJspin(l)
-     chi2_so(l) = sum(abs(Gdelta(l,:)-g0and(ispin,jspin,iorb,jorb,:))**2/Wdelta(:))
+     chi2_so(l) = sum( abs(Gdelta(l,:)-g0and(ispin,jspin,iorb,jorb,:))**2/Wdelta(:) )
   enddo
   !
   chi2=sum(chi2_so)
@@ -321,46 +383,74 @@ function delta_hybrid_nonsu2(a) result(Delta)
   real(8),dimension(Nspin,Nbath)                     :: hps
   real(8),dimension(Nspin,Norb,Nbath)                :: vops
   real(8),dimension(Nspin,Norb,Nbath)                :: uops
-  real(8),dimension(Nspin,Nspin,Norb,Nbath)          :: wops
-  !
-  !\Delta_{aa}^{ss`} = \sum_h \sum_k [ W_{a}^{sh}(k) * W_{a}^{hs`}(k)/(iw_n - H_{a}^{h}(k))]
-  !
-  ! Nspin*Nbath + Nspin*Norb*Nbath + Nspin*Norb*Nbath
-  stride = 0
-  do ispin=1,Nspin
+  ! real(8),dimension(Nspin,Nspin,Norb,Nbath)          :: wops
+  real(8),dimension(Nhel,Nbath)            :: ehel
+  real(8),dimension(Nhel,Nhel,Norb,Nbath)       :: wohel
+
+  select case(ed_para)
+  case (.true.)
+     ispin  = 1
+     stride = 0
      do i=1,Nbath
         io = stride + i + (ispin-1)*Nbath
         hps(ispin,i) = a(io)
      enddo
-  enddo
-  stride = Nspin*Nbath
-  do ispin=1,Nspin
+     stride = Nbath
      do iorb=1,Norb
         do i=1,Nbath
            io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
            vops(ispin,iorb,i) = a(io)
         enddo
      enddo
-  enddo
-  stride =  Nspin*Nbath + Nspin*Norb*Nbath
-  do ispin=1,Nspin
+     stride =  Nbath + Norb*Nbath
      do iorb=1,Norb
         do i=1,Nbath
            io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
            uops(ispin,iorb,i) = a(io)
         enddo
      enddo
-  enddo
-  wops = get_Whyb_matrix(vops,uops)
+     hps(Nspin,:)    = hps(ispin,:)
+     vops(Nspin,:,:) = vops(ispin,:,:)
+     uops(Nspin,:,:) = uops(ispin,:,:)
+  case (.false.)
+     stride = 0
+     do ispin=1,Nspin
+        do i=1,Nbath
+           io = stride + i + (ispin-1)*Nbath
+           hps(ispin,i) = a(io)
+        enddo
+     enddo
+     stride = Nspin*Nbath
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           do i=1,Nbath
+              io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
+              vops(ispin,iorb,i) = a(io)
+           enddo
+        enddo
+     enddo
+     stride =  Nspin*Nbath + Nspin*Norb*Nbath
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           do i=1,Nbath
+              io = stride + i + (iorb-1)*Nbath + (ispin-1)*Nbath*Norb
+              uops(ispin,iorb,i) = a(io)
+           enddo
+        enddo
+     enddo
+  end select
+  !
+  wohel = get_Whyb_matrix(vops(1:Nspin,1:Norb,1:Nbath),uops(1:Nspin,1:Norb,1:Nbath))
   !
   Delta=zero
-  do i=1,Ldelta
-     do ispin=1,Nspin
-        do jspin=1,Nspin
-           do iorb=1,Norb
-              do jorb=1,Norb
+  do ispin=1,Nspin
+     do jspin=1,Nspin
+        do iorb=1,Norb
+           do jorb=1,Norb
+              do i=1,Ldelta
                  do ih=1,Nspin
-                    Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + sum( wops(ispin,ih,iorb,:)*wops(ih,jspin,jorb,:)/(xi*Xdelta(i) - hps(ih,:)) )
+                    Delta(ispin,jspin,iorb,jorb,i) = Delta(ispin,jspin,iorb,jorb,i) + &
+                         sum( wohel(ispin,ih,iorb,:)*wohel(ih,jspin,jorb,:)/(xi*Xdelta(i) - hps(ih,:)) )
                  enddo
               enddo
            enddo
@@ -383,7 +473,7 @@ function g0and_hybrid_nonsu2(a) result(G0and)
   !
   do i=1,Ldelta
      fgorb=zero
-     zeta = (xi*Xdelta(i)+xmu)*eye(Nso)
+     zeta = (xi*Xdelta(i)+xmu)*zeye(Nso)
      do ispin=1,Nspin
         do jspin=1,Nspin
            do iorb=1,Norb

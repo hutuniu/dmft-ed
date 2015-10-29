@@ -154,24 +154,28 @@
         do iorb=1,Norb
            do jorb=1,Norb
               !UP-DW
-              if((impHloc(1,Nspin,iorb,jorb)/=zero).AND.(ib(iorb)==0).AND.(ib(jorb+Ns)==1))then
-                 call c(jorb+Ns,m,k1,sg1)
-                 call cdg(iorb,k1,k2,sg2)
-                 j=binary_search(Hmap,k2)
-                 htmp = impHloc(1,Nspin,iorb,jorb)*sg1*sg2
-                 !
-                 call sp_insert_element(spH0,htmp,impi,j)
-                 !
+              if(impHloc(1,Nspin,iorb,jorb)/=0d0)then
+                 if( (ib(iorb)==0).AND.(ib(jorb+Ns)==1) )then
+                    call c(jorb+Ns,m,k1,sg1)
+                    call cdg(iorb,k1,k2,sg2)
+                    j=binary_search(Hmap,k2)
+                    htmp = impHloc(1,Nspin,iorb,jorb)*sg1*sg2
+                    !
+                    call sp_insert_element(spH0,htmp,impi,j)
+                    !
+                 endif
               endif
               !DW-UP
-              if((impHloc(Nspin,1,iorb,jorb)/=zero).AND.(ib(iorb+Ns)==0).AND.(ib(jorb)==1))then
-                 call c(jorb,m,k1,sg1)
-                 call cdg(iorb+Ns,k1,k2,sg2)
-                 j=binary_search(Hmap,k2)
-                 htmp = impHloc(Nspin,1,iorb,jorb)*sg1*sg2
-                 !
-                 call sp_insert_element(spH0,htmp,impi,j)
-                 !
+              if(impHloc(Nspin,1,iorb,jorb)/=0d0)then
+                 if( (ib(iorb+Ns)==0).AND.(ib(jorb)==1) )then
+                    call c(jorb,m,k1,sg1)
+                    call cdg(iorb+Ns,k1,k2,sg2)
+                    j=binary_search(Hmap,k2)
+                    htmp = impHloc(Nspin,1,iorb,jorb)*sg1*sg2
+                    !
+                    call sp_insert_element(spH0,htmp,impi,j)
+                    !
+                 endif
               endif
            enddo
         enddo
@@ -229,8 +233,7 @@
            !
            !==> Hybridizations between imp. and bath,  spin flip. 
            if(ed_mode=="nonsu2")then
-              !IMP UP <--> BATH DW
-              if( (dmft_bath%u(1,iorb,kp)/=0d0) .AND. (ib(iorb)==1) .AND. (ib(ms+Ns)==0) )then
+              if( (ib(iorb)==1) .AND. (ib(ms+Ns)==0) )then
                  call c(iorb,m,k1,sg1)
                  call cdg(ms+Ns,k1,k2,sg2)
                  j = binary_search(Hmap,k2)
@@ -239,7 +242,7 @@
                  call sp_insert_element(spH0,htmp,impi,j)
                  !
               endif
-              if( (dmft_bath%u(1,iorb,kp)/=0d0) .AND. (ib(iorb)==0) .AND. (ib(ms+Ns)==1) )then
+              if( (ib(iorb)==0) .AND. (ib(ms+Ns)==1) )then
                  call c(ms+Ns,m,k1,sg1)
                  call cdg(iorb,k1,k2,sg2)
                  j=binary_search(Hmap,k2)
@@ -248,21 +251,20 @@
                  call sp_insert_element(spH0,htmp,impi,j)
                  !
               endif
-              !IMP DW <--> BATH UP
-              if( (dmft_bath%u(Nspin,iorb,kp)/=0d0) .AND. (ib(iorb+Ns)==1) .AND. (ib(ms)==0) )then
+              if( (ib(iorb+Ns)==1) .AND. (ib(ms)==0) )then
                  call c(iorb+Ns,m,k1,sg1)
                  call cdg(ms,k1,k2,sg2)
                  j=binary_search(Hmap,k2)
-                 htmp=dmft_bath%u(Nspin,iorb,kp)*sg1*sg2
+                 htmp = dmft_bath%u(Nspin,iorb,kp)*sg1*sg2
                  !
                  call sp_insert_element(spH0,htmp,impi,j)
                  !
               endif
-              if( (dmft_bath%u(Nspin,iorb,kp)/=0d0) .AND. (ib(iorb+Ns)==0) .AND. (ib(ms)==1) )then
+              if( (ib(iorb+Ns)==0) .AND. (ib(ms)==1) )then
                  call c(ms,m,k1,sg1)
                  call cdg(iorb+Ns,k1,k2,sg2)
                  j=binary_search(Hmap,k2)
-                 htmp=dmft_bath%u(Nspin,iorb,kp)*sg1*sg2
+                 htmp = dmft_bath%u(Nspin,iorb,kp)*sg1*sg2
                  !
                  call sp_insert_element(spH0,htmp,impi,j)
                  !

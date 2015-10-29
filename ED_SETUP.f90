@@ -58,12 +58,15 @@ contains
     case default
        Nsectors = (Ns+1)*(Ns+1)
        dim_sector_max=get_normal_sector_dimension(nup=Ns/2,ndw=Ns-Ns/2)
+       Nhel     = 1
     case ("superc")
        Nsectors = Nlevels+1        !sz=-Ns:Ns=2*Ns+1=Nlevels+1
        dim_sector_max=get_superc_sector_dimension(0)
+       Nhel     = 1
     case("nonsu2")
        Nsectors = Nlevels+1        !n=0:2*Ns=2*Ns+1=Nlevels+1
        dim_sector_max=get_nonsu2_sector_dimension(Ns)
+       Nhel     = 2
     end select
     !
     if(ED_MPI_ID==0)then
@@ -101,7 +104,7 @@ contains
        if(ED_MPI_ID==0)then
           write(LOGfile,*)"impHloc file not found."
           write(LOGfile,*)"impHloc should be defined elsewhere..."
-          call sleep(1)
+          call sleep(2)
        endif
     endif
     impHloc = dcmplx(reHloc,imHloc)
@@ -132,7 +135,7 @@ contains
     !check finiteT
     finiteT=.true.              !assume doing finite T per default
     if(lanc_nstates_total==1)then     !is you only want to keep 1 state
-       lanc_nstates_sector=1            !set the required eigen per sector to 1 see later for neigen_sector
+       !lanc_nstates_sector=6            !set the required eigen per sector to 1 see later for neigen_sector
        finiteT=.false.          !set to do zero temperature calculations
        if(ED_MPI_ID==0)write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
     endif
@@ -170,9 +173,12 @@ contains
        if(ed_twin)stop  "SC + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
     endif
     if(ed_mode=="nonsu2")then
-       !if(bath_type/="hybrid")stop "nonSU2 code is developed for Hybridized bath."
-       if(Nspin/=2)stop "NONSU2 with Nspin!=2 IS NOT ALLOWED. To enfore PM use ed_sym_spin=T."
-       if(ed_twin)stop  "NONSU2 + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
+       if(Nspin/=2)then
+          write(LOGfile,"(A)")"ED msg: ed_mode=nonSU2 with Nspin!=1 is not allowed."
+          write(LOGfile,"(A)")"        to enforce spin symmetry up-dw set ed_para=T."
+          stop
+       endif
+       ! if(ed_twin)stop  "NONSU2 + ED_TWIN NOT TESTED. remove this line in ED_AUX_FUNX to proceed."
     endif
     !#############################################################################################
 
@@ -393,13 +399,14 @@ contains
     twin_mask=.true.
     !<TODO 
     !build the twin sector statements in the non-SU2 channel.
-    ! if(ed_twin)then
-    !    do isector=1,Nsectors
-    !       n=getn(isector)
-    !       if(n>Ns)twin_mask(isector)=.false.
-    !    enddo
-    !    if(ED_MPI_ID==0)write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
-    ! endif
+    !if(ed_twin)then
+    !   do isector=1,Nsectors
+    !      ntot=getn(isector)
+    !      if(ntot>Nlevels/2)twin_mask(isector)=.false.
+    !      print*,twin_mask(isector),ntot
+    !   enddo
+    !   if(ED_MPI_ID==0)write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
+    !endif
     !>TODO
     if(ED_MPI_ID==0)call stop_timer
     !
@@ -441,10 +448,6 @@ contains
        getCDGsector(2,isector)=jsector
     enddo
   end subroutine setup_pointers_nonsu2
-
-
-
-
 
 
 
@@ -606,6 +609,8 @@ contains
 
 
 
+
+
   !##################################################################
   !##################################################################
   !TWIN SECTORS ROUTINES:
@@ -693,6 +698,11 @@ contains
        jsector=getsector(Nlevels-in,1)
     end select
   end function get_twin_sector
+
+
+
+
+
 
 
 

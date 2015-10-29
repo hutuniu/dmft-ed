@@ -53,6 +53,11 @@ contains
     complex(8),dimension(:),pointer  :: gscvec
     integer,allocatable,dimension(:) :: Hmap,HJmap
     real(8),allocatable              :: vvinit(:)
+    !!<DEBUG
+    !logical :: converged
+    !real(8) :: pdens
+    !>DEBUG
+
     !
     !LOCAL OBSERVABLES:
     ! density, 
@@ -81,7 +86,7 @@ contains
     do izero=1,numstates
        isector = es_return_sector(state_list,izero)
        Ei      = es_return_energy(state_list,izero)
-       idim     = getdim(isector)
+       idim    = getdim(isector)
        !
        if(ed_type=='d')then
           gsvec  => es_return_vector(state_list,izero)
@@ -98,6 +103,7 @@ contains
        allocate(Hmap(idim))
        call build_sector(isector,Hmap)
        !
+       !pdens=0d0
        do i=1,idim
           m=Hmap(i)
           call bdecomp(m,ib)
@@ -116,6 +122,7 @@ contains
              nt(iorb) =  nup(iorb) + ndw(iorb)
           enddo
           !
+          !pdens     = pdens      +  nt(1)*gs_weight*zeta_function
           !Evaluate averages of observables:
           do iorb=1,Norb
              dens(iorb)     = dens(iorb)      +  nt(iorb)*gs_weight
@@ -134,6 +141,17 @@ contains
           enddo
           s2tot = s2tot  + (sum(sz))**2*gs_weight
        enddo
+       !!<DEBUG  comment
+       !print*,"sectors contribution to dens:"
+       !select case(ed_mode)
+       !case default
+       !   print*,isector,getnup(isector),getndw(isector),pdens       
+       !case ("superc")
+       !   print*,isector,getsz(isector),pdens       
+       !case("nonsu2")
+       !   print*,isector,getn(isector),pdens       
+       !end select
+       !!>DEBUG
        if(associated(gsvec))nullify(gsvec)
        if(associated(gscvec))nullify(gscvec)
        deallocate(Hmap)
