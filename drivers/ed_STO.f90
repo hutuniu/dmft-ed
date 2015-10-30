@@ -67,7 +67,9 @@ program ed_STO
 
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
-
+  if(.not.surface) call build_hk_path_bulk
+  if(surface)      call build_hk_path_path
+  stop
   !Setup solver
   Nb=get_bath_size()
   allocate(Bath(Nb))
@@ -155,30 +157,34 @@ contains
     integer                             :: i,j,ik=0
     integer                             :: ix,iy
     real(8)                             :: kx,ky,kz    
-    integer                             :: iorb,jorb
-    integer                             :: isporb,jsporb
-    integer                             :: ispin,jspin
+    integer                             :: io,jo
+    integer                             :: iorb,jorb,ispin,jspin
     real(8)                             :: foo
     integer                             :: unit
-    complex(8),dimension(Nspin,Nspin,Norb,Norb) :: Hk_reshaped
     complex(8),dimension(Nso,Nso,Lmats) :: Gmats
     complex(8),dimension(Nso,Nso,Lreal) :: Greal
     real(8)                             :: wm(Lmats),wr(Lreal),dw
-    if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for BHZ:"
-    Lk=Nk**3
+    if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for STO:"
+
+    if(.not.surface) Lk=Nk**3
+    if(surface)      Lk=Nk**2
+    
     if(ED_MPI_ID==0)write(*,*)"# of k-points     :",Lk
     if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
     if(allocated(Hk))deallocate(Hk)
     allocate(Hk(Nso,Nso,Lk));allocate(wtk(Lk));allocate(kxgrid(Nk),kygrid(Nk),kzgrid(Nk))
+    kxgrid=0.0d0;kygrid=0.0d0;kzgrid=0.0d0
     kxgrid = kgrid(Nk)
     kygrid = kgrid(Nk)
-    kzgrid = kgrid(Nk)
+    if(.not.surface) kzgrid = kgrid(Nk)
 
-    Hk     = build_hk_model(hk_Ti3dt2g,Nso,kxgrid,kygrid,kzgrid)
+    if(.not.surface) Hk = build_hk_model(hk_Ti3dt2g,Nso,kxgrid,kygrid,kzgrid)
+    if(surface)      Hk = build_hk_model(hk_Ti3dt2g,Nso,kxgrid,kygrid,[0d0])
 
     wtk = 1.0d0/Lk
     if(ED_MPI_ID==0.AND.present(file))then
-       call write_hk_w90(file,Nso,Nd=Norb,Np=1,Nineq=1,hk=Hk,kxgrid=kxgrid,kygrid=kxgrid,kzgrid=kzgrid)
+        if(.not.surface) call write_hk_w90(file,Nso,Nd=Norb,Np=1,Nineq=1,hk=Hk,kxgrid=kxgrid,kygrid=kxgrid,kzgrid=kzgrid)
+        if(surface)      call write_hk_w90(file,Nso,Nd=Norb,Np=1,Nineq=1,hk=Hk,kxgrid=kxgrid,kygrid=kxgrid,kzgrid=[0d0] )
     endif
 
     allocate(Ti3dt2g_Hloc(Nso,Nso))
@@ -211,9 +217,17 @@ contains
           Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/Lk
        enddo
     enddo
-    do iorb=1,Nso
-       call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_iw.ed",wm,Gmats(iorb,iorb,:))
-       call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_realw.ed",wr,-dimag(Greal(iorb,iorb,:))/pi,dreal(Greal(iorb,iorb,:)))
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
+                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+             enddo
+          enddo
+       enddo
     enddo
   end subroutine build_hk
 
@@ -238,9 +252,9 @@ contains
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
 
     Eo = 3.31
-    t1 = 0.277
-    t2 = 0.031
-    t3 = 0.076
+    t1 = 0.276536
+    t2 = 0.031329
+    t3 = 0.076842
 
     Hk = zero
 
@@ -344,7 +358,7 @@ contains
     real(8)                   :: Eo,t1,t2,t3
     complex(8),dimension(2,2) :: hk
     hk = zero
-    hk(1,1) = Eo-2.*t1*cos(kx)-2.*t2*cos(ky)- t1 -2.*t3*cos(kz)*cos(kx)
+    hk(1,1) = Eo-2.*t1*cos(kx)-2.*t2*cos(ky)- t1 -2.*t3*cos(kx)
     hk(2,2) = hk(1,1)
   end function band_zx_surface
   function band_xy_surface(kx,ky,kz,Eo,t1,t2,t3) result(hk)
@@ -355,6 +369,52 @@ contains
     hk(1,1) = Eo-2.*t1*cos(kx)-2.*t1*cos(ky) -t2 -4.*t3*cos(kx)*cos(ky)
     hk(2,2) = hk(1,1)
   end function band_xy_surface
+
+  !---------------------------------------------------------------------
+  !PURPOSE: Get the STO(bulk) Hamiltonian along the path: M-R-G-M-X-G-X
+  !---------------------------------------------------------------------
+  subroutine build_hk_path_bulk()
+    integer                            :: i,j
+    integer                            :: Npts
+    real(8),dimension(:,:),allocatable :: kpath
+    if(ED_MPI_ID==0)write(LOGfile,*)"Build bulk H(k) along the path M-R-G-M-X-G-X"
+    Npts = 7
+    Lk=(Npts-1)*Nkpath
+    allocate(kpath(Npts,3))
+    kpath(1,:)=kpoint_M1
+    kpath(2,:)=kpoint_R
+    kpath(3,:)=kpoint_Gamma
+    kpath(4,:)=kpoint_M1
+    kpath(5,:)=kpoint_X1
+    kpath(6,:)=kpoint_Gamma
+    kpath(7,:)=kpoint_X1
+    if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,&
+         colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
+         points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
+         file="Eigenband_bulk.nint")
+  end subroutine build_hk_path_bulk
+
+  !---------------------------------------------------------------------
+  !PURPOSE: Get the STO(surf) Hamiltonian along the path: M-X-G-X
+  !---------------------------------------------------------------------
+  subroutine build_hk_path_path()
+    integer                            :: i,j
+    integer                            :: Npts
+    real(8),dimension(:,:),allocatable :: kpath
+    if(ED_MPI_ID==0)write(LOGfile,*)"Build surface H(k) along the path M-X-G-X"
+    Npts = 4
+    Lk=(Npts-1)*Nkpath
+    allocate(kpath(Npts,3))
+    kpath(1,:)=kpoint_M1
+    kpath(2,:)=kpoint_X1
+    kpath(3,:)=kpoint_Gamma
+    kpath(4,:)=kpoint_X1
+    if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,&
+         colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
+         points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
+         file="Eigenband_surf.nint")
+  end subroutine build_hk_path_path
+
 
 
 !_______________________________________________________________________
