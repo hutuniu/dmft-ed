@@ -413,7 +413,7 @@ function delta_normal_nonsu2(a) result(Delta)
      do ispin=1,Nspin
         do jspin=1,Nspin
            do ih=1,Nspin
-              Delta(ispin,jspin,i) = Delta(ispin,jspin,i) + sum( whel(ispin,ih,:)*whel(ih,jspin,:)/(xi*Xdelta(i) - hps(ih,:)) )
+              Delta(ispin,jspin,i) = Delta(ispin,jspin,i) + sum( whel(ispin,ih,:)*whel(jspin,ih,:)/(xi*Xdelta(i) - hps(ih,:)) )
            enddo
         enddo
      enddo
