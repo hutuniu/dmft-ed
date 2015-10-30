@@ -69,7 +69,7 @@ program ed_STO
   call build_hk(trim(hkfile))
   if(.not.surface) call build_hk_path_bulk
   if(surface)      call build_hk_path_path
-  stop
+  !stop
   !Setup solver
   Nb=get_bath_size()
   allocate(Bath(Nb))
@@ -123,14 +123,13 @@ program ed_STO
      delta_conv_avrg=delta_conv_avrg/Nso
 
 
-     converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
-     !converged = check_convergence_global(delta_conv,dmft_error,nsuccess,nloop)
-
-     !if(ED_MPI_ID==0)converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
+     if(ED_MPI_ID==0) converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
+     !if(ED_MPI_ID==0) converged = check_convergence_global(delta_conv_avrg,dmft_error,nsuccess,nloop)
+     !if(ED_MPI_ID==0) converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0)converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
-     !#ifdef _MPI
-     !call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
-     !#endif
+#ifdef _MPI
+     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
 
      sumdens=sum(ed_get_dens())
      write(*,*) "sumdens",sumdens,"xmu",xmu,"converged",converged
@@ -163,7 +162,39 @@ contains
     integer                             :: unit
     complex(8),dimension(Nso,Nso,Lmats) :: Gmats
     complex(8),dimension(Nso,Nso,Lreal) :: Greal
+    complex(8),dimension(6,6)           :: theta
     real(8)                             :: wm(Lmats),wr(Lreal),dw
+
+    theta=cmplx(0.0d0,0.0d0)
+    !J=1/2 jz=-1/2
+    theta(1,1)=-Xi
+    theta(3,1)=-1.0d0
+    theta(6,1)=+Xi
+    theta(:,1)=theta(:,1)/sqrt(3.)
+    !J=1/2 jz=+1/2
+    theta(2,2)=-Xi
+    theta(4,2)=+1.0d0
+    theta(5,2)=-Xi
+    theta(:,2)=theta(:,2)/sqrt(3.)
+    !J=3/2 jz=-3/2
+    theta(2,3)=-Xi
+    theta(4,3)=+1.0d0
+    theta(5,3)=+2.0d0*Xi
+    theta(:,3)=theta(:,3)/sqrt(6.)
+    !J=3/2 jz=-1/2
+    theta(1,4)=+Xi
+    theta(3,4)=-1.0d0
+    theta(:,4)=theta(:,4)/sqrt(2.)
+    !J=3/2 jz=+1/2
+    theta(2,5)=-Xi 
+    theta(4,5)=-1.0d0
+    theta(:,5)=theta(:,5)/sqrt(2.)
+    !J=3/2 jz=+3/2
+    theta(1,6)=+Xi
+    theta(3,6)=+1.0d0
+    theta(6,6)=+2.0d0*Xi
+    theta(:,6)=theta(:,6)/sqrt(6.)
+
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for STO:"
 
     if(.not.surface) Lk=Nk**3
@@ -206,7 +237,7 @@ contains
        write(*,*)
     endif
 
-    !Build the local GF:
+    !Build the local GF in the spin-orbital Basis:
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     do ik=1,Lk
@@ -223,12 +254,33 @@ contains
              do jorb=1,Norb
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
-                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
-                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
+                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
              enddo
           enddo
        enddo
     enddo
+    !Build the local GF in the J-Jz Basis: theta funziona per Gloc nell'ordine di Z o per H *solo al punto gamma*
+    theta=reshape_Z_to_A1(theta)
+    do i=1,Lmats
+       Gmats(:,:,i)=matmul(transpose(conjg(theta)),matmul(Gmats(:,:,i),theta))
+    enddo
+    do i=1,Lreal
+       Greal(:,:,i)=matmul(transpose(conjg(theta)),matmul(Greal(:,:,i),theta))
+    enddo
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
+                call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+
   end subroutine build_hk
 
   !---------------------------------------------------------------------
@@ -458,7 +510,7 @@ contains
   !  A2 = [Nspin,Nspin,Norb,Norb]
   !---------------------------------------------------------------------
   function reshape_Z_to_A1(fg) result(g)
-    complex(8),dimension(Nso,Nso)                   :: fg
+    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: fg
     complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
     integer                                         :: i,j,iorb,jorb,ispin,jspin
     integer                                         :: io1,jo1,io2,jo2
@@ -467,18 +519,44 @@ contains
           do jspin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
+                   !O-index
                    io1 = iorb + (ispin-1)*Norb
                    jo1 = jorb + (jspin-1)*Norb
-
+                   !I-index
                    io2 = ispin + (iorb-1)*Nspin
                    jo2 = jspin + (jorb-1)*Nspin
-
+                   !switch
                    g(io1,jo1)  = fg(io2,jo2)
+                   !
                 enddo
              enddo
           enddo
        enddo
   end function reshape_Z_to_A1
+  function reshape_A1_to_Z(fg) result(g)
+    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: fg
+    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
+    integer                                         :: i,j,iorb,jorb,ispin,jspin
+    integer                                         :: io1,jo1,io2,jo2
+       g = zero
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !O-index
+                   io1 = ispin + (iorb-1)*Nspin
+                   jo1 = jspin + (jorb-1)*Nspin
+                   !I-index
+                   io2 = iorb + (ispin-1)*Norb
+                   jo2 = jorb + (jspin-1)*Norb
+                   !switch
+                   g(io1,jo1)  = fg(io2,jo2)
+                   !
+                enddo
+             enddo
+          enddo
+       enddo
+  end function reshape_A1_to_Z
   function reshape_A1_to_A2(fg) result(g)
     complex(8),dimension(Nso,Nso)                   :: fg
     complex(8),dimension(Nspin,Nspin,Norb,Norb)     :: g
