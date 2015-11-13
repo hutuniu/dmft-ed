@@ -10,7 +10,7 @@ program ed_STO
   integer                :: iloop,Lk,Nso
   logical                :: converged
   !Bath:
-  integer                :: Nb
+  integer                :: Nb,unit
   real(8),allocatable    :: Bath(:),Bath_(:)
   !The local hybridization function:
   complex(8),allocatable :: Delta(:,:,:,:,:)
@@ -29,6 +29,9 @@ program ed_STO
   logical                :: spinsym
   !convergence function
   complex(8),allocatable :: delta_conv(:,:,:),delta_conv_avrg(:)
+  !density matrix
+  real(8),allocatable    :: dm_eig(:)
+  complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:)
 
   !
   real(8),dimension(2)   :: Eout
@@ -62,6 +65,8 @@ program ed_STO
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(density_matrix(Nspin*Norb,Nspin*Norb))
+  allocate(dm_eig(Nspin*Norb),dm_rot(Nspin*Norb,Nspin*Norb))
   allocate(delta_conv(Nso,Nso,Lmats))
   allocate(delta_conv_avrg(Lmats))
 
@@ -69,7 +74,7 @@ program ed_STO
   call build_hk(trim(hkfile))
   if(.not.surface) call build_hk_path_bulk
   if(surface)      call build_hk_path_path
-  !stop
+
   !Setup solver
   Nb=get_bath_size()
   allocate(Bath(Nb))
@@ -89,6 +94,10 @@ program ed_STO
      call ed_get_sigma_real(Sreal)
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=0)
      call ed_get_weiss(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2(Ti3dt2g_Hloc),iprint=0)
+     !density matrix
+     if(ED_MPI_ID==0)then
+        call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+     endif
      !Fit the new bath, starting from the old bath + the supplied delta 
      Bath_=bath
      if (ed_mode=="normal") then
@@ -165,36 +174,6 @@ contains
     complex(8),dimension(6,6)           :: theta
     real(8)                             :: wm(Lmats),wr(Lreal),dw
 
-    theta=cmplx(0.0d0,0.0d0)
-    !J=1/2 jz=-1/2
-    theta(1,1)=-Xi
-    theta(3,1)=-1.0d0
-    theta(6,1)=+Xi
-    theta(:,1)=theta(:,1)/sqrt(3.)
-    !J=1/2 jz=+1/2
-    theta(2,2)=-Xi
-    theta(4,2)=+1.0d0
-    theta(5,2)=-Xi
-    theta(:,2)=theta(:,2)/sqrt(3.)
-    !J=3/2 jz=-3/2
-    theta(2,3)=-Xi
-    theta(4,3)=+1.0d0
-    theta(5,3)=+2.0d0*Xi
-    theta(:,3)=theta(:,3)/sqrt(6.)
-    !J=3/2 jz=-1/2
-    theta(1,4)=+Xi
-    theta(3,4)=-1.0d0
-    theta(:,4)=theta(:,4)/sqrt(2.)
-    !J=3/2 jz=+1/2
-    theta(2,5)=-Xi 
-    theta(4,5)=-1.0d0
-    theta(:,5)=theta(:,5)/sqrt(2.)
-    !J=3/2 jz=+3/2
-    theta(1,6)=+Xi
-    theta(3,6)=+1.0d0
-    theta(6,6)=+2.0d0*Xi
-    theta(:,6)=theta(:,6)/sqrt(6.)
-
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for STO:"
 
     if(.not.surface) Lk=Nk**3
@@ -261,7 +240,8 @@ contains
        enddo
     enddo
     !Build the local GF in the J-Jz Basis: theta funziona per Gloc nell'ordine di Z o per H *solo al punto gamma*
-    theta=reshape_Z_to_A1(theta)
+    if(.not.Hk_test) then
+    call build_rotation(theta)
     do i=1,Lmats
        Gmats(:,:,i)=matmul(transpose(conjg(theta)),matmul(Gmats(:,:,i),theta))
     enddo
@@ -280,6 +260,7 @@ contains
           enddo
        enddo
     enddo
+    endif
 
   end subroutine build_hk
 
@@ -295,7 +276,6 @@ contains
     real(8)                   :: Eo,t1,t2,t3
     integer                   :: N,ndx
     complex(8)                :: oneI
-    if(N/=Nso)stop "hk_bhz error: N != Nspin*Norb == 4"
     oneI=cmplx(0.0d0,1.0d0)
     s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
     s_x(1,2)=cmplx(1.0d0,0.0d0); s_x(2,1)=cmplx(1.0d0,0.0d0)
@@ -334,21 +314,11 @@ contains
        Hk(1:2,3:4)= oneI*s_z*soc/2.
        Hk(1:2,5:6)=-oneI*s_y*soc/2.+ivb*2*oneI*sin(kx)*eye(2)
        Hk(3:4,5:6)= oneI*s_x*soc/2.+ivb*2*oneI*sin(ky)*eye(2)
-    else
-       do i=1,Norb
-          ndx=2*i-1 !here whatever
-          Hk(ndx,ndx+1)=soc
-          Hk(ndx+1,ndx)=soc
-          if ((Norb.gt.1).and.(i.lt.Norb)) then
-            Hk(ndx,ndx+2)=soc/2
-            Hk(ndx+2,ndx)=soc/2
-          endif
-       enddo
     endif
 
     !lower triangle
-    do i=1,N
-       do j=1,N
+    do i=1,Nspin*Norb
+       do j=1,Nspin*Norb
           Hk(j,i)=conjg(Hk(i,j))
        enddo
     enddo
@@ -467,6 +437,42 @@ contains
          file="Eigenband_surf.nint")
   end subroutine build_hk_path_path
 
+  !---------------------------------------------------------------------
+  !PURPOSE: Retrive the rotation "theta" that diagonalizes SOC
+  !---------------------------------------------------------------------
+  subroutine build_rotation(theta_)
+    complex(8),dimension(6,6),intent(out) :: theta_
+    theta_=cmplx(0.0d0,0.0d0)
+    !J=1/2 jz=-1/2
+    theta_(1,1)=-Xi
+    theta_(3,1)=-1.0d0
+    theta_(6,1)=+Xi
+    theta_(:,1)=theta_(:,1)/sqrt(3.)
+    !J=1/2 jz=+1/2
+    theta_(2,2)=-Xi
+    theta_(4,2)=+1.0d0
+    theta_(5,2)=-Xi
+    theta_(:,2)=theta_(:,2)/sqrt(3.)
+    !J=3/2 jz=-3/2
+    theta_(2,3)=-Xi
+    theta_(4,3)=+1.0d0
+    theta_(5,3)=+2.0d0*Xi
+    theta_(:,3)=theta_(:,3)/sqrt(6.)
+    !J=3/2 jz=-1/2
+    theta_(1,4)=+Xi
+    theta_(3,4)=-1.0d0
+    theta_(:,4)=theta_(:,4)/sqrt(2.)
+    !J=3/2 jz=+1/2
+    theta_(2,5)=-Xi 
+    theta_(4,5)=-1.0d0
+    theta_(:,5)=theta_(:,5)/sqrt(2.)
+    !J=3/2 jz=+3/2
+    theta_(1,6)=+Xi
+    theta_(3,6)=+1.0d0
+    theta_(6,6)=+2.0d0*Xi
+    theta_(:,6)=theta_(:,6)/sqrt(6.)
+    theta_=reshape_Z_to_A1(theta_)
+  end subroutine build_rotation
 
 
 !_______________________________________________________________________
@@ -595,9 +601,4 @@ contains
 
 
 end program ed_STO
-
-
-
-
-
 

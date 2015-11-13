@@ -11,8 +11,9 @@ module ED_MAIN
   USE ED_OBSERVABLES
   USE ED_ENERGY
   USE ED_DIAG
+  USE SF_LINALG
   USE SF_ARRAYS, only: linspace,arange
-  USE SF_IOTOOLS, only: reg,store_data,txtfy
+  USE SF_IOTOOLS, only: reg,store_data,txtfy,free_unit
   USE SF_TIMER,only: start_timer,stop_timer
   implicit none
   private
@@ -242,6 +243,8 @@ module ED_MAIN
   public :: ed_get_dund_lattice
   public :: ed_get_dse_lattice
   public :: ed_get_dph_lattice
+  !
+  public :: ed_get_density_matrix
 
 
 
@@ -1747,8 +1750,95 @@ contains
     endif
   end function ed_get_dph_lattice
 
+  !DEBUG>>
+  subroutine ed_get_density_matrix(dm_,iprint,dm_eig,dm_rot)
+    !passed
+    complex(8),allocatable,intent(inout)           :: dm_(:,:)
+    integer,intent(in)                             :: iprint
+    real(8),allocatable,intent(inout),optional     :: dm_eig(:)
+    complex(8),allocatable,intent(inout),optional  :: dm_rot(:,:)
+    !internal
+    integer                                        :: unit  
+    integer                                        :: iorb,jorb,ispin,jspin,io,jo
+    complex(8)                                     :: Tr
 
-
+    if (ed_mode/="nonsu2") then
+       write(*,*) "Not tested for ed_mode different from nonsu2"
+       stop
+    elseif (bath_type/="hybrid") then
+       write(*,*) "Not tested for bath_type different from hybrid"
+       stop
+    elseif (ed_type/="c") then
+       write(*,*) "Not tested for ed_type different from c"
+       stop
+    elseif (((.not.present(dm_eig)).or.(.not.present(dm_rot))).and.(iprint/=0)) then
+       write(*,*) "iprint/=0 but matrices not allocated"
+       stop
+    elseif (.not.allocated(imp_density_matrix)) then
+       write(*,*) "for some reason imp_density_matrix is not allocated"
+       stop
+    endif
+    !
+    dm_ = zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                dm_(io,jo) =  imp_density_matrix(ispin,jspin,iorb,jorb)
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    if(iprint==0) then
+       unit = free_unit()
+       open(unit,file="imp_density_matrix.ed",action="write",position="rewind",status='unknown')
+       write(unit,"(A10)")"# Re{rho}: [Norb*Norb]*Nspin"
+       do io=1,Nspin*Norb
+          write(unit,"(90(F15.9,1X))") (real(dm_(io,jo)),jo=1,Nspin*Norb)
+       enddo
+       write(unit,"(A10)")
+       write(unit,"(A10)")"# Im{rho}: [Norb*Norb]*Nspin"
+       do io=1,Nspin*Norb
+          write(unit,"(90(F15.9,1X))") (aimag(dm_(io,jo)),jo=1,Nspin*Norb)
+       enddo
+       close(unit)
+    endif
+    if(iprint<=1)then
+       Tr=zero;Tr=trace(dm_)
+       write(*,'(A25,6F15.7)') 'test #1: Tr[rho]:',real(Tr),aimag(Tr)
+       dm_rot=zero;dm_rot=matmul(dm_,dm_)
+       Tr=zero;Tr=trace(dm_rot)
+       write(*,'(A25,6F15.7)') 'test #2: Tr[rho^2]:',real(Tr),aimag(Tr)
+       dm_eig=0.0d0;dm_rot=zero;dm_rot=dm_
+       call matrix_diagonalize(dm_rot,dm_eig,'V','U')
+       Tr=zero;Tr=sum(dm_eig)
+       write(*,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
+    endif
+    if(iprint<=1)then
+       dm_eig=0.0d0;dm_rot=zero;dm_rot=dm_
+       call matrix_diagonalize(dm_rot,dm_eig,'V','U')
+       unit = free_unit()
+       open(unit,file="imp_density_matrix.ed",action="write",position="append",status='unknown')
+       write(unit,"(A10)")
+       write(unit,"(A10)")"# rho_tilda"
+       write(unit,'(10F22.12)') dm_eig
+       write(unit,"(A10)")
+       write(unit,"(A10)")"# Re{theta}: [Norb*Norb]*Nspin"
+       do io=1,Nspin*Norb
+          write(unit,"(90(F15.9,1X))") (real(dm_rot(io,jo)),jo=1,Nspin*Norb)
+       enddo
+       write(unit,"(A10)")
+       write(unit,"(A10)")"# Im{theta}: [Norb*Norb]*Nspin"
+       do io=1,Nspin*Norb
+          write(unit,"(90(F15.9,1X))") (aimag(dm_rot(io,jo)),jo=1,Nspin*Norb)
+       enddo
+       close(unit)
+    endif
+  end subroutine ed_get_density_matrix
+  !<<DEBUG
 
 end module ED_MAIN
 
