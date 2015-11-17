@@ -167,9 +167,11 @@ contains
     integer                   :: ispin
     if(size(hloc,1)/=Norb.OR.size(hloc,2)/=Norb)stop "set_impHloc error: wrong dimensions of Hloc"
     impHloc(ispin,ispin,1:Norb,1:Norb) = Hloc
-    write(LOGfile,"(A)")""
-    write(LOGfile,"(A)")"Updated impHloc:"
-    if(ed_verbose<4)call print_Hloc(impHloc)
+    if(ED_MPI_ID==0)then
+       write(LOGfile,"(A)")""
+       write(LOGfile,"(A)")"Updated impHloc:"
+       if(ed_verbose<4)call print_Hloc(impHloc)
+    endif
   end subroutine set_Hloc_1
   !
   subroutine set_Hloc_2(hloc)
@@ -177,25 +179,31 @@ contains
     if(size(hloc,1)/=Nspin.OR.size(hloc,2)/=Nspin)stop "set_impHloc error: wrong Nspin dimensions of Hloc"
     if(size(hloc,3)/=Norb.OR.size(hloc,4)/=Norb)stop "set_impHloc error: wrong Norb dimensions of Hloc"
     impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = Hloc
-    write(LOGfile,"(A)")""
-    write(LOGfile,"(A)")"Updated impHloc:"
-    if(ed_verbose<4)call print_Hloc(impHloc)
+    if(ED_MPI_ID==0)then
+       write(LOGfile,"(A)")""
+       write(LOGfile,"(A)")"Updated impHloc:"
+       if(ed_verbose<4)call print_Hloc(impHloc)
+    endif
   end subroutine set_Hloc_2
   !
   subroutine set_Hloc_3d(hloc)
     real(8) :: hloc
     impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = hloc
-    write(LOGfile,"(A)")""
-    write(LOGfile,"(A)")"Updated impHloc:"
-    if(ed_verbose<4)call print_Hloc(impHloc)
+    if(ED_MPI_ID==0)then
+       write(LOGfile,"(A)")""
+       write(LOGfile,"(A)")"Updated impHloc:"
+       if(ed_verbose<4)call print_Hloc(impHloc)
+    endif
   end subroutine set_Hloc_3d
   !
   subroutine set_Hloc_3c(hloc)
     complex(8) :: hloc
     impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = hloc
-    write(LOGfile,"(A)")""
-    write(LOGfile,"(A)")"Updated impHloc:"
-    if(ed_verbose<4)call print_Hloc(impHloc)
+    if(ED_MPI_ID==0)then
+       write(LOGfile,"(A)")""
+       write(LOGfile,"(A)")"Updated impHloc:"
+       if(ed_verbose<4)call print_Hloc(impHloc)
+    endif
   end subroutine set_Hloc_3c
 
 

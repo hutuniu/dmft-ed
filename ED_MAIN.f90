@@ -1806,18 +1806,18 @@ contains
        enddo
        close(unit)
     endif
-    if(iprint<=1)then
+    if(iprint>=1)then
        Tr=zero;Tr=trace(dm_)
-       write(*,'(A25,6F15.7)') 'test #1: Tr[rho]:',real(Tr),aimag(Tr)
+       write(*,'(A25,6F15.7)') 'test #1: Tr[rho]:    ',real(Tr),aimag(Tr)
        dm_rot=zero;dm_rot=matmul(dm_,dm_)
        Tr=zero;Tr=trace(dm_rot)
-       write(*,'(A25,6F15.7)') 'test #2: Tr[rho^2]:',real(Tr),aimag(Tr)
+       write(*,'(A25,6F15.7)') 'test #2: Tr[rho^2]:  ',real(Tr),aimag(Tr)
        dm_eig=0.0d0;dm_rot=zero;dm_rot=dm_
        call matrix_diagonalize(dm_rot,dm_eig,'V','U')
        Tr=zero;Tr=sum(dm_eig)
        write(*,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
     endif
-    if(iprint<=1)then
+    if(iprint>=2)then
        dm_eig=0.0d0;dm_rot=zero;dm_rot=dm_
        call matrix_diagonalize(dm_rot,dm_eig,'V','U')
        unit = free_unit()
