@@ -226,7 +226,8 @@ contains
     !<<DEBUG
     !IMPURITY DENSITY MATRIX
     if ((ed_mode=="nonsu2").and.(bath_type=="hybrid").and.(ed_type=="c")) then
-       allocate(imp_density_matrix(Nspin,Nspin,Norb,Norb));imp_density_matrix=zero
+       if(allocated(imp_density_matrix)) deallocate(imp_density_matrix);allocate(imp_density_matrix(Nspin,Nspin,Norb,Norb));
+       imp_density_matrix=zero
        numstates=state_list%size
        do izero=1,numstates
           !
