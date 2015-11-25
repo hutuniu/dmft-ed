@@ -4,24 +4,18 @@ program ed_ah
   USE SCIFOR
   USE DMFT_TOOLS
   implicit none
-  integer                :: iloop,Nb(2),Lk,Nx
-  logical                :: converged
-  real(8)                :: wband,ts,wmixing
+  integer                                       :: iloop,Nb,Lk,Nx
+  logical                                       :: converged
+  real(8)                                       :: wband,ts,wmixing
   !Bath:
-  real(8),allocatable    :: Bath(:,:),BathOld(:,:)
+  real(8),allocatable                           :: Bath(:),BathOld(:)
   !The local hybridization function:
-  complex(8),allocatable :: Delta(:,:,:,:)
-  complex(8),allocatable :: Gmats(:,:),Greal(:,:)
-  complex(8),allocatable :: Smats(:,:),Sreal(:,:)
-  character(len=16)      :: finput,fhloc
-  logical                :: phsym,normal_bath
-  real(8),allocatable    :: Hk(:),wt(:),kxgrid(:),kygrid(:),wm(:),wr(:)
-
-  ! call MPI_INIT(mpiERR)
-  ! call MPI_COMM_RANK(MPI_COMM_WORLD,mpiID,mpiERR)
-  ! call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
-  ! write(*,"(A,I4,A,I4,A)")'Processor ',mpiID,' of ',mpiSIZE,' is alive'
-  ! call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+  complex(8),allocatable                        :: Hloc(:,:,:,:),Sig(:,:,:),SigA(:,:,:)
+  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Gmats,Greal,Smats,Sreal,Delta
+  character(len=16)                             :: finput,fhloc
+  logical                                       :: phsym,normal_bath
+  real(8),allocatable                           :: wt(:),kxgrid(:),kygrid(:),wm(:),wr(:)
+  complex(8),allocatable                        :: Hk(:,:,:)
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.conf')
   call parse_input_variable(wmixing,"wmixing",finput,default=1.d0,comment="Mixing bath parameter")
@@ -33,30 +27,29 @@ program ed_ah
   call ed_read_input(trim(finput))
 
   !Allocate Weiss Field:
-  allocate(delta(2,Norb,Norb,Lmats))
-  allocate(Gmats(2,Lmats),Greal(2,Lreal))
-  allocate(Smats(2,Lmats),Sreal(2,Lreal))
+  allocate(delta(2,Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Gmats(2,Nspin,Nspin,Norb,Norb,Lmats),Greal(2,Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(Smats(2,Nspin,Nspin,Norb,Norb,Lmats),Sreal(2,Nspin,Nspin,Norb,Norb,Lreal))
 
-  wm = pi/beta*(2*arange(1,Lmats)-1)
-  wr = linspace(wini,wfin,Lreal)
-
+  
   !setup solver
   Nb=get_bath_size()
-  allocate(bath(Nb(1),Nb(2)))
-  allocate(bathold(Nb(1),Nb(2)))
+  allocate(bath(Nb))
+  allocate(bathold(Nb))
   call ed_init_solver(bath)
 
 
   Lk = Nx*Nx
-  allocate(Hk(Lk),Wt(Lk))
+  allocate(Hk(1*1,1*1,Lk),Wt(Lk),Hloc(1,1,1,1))
   allocate(kxgrid(Nx),kygrid(Nx))
   write(*,*) "Using Nk_total="//txtfy(Lk)
   kxgrid = kgrid(Nx)
   kygrid = kgrid(Nx)
-  Hk     = build_hk_model(hk_model,kxgrid,kygrid,[0d0])
+  Hk(1,1,:)     = build_hk_model(hk_model,kxgrid,kygrid,[0d0])
   Wt     = 1d0/Lk
-  call write_hk_w90("Hk2d.dat",1,1,0,1,dcmplx(Hk,0d0),kxgrid,kygrid,[0d0])
-  call get_free_dos(Hk,Wt)
+  Hloc   = zero
+  call write_hk_w90("Hk2d.dat",1,1,0,1,Hk,kxgrid,kygrid,[0d0])
+  call get_free_dos(dreal(Hk(1,1,:)),Wt)
 
   !DMFT loop
   iloop=0;converged=.false.
@@ -66,21 +59,14 @@ program ed_ah
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solve(bath) 
-     call ed_get_sigma_matsubara(Smats(1,:))
-     call ed_get_sigma_real(Sreal(1,:))
-     call ed_get_self_matsubara(Smats(2,:))
-     call ed_get_self_real(Sreal(2,:))
+     call ed_get_sigma_matsubara(Smats(1,:,:,:,:,:))
+     call ed_get_sigma_real(Sreal(1,:,:,:,:,:))
+     call ed_get_self_matsubara(Smats(2,:,:,:,:,:))
+     call ed_get_self_real(Sreal(2,:,:,:,:,:))
 
      !Get the Weiss field/Delta function to be fitted (user defined)
-     !call get_delta
-     call ed_get_gloc(dcmplx(Hk,0d0),Wt,Gmats,Greal,Smats,Sreal)
-     call ed_get_weiss(Gmats,Smats,Delta(:,1,1,:))
-     call splot("Gloc_iw.ed",wm,Gmats(1,:))
-     call splot("Floc_iw.ed",wm,Gmats(2,:))
-     call splot("Delta_iw.ed",wm,delta(1,1,1,:),delta(2,1,1,:))
-     call splot("Gloc_realw.ed",wr,-dimag(Greal(1,:))/pi,dreal(Greal(1,:)))
-     call splot("Floc_realw.ed",wr,-dimag(Greal(2,:))/pi,dreal(Greal(2,:)))
-
+     call ed_get_gloc(Hk,Wt,Gmats,Greal,Smats,Sreal,iprint=1)
+     call ed_get_weiss(Gmats,Smats,Delta,Hloc=Hloc,iprint=1)
 
      !Perform the SELF-CONSISTENCY by fitting the new bath
      call ed_chi2_fitgf(delta,bath,ispin=1)
@@ -91,22 +77,24 @@ program ed_ah
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*BathOld
      BathOld=Bath
      !Check convergence (if required change chemical potential)
-     converged = check_convergence(delta(1,1,1,:)+delta(2,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
+     converged = check_convergence(delta(1,1,1,1,1,:)+delta(2,1,1,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
      if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu,converged)
      call end_loop
   enddo
 
   !call get_sc_optical_conductivity
+
   !call get_sc_internal_energy(Lmats)
 
-  call  ed_kinetic_energy(Hk,wt,impSmats(1,1,1,1,:),impSAmats(1,1,1,1,:))
+  call ed_kinetic_energy(Hk,wt,Smats(1,:,:,:,:,:),Smats(2,:,:,:,:,:))
 
-  ! call MPI_FINALIZE(mpiERR)
+  !call MPI_FINALIZE(mpiERR)
 
 
 contains
 
 
+  
   !-------------------------------------------------------------------------------------------
   !PURPOSE:  Hk model for the 2d square lattice
   !-------------------------------------------------------------------------------------------
@@ -119,12 +107,6 @@ contains
     ky=kpoint(2)
     Hk = -one*2d0*ts*(cos(kx)+cos(ky))
   end function hk_model
-
-
-
-
-
-
 
 
 
@@ -189,6 +171,7 @@ contains
 
 
 
+
   ! subroutine  get_sc_optical_conductivity()  
   !   integer                :: i,ik,iv,iw  
   !   real(8),allocatable    :: oc(:), Ak(:,:,:),cDOS(:,:),ocw(:)
@@ -198,16 +181,11 @@ contains
   !   complex(8)            :: cdet,zita1,zita2,fg(2)
   !   real(8),dimension(Lk) :: epsik,wt
   !   real(8)                :: vel2,dos,Dfermi,A2,B2,ock
-
-
   !   call bethe_lattice(wt,epsik,Lk,wband)
-
   !   print*,"Get OC with:",Lreal,"freq."
   !   Nw=Lreal/2
-
   !   allocate(Ak(2,Lk,Lreal))
   !   wr = linspace(wini,wfin,Lreal,mesh=dw)
-
   !   allocate(cDOS(2,Lreal))
   !   cDOS=0.d0
   !   zeta(:) = cmplx(wr(:),eps,8) + xmu - impSreal(1,1,1,1,:)
@@ -226,9 +204,6 @@ contains
   !   enddo
   !   call splot("ocDOS.last",wr,cDOS(1,:),cDOS(2,:))
   !   deallocate(cDOS)
-
-
-
   !   !Changing the loop order does not affect the calculation.
   !   allocate(oc(Nw),ocw(Lreal))
   !   oc=0.d0
@@ -253,7 +228,6 @@ contains
   !   call stop_progress
   !   call splot("OC_realw.ed",wr(Nw+1:Lreal),oc(:))
   !   call splot("OC_integral.ed",uloc(1),trapz(dw,oc))
-
   ! end subroutine get_sc_optical_conductivity
 
 
@@ -273,7 +247,6 @@ contains
   !   complex(8)                    :: zita,g0loc,cdet,zita1,zita2
   !   complex(8),dimension(Lmats)   :: zeta
   !   real(8),dimension(Lk)         :: epsik,wt
-
   !   wm = pi/beta*real(2*arange(1,Lmats)-1,8)
   !   call bethe_lattice(wt,epsik,Lk,1.d0)
   !   ts=0.5d0
@@ -293,13 +266,10 @@ contains
   !   u    = uloc(1)
   !   n    = ed_dens(1)/2.d0
   !   delta= ed_phisc(1)*u
-
   !   !Get asymptotic self-energies
   !   Sigma_infty =   dreal(sigma(1,L))
   !   S_infty     =   dreal(sigma(2,L))
-
   !   checkP=0.d0 ; checkdens=0.d0 ;          ! test variables
-
   !   kin=0.d0                      ! kinetic energy (generic)
   !   Ds=0.d0                       ! superfluid stiffness (Bethe)
   !   do ik=1,Lk
@@ -330,21 +300,15 @@ contains
   !      kin    = kin    + wt(ik)*n_k(ik)*epsik(ik)
   !      Ds=Ds + 8.d0/beta* wt(ik)*vertex*Dssum
   !   enddo
-
   !   kinsim=0.d0
   !   kinsim = sum(fg(1,:)*fg(1,:)+conjg(fg(1,:)*fg(1,:))-2.d0*fg(2,:)*fg(2,:))*2.d0*ts**2/beta
-
   !   Epot=zero
   !   Epot = sum(fg(1,:)*sigma(1,:) + fg(2,:)*sigma(2,:))/beta*2.d0
-
   !   docc = 0.5d0*n**2
   !   if(u > 0.01d0)docc=-Epot/u + n - 0.25d0
-
   !   Eint=kin+Epot
-
   !   Ds=zero
   !   Ds = sum(fg(2,:)*fg(2,:))/beta*2.d0
-
   !   write(*,*)"Asymptotic Self-Energies",Sigma_infty, S_infty
   !   write(*,*)"n,delta",n,delta
   !   write(*,*)"Dn% ,Ddelta%",(n-0.5d0*checkdens)/n,(delta + u*checkP)/delta ! u is positive
@@ -374,6 +338,7 @@ contains
   !   return 
   ! end subroutine get_sc_internal_energy
 
+  
   ! elemental function istep(x) result(out)
   !   real(8),intent(in) :: x
   !   real(8)            :: out

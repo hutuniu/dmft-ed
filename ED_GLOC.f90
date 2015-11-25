@@ -669,46 +669,6 @@ contains
     !
     wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
-    ! zeta_mats=zero
-    ! zeta_real=zero
-    ! do ilat=1,Nlat
-    !    do ispin=1,Nspin
-    !       do iorb=1,Norb
-    !          io = iorb + (ispin-1)*Norb
-    !          js = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
-    !          !SYMMETRIES in Matsubara-frequencies  [assuming a real order parameter]
-    !          !G22(iw) = -[G11[iw]]*
-    !          !G21(iw) =   G12[w]
-    !          zeta_mats(1,1,ilat,io,io,:) = xi*wm(:) + xmu !- Eloc_(js)
-    !          zeta_mats(2,2,ilat,io,io,:) = xi*wm(:) - xmu !+ Eloc_(js)
-    !          !
-    !          !SYMMETRIES in real-frequencies   [assuming a real order parameter]
-    !          !G22(w)  = -[G11[-w]]*
-    !          !G21(w)  =   G12[w]             
-    !          zeta_real(1,1,ilat,io,io,:) = dcmplx(wr(:),eps) + xmu !- Eloc_(js)
-    !          zeta_real(2,2,ilat,io,io,:) = -conjg( dcmplx(wr(Lreal:1:-1),eps) + xmu )!- Eloc_(js) )
-    !       enddo
-    !    enddo
-    !    do ispin=1,Nspin
-    !       do jspin=1,Nspin
-    !          do iorb=1,Norb
-    !             do jorb=1,Norb
-    !                io = iorb + (ispin-1)*Norb
-    !                jo = jorb + (jspin-1)*Norb
-    !                zeta_mats(1,1,ilat,io,jo,:) = zeta_mats(1,1,ilat,io,jo,:) - Smats(1,ilat,ispin,jspin,iorb,jorb,:)
-    !                zeta_mats(1,2,ilat,io,jo,:) = zeta_mats(1,2,ilat,io,jo,:) - Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-    !                zeta_mats(2,1,ilat,io,jo,:) = zeta_mats(2,1,ilat,io,jo,:) - Smats(2,ilat,ispin,jspin,iorb,jorb,:)
-    !                zeta_mats(2,2,ilat,io,jo,:) = zeta_mats(2,2,ilat,io,jo,:) + conjg( Smats(1,ilat,ispin,jspin,iorb,jorb,:) )
-    !                !
-    !                zeta_real(1,1,ilat,io,jo,:) = zeta_real(1,1,ilat,io,jo,:) - Sreal(1,ilat,ispin,jspin,iorb,jorb,:)
-    !                zeta_real(1,2,ilat,io,jo,:) = zeta_real(1,2,ilat,io,jo,:) - Sreal(2,ilat,ispin,jspin,iorb,jorb,:)
-    !                zeta_real(2,1,ilat,io,jo,:) = zeta_real(2,1,ilat,io,jo,:) - Sreal(2,ilat,ispin,jspin,iorb,jorb,:)
-    !                zeta_real(2,2,ilat,io,jo,:) = zeta_real(2,2,ilat,io,jo,:) + conjg( Sreal(1,ilat,ispin,jspin,iorb,jorb,Lreal:1:-1) )
-    !             enddo
-    !          enddo
-    !       enddo
-    !    enddo
-    ! enddo
     do ilat=1,Nlat
        !SYMMETRIES in Matsubara-frequencies  [assuming a real order parameter]
        !G22(iw) = -[G11[iw]]*
@@ -749,27 +709,22 @@ contains
 
 
 
-
-
-
-
-
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: evaluate the GF for a single k-point
   !+-----------------------------------------------------------------------------+!
   subroutine add_to_gloc_superc(zeta,Hk,hk_symm,Gkout)
     complex(8),dimension(:,:,:,:,:),intent(in)      :: zeta    ![2][2][Nspin*Norb][Nspin*Norb][Lfreq]
     complex(8),dimension(:,:),intent(in)            :: Hk      ![Nspin*Norb][Nspin*Norb]
-    logical,intent(in)                              :: hk_symm                
+    logical,intent(in)                              :: hk_symm !
     complex(8),dimension(:,:,:,:,:,:),intent(inout) :: Gkout   ![2][Nspin][Nspin][Norb][Norb][Lfreq]
     complex(8),dimension(:,:,:,:,:,:),allocatable   :: Gktmp   ![2][Nspin][Nspin][Norb][Norb][Lfreq]
     complex(8),dimension(:,:),allocatable           :: Gmatrix ![2*Nspin*Norb][2*Nspin*Norb]
     integer                                         :: Nspin,Norb,Nso,Lfreq
     integer                                         :: i,iorb,jorb,ispin,jspin,io,jo
     !
-    Nspin = size(Gkout,1)
-    Norb  = size(Gkout,3)
-    Lfreq = size(zeta,3)
+    Nspin = size(Gkout,2)
+    Norb  = size(Gkout,4)
+    Lfreq = size(zeta,5)
     Nso   = Nspin*Norb
     call assert_shape(zeta,[2,2,Nso,Nso,Lfreq],"add_to_gloc_superc","zeta")
     call assert_shape(Hk,[Nso,Nso],"add_to_gloc_superc","Hk")
@@ -810,7 +765,7 @@ contains
   subroutine add_to_gloc_superc_lattice(zeta,Hk,hk_symm,Gkout)
     complex(8),dimension(:,:,:,:,:,:),intent(in)      :: zeta    ![2][2][Nlat][Nspin*Norb][Nspin*Norb][Lfreq]
     complex(8),dimension(:,:),intent(in)              :: Hk      ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
-    logical,intent(in)                                :: hk_symm                
+    logical,intent(in)                                :: hk_symm !
     complex(8),dimension(:,:,:,:,:,:,:),intent(inout) :: Gkout   ![2][Nlat][Nspin][Nspin][Norb][Norb][Lfreq]
     complex(8),dimension(:,:,:,:,:,:,:),allocatable   :: Gktmp   ![2][Nlat][Nspin][Nspin][Norb][Norb][Lfreq]
     complex(8),dimension(:,:),allocatable             :: Gmatrix ![2*Nlat*Nspin*Norb][2*Nlat*Nspin*Norb]
@@ -864,17 +819,6 @@ contains
     Gkout = Gktmp
 #endif
   end subroutine add_to_gloc_superc_lattice
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -40,10 +40,10 @@ contains
     integer                          :: isector,jsector
     integer                          :: idim,jdim
     integer                          :: isz,jsz
-    integer                          :: iorb,jorb,ispin
+    integer                          :: iorb,jorb,ispin,jspin,isite,jsite
     integer                          :: numstates
-    integer                          :: r,m
-    real(8)                          :: sgn
+    integer                          :: r,m,k
+    real(8)                          :: sgn,sgn1,sgn2
     real(8)                          :: gs_weight
     real(8)                          :: Ei
     real(8)                          :: peso
@@ -223,6 +223,62 @@ contains
        enddo
     end if
     !
+    !<<DEBUG
+    !IMPURITY DENSITY MATRIX
+    if ((ed_mode=="nonsu2").and.(bath_type=="hybrid").and.(ed_type=="c")) then
+       if(allocated(imp_density_matrix)) deallocate(imp_density_matrix);allocate(imp_density_matrix(Nspin,Nspin,Norb,Norb));
+       imp_density_matrix=zero
+       numstates=state_list%size
+       do izero=1,numstates
+          !
+          isector = es_return_sector(state_list,izero)
+          Ei      = es_return_energy(state_list,izero)
+          idim    = getdim(isector)
+          gscvec  => es_return_cvector(state_list,izero)
+          if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
+          !
+          peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
+          peso = peso/zeta_function
+          !
+          allocate(Hmap(idim))
+          call build_sector(isector,Hmap)
+          !Diagonal densities
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                isite=impIndex(iorb,ispin)
+                do m=1,idim
+                   i=Hmap(m)
+                   call bdecomp(i,ib)
+                   imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) +  conjg(gscvec(m))*gscvec(m)*ib(isite)
+                enddo
+             enddo
+          enddo
+          !off-diagonal
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      jsite=impIndex(iorb,ispin)
+                      isite=impIndex(jorb,jspin)
+                      do m=1,idim
+                         i=Hmap(m)
+                         call bdecomp(i,ib)
+                         if((ib(isite)==1).and.(ib(jsite)==0))then
+                            call c(isite,i,r,sgn1)
+                            call cdg(jsite,r,k,sgn2)
+                            j=binary_search(Hmap,k)
+                            imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) +  sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                         endif
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+          deallocate(Hmap)
+       enddo
+       imp_density_matrix = imp_density_matrix/numstates
+    endif
+    !<<DEBUG
     !
     call get_szr
     if(ED_MPI_ID==0)then

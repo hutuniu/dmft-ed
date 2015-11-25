@@ -95,8 +95,8 @@ program ed_nano
   allocate(docc(Nlat))
   allocate(docc_ineq(Nineq))
 
-  Hloc = reshape_Hloc(nanoHloc,Nlat,Nspin,Norb)
-
+  !Hloc = reshape_Hloc(nanoHloc,Nlat,Nspin,Norb)
+  Hloc = lso2nnn_reshape(nanoHloc,Nlat,Nspin,Norb)
 
   ! postprocessing options
   if(conduct)then
@@ -152,7 +152,7 @@ program ed_nano
      bath_prev=bath_ineq
 
      ! solve impurities on each inequivalent site:
-     call ed_solve_lattice(bath_ineq,Hloc_ineq)
+     call ed_solve_lattice(bath_ineq,Hloc_ineq,iprint=0)
 
      ! retrieve self-energies and occupations(Nineq,Norb=1)
      call ed_get_sigma_matsubara_lattice(Smats_ineq,Nineq)
@@ -180,7 +180,7 @@ program ed_nano
         Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
      enddo
      ! compute the Weiss field
-     call ed_get_weiss_lattice(Nineq,Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq)
+     call ed_get_weiss_lattice(Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=0)
 
      ! fit baths and mix result with old baths
      do ispin=1,Nspin
@@ -404,7 +404,7 @@ contains
 
 
   !----------------------------------------------------------------------------------------!
-  ! purpose: save the local self-energy on disk
+  ! purpose: read the local self-energy from disk
   !----------------------------------------------------------------------------------------!
   subroutine read_sigma(Smats,Sreal)
     complex(8),intent(inout)         :: Smats(:,:,:,:,:,:)

@@ -98,7 +98,8 @@ MODULE DMFT_ED
        ed_get_dust_lattice            ,&
        ed_get_dund_lattice            ,&
        ed_get_dse_lattice             ,&
-       ed_get_dph_lattice
+       ed_get_dph_lattice             ,&
+       ed_get_density_matrix              !TODO:works only for ED_TYPE="c", BATH_TYPE="hybrid", ED_MODE="nonsu2"
 
 
   USE ED_GLOC,     only:&

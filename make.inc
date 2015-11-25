@@ -54,9 +54,7 @@ EXE=ed_hm_bethe
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
-#EXE=ed_hm_slab_hyb
 EXE=ed_hm_slab
-#EXE=tmp_ed_hm_slab
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano

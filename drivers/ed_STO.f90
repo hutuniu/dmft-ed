@@ -10,7 +10,7 @@ program ed_STO
   integer                :: iloop,Lk,Nso
   logical                :: converged
   !Bath:
-  integer                :: Nb
+  integer                :: Nb,unit
   real(8),allocatable    :: Bath(:),Bath_(:)
   !The local hybridization function:
   complex(8),allocatable :: Delta(:,:,:,:,:)
@@ -29,6 +29,9 @@ program ed_STO
   logical                :: spinsym
   !convergence function
   complex(8),allocatable :: delta_conv(:,:,:),delta_conv_avrg(:)
+  !density matrix
+  real(8),allocatable    :: dm_eig(:)
+  complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:)
 
   !
   real(8),dimension(2)   :: Eout
@@ -62,14 +65,15 @@ program ed_STO
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(density_matrix(Nspin*Norb,Nspin*Norb))
+  allocate(dm_eig(Nspin*Norb),dm_rot(Nspin*Norb,Nspin*Norb))
   allocate(delta_conv(Nso,Nso,Lmats))
   allocate(delta_conv_avrg(Lmats))
 
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
-  if(.not.surface) call build_hk_path_bulk
-  if(surface)      call build_hk_path_path
-  !stop
+  call build_hk_path
+
   !Setup solver
   Nb=get_bath_size()
   allocate(Bath(Nb))
@@ -89,6 +93,10 @@ program ed_STO
      call ed_get_sigma_real(Sreal)
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=0)
      call ed_get_weiss(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2(Ti3dt2g_Hloc),iprint=0)
+     !density matrix
+     if(ED_MPI_ID==0)then
+        call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+     endif
      !Fit the new bath, starting from the old bath + the supplied delta 
      Bath_=bath
      if (ed_mode=="normal") then
@@ -165,36 +173,6 @@ contains
     complex(8),dimension(6,6)           :: theta
     real(8)                             :: wm(Lmats),wr(Lreal),dw
 
-    theta=cmplx(0.0d0,0.0d0)
-    !J=1/2 jz=-1/2
-    theta(1,1)=-Xi
-    theta(3,1)=-1.0d0
-    theta(6,1)=+Xi
-    theta(:,1)=theta(:,1)/sqrt(3.)
-    !J=1/2 jz=+1/2
-    theta(2,2)=-Xi
-    theta(4,2)=+1.0d0
-    theta(5,2)=-Xi
-    theta(:,2)=theta(:,2)/sqrt(3.)
-    !J=3/2 jz=-3/2
-    theta(2,3)=-Xi
-    theta(4,3)=+1.0d0
-    theta(5,3)=+2.0d0*Xi
-    theta(:,3)=theta(:,3)/sqrt(6.)
-    !J=3/2 jz=-1/2
-    theta(1,4)=+Xi
-    theta(3,4)=-1.0d0
-    theta(:,4)=theta(:,4)/sqrt(2.)
-    !J=3/2 jz=+1/2
-    theta(2,5)=-Xi 
-    theta(4,5)=-1.0d0
-    theta(:,5)=theta(:,5)/sqrt(2.)
-    !J=3/2 jz=+3/2
-    theta(1,6)=+Xi
-    theta(3,6)=+1.0d0
-    theta(6,6)=+2.0d0*Xi
-    theta(:,6)=theta(:,6)/sqrt(6.)
-
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for STO:"
 
     if(.not.surface) Lk=Nk**3
@@ -254,14 +232,15 @@ contains
              do jorb=1,Norb
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
-                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
-                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+         !       call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
+         !       call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
              enddo
           enddo
        enddo
     enddo
     !Build the local GF in the J-Jz Basis: theta funziona per Gloc nell'ordine di Z o per H *solo al punto gamma*
-    theta=reshape_Z_to_A1(theta)
+    if(.not.Hk_test) then
+    call build_rotation(theta)
     do i=1,Lmats
        Gmats(:,:,i)=matmul(transpose(conjg(theta)),matmul(Gmats(:,:,i),theta))
     enddo
@@ -274,12 +253,13 @@ contains
              do jorb=1,Norb
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
-                call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
-                call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+         !       call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
+         !       call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
              enddo
           enddo
        enddo
     enddo
+    endif
 
   end subroutine build_hk
 
@@ -287,71 +267,46 @@ contains
   !PURPOSE: GET STO HAMILTONIAN in the A1 shape
   !---------------------------------------------------------------------
   function hk_Ti3dt2g(kvec,N) result(hk)
-    real(8),dimension(:)      :: kvec
-    complex(8),dimension(N,N) :: hk
-    complex(8),dimension(2,2) :: s_x,s_y,s_z
-    complex(8),dimension(2,2) :: t_inter
-    real(8)                   :: kx,ky,kz
-    real(8)                   :: Eo,t1,t2,t3
-    integer                   :: N,ndx
-    complex(8)                :: oneI
-    if(N/=Nso)stop "hk_bhz error: N != Nspin*Norb == 4"
-    oneI=cmplx(0.0d0,1.0d0)
+    real(8),dimension(:)        :: kvec
+    complex(8),dimension(N,N)   :: hk
+    complex(8),dimension(2,2)   :: s_x,s_y,s_z
+    complex(8),dimension(2,2)   :: t_inter
+    real(8)                     :: kx,ky,kz
+    real(8)                     :: Eo_yz,t1_yz,t2_yz,t3_yz
+    real(8)                     :: Eo_zx,t1_zx,t2_zx,t3_zx
+    real(8)                     :: Eo_xy,t1_xy,t2_xy,t3_xy
+    integer                     :: N,ndx
+    real(8),dimension(Norb,0:6) :: HoppingMatrix
+
     s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
     s_x(1,2)=cmplx(1.0d0,0.0d0); s_x(2,1)=cmplx(1.0d0,0.0d0)
     s_y(1,2)=cmplx(0.0d0,-1.0d0);s_y(2,1)=cmplx(0.0d0,1.0d0)
     s_z(1,1)=cmplx(1.0d0,0.0d0); s_z(2,2)=cmplx(-1.0d0,0.0d0)
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
 
-    Eo = 3.31
-    t1 = 0.276536
-    t2 = 0.031329
-    t3 = 0.076842
-
-    Hk = zero
-
-    !1) Diagonal part in Z shape
+    Hk=zero
     if(Hk_test) then
        do i=1,Norb
           ndx=2*i-1
-          Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz,Eo,t1,t2,t3)
+          Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz)
        enddo
-       !forall(i=1:Nso,j=1:Nso,i.ne.j)Hk(i,j)=soc
     else
-       if(surface) then
-          Hk(1:2,1:2) = band_yz_surface(kx,ky,kz,Eo,t1,t2,t3)
-          Hk(3:4,3:4) = band_zx_surface(kx,ky,kz,Eo,t1,t2,t3)
-          Hk(5:6,5:6) = band_xy_surface(kx,ky,kz,Eo,t1,t2,t3)
-       else
-          Hk(1:2,1:2) = band_yz(kx,ky,kz,Eo,t1,t2,t3)
-          Hk(3:4,3:4) = band_zx(kx,ky,kz,Eo,t1,t2,t3)
-          Hk(5:6,5:6) = band_xy(kx,ky,kz,Eo,t1,t2,t3)
-       endif
-    endif
-
-    !2) Off-diagonal part due to constant SOC and/or IVB
-    if(.not.Hk_test) then
-       Hk(1:2,3:4)= oneI*s_z*soc/2.
-       Hk(1:2,5:6)=-oneI*s_y*soc/2.+ivb*2*oneI*sin(kx)*eye(2)
-       Hk(3:4,5:6)= oneI*s_x*soc/2.+ivb*2*oneI*sin(ky)*eye(2)
-    else
+       call get_hopping(HoppingMatrix)
        do i=1,Norb
-          ndx=2*i-1 !here whatever
-          Hk(ndx,ndx+1)=soc
-          Hk(ndx+1,ndx)=soc
-          if ((Norb.gt.1).and.(i.lt.Norb)) then
-            Hk(ndx,ndx+2)=soc/2
-            Hk(ndx+2,ndx)=soc/2
-          endif
+          ndx=2*i-1
+          Hk(ndx:ndx+1,ndx:ndx+1) = orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
+       enddo
+       !upper triangle
+       Hk(1:2,3:4)= +xi * s_z * soc/2.
+       Hk(1:2,5:6)= -xi * s_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+       Hk(3:4,5:6)= +xi * s_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+       !lower triangle
+       do i=1,Nspin*Norb
+          do j=1,Nspin*Norb
+             Hk(j,i)=conjg(Hk(i,j))
+          enddo
        enddo
     endif
-
-    !lower triangle
-    do i=1,N
-       do j=1,N
-          Hk(j,i)=conjg(Hk(i,j))
-       enddo
-    enddo
 
     !A1 shape: [Norb*Norb]*Nspin
     Hk = reshape_Z_to_A1(Hk)
@@ -361,112 +316,214 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: various 2x2 band BULK structures
   !---------------------------------------------------------------------
-  function band_cos_omo(kx,ky,kz,Eo,t1,t2,t3) result(hk)
-    real(8)                   :: kx,ky,kz
-    real(8)                   :: Eo,t1,t2,t3
-    complex(8),dimension(2,2) :: hk
+  function band_cos_omo(kx,ky,kz) result(hk)
+    real(8)                         :: kx,ky,kz
+    complex(8),dimension(2,2)       :: hk
     hk = zero
     hk(1,1) = -2.*(cos(kx)+cos(ky)+cos(kz))
     hk(2,2) = hk(1,1)
   end function band_cos_omo
-  function band_yz(kx,ky,kz,Eo,t1,t2,t3) result(hk)
-    real(8)                   :: kx,ky,kz
-    real(8)                   :: Eo,t1,t2,t3
-    complex(8),dimension(2,2) :: hk
+
+  function orbital_dispersion(kx,ky,kz,t) result(hk)
+    real(8)                           :: kx,ky,kz
+    real(8),intent(in),dimension(0:6) :: t
+    complex(8),dimension(2,2)         :: hk
+    !perovskite dispersion
     hk = zero
-    hk(1,1) = Eo-2.*t2*cos(kx)-2.*t1*cos(ky)-2.*t1*cos(kz)-4.*t3*cos(ky)*cos(kz)
-    hk(2,2) = hk(1,1)
-  end function band_yz
-  function band_zx(kx,ky,kz,Eo,t1,t2,t3) result(hk)
-    real(8)                   :: kx,ky,kz
-    real(8)                   :: Eo,t1,t2,t3
-    complex(8),dimension(2,2) :: hk
-    hk = zero
-    hk(1,1) = Eo-2.*t1*cos(kx)-2.*t2*cos(ky)-2.*t1*cos(kz)-4.*t3*cos(kz)*cos(kx)
-    hk(2,2) = hk(1,1)
-  end function band_zx
-  function band_xy(kx,ky,kz,Eo,t1,t2,t3) result(hk)
-    real(8)                   :: kx,ky,kz
-    real(8)                   :: Eo,t1,t2,t3
-    complex(8),dimension(2,2) :: hk
-    hk = zero
-    hk(1,1) = Eo-2.*t1*cos(kx)-2.*t1*cos(ky)-2.*t2*cos(kz)-4.*t3*cos(kx)*cos(ky)
-    hk(2,2) = hk(1,1)
-  end function band_xy
+    if(.not.surface)then
+       hk(1,1) = t(0)                      & !onsite
+                 -2.*t(1)*cos(kx)          & !t_100
+                 -2.*t(2)*cos(ky)          & !t_010
+                 -2.*t(3)*cos(kz)          & !t_001
+                 -4.*t(4)*cos(ky)*cos(kz)  & !t_011
+                 -4.*t(5)*cos(kx)*cos(kz)  & !t_101
+                 -4.*t(6)*cos(kx)*cos(ky)    !t_110
+       hk(2,2) = hk(1,1)
+    else
+       hk(1,1) = t(0)                      & !onsite
+                 -2.*t(1)*cos(kx)          & !t_100
+                 -2.*t(2)*cos(ky)          & !t_010
+                 -1.*t(3)                  & !t_001
+                 -2.*t(4)*cos(ky)          & !t_011
+                 -2.*t(5)*cos(kx)          & !t_101
+                 -4.*t(6)*cos(kx)*cos(ky)    !t_110
+       hk(2,2) = hk(1,1)
+
+    endif
+  end function orbital_dispersion
 
   !---------------------------------------------------------------------
-  !PURPOSE: various 2x2 band SURFACE structures
+  !PURPOSE: Get the STO(bulk) Hamiltonian along path
   !---------------------------------------------------------------------
-  function band_yz_surface(kx,ky,kz,Eo,t1,t2,t3) result(hk)
-    real(8)                   :: kx,ky,kz
-    real(8)                   :: Eo,t1,t2,t3
-    complex(8),dimension(2,2) :: hk
-    hk = zero
-    hk(1,1) = Eo-2.*t2*cos(kx)-2.*t1*cos(ky) -t1 -2.*t3*cos(ky)
-    hk(2,2) = hk(1,1)
-  end function band_yz_surface
-  function band_zx_surface(kx,ky,kz,Eo,t1,t2,t3) result(hk)
-    real(8)                   :: kx,ky,kz
-    real(8)                   :: Eo,t1,t2,t3
-    complex(8),dimension(2,2) :: hk
-    hk = zero
-    hk(1,1) = Eo-2.*t1*cos(kx)-2.*t2*cos(ky)- t1 -2.*t3*cos(kx)
-    hk(2,2) = hk(1,1)
-  end function band_zx_surface
-  function band_xy_surface(kx,ky,kz,Eo,t1,t2,t3) result(hk)
-    real(8)                   :: kx,ky,kz
-    real(8)                   :: Eo,t1,t2,t3
-    complex(8),dimension(2,2) :: hk
-    hk = zero
-    hk(1,1) = Eo-2.*t1*cos(kx)-2.*t1*cos(ky) -t2 -4.*t3*cos(kx)*cos(ky)
-    hk(2,2) = hk(1,1)
-  end function band_xy_surface
-
-  !---------------------------------------------------------------------
-  !PURPOSE: Get the STO(bulk) Hamiltonian along the path: M-R-G-M-X-G-X
-  !---------------------------------------------------------------------
-  subroutine build_hk_path_bulk()
+  subroutine build_hk_path()
     integer                            :: i,j
     integer                            :: Npts
     real(8),dimension(:,:),allocatable :: kpath
-    if(ED_MPI_ID==0)write(LOGfile,*)"Build bulk H(k) along the path M-R-G-M-X-G-X"
-    Npts = 7
-    Lk=(Npts-1)*Nkpath
-    allocate(kpath(Npts,3))
-    kpath(1,:)=kpoint_M1
-    kpath(2,:)=kpoint_R
-    kpath(3,:)=kpoint_Gamma
-    kpath(4,:)=kpoint_M1
-    kpath(5,:)=kpoint_X1
-    kpath(6,:)=kpoint_Gamma
-    kpath(7,:)=kpoint_X1
-    if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,&
-         colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
-         points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
-         file="Eigenband_bulk.nint")
-  end subroutine build_hk_path_bulk
+    if(.not.surface)then
+       if(ED_MPI_ID==0)then
+          write(LOGfile,*)"Build bulk H(k) along the path M-R-G-M-X-G-X"
+          write(LOGfile,*)
+       endif
+       Npts = 7
+       Lk=(Npts-1)*Nkpath
+       allocate(kpath(Npts,3))
+       kpath(1,:)=kpoint_M1
+       kpath(2,:)=kpoint_R
+       kpath(3,:)=kpoint_Gamma
+       kpath(4,:)=kpoint_M1
+       kpath(5,:)=kpoint_X1
+       kpath(6,:)=kpoint_Gamma
+       kpath(7,:)=kpoint_X1
+       if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,&
+            colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
+            points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
+            file="Eigenband_bulk.nint")
+    else
+       if(ED_MPI_ID==0)then
+          if(ED_MPI_ID==0)write(LOGfile,*)"Build surface H(k) along the path M-X-G-X"
+          write(LOGfile,*)
+       endif
+       Npts = 4
+       Lk=(Npts-1)*Nkpath
+       allocate(kpath(Npts,3))
+       kpath(1,:)=kpoint_M1
+       kpath(2,:)=kpoint_X1
+       kpath(3,:)=kpoint_Gamma
+       kpath(4,:)=kpoint_X1
+       if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,&
+            colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
+            points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
+            file="Eigenband_surf.nint")
+    endif
+  end subroutine build_hk_path
 
   !---------------------------------------------------------------------
-  !PURPOSE: Get the STO(surf) Hamiltonian along the path: M-X-G-X
+  !PURPOSE: Build the hopping integrals in k-space for realistic bandstructure
   !---------------------------------------------------------------------
-  subroutine build_hk_path_path()
-    integer                            :: i,j
-    integer                            :: Npts
-    real(8),dimension(:,:),allocatable :: kpath
-    if(ED_MPI_ID==0)write(LOGfile,*)"Build surface H(k) along the path M-X-G-X"
-    Npts = 4
-    Lk=(Npts-1)*Nkpath
-    allocate(kpath(Npts,3))
-    kpath(1,:)=kpoint_M1
-    kpath(2,:)=kpoint_X1
-    kpath(3,:)=kpoint_Gamma
-    kpath(4,:)=kpoint_X1
-    if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,&
-         colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
-         points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
-         file="Eigenband_surf.nint")
-  end subroutine build_hk_path_path
+  subroutine get_hopping(T)
+  real(8),dimension(Norb,0:6),intent(out)   ::  T
+  real(8),dimension(Norb,0:6)               ::  T_bulk,T_VACSTO,T_LAOSTO
+  real(8)                                   ::  Eo,t1,t2,t3
+  real(8)                                   ::  t_010_yz,t_001_yz
+  real(8)                                   ::  t_100_zx,t_001_zx
+  real(8)                                   ::  t_100_xy,t_010_xy,t_001_xy
 
+  !pristine lattice
+  Eo = 3.31
+  t1 = 0.276536
+  t2 = 0.031329
+  t3 = 0.076842
+
+  !lattice distortion
+  t_010_yz = 0.232 !se c'è solo l'abbassamento del Ti questo dovrebbe essere uguale a t1, magari c'è anche altro dovuto ad LAO
+  t_001_yz = 0.475
+
+  t_100_zx = 0.232
+  t_001_zx = 0.475
+
+  t_100_xy = 0.286
+  t_010_xy = 0.286
+  t_001_xy = 0.03
+
+  !  BULK STO
+  !orbital1 = YZ
+  T_bulk(1,0) = Eo
+  T_bulk(1,1) = t2
+  T_bulk(1,2) = t1
+  T_bulk(1,3) = t1
+  T_bulk(1,4) = t3
+  T_bulk(1,5) = 0.d0
+  T_bulk(1,6) = 0.d0
+  !orbital1 = ZX
+  T_bulk(2,0) = Eo
+  T_bulk(2,1) = t1
+  T_bulk(2,2) = t2
+  T_bulk(2,3) = t1
+  T_bulk(2,4) = 0.d0
+  T_bulk(2,5) = t3
+  T_bulk(2,6) = 0.d0
+  !orbital1 = XY
+  T_bulk(3,0) = Eo
+  T_bulk(3,1) = t1
+  T_bulk(3,2) = t1
+  T_bulk(3,3) = t2
+  T_bulk(3,4) = 0.d0
+  T_bulk(3,5) = 0.d0
+  T_bulk(3,6) = t3
+
+  ! VAC/STO
+  T_VACSTO=T_bulk
+  
+  !  LAO/STO
+  !orbital1 = YZ
+  T_LAOSTO(1,0) = 1.087
+  T_LAOSTO(1,1) = t2
+  T_LAOSTO(1,2) = t_010_yz
+  T_LAOSTO(1,3) = t_001_yz
+  T_LAOSTO(1,4) = t3
+  T_LAOSTO(1,5) = 0.d0
+  T_LAOSTO(1,6) = 0.d0
+  !orbital1 = ZX
+  T_LAOSTO(2,0) = 1.087
+  T_LAOSTO(2,1) = t_100_zx
+  T_LAOSTO(2,2) = t2
+  T_LAOSTO(2,3) = t_001_zx
+  T_LAOSTO(2,4) = 0.d0
+  T_LAOSTO(2,5) = t3
+  T_LAOSTO(2,6) = 0.d0
+  !orbital1 = XY
+  T_LAOSTO(3,0) = 1.035
+  T_LAOSTO(3,1) = t_100_xy
+  T_LAOSTO(3,2) = t_010_xy
+  T_LAOSTO(3,3) = t_001_xy
+  T_LAOSTO(3,4) = 0.d0
+  T_LAOSTO(3,5) = 0.d0
+  T_LAOSTO(3,6) = t3
+
+  if(.not.surface) then
+     T=T_bulk
+  else
+     T=T_LAOSTO
+  endif
+
+  end subroutine get_hopping
+
+  !---------------------------------------------------------------------
+  !PURPOSE: Build the rotation "theta" that diagonalizes SOC
+  !---------------------------------------------------------------------
+  subroutine build_rotation(theta_)
+    complex(8),dimension(6,6),intent(out) :: theta_
+    theta_=cmplx(0.0d0,0.0d0)
+    !J=1/2 jz=-1/2
+    theta_(1,1)=-Xi
+    theta_(3,1)=-1.0d0
+    theta_(6,1)=+Xi
+    theta_(:,1)=theta_(:,1)/sqrt(3.)
+    !J=1/2 jz=+1/2
+    theta_(2,2)=-Xi
+    theta_(4,2)=+1.0d0
+    theta_(5,2)=-Xi
+    theta_(:,2)=theta_(:,2)/sqrt(3.)
+    !J=3/2 jz=-3/2
+    theta_(2,3)=-Xi
+    theta_(4,3)=+1.0d0
+    theta_(5,3)=+2.0d0*Xi
+    theta_(:,3)=theta_(:,3)/sqrt(6.)
+    !J=3/2 jz=-1/2
+    theta_(1,4)=+Xi
+    theta_(3,4)=-1.0d0
+    theta_(:,4)=theta_(:,4)/sqrt(2.)
+    !J=3/2 jz=+1/2
+    theta_(2,5)=-Xi 
+    theta_(4,5)=-1.0d0
+    theta_(:,5)=theta_(:,5)/sqrt(2.)
+    !J=3/2 jz=+3/2
+    theta_(1,6)=+Xi
+    theta_(3,6)=+1.0d0
+    theta_(6,6)=+2.0d0*Xi
+    theta_(:,6)=theta_(:,6)/sqrt(6.)
+    theta_=reshape_Z_to_A1(theta_)
+  end subroutine build_rotation
 
 
 !_______________________________________________________________________
@@ -595,9 +652,4 @@ contains
 
 
 end program ed_STO
-
-
-
-
-
 
