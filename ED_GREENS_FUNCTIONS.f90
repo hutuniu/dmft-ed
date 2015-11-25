@@ -116,7 +116,7 @@ contains
     GFpoles=zero
     GFweights=zero
     !
-    write(LOGfile,"(A)")"Get impurity Greens functions:"
+    if(ED_MPI_ID==0) write(LOGfile,"(A)")"Get impurity Greens functions:"
     select case(ed_mode)
     case default
        call build_gf_normal()

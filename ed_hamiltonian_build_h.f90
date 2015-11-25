@@ -29,17 +29,17 @@
      enddo
      if(Norb>1)then
         !density-density interaction: different orbitals, opposite spins
-        !Eust=        U'   *sum_{i,j} [ n_{i,up}*n_{j,up} + n_{i,dw}*n_{j,dw} ]
-        !    =  (Uloc-2*Jh)*sum_{i,j} [ n_{i,up}*n_{j,up} + n_{i,dw}*n_{j,dw} ]
+        !Eust=        U'   *sum_{i/=j} [ n_{i,up}*n_{j,dw} + n_{j,up}*n_{i,dw} ]
+        !    =  (Uloc-2*Jh)*sum_{i/=j} [ n_{i,up}*n_{j,dw} + n_{j,up}*n_{i,dw} ]
         do iorb=1,Norb
            do jorb=iorb+1,Norb
               htmp = htmp + Ust*(nup(iorb)*ndw(jorb) + nup(jorb)*ndw(iorb))
            enddo
         enddo
         !density-density interaction: different orbitals, parallel spins
-        !Eund = \sum_ij    Und     *[ n_{i,up}*n_{j,up} + n_{i,dw}*n_{j,dw} ]
-        !    "="\sum_ij (Ust-Jh)   *[ n_{i,up}*n_{j,up} + n_{i,dw}*n_{j,dw} ]
-        !    "="\sum_ij (Uloc-3*Jh)*[ n_{i,up}*n_{j,up} + n_{i,dw}*n_{j,dw} ]
+        !Eund = \sum_{i<j}    Und     *[ n_{i,up}*n_{j,up} + n_{i,dw}*n_{j,dw} ]
+        !    "="\sum_{i<j} (Ust-Jh)   *[ n_{i,up}*n_{j,up} + n_{i,dw}*n_{j,dw} ]
+        !    "="\sum_{i<j} (Uloc-3*Jh)*[ n_{i,up}*n_{j,up} + n_{i,dw}*n_{j,dw} ]
         do iorb=1,Norb
            do jorb=iorb+1,Norb
               htmp = htmp + (Ust-Jh)*(nup(iorb)*nup(jorb) + ndw(iorb)*ndw(jorb))

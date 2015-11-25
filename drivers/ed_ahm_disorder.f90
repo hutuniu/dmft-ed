@@ -14,7 +14,7 @@ program ed_ahm_disorder
   real(8),allocatable,dimension(:)            :: erandom
   real(8),allocatable,dimension(:,:)          :: bath,bath_prev,errBath
   logical                                     :: converged,phsym,bool
-  real(8)                                     :: wmixing,Wdis
+  real(8)                                     :: wmixing,Wdis,ts
   integer                                     :: i,is,iloop,nrandom,idum
   integer                                     :: Nb,Lf
   real(8),dimension(:),allocatable            :: wm,wr
@@ -33,6 +33,7 @@ program ed_ahm_disorder
 
   ! READ INPUT FILES !
   call parse_cmd_variable(finput,"FINPUT",default="inputDSC.conf")
+  call parse_input_variable(ts,"TS",finput,default=0.5d0)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   call parse_input_variable(Wdis,"WDIS",finput,default=0.d0)
   call parse_input_variable(idum,"IDUM",finput,default=1234567)
@@ -94,7 +95,7 @@ program ed_ahm_disorder
 
   ! GET THE TIGHT BINDING HAMILTONIAN FOR THE SQUARE LATTICE 
   allocate(Hk(Nlat,Nlat,1))
-  Hk(:,:,1) = one*Htb_square_lattice(Nrow=Nside,Ncol=Nside)
+  Hk(:,:,1) = one*Htb_square_lattice(Nrow=Nside,Ncol=Nside,ts=ts)
   Hk(:,:,1) = Hk(:,:,1) + diag(Erandom)
 
 
@@ -225,22 +226,22 @@ contains
           call store_data("LSelf_realw"//trim(suffix),Sreal(2,1:Nlat,1:Lreal),wr(1:Lreal))
 
 
-          !Plot observables: n,delta,n_cdw,rho,sigma,zeta
-          do is=1,Nlat
-             row=irow(is)
-             col=icol(is)
-             sii(is)   = dimag(Smats(1,is,1))-&
-                  wm(1)*(dimag(Smats(1,is,2))-dimag(Smats(1,is,1)))/(wm(2)-wm(1))
-             rii(is)   = dimag(Gmats(1,is,1))-&
-                  wm(1)*(dimag(Gmats(1,is,2))-dimag(Gmats(1,is,1)))/(wm(2)-wm(1))
-             zii(is)   = 1.d0/( 1.d0 + abs( dimag(Smats(1,is,1))/wm(1) ))
-          enddo
-          rii=abs(rii)
-          sii=abs(sii)
-          zii=abs(zii)
-          call store_data("rhoVSisite"//trim(suffix),rii)
-          call store_data("sigmaVSisite"//trim(suffix),sii)
-          call store_data("zetaVSisite"//trim(suffix),zii)
+          ! !Plot observables: n,delta,n_cdw,rho,sigma,zeta
+          ! do is=1,Nlat
+          !    row=irow(is)
+          !    col=icol(is)
+          !    sii(is)   = dimag(Smats(1,is,1))-&
+          !         wm(1)*(dimag(Smats(1,is,2))-dimag(Smats(1,is,1)))/(wm(2)-wm(1))
+          !    rii(is)   = dimag(Gmats(1,is,1))-&
+          !         wm(1)*(dimag(Gmats(1,is,2))-dimag(Gmats(1,is,1)))/(wm(2)-wm(1))
+          !    zii(is)   = 1.d0/( 1.d0 + abs( dimag(Smats(1,is,1))/wm(1) ))
+          ! enddo
+          ! rii=abs(rii)
+          ! sii=abs(sii)
+          ! zii=abs(zii)
+          ! call store_data("rhoVSisite"//trim(suffix),rii)
+          ! call store_data("sigmaVSisite"//trim(suffix),sii)
+          ! call store_data("zetaVSisite"//trim(suffix),zii)
 
 
 
@@ -338,7 +339,7 @@ contains
     real(8),optional                       :: ts
     real(8)                                :: ts_
     real(8),dimension(Nrow*Ncol,Nrow*Ncol) :: H0
-    integer                                :: i,jj,row,col,link(4)
+    integer                                :: i,jj,row,col,link(4),j
     integer                                :: unit
     !
     pbc_row_=.true. ; if(present(pbc_row)) pbc_row_=pbc_row
@@ -347,7 +348,6 @@ contains
     !
     H0 = 0.d0
     unit=free_unit()
-    if(mpiID==0) open(unit,file='rdmft_sites.lattice')
     !+- 2D LATTICE (NROW x NCOL) -+!
     if(Nlat /= Nrow*Ncol) stop "get_lattice_hamiltonian error: Nlat != Nrow*Ncol"
     !THESE ARE STILL GLOBAL VARIABLES...
@@ -361,7 +361,6 @@ contains
           icol(i)=col+1
           ij2site(row+1,col+1)=i
           !
-          if(mpiID==0)write(unit,*) dble(col+1),dble(row+1)
           !right hop
           link(1)= i + 1     
           if((col+1)==Ncol) then
@@ -393,7 +392,13 @@ contains
           !
        enddo
     enddo
-    if(mpiID==0) close(unit)
+    if(mpiID==0) then
+       open(unit,file='Htb_square_lattice.ed')
+       do i=1,Nlat
+          write(unit,"(5000(F5.2,1x))")(H0(i,j),j=1,Nlat)
+       enddo
+       close(unit)
+    endif
   end function Htb_square_lattice
 
 
