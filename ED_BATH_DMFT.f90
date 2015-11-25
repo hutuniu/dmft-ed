@@ -129,7 +129,8 @@ contains
     endif
     !Get spin-keep yhbridizations
     do i=1,Nbath
-       dmft_bath_%v(:,:,i)=min(0.01d0,1.d0/sqrt(dble(Nbath)))
+       !dmft_bath_%v(:,:,i)=min(0.01d0,1.d0/sqrt(dble(Nbath)))
+       dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))
     enddo
     !Get SC amplitudes
     if(ed_mode=="superc")dmft_bath_%d(:,:,:)=deltasc
@@ -347,6 +348,9 @@ contains
        if(present(file))file_=reg(file)
        unit_=free_unit()
        open(unit_,file=reg(file_))
+       !<DEBUG
+       write(*,*) reg(file_)
+       !DEBUG>
        call write_dmft_bath(dmft_bath_,unit_)
        close(unit_)
     endif

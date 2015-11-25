@@ -218,7 +218,7 @@ program ed_stripe
            enddo
         endif
         bath_old_=bath_
-        call ed_solve_lattice(bath_,Hloc_,Uloc_ii=Usite_)
+        call ed_solve_lattice(bath_,Hloc_,1,Uloc_ii=Usite_)
         nii_ = ed_get_dens_lattice(Nindep,1)
         dii_ = ed_get_docc_lattice(Nindep,1)
         eii_ = ed_get_epot_lattice(Nindep)
@@ -246,7 +246,7 @@ program ed_stripe
            Greal_(:,i_ind,:,:,:,:,:)=Greal(:,ilat,:,:,:,:,:)
         end do
         !
-        call ed_get_weiss_lattice(Nindep,Gmats_,Smats_,Delta_,Hloc_)                        
+        call ed_get_weiss_lattice(Gmats_,Smats_,Delta_,Hloc_,1)                        
         call ed_chi2_fitgf_lattice(bath_,Delta_,Hloc_)
         !
         bath_=wmixing*bath_ + (1.d0-wmixing)*bath_old_
@@ -258,7 +258,7 @@ program ed_stripe
            enddo
         endif
         bath_old=bath
-        call ed_solve_lattice(bath,Hloc,Uloc_ii=Usite)
+        call ed_solve_lattice(bath,Hloc,1,Uloc_ii=Usite)
         nii = ed_get_dens_lattice(Nlat,1)
         dii = ed_get_docc_lattice(Nlat,1)
         eii = ed_get_epot_lattice(Nlat)
@@ -270,7 +270,7 @@ program ed_stripe
         !
         call ed_get_gloc_lattice(Hk,Wt,Gmats,Greal,Smats,Sreal,1,hk_symm=hk_symm)
         !
-        call ed_get_weiss_lattice(Nlat,Gmats,Smats,Delta,Hloc)        
+        call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc,1)        
         call ed_chi2_fitgf_lattice(bath,Delta,Hloc)
         !
         bath=wmixing*bath + (1.d0-wmixing)*bath_old
@@ -324,7 +324,7 @@ CONTAINS
        ilat = mod(is-1,Nlat)+1
        jlat = (is-1)/Nlat+1
        cdwii(is) = (-1.d0)**(ilat+jlat)*(nii(is)-1.d0)
-       write(*,'(3I,F18.10,I)') is,ilat,jlat,cdwii(is),Nlat
+       write(*,'(3(I3),F18.10,I3)') is,ilat,jlat,cdwii(is),Nlat
     end do
     nimp = sum(nii)/dble(Nlat)
     phi  = sum(pii)/dble(Nlat)

@@ -477,7 +477,7 @@ contains
     call assert_shape(Hk,[Nlso,Nlso,size(Hk,3)],"ed_get_gloc_normal_mb","Hk")
     call assert_shape(Sreal,[Nlat,Norb,Norb,Lreal],"ed_get_gloc_normal_mb","Sreal")
     call assert_shape(Gmats,[Nlat,Norb,Norb,Lmats],"ed_get_gloc_normal_mb","Gmats")
-    call assert_shape(Gmats,[Nlat,Norb,Norb,Lreal],"ed_get_gloc_normal_mb","Greal")
+    call assert_shape(Greal,[Nlat,Norb,Norb,Lreal],"ed_get_gloc_normal_mb","Greal")
     call assert_shape(Gmats,[Nlat,Norb,Norb,Lmats],"ed_get_gloc_normal_mb","Gmats")
     !
     allocate(Smats_(Nlat,1,1,Norb,Norb,Lmats))
