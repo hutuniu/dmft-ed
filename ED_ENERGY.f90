@@ -614,7 +614,7 @@ contains
     integer                                                         :: i,iorb,ilat,ispin,io,is
     integer                                                         :: j,jorb,jlat,jspin,jo,js
     real(8),dimension(size(Hk,1),size(Hk,1))                        :: Sigma_HF
-    complex(8),dimension(size(Hk,1),size(Hk,1))                     :: Ak,Bk,Ck,Dk,Hloc
+    complex(8),dimension(size(Hk,1),size(Hk,1))                     :: Ak,Bk,Ck,Dk,Hloc,Hloc_tmp
     complex(8),dimension(size(Hk,1),size(Hk,1))                     :: Tk
     complex(8),dimension(size(Hk,1),size(Hk,1))                     :: Gk
     real(8)                                                         :: Tail0,Tail1,Lail0,Lail1,spin_degeneracy
@@ -633,9 +633,24 @@ contains
     if(allocated(wm))deallocate(wm);allocate(wm(Liw))
     wm = pi/beta*(2*arange(1,Liw)-1)
     !
-    ! Get the block diagonal part of the local Hamiltonian 
-    ! This term gives rise to an additional E_loc = Hloc*n
-    Hloc = sum(Hk(:,:,:),dim=3)/Lk
+    ! Get the local Hamiltonian, i.e. the block diagonal part of the full Hk summed over k
+    ! ...we should make single-site routines uniform with this procedure...
+    Hloc_tmp=sum(Hk(:,:,:),dim=3)/dble(Lk)
+    Hloc=0.d0
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Nspin*Norb
+                   Hloc(is,js)=Hloc_tmp(is,js) 
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    !
     where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
     if(ED_MPI_ID==0)call print_hloc(Hloc)
     !
@@ -832,7 +847,7 @@ contains
     integer                                         :: i,iorb,ilat,ispin,io,is
     integer                                         :: j,jorb,jlat,jspin,jo,js
     real(8),dimension(size(Hk,1),size(Hk,2))        :: Sigma_HF
-    complex(8),dimension(size(Hk,1),size(Hk,2))     :: Ak,Bk,Ck,Dk,Hloc
+    complex(8),dimension(size(Hk,1),size(Hk,2))     :: Ak,Bk,Ck,Dk,Hloc,Hloc_tmp
     complex(8),dimension(size(Hk,1),size(Hk,2))     :: Tk
     complex(8),dimension(size(Hk,1),size(Hk,2))     :: Gk
     complex(8),dimension(2*size(Hk,1),2*size(Hk,2)) :: Gknambu
@@ -853,14 +868,24 @@ contains
     if(allocated(wm))deallocate(wm);allocate(wm(Liw))
     wm = pi/beta*(2*arange(1,Liw)-1)
     !
-    ! Get the block diagonal part of the local Hamiltonian 
-    ! This term gives rise to an additional E_loc = Hloc*n
-    ! This latter was already evaluated in the previous version of the code
-    ! by means of Eii = Epot + Eknot in the WRAP_ED module.
-    ! Thus we had to remove the corresponding part of the Hamiltonian.
-    ! Get the block diagonal part of the local Hamiltonian 
-    ! This term gives rise to an additional E_loc = Hloc*n
-    Hloc = sum(Hk(:,:,:),dim=3)/Lk
+    ! Get the local Hamiltonian, i.e. the block diagonal part of the full Hk summed over k
+    ! ...we should make single-site routines uniform with this procedure...
+    Hloc_tmp=sum(Hk(:,:,:),dim=3)/dble(Lk)
+    Hloc=0.d0
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Nspin*Norb
+                   Hloc(is,js)=Hloc_tmp(is,js) 
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    !
     where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
     if(ED_MPI_ID==0)call print_hloc(Hloc)
     !

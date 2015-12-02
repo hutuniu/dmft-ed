@@ -21,7 +21,7 @@ module ED_DIAG
 
   public :: diagonalize_impurity
 
-
+  integer :: unit
 
 contains
 
@@ -31,7 +31,6 @@ contains
   ! GS, build the Green's functions calling all the necessary routines
   !+------------------------------------------------------------------+
   subroutine diagonalize_impurity
-    if(ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
     select case(ed_type)
     case default
        call ed_diag_d
@@ -71,8 +70,7 @@ contains
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        if(ED_MPI_ID==0)then
-          if(ed_verbose<0)then
-             dim      = getdim(isector)
+          if(ed_verbose<=0)then
              select case(ed_mode)
              case default
                 nup  = getnup(isector)
@@ -85,7 +83,7 @@ contains
                 nt   = getn(isector)
                 write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15)")iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector)
              end select
-          elseif(ed_verbose<2)then
+          elseif(ed_verbose>0.AND.ed_verbose<3)then
              call eta(iter,count(twin_mask),LOGfile)
           endif
        endif
@@ -148,11 +146,10 @@ contains
              endif
           enddo
        endif
-       !unit=free_unit()
-       !open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
-       !call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
-       !close(unit)
-       if(ed_verbose<1)call print_eigenvalues_list(isector,eig_values(1:Neigen),LOGfile)
+       unit=free_unit()
+       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+       call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
+       close(unit)
        !
        if(allocated(eig_values))deallocate(eig_values)
        if(allocated(eig_basis))deallocate(eig_basis)
@@ -262,11 +259,10 @@ contains
           enddo
        endif
        !
-       !unit=free_unit()
-       !open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
-       !call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
-       !close(unit)
-       if(ed_verbose<1)call print_eigenvalues_list(isector,eig_values(1:Neigen),LOGfile)
+       unit=free_unit()
+       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+       call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
+       close(unit)
        !
        if(allocated(eig_values))deallocate(eig_values)
        if(allocated(eig_basis))deallocate(eig_basis)
@@ -315,7 +311,7 @@ contains
   subroutine print_eigenvalues_list(isector,eig_values,unit)
     integer              :: isector
     real(8),dimension(:) :: eig_values
-    integer              :: unit
+    integer              :: unit,i
     if(ED_MPI_ID==0)then
        select case(ed_mode)
        case default
@@ -328,7 +324,9 @@ contains
           write(unit,"(A7,A3)")" Sector","N"
           write(unit,"(I4,2x,I4)")isector,getn(isector)
        end select
-       write(unit,*)eig_values(1:)
+       do i=1,size(eig_values)
+          write(unit,*)eig_values(i)
+       enddo
        write(unit,*)""
     endif
   end subroutine print_eigenvalues_list

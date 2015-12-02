@@ -148,7 +148,7 @@ program ed_slab
   allocate(bath_old(Nlat,Nb))
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))
   allocate(Sigma_mats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)) ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-  allocate(Sigma_real(Nlat,Nspin,Nspin,Norb,Norb,Lmats)) ![Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+  allocate(Sigma_real(Nlat,Nspin,Nspin,Norb,Norb,Lreal)) ![Nlat][Nspin][Nspin][Norb][Norb][Lreal]
   allocate(Gloc_mats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)) ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
   allocate(Gloc_real(Nlat,Nspin,Nspin,Norb,Norb,Lreal)) ![Nlat][Nspin][Nspin][Norb][Norb][Lreal]
   allocate(Delta_bath(Nlat,Nspin,Nspin,Norb,Norb,Lmats)) ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
@@ -174,7 +174,7 @@ program ed_slab
   ! 
   allocate(Hloc_(Nindep,Nspin,Nspin,Norb,Norb))
   allocate(Sigma_mats_(Nindep,Nspin,Nspin,Norb,Norb,Lmats)) ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-  allocate(Sigma_real_(Nindep,Nspin,Nspin,Norb,Norb,Lmats)) ![Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+  allocate(Sigma_real_(Nindep,Nspin,Nspin,Norb,Norb,Lreal)) ![Nlat][Nspin][Nspin][Norb][Norb][Lreal]
   allocate(Gloc_mats_(Nindep,Nspin,Nspin,Norb,Norb,Lmats))  ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
   allocate(Gloc_real_(Nindep,Nspin,Nspin,Norb,Norb,Lreal))  ![Nlat][Nspin][Nspin][Norb][Norb][Lreal]
   allocate(Delta_bath_(Nindep,Nspin,Nspin,Norb,Norb,Lmats)) ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
@@ -266,7 +266,7 @@ program ed_slab
         ! Save old baths
         bath_old_=bath_        
         ! Solve impurities
-        call ed_solve_lattice(bath_,Hloc_)
+        call ed_solve_lattice(bath_,Hloc_,1)
         nsite_ = ed_get_dens_lattice(Nindep)
         dsite_ = ed_get_docc_lattice(Nindep)
         esite_ = ed_get_epot_lattice(Nindep)
@@ -310,7 +310,8 @@ program ed_slab
            Gloc_real_(i_ind,:,:,:,:,:)=Gloc_real(ilat,:,:,:,:,:)
         end do
         !
-        call ed_get_weiss_lattice(Nindep,Gloc_mats_,Sigma_mats_,Delta_bath_,Hloc_)        
+        !call ed_get_weiss_lattice(Nindep,Gloc_mats_,Sigma_mats_,Delta_bath_,Hloc_)        
+        call ed_get_weiss_lattice(Gloc_mats_,Sigma_mats_,Delta_bath_,Hloc_,1)        
         call ed_chi2_fitgf_lattice(bath_,Delta_bath_,Hloc_)
         bath_=wmixing*bath_ + (1.d0-wmixing)*bath_old_
         docc_check_=sum(dsite_,2)
@@ -335,7 +336,7 @@ program ed_slab
               end if
            end do
            deallocate(tmpBath)
-           call ed_solve_lattice(bath,Hloc)
+           call ed_solve_lattice(bath,Hloc,1)
            nsite = ed_get_dens_lattice(Nlat)
            dsite = ed_get_docc_lattice(Nlat)
            esite = ed_get_epot_lattice(Nlat)
@@ -355,7 +356,7 @@ program ed_slab
         endif
         bath_old=bath  
         xmu_=xmu
-        call ed_solve_lattice(bath,Hloc)
+        call ed_solve_lattice(bath,Hloc,1)
         nsite = ed_get_dens_lattice(Nlat)
         dsite = ed_get_docc_lattice(Nlat)
         esite = ed_get_epot_lattice(Nlat)
@@ -363,7 +364,7 @@ program ed_slab
         call ed_get_sigma_real_lattice(Sigma_real,Nlat)
         call kill_mixed_sigma(Sigma_mats,Sigma_real)
         call ed_get_gloc_lattice(Hk,Wt,Gloc_mats,Gloc_real,Sigma_mats,Sigma_real,1,hk_symm=hk_symm)
-        call ed_get_weiss_lattice(Nlat,Gloc_mats,Sigma_mats,Delta_bath,Hloc)
+        call ed_get_weiss_lattice(Gloc_mats,Sigma_mats,Delta_bath,Hloc,1)
         call ed_chi2_fitgf_lattice(bath,Delta_bath,Hloc)
         bath=wmixing*bath + (1.d0-wmixing)*bath_old
         docc_check=sum(dsite,2)
@@ -385,8 +386,11 @@ program ed_slab
      if(mpiID==0) call end_loop()
   enddo
   call slab_energy
+
+#ifdef _MPI_INEQ
   call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
   call MPI_FINALIZE(mpiERR)  
+#endif
 
 contains
   !
