@@ -3,7 +3,7 @@ program ed_STO
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
-#ifdef _MPI
+#ifdef _MPI_INEQ
   USE MPI
 #endif
   implicit none
@@ -34,7 +34,7 @@ program ed_STO
   !
   real(8),dimension(2)   :: Eout
 
-#ifdef _MPI
+#ifdef _MPI_INEQ
   call MPI_INIT(ED_MPI_ERR)
   call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
   call MPI_COMM_SIZE(MPI_COMM_WORLD,ED_MPI_SIZE,ED_MPI_ERR)
@@ -99,22 +99,22 @@ program ed_STO
      delta_conv=zero
      delta_conv_avrg=zero
      do i=1,Lmats
-     do ilat=1,Nlat
-        do ispin=1,Nspin
-           do jspin=1,Nspin
-              do iorb=1,Norb
-                 do jorb=1,Norb
-                    if((ispin.eq.jspin).and.(iorb.eq.jorb)) then
-                       io = iorb + (ispin-1)*Norb
-                       jo = jorb + (jspin-1)*Norb
-                       delta_conv(ilat,io,jo,i)=delta(ilat,ispin,jspin,iorb,jorb,i)
-                       delta_conv_avrg(i)=delta_conv_avrg(i)+delta_conv(ilat,io,jo,i)
-                    endif
+        do ilat=1,Nlat
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 do iorb=1,Norb
+                    do jorb=1,Norb
+                       if((ispin.eq.jspin).and.(iorb.eq.jorb)) then
+                          io = iorb + (ispin-1)*Norb
+                          jo = jorb + (jspin-1)*Norb
+                          delta_conv(ilat,io,jo,i)=delta(ilat,ispin,jspin,iorb,jorb,i)
+                          delta_conv_avrg(i)=delta_conv_avrg(i)+delta_conv(ilat,io,jo,i)
+                       endif
+                    enddo
                  enddo
               enddo
            enddo
         enddo
-     enddo
      enddo
      delta_conv_avrg=delta_conv_avrg/(Nso*Nlat)
 
@@ -123,7 +123,7 @@ program ed_STO
      !if(ED_MPI_ID==0) converged = check_convergence_global(delta_conv_avrg,dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0) converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0)converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
-#ifdef _MPI
+#ifdef _MPI_INEQ
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
 
@@ -136,16 +136,16 @@ program ed_STO
 
      if(ED_MPI_ID==0)call end_loop
   enddo
-#ifdef _MPI
+#ifdef _MPI_INEQ
   call MPI_FINALIZE(ED_MPI_ERR)
 #endif
 contains
 
 
 
-!_______________________________________________________________________
-!                            HAMILTONIAN
-!_______________________________________________________________________
+  !_______________________________________________________________________
+  !                            HAMILTONIAN
+  !_______________________________________________________________________
   !---------------------------------------------------------------------
   !PURPOSE: H(k) file for main program and write G0_loc
   !---------------------------------------------------------------------
@@ -176,10 +176,10 @@ contains
     open(unit=123,file='hk_2_ED.dat',status='old',action='read')
     do ik=1,Lk
        do io=1,Nlat*Nspin*Norb
-            read(123,'(50F10.5)') (dumR(io,jo),jo=1,Nlat*Nspin*Norb)
+          read(123,'(50F10.5)') (dumR(io,jo),jo=1,Nlat*Nspin*Norb)
        enddo
        do io=1,Nlat*Nspin*Norb
-            read(123,'(50F10.5)') (dumI(io,jo),jo=1,Nlat*Nspin*Norb)
+          read(123,'(50F10.5)') (dumI(io,jo),jo=1,Nlat*Nspin*Norb)
        enddo
        Hk(:,:,ik)=cmplx(dumR,dumI)
     enddo
@@ -198,25 +198,25 @@ contains
 
     if(ED_MPI_ID==0) then
        do ilat=1,Nlat
-             do ispin=1,Nspin
-                do jspin=1,Nspin
-                   do iorb=1,Norb
-                      do jorb=1,Norb
-                        write(100,'(5I3,10F15.10)')ilat,ispin,jspin,iorb,jorb,real(Hloc_dum(ilat,ispin,jspin,iorb,jorb))
-                      enddo
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      write(100,'(5I3,10F15.10)')ilat,ispin,jspin,iorb,jorb,real(Hloc_dum(ilat,ispin,jspin,iorb,jorb))
                    enddo
-              enddo
+                enddo
+             enddo
           enddo
        enddo
        do ilat=1,Nlat
-             do ispin=1,Nspin
-                do jspin=1,Nspin
-                   do iorb=1,Norb
-                      do jorb=1,Norb
-                        write(101,'(5I3,10F15.10)')ilat,ispin,jspin,iorb,jorb,aimag(Hloc_dum(ilat,ispin,jspin,iorb,jorb))
-                      enddo
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      write(101,'(5I3,10F15.10)')ilat,ispin,jspin,iorb,jorb,aimag(Hloc_dum(ilat,ispin,jspin,iorb,jorb))
                    enddo
-              enddo
+                enddo
+             enddo
           enddo
        enddo
     endif
@@ -227,39 +227,39 @@ contains
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal,mesh=dw)
 
- !   do ik=1,Lk
- !      do i=1,Lmats
- !         Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+xmu , Hk(:,:,ik) )/Lk
- !      enddo
- !      do i=1,Lreal
- !         Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/Lk
- !      enddo
- !   enddo
+    !   do ik=1,Lk
+    !      do i=1,Lmats
+    !         Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+xmu , Hk(:,:,ik) )/Lk
+    !      enddo
+    !      do i=1,Lreal
+    !         Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/Lk
+    !      enddo
+    !   enddo
 
- !   do ilat=1,Nlat
- !      do ispin=1,Nspin
- !         do jspin=1,Nspin
- !            do iorb=1,Norb
- !               do jorb=1,Norb
- !                  io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
- !                  jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
- !                  call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_lat"//reg(txtfy(ilat))//"_iw.ed",wm,Gmats(io,jo,:))
- !                  call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_lat"//reg(txtfy(ilat))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
- !               enddo
- !            enddo
- !         enddo
- !      enddo
- !   enddo
+    !   do ilat=1,Nlat
+    !      do ispin=1,Nspin
+    !         do jspin=1,Nspin
+    !            do iorb=1,Norb
+    !               do jorb=1,Norb
+    !                  io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
+    !                  jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
+    !                  call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_lat"//reg(txtfy(ilat))//"_iw.ed",wm,Gmats(io,jo,:))
+    !                  call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_lat"//reg(txtfy(ilat))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+    !               enddo
+    !            enddo
+    !         enddo
+    !      enddo
+    !   enddo
 
   end subroutine read_hk
 
 
 
-  
 
-!_______________________________________________________________________
-!                                    Gfs
-!_______________________________________________________________________
+
+  !_______________________________________________________________________
+  !                                    Gfs
+  !_______________________________________________________________________
   !---------------------------------------------------------------------
   !PURPOSE: G0_loc functions DA RIFARE ATTENZIONE CHE H(k) è nella forma A1
   !---------------------------------------------------------------------
@@ -269,11 +269,11 @@ contains
     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)   :: hk
     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)   :: g0k,g0k_tmp
     integer                                                 :: i,ndx
- !   integer (kind=4), dimension(6)                          :: ipiv
- !   integer (kind=1)                                        :: ok
- !   integer (kind=4), parameter                             :: lwork=2000
- !   complex (kind=8), dimension(lwork)                      :: work
- !   real    (kind=8), dimension(lwork)                      :: rwork
+    !   integer (kind=4), dimension(6)                          :: ipiv
+    !   integer (kind=1)                                        :: ok
+    !   integer (kind=4), parameter                             :: lwork=2000
+    !   complex (kind=8), dimension(lwork)                      :: work
+    !   real    (kind=8), dimension(lwork)                      :: rwork
 
     g0k=zero
     g0k_tmp=zero
@@ -288,9 +288,9 @@ contains
 
 
 
-!_______________________________________________________________________
-!                            reshape functions
-!_______________________________________________________________________
+  !_______________________________________________________________________
+  !                            reshape functions
+  !_______________________________________________________________________
   !---------------------------------------------------------------------
   !PURPOSE: reshape functions
   !  Z  = [Nspin,Nspin]*Norb
@@ -302,24 +302,24 @@ contains
     complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
     integer                                         :: i,j,iorb,jorb,ispin,jspin
     integer                                         :: io1,jo1,io2,jo2
-       g = zero
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   !O-index
-                   io1 = iorb + (ispin-1)*Norb
-                   jo1 = jorb + (jspin-1)*Norb
-                   !I-index
-                   io2 = ispin + (iorb-1)*Nspin
-                   jo2 = jspin + (jorb-1)*Nspin
-                   !switch
-                   g(io1,jo1)  = fg(io2,jo2)
-                   !
-                enddo
+    g = zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                !O-index
+                io1 = iorb + (ispin-1)*Norb
+                jo1 = jorb + (jspin-1)*Norb
+                !I-index
+                io2 = ispin + (iorb-1)*Nspin
+                jo2 = jspin + (jorb-1)*Nspin
+                !switch
+                g(io1,jo1)  = fg(io2,jo2)
+                !
              enddo
           enddo
        enddo
+    enddo
   end function reshape_Z_to_A1
 
   function reshape_A1_to_Z(fg) result(g)
@@ -327,62 +327,62 @@ contains
     complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
     integer                                         :: i,j,iorb,jorb,ispin,jspin
     integer                                         :: io1,jo1,io2,jo2
-       g = zero
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   !O-index
-                   io1 = ispin + (iorb-1)*Nspin
-                   jo1 = jspin + (jorb-1)*Nspin
-                   !I-index
-                   io2 = iorb + (ispin-1)*Norb
-                   jo2 = jorb + (jspin-1)*Norb
-                   !switchHloc
-                   g(io1,jo1)  = fg(io2,jo2)
-                   !
-                enddo
+    g = zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                !O-index
+                io1 = ispin + (iorb-1)*Nspin
+                jo1 = jspin + (jorb-1)*Nspin
+                !I-index
+                io2 = iorb + (ispin-1)*Norb
+                jo2 = jorb + (jspin-1)*Norb
+                !switchHloc
+                g(io1,jo1)  = fg(io2,jo2)
+                !
              enddo
           enddo
        enddo
+    enddo
   end function reshape_A1_to_Z
 
   function reshape_A1_to_A2(fg) result(g)
     complex(8),dimension(Nso,Nso)                   :: fg
     complex(8),dimension(Nspin,Nspin,Norb,Norb)     :: g
     integer                                         :: i,j,iorb,jorb,ispin,jspin,io,jo
-       g = zero
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   g(ispin,jspin,iorb,jorb)  = fg(io,jo)
-                enddo
+    g = zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                g(ispin,jspin,iorb,jorb)  = fg(io,jo)
              enddo
           enddo
        enddo
+    enddo
   end function reshape_A1_to_A2
 
   function reshape_A1_to_A2_L(fg) result(g)
     complex(8),dimension(Nlat*Nso,Nlat*Nso)          :: fg
     complex(8),dimension(Nlat,Nspin,Nspin,Norb,Norb) :: g
     integer                                          :: i,j,iorb,jorb,ispin,jspin,io,jo,ilat
-       g = zero
-       do ilat=1,Nlat
-          do ispin=1,Nspin
-             do jspin=1,Nspin
-                do iorb=1,Norb
-                   do jorb=1,Norb
-                      io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
-                      jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
-                      g(ilat,ispin,jspin,iorb,jorb)  = fg(io,jo)
-                   enddo
+    g = zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
+                   jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
+                   g(ilat,ispin,jspin,iorb,jorb)  = fg(io,jo)
                 enddo
              enddo
           enddo
        enddo
+    enddo
   end function reshape_A1_to_A2_L
 
   !---------------------------------------------------------------------

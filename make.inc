@@ -12,7 +12,7 @@ PLAT=intel
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-#FPP_INEQ=MPI_INEQ
+FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
 #FPP_ED=MPI
@@ -66,6 +66,9 @@ LIBDIR=/opt
 #EXE=ed_ehm_bethe
 #EXE=ed_ed_ehm_bethe_loop
 
+
+##$ --> nonSU2 
+EXE=ed_SIO
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
 DIR=drivers
