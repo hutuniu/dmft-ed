@@ -260,7 +260,9 @@ module ED_MAIN
 contains
 
   !+-----------------------------------------------------------------------------+!
-  ! PURPOSE: allocate and initialize one or multiple baths -+!
+  ! PURPOSE: allocate and initialize one or multiple baths
+  ! MPI: these routines are called by each process so we don't need to do anything
+  ! here
   !+-----------------------------------------------------------------------------+!
   subroutine ed_init_solver(bath_,hwband,Hunit)
     real(8),dimension(:),intent(inout)   :: bath_
@@ -300,17 +302,14 @@ contains
     logical                :: check_dim
     character(len=5)       :: tmp_suffix
     Nineq = size(bath,1)
-    if(Nineq > Nlat)stop "init_lattice_bath error: size[bath,1] > Nlat"
     do ilat=1,Nineq
        check_dim = check_bath_dimension(bath(ilat,:))
-       if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
+       if(.not.check_dim) stop "ed_init_solver_lattice errr: size(bath,2) != Nbath "
        write(tmp_suffix,'(I4.4)') ilat
        ed_file_suffix="_site"//trim(tmp_suffix)
        call ed_init_solver(bath(ilat,:))
     end do
-#ifdef _MPI_INEQ
-    call MPI_Barrier(MPI_COMM_WORLD,mpiERR)
-#endif
+    ed_file_suffix=".ed"
   end subroutine ed_init_solver_lattice
 
 
@@ -323,14 +322,22 @@ contains
   !PURPOSE: solve the impurity problems for a single or many independent
   ! lattice site using ED. 
   !-------------------------------------------------------------------------------------------
-  subroutine ed_solve(bath_)
+  subroutine ed_solve(bath_,mpi_comm)
     real(8),dimension(:),intent(in) :: bath_
-    logical                         :: check
+    integer,optional                :: mpi_comm
+    logical                         :: check,mpi_master=.true.
     check = check_bath_dimension(bath_)
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"
+    if(present(mpi_comm))then       !set parallel environment
+       ED_MPI_COMM=mpi_comm
+#ifdef _MPI
+       call ED_MPI_Init_Print(ED_MPI_COMM)
+       mpi_master=ED_MPI_get_master(ED_MPI_COMM)
+#endif
+    endif
     call allocate_dmft_bath(dmft_bath)
     call set_dmft_bath(bath_,dmft_bath)
-    if(ED_MPI_ID==0)then
+    if(mpi_master)then
        if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
        call save_dmft_bath(dmft_bath,used=.true.)
     endif
@@ -346,37 +353,51 @@ contains
     call es_delete_espace(state_list) 
   end subroutine ed_solve
 
-  subroutine ed_solve_lattice(bath,Hloc,iprint,Uloc_ii,Ust_ii,Jh_ii)
+  subroutine ed_solve_lattice(bath,Hloc,iprint,mpi_comm,Uloc_ii,Ust_ii,Jh_ii)
     !inputs
-    real(8)                  :: bath(:,:) ![Nlat][Nb]
-    complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
-    integer                  :: iprint
-    real(8),optional         :: Uloc_ii(size(bath,1),Norb)
-    real(8),optional         :: Ust_ii(size(bath,1))
-    real(8),optional         :: Jh_ii(size(bath,1))
+    real(8)          :: bath(:,:) ![Nlat][Nb]
+    complex(8)       :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    integer          :: iprint
+    real(8),optional :: Uloc_ii(size(bath,1),Norb)
+    real(8),optional :: Ust_ii(size(bath,1))
+    real(8),optional :: Jh_ii(size(bath,1))
+    integer,optional :: mpi_comm
     !MPI  auxiliary vars
-    complex(8)               :: Smats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)               :: Sreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8)               :: SAmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)               :: SAreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8)               :: Gmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)               :: Greal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8)               :: Fmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)               :: Freal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
-    real(8)                  :: nii_tmp(size(bath,1),Norb)
-    real(8)                  :: dii_tmp(size(bath,1),Norb)
-    real(8)                  :: mii_tmp(size(bath,1),Norb)
-    real(8)                  :: pii_tmp(size(bath,1),Norb)
-    real(8)                  :: eii_tmp(size(bath,1),4)
-    real(8)                  :: ddii_tmp(size(bath,1),4)
+    integer          :: MPI_rank=0
+    integer          :: MPI_size=1
+    integer          :: MPI_err
+    complex(8)       :: Smats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)       :: Sreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)       :: SAmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)       :: SAreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)       :: Gmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)       :: Greal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)       :: Fmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)       :: Freal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
+    real(8)          :: nii_tmp(size(bath,1),Norb)
+    real(8)          :: dii_tmp(size(bath,1),Norb)
+    real(8)          :: mii_tmp(size(bath,1),Norb)
+    real(8)          :: pii_tmp(size(bath,1),Norb)
+    real(8)          :: eii_tmp(size(bath,1),4)
+    real(8)          :: ddii_tmp(size(bath,1),4)
     ! 
-    integer                  :: ilat,iorb,jorb,ispin,jspin
-    integer                  :: Nsites
-    logical                  :: check_dim
-    character(len=5)         :: tmp_suffix
+    integer          :: ilat,iorb,jorb,ispin,jspin
+    integer          :: Nsites
+    logical          :: check_dim
+    character(len=5) :: tmp_suffix
     !
     ! Check dimensions !
     Nsites=size(bath,1)
+    !<DEBUG
+    if(present(mpi_comm))then       !set parallel environment
+       ED_GLOBAL_COMM=mpi_comm
+#ifdef _MPI
+       call MPI_Comm_rank(ED_GLOBAL_COMM,MPI_rank,MPI_err)
+       call MPI_Comm_size(ED_GLOBAL_COMM,MPI_size,MPI_err)
+       call MPI_Barrier(ED_GLOBAL_COMM,MPI_err)
+#endif
+    endif
+    !>DEBUG
     !
     !Allocate the local static observarbles global to the module
     !One can retrieve these values from suitable routines later on
@@ -414,6 +435,13 @@ contains
     allocate(Grealii(Nsites,Nspin,Nspin,Norb,Norb,Lreal))
     allocate(Fmatsii(Nsites,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(Frealii(Nsites,Nspin,Nspin,Norb,Norb,Lreal))
+    !
+    !
+    !>DEBUG
+    !
+
+    !<DEBUG
+    !
     !
     !Check the dimensions of the bath are ok:
     do ilat=1+mpiID,Nsites,mpiSIZE

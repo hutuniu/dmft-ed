@@ -6,15 +6,15 @@ MODULE DMFT_ED
        icol        ,&
        irow        ,&
        ij2site     ,&
-       impSmats    ,&
-       impSAmats   ,&
-       impSreal    ,&
-       impSAreal   ,&
+       ! impSmats    ,&
+       ! impSAmats   ,&
+       ! impSreal    ,&
+       ! impSAreal   ,&
        ed_dens     ,&
        indep_list  ,&
        map_lat2ind ,&
-       map_ind2lat ,&
-       ED_MPI_ID,ED_MPI_SIZE,ED_MPI_ERR
+       map_ind2lat !,&
+       ! ED_MPI_ID,ED_MPI_SIZE,ED_MPI_ERR
 
   USE ED_AUX_FUNX, only:&
        set_Hloc,&

@@ -47,6 +47,7 @@ MODULE ED_INPUT_VARS
   real(8)              :: cg_eps              !fit eps tolerance
   logical              :: finiteT             !flag for finite temperature calculation
   logical              :: ed_twin             !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
+  integer              :: ed_mpi_colors       !number of mpi colors to split the initial MPI size.
   character(len=1)     :: ed_type             !flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)
   character(len=7)     :: ed_mode             !flag to set ed symmetry type: normal=normal (default), superc=superconductive, nonsu2=broken SU(2)
   logical              :: ed_para             !flag to enforce non-magnetic solution
@@ -89,8 +90,10 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : READ THE INPUT FILE AND SETUP GLOBAL VARIABLES
   !+-------------------------------------------------------------------+
-  subroutine ed_read_input(INPUTunit)
+  subroutine ed_read_input(INPUTunit,comm)
     character(len=*) :: INPUTunit
+    integer,optional :: comm
+    integer          :: mpi_rank=0
     !
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals.")
@@ -140,6 +143,7 @@ contains
     call parse_input_variable(cg_weight,"CG_WEIGHT",INPUTunit,default=0,comment="Conjugate-Gradient weight form: 0=1.0 ,1=1/n , 2=1/w.")
     call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")    
     call parse_input_variable(ed_mode,"ED_MODE",INPUTunit,default='normal',comment="Flag to set ED type: normal=normal, superc=superconductive, nonsu2=broken SU(2)")
+    call parse_input_variable(ed_mpi_colors,"ED_MPI_COLORS",INPUTunit,default=1,comment="Number of mpi colors to split the initial MPI size")
     call parse_input_variable(ed_para,"ED_PARA",INPUTunit,default=.false.,comment="Flag to force paramagnetic solution (only used in ed_mode=nonsu2 now).")
     call parse_input_variable(ed_vsf_ratio,"ED_VSF_RATIO",INPUTunit,default=0.1d0,comment="Ration of the spin-flip hopping to spin-hold ones in the nonSU2 channel.")
     call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
@@ -157,9 +161,11 @@ contains
     call substring_delete(Hfile,".restart")
     call substring_delete(Hfile,".ed")
     Ltau=max(int(beta),Ltau)
-    if(ED_MPI_ID==0.AND.mpiID==0)call save_input_file(INPUTunit)
-    !
-    if(ED_MPI_ID==0.AND.mpiID==0)call sf_version(revision)
+#ifdef _MPI
+    if(present(comm))mpi_rank=ED_MPI_get_rank(comm)
+#endif
+    if(mpi_rank==0)call save_input_file(INPUTunit)
+    if(mpi_rank==0)call sf_version(revision)
   end subroutine ed_read_input
 
 

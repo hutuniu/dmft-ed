@@ -2,9 +2,6 @@ MODULE ED_VARS_GLOBAL
   USE SF_CONSTANTS
   USE ED_BATH_TYPE
   USE MATRIX_SPARSE
-#ifdef _MPI_INEQ
-  USE MPI
-#endif
 #ifdef _MPI
   USE MPI
 #endif
@@ -93,18 +90,19 @@ MODULE ED_VARS_GLOBAL
   complex(8),allocatable,dimension(:,:,:,:)  :: imp_density_matrix
 
   !MPI Parallel environment variables
-  !PUBLIC
+  !PRIVATE
   !=========================================================
-  integer                                     :: ED_MPI_ID=0
-  integer                                     :: ED_MPI_SIZE=1
-  integer                                     :: ED_MPI_ERR
-
+  integer                                     :: ED_GLOBAL_COMM
 
 
 
   !--------------- LATTICE WRAP VARIABLES -----------------!
   !Lattice size:
   !PUBLIC USE: (should be set by routine)
+  !>DEBUG
+  !THIS VARIABLE SHOULD BE REMOVED: THE CODE  WORKS WITH THE
+  !# OF INEQ SITES SPECIFIED BY THE LENGHT OF THE BATH
+  !<DEBUG
   !=========================================================
   integer                                     :: Nlat
 
@@ -122,7 +120,44 @@ MODULE ED_VARS_GLOBAL
   !=========================================================
   integer,dimension(:),allocatable            :: icol,irow
   integer,dimension(:,:),allocatable          :: ij2site
-  ! real(8),dimension(:,:),allocatable          :: H0
 
+#ifdef _MPI
+
+contains
+
+  subroutine ED_MPI_Init_Print(comm)
+    integer :: comm
+    integer :: mpi_rank
+    integer :: mpi_size
+    integer :: mpi_ierr
+    call MPI_Comm_rank(comm,mpi_rank,mpi_ierr)
+    call MPI_Comm_size(comm,mpi_size,mpi_ierr)
+    print*,"I am rank",mpi_rank,"of ",mpi_size
+    call MPI_Barrier(comm,mpi_ierr)
+    if(mpi_rank==0)print*,"----------------------------------"
+    if(mpi_rank==0)print*,""
+  end subroutine ED_MPI_Init_Print
+  !
+  function ED_MPI_Get_size(comm) result(size)
+    integer :: comm
+    integer :: size,ierr
+    call MPI_Comm_size(comm,size,ierr)
+  end function ED_MPI_Get_size
+  !
+  function ED_MPI_Get_rank(comm) result(rank)
+    integer :: comm
+    integer :: rank,ierr
+    call MPI_Comm_rank(comm,rank,ierr)
+  end function ED_MPI_Get_rank
+  !
+  function ED_MPI_Get_master(comm) result(master)
+    integer :: comm
+    logical :: master
+    integer :: rank,ierr
+    call MPI_Comm_rank(comm,rank,ierr)
+    master=.false.
+    if(rank==0)master=.true.
+  end function ED_MPI_Get_master
+#endif
 
 END MODULE ED_VARS_GLOBAL
