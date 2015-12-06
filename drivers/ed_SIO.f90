@@ -35,11 +35,11 @@ program ed_STO
   real(8),dimension(2)   :: Eout
 
 #ifdef _MPI_INEQ
-  call MPI_INIT(ED_MPI_ERR)
-  call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD,ED_MPI_SIZE,ED_MPI_ERR)
-  write(*,"(A,I4,A,I4,A)")'Processor ',ED_MPI_ID,' of ',ED_MPI_SIZE,' is alive'
-  call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
+  call MPI_INIT(mpiERR)
+  call MPI_COMM_RANK(MPI_COMM_WORLD,mpiID,mpiERR)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
+  write(*,"(A,I4,A,I4,A)")'Processor ',mpiID,' of ',mpiSIZE,' is alive'
+  call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
 #endif
 
   !Parse additional variables && read Input && read H(k)^4x4
@@ -81,14 +81,14 @@ program ed_STO
   iloop=0;converged=.false.
   do while(.not.converged.AND.iloop<nloop)
      iloop=iloop+1
-     if(ED_MPI_ID==0)call start_loop(iloop,nloop,"DMFT-loop")
+     if(mpiID==0)call start_loop(iloop,nloop,"DMFT-loop")
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath) |CONTROLLA INPUT
      call ed_solve_lattice(bath,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc),iprint=3)                  !ok
      call ed_get_sigma_matsubara_lattice(Smats,Nlat)                                             !ok
      call ed_get_sigma_real_lattice(Sreal,Nlat)                                                  !ok
      call ed_get_gloc_lattice(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)                           !ok
-     call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc),iprint=0) !ok
+     call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc),iprint=3) !ok
      !Fit the new bath, starting from the old bath + the supplied delta 
      Bath_=bath
      call ed_chi2_fitgf_lattice(bath,delta,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc))
@@ -119,25 +119,25 @@ program ed_STO
      delta_conv_avrg=delta_conv_avrg/(Nso*Nlat)
 
 
-     if(ED_MPI_ID==0) converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
-     !if(ED_MPI_ID==0) converged = check_convergence_global(delta_conv_avrg,dmft_error,nsuccess,nloop)
-     !if(ED_MPI_ID==0) converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
-     !if(ED_MPI_ID==0)converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
+     if(mpiID==0) converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
+     !if(mpiID==0) converged = check_convergence_global(delta_conv_avrg,dmft_error,nsuccess,nloop)
+     !if(mpiID==0) converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
+     !if(mpiID==0)converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
 #ifdef _MPI_INEQ
-     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
+     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
 #endif
 
      orb_dens=ed_get_dens_lattice(Nlat)
      dens_per_site=sum(orb_dens)/Nlat
 
-     if (ED_MPI_ID==0) write(*,*) "dens_per_site",dens_per_site,"xmu",xmu,"converged",converged
+     if (mpiID==0) write(*,*) "dens_per_site",dens_per_site,"xmu",xmu,"converged",converged
      if(nread/=0.d0)call search_chemical_potential(xmu,dens_per_site,converged)
-     if (ED_MPI_ID==0) write(*,*) "dens_per_site",dens_per_site,"xmu",xmu,"converged",converged
+     if (mpiID==0) write(*,*) "dens_per_site",dens_per_site,"xmu",xmu,"converged",converged
 
-     if(ED_MPI_ID==0)call end_loop
+     if(mpiID==0)call end_loop
   enddo
 #ifdef _MPI_INEQ
-  call MPI_FINALIZE(ED_MPI_ERR)
+  call MPI_FINALIZE(mpiERR)
 #endif
 contains
 
@@ -164,11 +164,11 @@ contains
     real(8)                                       :: dumR(Nlat*Nso,Nlat*Nso),dumI(Nlat*Nso,Nlat*Nso)
     complex(8),dimension(Nlat,Nspin,Nspin,Norb,Norb)    :: Hloc_dum
 
-    if(ED_MPI_ID==0)write(LOGfile,*)"Read H(k) for STO:"
+    if(mpiID==0)write(LOGfile,*)"Read H(k) for STO:"
     Lk=Nk
-    if(ED_MPI_ID==0)write(*,*)"# of k-points     :",Lk
-    if(ED_MPI_ID==0)write(*,*)"# of sites        :",Nlat
-    if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
+    if(mpiID==0)write(*,*)"# of k-points     :",Lk
+    if(mpiID==0)write(*,*)"# of sites        :",Nlat
+    if(mpiID==0)write(*,*)"# of SO-bands     :",Nso
     if(allocated(Hk))deallocate(Hk)
     allocate(Hk(Nlat*Nso,Nlat*Nso,Lk));allocate(wtk(Lk))
     wtk = 1.0d0/Lk
@@ -188,7 +188,7 @@ contains
     allocate(Ti3dt2g_Hloc(Nlat*Nso,Nlat*Nso))
     Ti3dt2g_Hloc = sum(Hk,dim=3)/Lk
     where(abs((Ti3dt2g_Hloc))<1.d-9)Ti3dt2g_Hloc=zero
-    if(ED_MPI_ID==0) then
+    if(mpiID==0) then
        call write_Hloc(Ti3dt2g_Hloc,HlocFILE)
     endif
 
@@ -196,7 +196,7 @@ contains
     open(unit=100,file='impEDloc_R.dat',status='unknown',action='write',position='rewind')
     open(unit=101,file='impEDloc_I.dat',status='unknown',action='write',position='rewind')
 
-    if(ED_MPI_ID==0) then
+    if(mpiID==0) then
        do ilat=1,Nlat
           do ispin=1,Nspin
              do jspin=1,Nspin
@@ -235,7 +235,6 @@ contains
     !         Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/Lk
     !      enddo
     !   enddo
-
     !   do ilat=1,Nlat
     !      do ispin=1,Nspin
     !         do jspin=1,Nspin
@@ -269,11 +268,6 @@ contains
     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)   :: hk
     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb)   :: g0k,g0k_tmp
     integer                                                 :: i,ndx
-    !   integer (kind=4), dimension(6)                          :: ipiv
-    !   integer (kind=1)                                        :: ok
-    !   integer (kind=4), parameter                             :: lwork=2000
-    !   complex (kind=8), dimension(lwork)                      :: work
-    !   real    (kind=8), dimension(lwork)                      :: rwork
 
     g0k=zero
     g0k_tmp=zero

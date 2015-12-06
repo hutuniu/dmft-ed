@@ -32,7 +32,6 @@ program ed_STO
   !density matrix
   real(8),allocatable    :: dm_eig(:)
   complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:)
-
   !
   real(8),dimension(2)   :: Eout
 #ifdef _MPI
@@ -90,9 +89,10 @@ program ed_STO
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solve(bath)
      call ed_get_sigma_matsubara(Smats)
+     call build_hk_path
      call ed_get_sigma_real(Sreal)
-     call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=0)
-     call ed_get_weiss(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2(Ti3dt2g_Hloc),iprint=0)
+     call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
+     call ed_get_weiss(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2(Ti3dt2g_Hloc),iprint=3)
      !density matrix
      if(ED_MPI_ID==0)then
         call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
@@ -129,7 +129,6 @@ program ed_STO
         enddo
      enddo
      delta_conv_avrg=delta_conv_avrg/Nso
-
 
      if(ED_MPI_ID==0) converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0) converged = check_convergence_global(delta_conv_avrg,dmft_error,nsuccess,nloop)
@@ -232,8 +231,8 @@ contains
              do jorb=1,Norb
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
-         !       call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
-         !       call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
+                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
              enddo
           enddo
        enddo
@@ -253,8 +252,8 @@ contains
              do jorb=1,Norb
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
-         !       call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
-         !       call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+                call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
+                call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
              enddo
           enddo
        enddo
@@ -272,9 +271,6 @@ contains
     complex(8),dimension(2,2)   :: s_x,s_y,s_z
     complex(8),dimension(2,2)   :: t_inter
     real(8)                     :: kx,ky,kz
-    real(8)                     :: Eo_yz,t1_yz,t2_yz,t3_yz
-    real(8)                     :: Eo_zx,t1_zx,t2_zx,t3_zx
-    real(8)                     :: Eo_xy,t1_xy,t2_xy,t3_xy
     integer                     :: N,ndx
     real(8),dimension(Norb,0:6) :: HoppingMatrix
 
@@ -312,6 +308,62 @@ contains
     Hk = reshape_Z_to_A1(Hk)
   
   end function hk_Ti3dt2g
+
+  function hk_Ti3dt2g_Hartree(kvec,N) result(hk)
+    real(8),dimension(:)        :: kvec
+    complex(8),dimension(N,N)   :: hk
+    complex(8),dimension(2,2)   :: s_x,s_y,s_z
+    complex(8),dimension(2,2)   :: t_inter
+    real(8)                     :: kx,ky,kz
+    integer                     :: N,ndx
+    real(8),dimension(Norb,0:6) :: HoppingMatrix
+
+    s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
+    s_x(1,2)=cmplx(1.0d0,0.0d0); s_x(2,1)=cmplx(1.0d0,0.0d0)
+    s_y(1,2)=cmplx(0.0d0,-1.0d0);s_y(2,1)=cmplx(0.0d0,1.0d0)
+    s_z(1,1)=cmplx(1.0d0,0.0d0); s_z(2,2)=cmplx(-1.0d0,0.0d0)
+    kx=kvec(1);ky=kvec(2);kz=kvec(3)
+
+    Hk=zero
+    if(Hk_test) then
+       do i=1,Norb
+          ndx=2*i-1
+          Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz)
+       enddo
+    else
+       call get_hopping(HoppingMatrix)
+       do i=1,Norb
+          ndx=2*i-1
+          Hk(ndx:ndx+1,ndx:ndx+1) = orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
+       enddo
+       !upper triangle
+       Hk(1:2,3:4)= +xi * s_z * soc/2.
+       Hk(1:2,5:6)= -xi * s_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+       Hk(3:4,5:6)= +xi * s_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+       !lower triangle
+       do i=1,Nspin*Norb
+          do j=1,Nspin*Norb
+             Hk(j,i)=conjg(Hk(i,j))
+          enddo
+       enddo
+    endif
+
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = ispin + (iorb-1)*Nspin
+                jo = jspin + (jorb-1)*Nspin
+                Hk(io,jo) = Hk(io,jo) + Smats(ispin,jspin,iorb,jorb,1)
+             enddo
+          enddo
+       enddo
+    enddo
+
+    !A1 shape: [Norb*Norb]*Nspin
+    Hk = reshape_Z_to_A1(Hk)
+  
+  end function hk_Ti3dt2g_Hartree
 
   !---------------------------------------------------------------------
   !PURPOSE: various 2x2 band BULK structures
@@ -378,6 +430,12 @@ contains
             colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
             points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
             file="Eigenband_bulk.nint")
+       if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g_Hartree,Nso,kpath,Lk,&
+            colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
+            points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
+            file="Eigenband_bulk_H.nint")
+
+
     else
        if(ED_MPI_ID==0)then
           if(ED_MPI_ID==0)write(LOGfile,*)"Build surface H(k) along the path M-X-G-X"
@@ -394,6 +452,10 @@ contains
             colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
             points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
             file="Eigenband_surf.nint")
+       if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g_Hartree,Nso,kpath,Lk,&
+            colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
+            points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
+            file="Eigenband_surf_H.nint")
     endif
   end subroutine build_hk_path
 
