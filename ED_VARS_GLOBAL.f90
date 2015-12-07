@@ -125,11 +125,13 @@ MODULE ED_VARS_GLOBAL
 
 contains
 
-  subroutine ED_MPI_Init_Print(comm)
-    integer :: comm
-    integer :: mpi_rank
-    integer :: mpi_size
-    integer :: mpi_ierr
+  subroutine ED_MPI_Init_Print(comm_)
+    integer,optional :: comm_
+    integer          :: comm
+    integer          :: mpi_rank
+    integer          :: mpi_size
+    integer          :: mpi_ierr
+    comm=ED_GLOBAL_COMM;if(present(comm_))comm=comm_
     call MPI_Comm_rank(comm,mpi_rank,mpi_ierr)
     call MPI_Comm_size(comm,mpi_size,mpi_ierr)
     print*,"I am rank",mpi_rank,"of ",mpi_size
@@ -138,22 +140,28 @@ contains
     if(mpi_rank==0)print*,""
   end subroutine ED_MPI_Init_Print
   !
-  function ED_MPI_Get_size(comm) result(size)
-    integer :: comm
-    integer :: size,ierr
+  function ED_MPI_Get_size(comm_) result(size)
+    integer,optional :: comm_
+    integer          :: comm
+    integer          :: size,ierr
+    comm=ED_GLOBAL_COMM;if(present(comm_))comm=comm_
     call MPI_Comm_size(comm,size,ierr)
   end function ED_MPI_Get_size
   !
-  function ED_MPI_Get_rank(comm) result(rank)
-    integer :: comm
-    integer :: rank,ierr
+  function ED_MPI_Get_rank(comm_) result(rank)
+    integer,optional :: comm_
+    integer          :: comm
+    integer          :: rank,ierr
+    comm=ED_GLOBAL_COMM;if(present(comm_))comm=comm_
     call MPI_Comm_rank(comm,rank,ierr)
   end function ED_MPI_Get_rank
   !
-  function ED_MPI_Get_master(comm) result(master)
-    integer :: comm
-    logical :: master
-    integer :: rank,ierr
+  function ED_MPI_Get_master(comm_) result(master)
+    integer,optional :: comm_
+    integer          :: comm
+    logical          :: master
+    integer          :: rank,ierr
+    comm=ED_GLOBAL_COMM;if(present(comm_))comm=comm_
     call MPI_Comm_rank(comm,rank,ierr)
     master=.false.
     if(rank==0)master=.true.
