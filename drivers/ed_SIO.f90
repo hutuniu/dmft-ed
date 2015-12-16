@@ -166,6 +166,7 @@ contains
     real(8)                                           :: wm(Lmats),wr(Lreal),dw
     real(8)                                           :: dumR(Nlat*Nso,Nlat*Nso),dumI(Nlat*Nso,Nlat*Nso)
     complex(8),dimension(Nlat,Nspin,Nspin,Norb,Norb)  :: Hloc_dum
+    logical                                           :: intersite
 
     if(mpiID==0)write(LOGfile,*)"Read H(k) for STO:"
     Lk=Nk
@@ -258,27 +259,31 @@ contains
     allocate(impHloc_rot(Nlat*Nspin*Norb,Nlat*Nspin*Norb));impHloc_rot=zero
     if(allocated(impHloc_eig)) deallocate(impHloc_eig)
     allocate(impHloc_eig(Nlat*Nspin*Norb));impHloc_eig=0.d0
-    impHloc_rot=Ti3dt2g_Hloc
 
-    !1) CON TERMINI INTER-SITO
-    !call matrix_diagonalize(impHloc_rot,impHloc_eig,'V','U')
+    intersite=.false.
 
-    !2) SENZA TERMINI INTER-SITO
-    impHloc_rot=zero
-    do ilat=1,Nlat
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
-                   jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
-                   impHloc_rot(io,jo)=Ti3dt2g_Hloc(io,jo)
+    !1) con termini inter-sito
+    if (intersite) then
+       impHloc_rot=Ti3dt2g_Hloc
+       call matrix_diagonalize(impHloc_rot,impHloc_eig,'V','U')
+    else
+    !2) senza termini inter-sito
+       impHloc_rot=zero
+       do ilat=1,Nlat
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
+                      jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
+                      impHloc_rot(io,jo)=Ti3dt2g_Hloc(io,jo)
+                   enddo
                 enddo
              enddo
           enddo
        enddo
-    enddo
-    call matrix_diagonalize(impHloc_rot,impHloc_eig,'V','U')
+       call matrix_diagonalize(impHloc_rot,impHloc_eig,'V','U')
+    endif
 
     open(unit=102,file='impHloc_eig.dat',status='unknown',action='write',position='rewind')
     open(unit=103,file='impHloc_rot.dat',status='unknown',action='write',position='rewind')
