@@ -10,7 +10,7 @@ program ed_SIO
   integer                :: iloop,Lk,Nso
   logical                :: converged
   !Bath:
-  integer                :: Nb,unit
+  integer                :: Nb,unit,Lstart
   real(8),allocatable    :: Bath(:,:),Bath_(:,:)
   !The local hybridization function:
   complex(8),allocatable :: Delta(:,:,:,:,:,:)
@@ -87,16 +87,15 @@ program ed_SIO
      call ed_get_sigma_matsubara_lattice(Smats,Nlat)                                             !ok
      call ed_get_sigma_real_lattice(Sreal,Nlat)                                                  !ok
 
-     !qui devo invertire gli spin
-     if (iloop==1) call spin_symmetrize_lattice(Smats,5)
-     if (iloop==1) call spin_symmetrize_lattice(Sreal,5)
+     if (iloop==1) then
+        !if(mpiID==0) call spin_symmetrize_lattice(Smats,5)
+        !if(mpiID==0) call spin_symmetrize_lattice(Sreal,5)
+     endif      
 
      call ed_get_gloc_lattice(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)                           !ok
      call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc),iprint=3) !ok
-     !Fit the new bath, starting from the old bath + the supplied delta 
      Bath_=bath
      call ed_chi2_fitgf_lattice(bath,delta,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc))
-     !mixing:
      if(iloop>1) Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      Bath_=Bath
 
@@ -122,11 +121,19 @@ program ed_SIO
      enddo
      delta_conv_avrg=delta_conv_avrg/(Nso*Nlat)
 
-
      if(mpiID==0) converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
      !if(mpiID==0) converged = check_convergence_global(delta_conv_avrg,dmft_error,nsuccess,nloop)
      !if(mpiID==0) converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
      !if(mpiID==0)converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
+
+     if ((converged).or.(iloop==nloop)) then
+        Lstart=LMATS
+        LMATS=10000
+        call ed_solve_lattice(bath,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc),iprint=0)
+        if(mpiID==0)call orbital_spin_mixture()
+        LMATS=Lstart
+     endif
+
 #ifdef _MPI_INEQ
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
 #endif
@@ -314,6 +321,8 @@ contains
     enddo
     close(103)
     !
+    !go to 223
+    !
     !Build the local GF in the spin-orbital Basis:
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal,mesh=dw)
@@ -363,6 +372,8 @@ contains
           enddo
        enddo
     enddo
+    !
+    !223 continue
     !
   end subroutine read_hk
 
@@ -443,19 +454,18 @@ contains
 
 
   !---------------------------------------------------------------------
-  !PURPOSE: rotaizione delle Gimp per portarle in una base simile a J,jz
+  !PURPOSE: 
   !---------------------------------------------------------------------
   subroutine spin_symmetrize_lattice(Self,lat)
     complex(8),allocatable,intent(inout)   :: Self(:,:,:,:,:,:)
     integer                                :: lat
     complex(8),allocatable                 :: Self_aux(:,:,:,:,:,:)
 
-    write(*,*)"Symmetrizing Sigma"
-    if (size(Self,dim=6).eq.Lreal) allocate(Self_aux(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-    if (size(Self,dim=6).eq.Lmats) allocate(Self_aux(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-    Self_aux=zero
+    if(mpiID==0)write(*,*)"Symmetrizing Sigma"
+    allocate(Self_aux(Nlat,Nspin,Nspin,Norb,Norb,size(Self,dim=6)));Self_aux=zero
     Self_aux=Self
     do ilat=lat,Nlat
+       if(mpiID==0)write(*,*)"site",ilat
        do iorb=1,Norb
           do jorb=1,Norb
              Self(ilat,1,1,iorb,jorb,:)=Self_aux(ilat,2,2,iorb,jorb,:)
@@ -465,8 +475,85 @@ contains
           enddo
        enddo
     enddo
-
+    deallocate(Self_aux)
   end subroutine spin_symmetrize_lattice
+
+
+  !---------------------------------------------------------------------
+  !PURPOSE: 
+  !---------------------------------------------------------------------
+  subroutine orbital_spin_mixture()
+    implicit none
+    complex(8),allocatable             :: Gso(:,:,:,:,:,:),Stot(:,:,:,:)
+    integer                            :: ilat,io,jo
+    integer                            :: ispin,jspin
+    integer                            :: iorb,jorb
+    real(8)                            :: wm(Lmats),wr(Lreal),dw
+    real(8)                            :: site_mag(Nlat,Norb)
+    !
+    write(*,*) "Computing oprbital spin mixture per site"
+    write(*,*) "Lmats used:",Lmats
+    !
+    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr = linspace(wini,wfin,Lreal,mesh=dw)
+    allocate( Gso(Nlat,Nspin,Nspin,Norb,Norb,Lmats)); Gso=zero
+    allocate(Stot(Nlat,3,Norb,Norb));Stot=zero
+    !
+    call ed_get_gimp_matsubara_lattice(Gso,Nlat)
+    !
+    do ilat=1,Nlat
+       do iorb=1,Norb
+          do jorb=1,Norb
+             !Sx
+             Stot(ilat,1,iorb,jorb)=sum(    (Gso(ilat,1,2,iorb,jorb,:)+Gso(ilat,2,1,iorb,jorb,:) ))/beta
+           !  Stot(ilat,1,iorb,jorb)=   (Gso(ilat,1,2,iorb,jorb,1)+Gso(ilat,2,1,iorb,jorb,1))/3.
+             !Sy
+             Stot(ilat,2,iorb,jorb)=sum( xi*(Gso(ilat,2,1,iorb,jorb,:)-Gso(ilat,1,2,iorb,jorb,:) ))/beta
+           !  Stot(ilat,2,iorb,jorb)=xi*(Gso(ilat,2,1,iorb,jorb,1)-Gso(ilat,1,2,iorb,jorb,1))/3.
+             !Sz
+             Stot(ilat,3,iorb,jorb)=sum(    (Gso(ilat,1,1,iorb,jorb,:)-Gso(ilat,2,2,iorb,jorb,:) ))/beta
+           !  Stot(ilat,3,iorb,jorb)=   (Gso(ilat,1,1,iorb,jorb,1)-Gso(ilat,2,2,iorb,jorb,1))/3.
+          enddo
+       enddo
+    enddo
+    !
+    site_mag=0.d0
+    site_mag=ed_get_mag_lattice(Nlat)
+    !
+    open(unit=105,file='Spin_mixture.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(105,'(a100)') "diagonal site, diagonal orbital"
+    do ilat=1,Nlat
+       write(105,'(a8,I3)') "site:",ilat
+       write(105,'(a8,30a20)') "orbital","Re{Sx}","Re{Sy}","Re{Sz}","Im{Sx}","Im{Sy}","Im{Sz}","mag"
+       do iorb=1,Norb
+          write(105,'(I8,30F20.12)') iorb, real(Stot(ilat,1,iorb,iorb)), real(Stot(ilat,2,iorb,iorb)), real(Stot(ilat,3,iorb,iorb)) &
+                                         ,aimag(Stot(ilat,1,iorb,iorb)),aimag(Stot(ilat,2,iorb,iorb)),aimag(Stot(ilat,3,iorb,iorb)) &
+                                         ,site_mag(ilat,iorb)/2.
+       enddo
+       write(105,*)
+    enddo
+    write(105,*)
+    write(105,*)
+    write(105,'(a100)') "diagonal site, inter-orbital"
+    do ilat=1,Nlat
+       write(105,'(a8,I3)') "site:",ilat
+       write(105,'(30a20)') "Sx(orb_1)","Sx(orb_2)","Sx(orb_3)","Sy(orb_1)","Sy(orb_2)","Sy(orb_3)","Sz(orb_1)","Sz(orb_2)","Sz(orb_3)"
+       do iorb=1,Norb
+          write(105,'(30F20.12)') (real(Stot(ilat,1,iorb,jorb)),jorb=1,Norb) &
+                                 ,(real(Stot(ilat,2,iorb,jorb)),jorb=1,Norb) &
+                                 ,(real(Stot(ilat,3,iorb,jorb)),jorb=1,Norb)
+       enddo
+       write(105,*)
+       do iorb=1,Norb
+          write(105,'(30F20.12)') (aimag(Stot(ilat,1,iorb,jorb)),jorb=1,Norb) &
+                                 ,(aimag(Stot(ilat,2,iorb,jorb)),jorb=1,Norb) &
+                                 ,(aimag(Stot(ilat,3,iorb,jorb)),jorb=1,Norb)
+       enddo
+    enddo
+    close(105)
+    deallocate(Gso,Stot)
+    !
+  end subroutine orbital_spin_mixture
 
 
   !_______________________________________________________________________
