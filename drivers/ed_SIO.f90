@@ -72,18 +72,18 @@ program ed_SIO
   Nb=get_bath_size()
   allocate(Bath(Nlat,Nb),Bath_(Nlat,Nb))
   call ed_init_solver_lattice(bath)
-  inquire(file="hamiltonian_site0008.restart",exist=IOfile)
-  if(.not.IOfile) then
-     if(mpiID==0)write(*,*)"Spin alignment"
-     call break_symmetry_bath(bath(1,:),0.2d0,+1.d0,.false.)
-     call break_symmetry_bath(bath(2,:),0.2d0,-1.d0,.false.)
-     call break_symmetry_bath(bath(3,:),0.2d0,-1.d0,.false.)
-     call break_symmetry_bath(bath(4,:),0.2d0,+1.d0,.false.)
-     call break_symmetry_bath(bath(5,:),0.2d0,+1.d0,.false.)
-     call break_symmetry_bath(bath(6,:),0.2d0,-1.d0,.false.)
-     call break_symmetry_bath(bath(7,:),0.2d0,-1.d0,.false.)
-     call break_symmetry_bath(bath(8,:),0.2d0,+1.d0,.false.)
-  endif
+  !inquire(file="hamiltonian_site0008.restart",exist=IOfile)
+  !if(.not.IOfile) then
+  !   if(mpiID==0)write(*,*)"Spin alignment"
+  !   call break_symmetry_bath(bath(1,:),0.02d0,+1.d0,.false.)
+  !   call break_symmetry_bath(bath(2,:),0.02d0,-1.d0,.false.)
+  !   call break_symmetry_bath(bath(3,:),0.02d0,+1.d0,.false.)
+  !   call break_symmetry_bath(bath(4,:),0.02d0,-1.d0,.false.)
+  !   call break_symmetry_bath(bath(5,:),0.02d0,-1.d0,.false.)
+  !   call break_symmetry_bath(bath(6,:),0.02d0,+1.d0,.false.)
+  !   call break_symmetry_bath(bath(7,:),0.02d0,-1.d0,.false.)
+  !   call break_symmetry_bath(bath(8,:),0.02d0,+1.d0,.false.)
+  !endif
   !
   !DMFT loop
   iloop=0;converged=.false.
@@ -94,7 +94,8 @@ program ed_SIO
      call ed_solve_lattice(bath,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc),iprint=3)
      !
      if(mpiID==0)call rotate_Gimp()
-     if(mpiID==0)call orbital_spin_mixture()
+     if(mpiID==1)call Stot_imp_operator()
+     if(mpiID==2)call Ltot_imp_operator()
      !
      call ed_get_sigma_matsubara_lattice(Smats,Nlat)
      call ed_get_sigma_real_lattice(Sreal,Nlat)
@@ -270,7 +271,7 @@ contains
              enddo
           enddo
        enddo
-       !
+       !mappa per tenere traccia almeno dell'ordine dei siti
        site_matrix_out=matmul(transpose(conjg(impHloc_rot)),matmul(site_matrix_in,impHloc_rot))
        !
        open(unit=104,file='site_mixing.dat',status='unknown',action='write',position='rewind')
@@ -324,7 +325,8 @@ contains
     !
     go to 223
     !
-    !Build the local GF in the spin-orbital Basis:
+    !Build the local GF in the spin-orbital Basis:(qui ci sono tutti i termini
+    !acnhe quelli inter-sito
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     xmu_0=Ti3dt2g_Hloc(1,1)
@@ -373,6 +375,24 @@ contains
           enddo
        enddo
     enddo
+    !
+    open(unit=105,file='sum_w_G0loc.dat',status='unknown',action='write',position='rewind')
+    do ilat=1,Nlat
+       do jlat=1,Nlat
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
+                      jo = jorb + (jspin-1)*Norb + (jlat-1)*Norb*Nspin
+                      write(105,*) io,jo,"---",ilat,jlat,ispin,jspin,iorb,jorb,sum(abs(Greal(io,jo,:)))
+                   enddo
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    close(105)
     !
     223 continue
     !
@@ -483,7 +503,7 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: 
   !---------------------------------------------------------------------
-  subroutine orbital_spin_mixture()
+  subroutine Stot_imp_operator()
     implicit none
     complex(8),allocatable             :: Gso(:,:,:,:,:,:),Stot(:,:,:,:)
     integer                            :: ilat,io,jo
@@ -492,7 +512,7 @@ contains
     real(8)                            :: wm(Lmats),wr(Lreal),dw
     real(8)                            :: site_mag(Nlat,Norb)
     !
-    write(*,*) "Computing oprbital spin mixture per site"
+    write(*,*) "Computing total Spin operator per site per orbital"
     write(*,*) "Lmats used:",Lmats
     !
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
@@ -507,13 +527,10 @@ contains
           do jorb=1,Norb
              !Sx
              Stot(ilat,1,iorb,jorb)=sum(    (Gso(ilat,1,2,iorb,jorb,:)+Gso(ilat,2,1,iorb,jorb,:) ))/beta
-           !  Stot(ilat,1,iorb,jorb)=   (Gso(ilat,1,2,iorb,jorb,1)+Gso(ilat,2,1,iorb,jorb,1))/3.
              !Sy
              Stot(ilat,2,iorb,jorb)=sum( xi*(Gso(ilat,2,1,iorb,jorb,:)-Gso(ilat,1,2,iorb,jorb,:) ))/beta
-           !  Stot(ilat,2,iorb,jorb)=xi*(Gso(ilat,2,1,iorb,jorb,1)-Gso(ilat,1,2,iorb,jorb,1))/3.
              !Sz
              Stot(ilat,3,iorb,jorb)=sum(    (Gso(ilat,1,1,iorb,jorb,:)-Gso(ilat,2,2,iorb,jorb,:) ))/beta
-           !  Stot(ilat,3,iorb,jorb)=   (Gso(ilat,1,1,iorb,jorb,1)-Gso(ilat,2,2,iorb,jorb,1))/3.
           enddo
        enddo
     enddo
@@ -521,15 +538,16 @@ contains
     site_mag=0.d0
     site_mag=ed_get_mag_lattice(Nlat)
     !
-    open(unit=105,file='Spin_mixture.dat',status='unknown',position='rewind',action='write',form='formatted')
+    open(unit=105,file='Stot_per_site.dat',status='unknown',position='rewind',action='write',form='formatted')
     write(105,'(a100)') "#diagonal site, diagonal orbital"
+    write(105,'(a8,30a20)') "#site","Re{Sx}_1","Re{Sx}_2","Re{Sx}_3" &
+                                   ,"Re{Sy}_1","Re{Sy}_2","Re{Sy}_3" &
+                                   ,"Re{Sz}_1","Re{Sz}_2","Re{Sz}_3" &
+                                   ,"Im{Sx}_1","Im{Sx}_2","Im{Sx}_3" &
+                                   ,"Im{Sy}_1","Im{Sy}_2","Im{Sy}_3" &
+                                   ,"Im{Sz}_1","Im{Sz}_2","Im{Sz}_3" &
+                                   ,"mag" 
     do ilat=1,Nlat
-      ! write(105,'(2a8,30a20)') "#site","orbital","Re{Sx}","Re{Sy}","Re{Sz}","Im{Sx}","Im{Sy}","Im{Sz}","mag"
-      ! do iorb=1,Norb
-      !    write(105,'(2I8,30F20.12)') ilat, iorb, real(Stot(ilat,1,iorb,iorb)), real(Stot(ilat,2,iorb,iorb)), real(Stot(ilat,3,iorb,iorb)) &
-      !                                          ,aimag(Stot(ilat,1,iorb,iorb)),aimag(Stot(ilat,2,iorb,iorb)),aimag(Stot(ilat,3,iorb,iorb)) &
-      !                                          ,site_mag(ilat,iorb)/2.
-      ! enddo
        write(105,'(I8,30F20.12)') ilat,  real(Stot(ilat,1,1,1)), real(Stot(ilat,1,2,2)), real(Stot(ilat,1,3,3)) &
                                       ,  real(Stot(ilat,2,1,1)), real(Stot(ilat,2,2,2)), real(Stot(ilat,2,3,3)) &
                                       ,  real(Stot(ilat,3,1,1)), real(Stot(ilat,3,2,2)), real(Stot(ilat,3,3,3)) &
@@ -559,7 +577,79 @@ contains
     close(105)
     deallocate(Gso,Stot)
     !
-  end subroutine orbital_spin_mixture
+  end subroutine Stot_imp_operator
+
+
+
+  subroutine Ltot_imp_operator()
+    implicit none
+    complex(8),allocatable             :: Gso(:,:,:,:,:,:),Ltot(:,:,:,:)
+    integer                            :: ilat,io,jo
+    integer                            :: ispin,jspin
+    integer                            :: iorb,jorb
+    real(8)                            :: wm(Lmats),wr(Lreal),dw
+    !
+    write(*,*) "Computing total Orbital operator per site per spin"
+    write(*,*) "Lmats used:",Lmats
+    !
+    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr = linspace(wini,wfin,Lreal,mesh=dw)
+    allocate( Gso(Nlat,Nspin,Nspin,Norb,Norb,Lmats)); Gso=zero
+    allocate(Ltot(Nlat,3,Nspin,Nspin));Ltot=zero
+    !
+    call ed_get_gimp_matsubara_lattice(Gso,Nlat)
+    !
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             !Lx
+             Ltot(ilat,1,ispin,jspin)=sum(  xi*(Gso(ilat,1,3,ispin,jspin,:)-Gso(ilat,3,1,ispin,jspin,:))  )/beta
+             !Ly
+             Ltot(ilat,2,ispin,jspin)=sum(  xi*(Gso(ilat,3,2,ispin,jspin,:)-Gso(ilat,2,3,ispin,jspin,:))  )/beta
+             !Lz
+             Ltot(ilat,3,ispin,jspin)=sum(  xi*(Gso(ilat,1,2,ispin,jspin,:)-Gso(ilat,2,1,ispin,jspin,:))  )/beta
+          enddo
+       enddo
+    enddo
+    !
+    open(unit=106,file='Ltot_per_site.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(106,'(a100)') "#diagonal site, diagonal spin"
+    write(106,'(a8,30a20)') "#site","Re{Lx}_1","Re{Lx}_2" &
+                                   ,"Re{Ly}_1","Re{Ly}_2" &
+                                   ,"Re{Lz}_1","Re{Lz}_2" &
+                                   ,"Im{Lx}_1","Im{Lx}_2" &
+                                   ,"Im{Ly}_1","Im{Ly}_2" &
+                                   ,"Im{Lz}_1","Im{Lz}_2"
+    do ilat=1,Nlat
+       write(106,'(I8,30F20.12)') ilat,  real(Ltot(ilat,1,1,1)), real(Ltot(ilat,1,2,2)) &
+                                      ,  real(Ltot(ilat,2,1,1)), real(Ltot(ilat,2,2,2)) &
+                                      ,  real(Ltot(ilat,3,1,1)), real(Ltot(ilat,3,2,2)) &
+                                      , aimag(Ltot(ilat,1,1,1)),aimag(Ltot(ilat,1,2,2)) &       
+                                      , aimag(Ltot(ilat,2,1,1)),aimag(Ltot(ilat,2,2,2)) &
+                                      , aimag(Ltot(ilat,3,1,1)),aimag(Ltot(ilat,3,2,2))
+    enddo
+    write(106,*)
+    write(106,*)
+    write(106,'(a100)') "#diagonal site, inter-orbital"
+    do ilat=1,Nlat
+       write(106,'(a8,I3)') "#site:",ilat
+       write(106,'(30a20)') "#Lx(spin_1)","Lx(spin_2)","Ly(spin_1)","Ly(spin_2)","Lz(spin_1)","Lz(spin_2)"
+       do ispin=1,Nspin
+          write(106,'(30F20.12)') (real(Ltot(ilat,1,ispin,jspin)),jspin=1,Nspin) &
+                                 ,(real(Ltot(ilat,2,ispin,jspin)),jspin=1,Nspin) &
+                                 ,(real(Ltot(ilat,3,ispin,jspin)),jspin=1,Nspin)
+       enddo
+       write(106,*)
+       do ispin=1,Nspin
+          write(106,'(30F20.12)') (aimag(Ltot(ilat,1,ispin,jspin)),jspin=1,Nspin) &
+                                 ,(aimag(Ltot(ilat,2,ispin,jspin)),jspin=1,Nspin) &
+                                 ,(aimag(Ltot(ilat,3,ispin,jspin)),jspin=1,Nspin)
+       enddo
+    enddo
+    close(106)
+    deallocate(Gso,Ltot)
+    !
+  end subroutine Ltot_imp_operator
 
 
   !_______________________________________________________________________
