@@ -19,7 +19,7 @@ FPP_INEQ=MPI_INEQ
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=/home/mazza/opt_local
+LIBDIR=$(HOME)/opt
 
 
 
@@ -54,11 +54,11 @@ EXE=ed_hm_bethe
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
-EXE=ed_hm_slab
+#EXE=ed_hm_slab
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
-#EXE=hartree_nano
+EXE=hartree_nano
 
 ##$ --> Extended Hubbard models 
 #EXE=ed_cdwhm_bethe
@@ -71,7 +71,7 @@ EXE=ed_hm_slab
 DIR=drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.project_bin)
-DIREXE=$(HOME)/.project_bin
+DIREXE=$(HOME)/.bin
 
 
 ifeq ($(PLAT),intel)
@@ -80,7 +80,7 @@ DFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
 endif
 
 ifeq ($(PLAT),gnu)
-INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib #-I$(LIBDIR)/dmft_tools/gnu/include
+INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib -I$(LIBDIR)/dmft_tools/gnu/include
 FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS) 
 DFLAG +=-ffree-line-length-none -static -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 endif

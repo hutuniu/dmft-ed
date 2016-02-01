@@ -14,7 +14,7 @@ program ed_nano
 !  integer                                         :: Nb
 !  real(8),allocatable                             :: Bath_prev(:,:),Bath_ineq(:,:)
   !local hybridization function:
-!  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Weiss_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Weiss_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Smats,Smats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Sreal,Sreal_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Gmats,Gmats_ineq
@@ -41,7 +41,8 @@ program ed_nano
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gijmats,Gijreal
   !hybridization function to environment
   complex(8),dimension(:,:,:),allocatable         :: Hyb_mats,Hyb_real             ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lmats/Lreal]
-
+  !
+  logical :: file_exists
 
 #ifdef _MPI_INEQ
   ! START MPI !
@@ -75,7 +76,7 @@ program ed_nano
 
 
   ! allocate weiss field:
-!  allocate(Weiss_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Weiss_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
   !
   allocate(Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Smats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
@@ -144,10 +145,28 @@ program ed_nano
 
 
   ! initial guess density
+  inquire(file="input_dens.txt", exist=file_exists)
+  ! read density from file
+  if(file_exists)then
+    write(6,*) 'an input file found: readin density'
+    unit = free_unit()
+    open(unit,file='input_dens.txt',status='old')
+    do ineq=1,Nineq
+       read(unit,*) dens_ineq(ineq,1),dens_ineq(ineq,2)
+    enddo
+    close(unit)
+  ! set density to default value
+  else
+     write(6,*) 'no input file found: set density to default'
+     do ineq=1,Nineq
+        ! break SU(2) symmetry for magnetic solutions
+        dens_ineq(ineq,1) = 0.5d0 - sb_field*sb_field_sign(ineq)
+        dens_ineq(ineq,2) = 0.5d0 + sb_field*sb_field_sign(ineq)
+     enddo
+  endif
+
+  ! initialize derived quantities
   do ineq=1,Nineq
-     ! break SU(2) symmetry for magnetic solutions
-     dens_ineq(ineq,1) = 0.5d0 - sb_field*sb_field_sign(ineq)
-     dens_ineq(ineq,2) = 0.5d0 + sb_field*sb_field_sign(ineq)
      ! initialize self-energy
      Smats_ineq(ineq,1,1,1,1,:) = Uloc(1)*(dens_ineq(ineq,2)-0.5d0)
      Smats_ineq(ineq,2,2,1,1,:) = Uloc(1)*(dens_ineq(ineq,1)-0.5d0)
@@ -162,6 +181,7 @@ program ed_nano
        write(6,*) ineq, dens_ineq(ineq,1), dens_ineq(ineq,2)
      enddo
    endif
+
 
 !  do ineq=1,Nineq
 !     ilat = ineq2lat(ineq)
@@ -208,7 +228,7 @@ program ed_nano
         Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
      enddo
      ! compute the Weiss field
-     !call ed_get_weiss_lattice(Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=0)
+     call ed_get_weiss_lattice(Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=0)
 
      ! compute observables
      do ineq=1,Nineq
@@ -242,18 +262,13 @@ program ed_nano
                  dens_ineq(ineq,1)+dens_ineq(ineq,2),&
                  docc_ineq(ineq),&
                  dens_ineq(ineq,1),&
-                 dens_ineq(ineq,1),&
+                 dens_ineq(ineq,2),&
                  dens_ineq(ineq,1)-dens_ineq(ineq,2),&
                  dens_ineq(ineq,1)+dens_ineq(ineq,2)-2.d0*docc_ineq(ineq)
            close(unit)
         enddo
      endif
 
-
-
-
-
- 
 !     ! fit baths and mix result with old baths
 !     do ispin=1,Nspin
 !        call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin)
@@ -265,18 +280,36 @@ program ed_nano
 !     endif
 !     Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
 !     if(mpiID==0)then
+        ! convergency criteria
 !        converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
 !       ! alternative convergency criteria
 !       !converged = check_convergence_local(docc_ineq,dmft_error,nsuccess,nloop)
 !        if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
 !     endif
 
-      dens_ineq=wmixing*dens_ineq + (1.d0-wmixing)*dens_prev
+
+!      dens_ineq=wmixing*dens_ineq + (1.d0-wmixing)*dens_prev
+
+      ! spread self-energies and occupation to all lattice sites
+      ! needed for the search of the chemical potential!
+      do ilat=1,Nlat
+         ineq = lat2ineq(ilat)
+         dens(ilat,:) = dens_ineq(ineq,:)
+         docc(ilat) = docc_ineq(ineq)
+         Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
+         Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
+      enddo
+
       if(mpiID==0)then
         ! convergency criteria
-        converged = check_convergence_local(dens_ineq,dmft_error,nsuccess,nloop)
+        converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
+!       ! alternative convergency criteria
+!        converged = check_convergence_local(dens_ineq,dmft_error,nsuccess,nloop)
         if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
       endif
+
+      dens_ineq=wmixing*dens_ineq + (1.d0-wmixing)*dens_prev
+
 
 #ifdef _MPI_INEQ
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)

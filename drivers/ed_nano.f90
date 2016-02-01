@@ -33,7 +33,7 @@ program ed_nano
   character(len=32)                               :: finput
   character(len=32)                               :: nfile,hijfile
   !
-  logical                                         :: phsym,hyb2env,conduct
+  logical                                         :: phsym,hyb2env,conduct,kinetic
   !non-local Green's function:
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gijmats,Gijreal
   !hybridization function to environment
@@ -58,6 +58,7 @@ program ed_nano
   ! parse environment & transport flags
   call parse_input_variable(hyb2env,"hyb2env",finput,default=.false.)
   call parse_input_variable(conduct,"conduct",finput,default=.false.)
+  call parse_input_variable(kinetic,"kinetic",finput,default=.false.)
 
   ! read input
   call ed_read_input(trim(finput))
@@ -98,7 +99,27 @@ program ed_nano
   !Hloc = reshape_Hloc(nanoHloc,Nlat,Nspin,Norb)
   Hloc = lso2nnn_reshape(nanoHloc,Nlat,Nspin,Norb)
 
+
+
   ! postprocessing options
+
+  ! evaluates the kinetic energy
+ if(kinetic)then
+    ! read converged self-energy
+    call read_sigma(Smats_ineq,Sreal_ineq)
+    do ineq=1,Nineq
+       ilat = ineq2lat(ineq)
+       Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
+       Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
+    enddo
+    !
+    ! computes the kinetic energy
+    Eout = ed_kinetic_energy_lattice(Hij,[1d0],Smats)
+    stop
+  endif
+
+
+  ! computes conductance on the real-axis
   if(conduct)then
      ! read converged self-energy
      call read_sigma(Smats_ineq,Sreal_ineq)
@@ -107,7 +128,7 @@ program ed_nano
         Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
         Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
      enddo
-
+     !
      ! allocates and extracts non-local Green's function
      allocate(Gijmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
      allocate(Gijreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
@@ -118,14 +139,14 @@ program ed_nano
         call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
         call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=1)
      endif
-
+     !
+     deallocate(Gijmats)
+     !
      ! extract the linear response (zero-bias) transmission function
      ! i.e. the conductance in units of the quantum G0 [e^2/h]
      call ed_get_conductance(Gijreal)
-
-     ! call save_sigma(Smats_ineq,Sreal_ineq)
-
-     deallocate(Gijmats,Gijreal)
+     !
+     deallocate(Gijreal)
      stop
   endif
 
@@ -194,8 +215,8 @@ program ed_nano
      Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
      if(mpiID==0)then
         converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
-       ! alternative convergency criteria
-       !converged = check_convergence_local(docc_ineq,dmft_error,nsuccess,nloop)
+        ! alternative convergency criteria
+        !converged = check_convergence_local(docc_ineq,dmft_error,nsuccess,nloop)
         if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
      endif
 #ifdef _MPI_INEQ
