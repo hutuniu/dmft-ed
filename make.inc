@@ -12,7 +12,7 @@ PLAT=intel
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-FPP_INEQ=MPI_INEQ
+#FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
 #FPP_ED=MPI
