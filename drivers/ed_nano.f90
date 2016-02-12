@@ -16,13 +16,13 @@ program ed_nano
   !local hybridization function:
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Weiss_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Smats,Smats_ineq
-  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Sreal,Sreal_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Sreal,Sreal_ineq ![Nlat*(Nspin*Norb)**2*Lreal]
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Gmats,Gmats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:)   :: Greal,Greal_ineq
   real(8), allocatable,dimension(:)               :: dens,dens_ineq
   real(8), allocatable,dimension(:)               :: docc,docc_ineq
   !hamiltonian input:
-  complex(8),allocatable                          :: Hij(:,:,:)      ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk==1]
+  complex(8),allocatable                          :: Hij(:,:,:) ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk==1]
   complex(8),allocatable                          :: nanoHloc(:,:),Hloc(:,:,:,:,:),Hloc_ineq(:,:,:,:,:)
   integer                                         :: Nk,Nlso,Nineq
   integer,dimension(:),allocatable                :: lat2ineq,ineq2lat
@@ -33,11 +33,13 @@ program ed_nano
   character(len=32)                               :: finput
   character(len=32)                               :: nfile,hijfile
   !
-  logical                                         :: phsym,hyb2env,conduct,kinetic
+  logical                                         :: phsym
+  logical                                         :: leads
+  logical                                         :: kinetic,trans,jrkky
   !non-local Green's function:
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gijmats,Gijreal
   !hybridization function to environment
-  complex(8),dimension(:,:,:),allocatable         :: Hyb_mats,Hyb_real             ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lmats/Lreal]
+  complex(8),dimension(:,:,:),allocatable         :: Hyb_mats,Hyb_real ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lmats/Lreal]
 
 
 #ifdef _MPI_INEQ
@@ -56,59 +58,55 @@ program ed_nano
   call parse_input_variable(phsym,"phsym",finput,default=.false.)
 
   ! parse environment & transport flags
-  call parse_input_variable(hyb2env,"hyb2env",finput,default=.false.)
-  call parse_input_variable(conduct,"conduct",finput,default=.false.)
+  call parse_input_variable(leads,"leads",finput,default=.false.)
+  call parse_input_variable(trans,"trans",finput,default=.false.)
+  call parse_input_variable(jrkky,"jrkky",finput,default=.false.)
   call parse_input_variable(kinetic,"kinetic",finput,default=.false.)
 
   ! read input
   call ed_read_input(trim(finput))
 
-
   ! set input structure hamiltonian
   call build_Hij([nfile,hijfile])
 
-
-  ! allocate hybridization matrix
-  if(hyb2env) call set_hyb()
-
-
   ! allocate weiss field:
   allocate(Weiss_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
-  !
+  ! allocate self-energy
   allocate(Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Smats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
-  !
-  allocate(Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-  allocate(Gmats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
-  !
   allocate(Sreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Sreal_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lreal))
-  !
+  ! allocate Green's function
+  allocate(Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Gmats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Greal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lreal))
-  !
+  ! allocate Hloc
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))
   allocate(Hloc_ineq(Nineq,Nspin,Nspin,Norb,Norb))
-  !
+  ! allocate density
   allocate(dens(Nlat))
   allocate(dens_ineq(Nineq))
-  !
+  ! allocate double occupations
   allocate(docc(Nlat))
   allocate(docc_ineq(Nineq))
 
   !Hloc = reshape_Hloc(nanoHloc,Nlat,Nspin,Norb)
   Hloc = lso2nnn_reshape(nanoHloc,Nlat,Nspin,Norb)
 
+  ! allocate hybridization matrix
+  if(leads) call set_hyb()
+
 
 
   ! postprocessing options
 
   ! evaluates the kinetic energy
- if(kinetic)then
+  if(kinetic)then
     ! read converged self-energy
     call read_sigma(Smats_ineq,Sreal_ineq)
-    do ineq=1,Nineq
-       ilat = ineq2lat(ineq)
+    do ilat=1,Nlat
+       ineq = lat2ineq(ilat)
        Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
        Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
     enddo
@@ -120,11 +118,11 @@ program ed_nano
 
 
   ! computes conductance on the real-axis
-  if(conduct)then
+  if(trans)then
      ! read converged self-energy
      call read_sigma(Smats_ineq,Sreal_ineq)
-     do ineq=1,Nineq
-        ilat = ineq2lat(ineq)
+     do ilat=1,Nlat
+        ineq = lat2ineq(ilat)
         Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
         Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
      enddo
@@ -132,7 +130,7 @@ program ed_nano
      ! allocates and extracts non-local Green's function
      allocate(Gijmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
      allocate(Gijreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-     if(hyb2env)then
+     if(leads)then
         call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
         call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=0,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
      else
@@ -149,6 +147,35 @@ program ed_nano
      deallocate(Gijreal)
      stop
   endif
+
+
+
+  ! compute effective non-local exchange
+  if(jrkky)then
+     ! read converged self-energy
+     call read_sigma(Smats_ineq,Sreal_ineq)
+     do ilat=1,Nlat
+        ineq = lat2ineq(ilat)
+        Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
+        Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
+     enddo
+     ! allocates and extracts non-local Green's function
+     allocate(Gijmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+     allocate(Gijreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+     if(leads)then
+        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=0,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+        call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=0,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+     else
+        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=0)
+        call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=0)
+     endif
+     deallocate(Gijmats,Smats)
+     ! compute effective exchange
+     call ed_get_jeff(Gijreal,Sreal)
+     deallocate(Gijreal,Sreal)
+     stop
+  endif
+
 
 
   ! setup solver
@@ -191,7 +218,7 @@ program ed_nano
      enddo
 
      ! compute the local gf:
-     if(hyb2env)then
+     if(leads)then
         call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
      else
         call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
@@ -787,7 +814,7 @@ contains
                 enddo
                 lead_real(ilead,ispin,i)=ksum
              enddo
-          elseif(ikind==3)then
+          elseif(ikind==4)then
              ! readin hk DOS
              write(*,*) "readin hk DOS to be implemented and benchmarked w/ w2dynamics"
              stop
@@ -821,20 +848,20 @@ contains
           do ispin=1,Nspin
              io = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb !== ilat
              jo = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb !== jlat
-             Hyb_real(io,jo,:)=lead_real(ilead,ispin,:)*V**2
-             Hyb_mats(io,jo,:)=lead_mats(ilead,ispin,:)*V**2
+             Hyb_real(io,jo,:)=Hyb_real(io,jo,:)+lead_real(ilead,ispin,:)*V**2
+             Hyb_mats(io,jo,:)=Hyb_mats(io,jo,:)+lead_mats(ilead,ispin,:)*V**2
              io = iorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb !== jlat
              jo = jorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb !== ilat
-             Hyb_real(io,jo,:)=lead_real(ilead,ispin,:)*V**2
-             Hyb_mats(io,jo,:)=lead_mats(ilead,ispin,:)*V**2
+             Hyb_real(io,jo,:)=Hyb_real(io,jo,:)+lead_real(ilead,ispin,:)*V**2
+             Hyb_mats(io,jo,:)=Hyb_mats(io,jo,:)+lead_mats(ilead,ispin,:)*V**2
              io = jorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb !== ilat
              jo = iorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb !== jlat
-             Hyb_real(io,jo,:)=lead_real(ilead,ispin,:)*V**2
-             Hyb_mats(io,jo,:)=lead_mats(ilead,ispin,:)*V**2
+             Hyb_real(io,jo,:)=Hyb_real(io,jo,:)+lead_real(ilead,ispin,:)*V**2
+             Hyb_mats(io,jo,:)=Hyb_mats(io,jo,:)+lead_mats(ilead,ispin,:)*V**2
              io = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb !== jlat
              jo = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb !== ilat
-             Hyb_real(io,jo,:)=lead_real(ilead,ispin,:)*V**2
-             Hyb_mats(io,jo,:)=lead_mats(ilead,ispin,:)*V**2
+             Hyb_real(io,jo,:)=Hyb_real(io,jo,:)+lead_real(ilead,ispin,:)*V**2
+             Hyb_mats(io,jo,:)=Hyb_mats(io,jo,:)+lead_mats(ilead,ispin,:)*V**2
              suffix="_i"//reg(txtfy(ilat))//"_j"//reg(txtfy(jlat))//"_s"//reg(txtfy(ispin))//"_realw.ed"
              call store_data("Hyb"//trim(suffix),Hyb_real(io,jo,:),wr)
           enddo
@@ -859,6 +886,179 @@ contains
        tr=tr+M(i,i)
     enddo
   end function trace_matrix
+
+
+  !----------------------------------------------------------------------------------------!
+  ! purpose: evaluate the effective exchange as in Katsnelson PRB 61, 8906 (2000), eq. (21)
+  ! given the non-local Green's function, the local (auxiliary) self-energy S_i = (S_iup-S_ido)/2 
+  ! and the fermi distribution on the real axis. 
+  ! Jeff_ij = -1/pi Im \int_{-infty}^{infty} S_i(w) G_ijup(w) S_j(w) G_ijdo(w) f(w) dw
+  !----------------------------------------------------------------------------------------!
+  subroutine ed_get_jeff(Gret,Sret)
+    complex(8),intent(inout)                  :: Gret(:,:,:,:,:,:,:) ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+    complex(8),intent(inout)                  :: Sret(:,:,:,:,:,:)   ![Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+    complex(8),dimension(:,:,:,:),allocatable :: Saux(:,:,:,:)       ![Nlat][Norb][Norb][Lreal]
+    complex(8)                                :: kernel
+    real(8),dimension(:,:),allocatable        :: jeff(:,:)           ![Nlat][Nlat]
+    real(8),dimension(:),allocatable          :: wr
+    integer                                   :: ilat,jlat,iorb,jorb,i
+    !
+    !I/O
+    integer                                   :: unit
+    character(len=30)                         :: suffix
+    !
+
+    ! check inouts dimensions
+    call assert_shape(Gret,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_jeff","Gret")
+    call assert_shape(Sret,[Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_jeff","Sret")
+
+    allocate(Saux(Nlat,Norb,Norb,Lreal))
+    Saux(:,:,:,:)=zero
+    !
+    allocate(jeff(Nlat,Nlat))
+    jeff(:,:)=zero
+    !
+    allocate(wr(Lreal))
+    wr = linspace(wini,wfin,Lreal)
+    !
+    write(*,*) "computing effective non-local exchange"
+    !
+    ! sanity checks
+    if(Nspin/=2)stop "ed_get_jeff error: Nspin /= 2"
+    if(Norb>1)stop "ed_get_jeff error: Norb > 1 (mutli-orbital case no timplmented yet)"
+    !
+    ! define auxiliary local spin-less self-energy
+    do ilat=1,Nlat
+       Saux(ilat,1,1,:) = (Sret(ilat,1,1,1,1,:)-Sret(ilat,2,2,1,1,:))/2.d0
+       !Saux(ilat,1,1,:) = one
+    enddo
+    !unit = free_unit()
+    !open(unit,file="Saux.ed")
+    !do ilat=1,Nlat
+    !   do i=1,Lreal
+    !      write(unit,'(i5,7f16.9)')ilat,wr(i),Saux(ilat,1,1,i),Sret(ilat,1,1,1,1,i),Sret(ilat,2,2,1,1,i)
+    !   enddo
+    !enddo
+    !close(unit)
+    !
+    ! compute effective exchange
+    do ilat=1,Nlat
+       do jlat=1,Nlat
+          ! perform integral over frequency
+          kernel=0.d0
+          do i=1,Lreal
+             ! jeff kernel: non-local Green's function and fermi function convolution
+             kernel = kernel + Saux(ilat,1,1,i)*Gret(ilat,jlat,1,1,1,1,i)*Saux(jlat,1,1,i)*Gret(jlat,ilat,2,2,1,1,i)*fermi(wr(i),beta)
+          enddo
+          jeff(ilat,jlat) = -1.d0*dimag(kernel)/pi
+       enddo
+    enddo
+    !
+    ! write effective exchange on disk
+    unit = free_unit()
+    open(unit,file="jeff_ij.ed")
+    do ilat=1,Nlat
+       do jlat=1,Nlat
+          write(unit,*)ilat,jlat,jeff(ilat,jlat)
+       enddo
+    enddo
+    close(unit)
+ 
+    deallocate(Saux,jeff,wr) 
+
+  end subroutine ed_get_jeff
+  !subroutine ed_get_jeff(Gret,Sret)
+  !  complex(8),intent(inout)                  :: Gret(:,:,:,:,:,:,:) ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+  !  complex(8),intent(inout)                  :: Sret(:,:,:,:,:,:)   ![Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+  !  !
+  !  complex(8),dimension(:,:,:,:),allocatable :: Gaux(:,:,:)         ![Nlat][Nlat][Lreal]
+  !  complex(8),dimension(:,:,:,:),allocatable :: Gup(:,:)            ![Nlat][Nlat]
+  !  complex(8),dimension(:,:,:,:),allocatable :: Gdn(:,:)            ![Nlat][Nlat]
+  !  complex(8),dimension(:,:,:,:),allocatable :: Saux(:,:)           ![Nlat][Lreal]
+  !  complex(8)                                :: kernel
+  !  real(8),dimension(:,:),allocatable        :: jeff(:,:)           ![Nlat][Nlat]
+  !  !
+  !  real(8),dimension(:),allocatable          :: wr
+  !  integer                                   :: ilat,jlat,iorb,jorb,i
+  !  !
+  !  !I/O
+  !  integer                                   :: unit
+  !  character(len=30)                         :: suffix
+  !  !
+
+  !  ! check inouts dimensions
+  !  call assert_shape(Gret,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_jeff","Gret")
+  !  call assert_shape(Sret,[Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_jeff","Sret")
+
+  !  allocate(Gaux(Nlat,Nlat,Lreal))
+  !  Gaux(:,:,:)=zero
+  !  !
+  !  allocate(Gup(Nlat,Nlat))
+  !  Gup(:,:)=zero
+  !  !
+  !  allocate(Gdn(Nlat,Nlat))
+  !  Gdn(:,:)=zero
+  !  !
+  !  allocate(Saux(Nlat,Lreal))
+  !  Saux(:,:)=zero
+  !  !
+  !  allocate(jeff(Nlat,Nlat))
+  !  jeff(:,:)=zero
+  !  !
+  !  allocate(wr(Lreal))
+  !  wr = linspace(wini,wfin,Lreal)
+  !  !
+  !  write(*,*) "computing effective non-local exchange"
+  !  !
+  !  ! sanity checks
+  !  if(Nspin/=2)stop "ed_get_jeff error: Nspin /= 2"
+  !  if(Norb>1)stop "ed_get_jeff error: Norb > 1 (mutli-orbital case no timplmented yet)"
+  !  !
+  !  ! define auxiliary local spin-less self-energy
+  !  do ilat=1,Nlat
+  !     Saux(ilat,:) = (Sret(ilat,1,1,1,1,:)-Sret(ilat,2,2,1,1,:))/2.d0
+  !  enddo
+  !  !unit = free_unit()
+  !  !open(unit,file="Saux.ed")
+  !  !do ilat=1,Nlat
+  !  !   do i=1,Lreal
+  !  !      write(unit,'(i5,7f16.9)')ilat,wr(i),Saux(ilat,i),Sret(ilat,1,1,1,1,i),Sret(ilat,2,2,1,1,i)
+  !  !   enddo
+  !  !enddo
+  !  !close(unit)
+  !  !
+  !  ! fill auxiliary Green's function matrix
+  !  do i=1,Lreal
+  !     do ilat=1,Nlat
+  !        do jlat=1,Nlat
+  !           Gup(ilat,jlat)=Gret(ilat,jlat,1,1,1,1,i) ! ij
+  !           Gdn(ilat,jlat)=Gret(jlat,ilat,2,2,1,1,i) ! ji
+  !        enddo
+  !     enddo
+  !     ! perform Green's function matrix multiplication in the lattice-orbital space
+  !     Gaux(:,:,i) = matmul(Gup,Gdn)
+  !  enddo
+  !  !
+  !  ! compute effective exchange and write it on disk
+  !  unit = free_unit()
+  !  open(unit,file="jeff_ij.ed")
+  !  do ilat=1,Nlat
+  !     do jlat=1,Nlat
+  !        kernel=0.d0
+  !        do i=1,Lreal
+  !           ! jeff kernel: non-local Green's function and fermi function convolution
+  !           kernel = kernel + Saux(ilat,i)*Saux(jlat,i)*Gaux(ilat,jlat,i)*fermi(wr(i),beta)
+  !        enddo
+  !        jeff(ilat,jlat) = -1.d0*dimag(kernel)/pi/Lreal
+  !        write(unit,*)ilat,jlat,jeff(ilat,jlat)
+  !     enddo
+  !  enddo
+  !  close(unit)
+ 
+  !  deallocate(Gaux,Gup,Gdn,Saux,jeff,wr) 
+
+  !end subroutine ed_get_jeff
+
 
 
 end program ed_nano

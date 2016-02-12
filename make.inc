@@ -57,8 +57,8 @@ EXE=ed_hm_bethe
 #EXE=ed_hm_slab
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
-#EXE=ed_nano
-EXE=hartree_nano
+EXE=ed_nano
+#EXE=hartree_nano
 
 ##$ --> Extended Hubbard models 
 #EXE=ed_cdwhm_bethe

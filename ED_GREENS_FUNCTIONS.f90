@@ -1102,6 +1102,7 @@ contains
           close(unit(1))
           close(unit(2))
           close(unit(3))
+          close(unit_mix)
        enddo
        if(Norb>1)then
           iorb=Norb+1
