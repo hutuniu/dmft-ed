@@ -282,9 +282,10 @@ contains
           if(ispin_>Nspin)stop "ed_fit_bath_sites error: required spin index > Nspin"
           call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin=ispin_)
        else
-          do ispin_=1,Nspin
-             call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin=ispin_)
-          enddo
+          !do ispin_=1,Nspin
+          !   call ed_chi2_fitgf(Delta(ilat,ispin_,ispin_,:,:,:),bath_tmp(ilat,:),ispin=ispin_)
+          !enddo
+          call ed_chi2_fitgf(Delta(ilat,:,:,:,:,:),bath_tmp(ilat,:))
        end if
     end do
 #ifdef _MPI_INEQ
