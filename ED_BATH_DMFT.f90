@@ -106,6 +106,7 @@ contains
     integer              :: i,iorb,ispin,unit,flen,Nh
     logical              :: IOfile
     real(8)              :: de
+    real(8),allocatable  :: noise(:)
     if(.not.dmft_bath_%status)stop "init_dmft_bath error: bath not allocated"
     !Get energies:
     dmft_bath_%e(:,:,1)    =-hwband_
@@ -127,15 +128,25 @@ contains
           dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de
        enddo
     endif
+    allocate(noise(Nbath));noise=0.d0 
+    call random_number(noise)
+    noise=noise*ed_bath_noise_thr
     !Get spin-keep yhbridizations
     do i=1,Nbath
-       dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))
-       if(ed_mode=="nonsu2") dmft_bath_%v(:,:,i)=min(0.01d0,1.d0/sqrt(dble(Nbath)))
+       dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))+noise(i)
     enddo
     !Get SC amplitudes
     if(ed_mode=="superc")dmft_bath_%d(:,:,:)=deltasc
     !Get spin-flip hybridizations
-    if(ed_mode=="nonsu2")dmft_bath_%u(:,:,:) = dmft_bath_%v(:,:,:)*ed_vsf_ratio
+    if(ed_mode=="nonsu2")then
+       noise=0.d0
+       call random_number(noise)
+       noise=noise*ed_bath_noise_thr
+       do i=1,Nbath
+          dmft_bath_%u(:,:,i) = dmft_bath_%v(:,:,i)*ed_vsf_ratio+noise(i)
+       enddo
+    endif
+    deallocate(noise)
     !
     !Read from file if exist:
     !

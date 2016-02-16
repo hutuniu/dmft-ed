@@ -35,13 +35,14 @@ program ed_bhz
   integer,allocatable    :: ik2ix(:),ik2iy(:)
   !variables for the model:
   integer                :: Nk,Nkpath
-  real(8)                :: mh,lambda,wmixing,akrange
+  real(8)                :: mh,lambda,wmixing,akrange,rh
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   logical                :: spinsym,getak,getdeltaw,getpoles
   type(finter_type)      :: finter_func
   !
   real(8),dimension(2)   :: Eout
+  real(8),allocatable :: dens(:)
 #ifdef _MPI
   call MPI_INIT(ED_MPI_ERR)
   call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
@@ -56,10 +57,11 @@ program ed_bhz
   call parse_input_variable(getak,"GETAK",finput,default=.false.)
   call parse_input_variable(getdeltaw,"GETDELTAW",finput,default=.false.)
   call parse_input_variable(getpoles,"GETPOLES",finput,default=.false.)
-  call parse_input_variable(akrange,"AKRANGE",finput,default=10.d0)
+  call parse_input_variable(akrange,"AKRANGE",finput,default=5.d0)
   call parse_input_variable(nk,"NK",finput,default=100)
   call parse_input_variable(nkpath,"NKPATH",finput,default=500)
   call parse_input_variable(mh,"MH",finput,default=0.d0)
+  call parse_input_variable(rh,"RH",finput,default=0.d0)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.75d0)
   call parse_input_variable(spinsym,"SPINSYM",finput,default=.true.)
   call parse_input_variable(lambda,"LAMBDA",finput,default=0.d0)
@@ -75,6 +77,11 @@ program ed_bhz
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(dens(Norb))
+
+  !Buil the Hamiltonian on a grid or on  path
+  call build_hk(trim(hkfile))
+
 
   !OPTIONAL CHANNELS:
   if(getak)then
@@ -92,8 +99,6 @@ program ed_bhz
      stop
   endif
 
-  !Buil the Hamiltonian on a grid or on  path
-  call build_hk(trim(hkfile))
 
   !Setup solver
   Nb=get_bath_size()
@@ -112,6 +117,8 @@ program ed_bhz
      call ed_solve(bath)
      call ed_get_sigma_matsubara(Smats)
      call ed_get_sigma_real(Sreal)
+     dens= ed_get_dens()
+     print*,dens
 
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
      call ed_get_weiss(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=1)
@@ -130,9 +137,13 @@ program ed_bhz
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      Bath_=Bath
 
-     if(ED_MPI_ID==0)converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
+     if(ED_MPI_ID==0)then
+        converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
+        if(nread/=0.d0)call search_chemical_potential(xmu,sum(dens),converged)
+     endif
 #ifdef _MPI
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
+     call MPI_BCAST(xmu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
      if(ED_MPI_ID==0)call end_loop
   enddo
@@ -163,11 +174,14 @@ contains
     complex(8),dimension(Nso,Nso,Lmats) :: Gmats
     complex(8),dimension(Nso,Nso,Lreal) :: Greal
     real(8)                             :: wm(Lmats),wr(Lreal),dw,n0(Nso)
+    call build_hk_GXMG()
+
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for BHZ:"
     Lk=Nk**2
     if(ED_MPI_ID==0)write(*,*)"# of k-points     :",Lk
     if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
     if(allocated(Hk))deallocate(Hk)
+    if(allocated(wtk))deallocate(wtk)
     allocate(Hk(Nso,Nso,Lk))
     allocate(wtk(Lk))
     allocate(kxgrid(Nk),kygrid(Nk))
@@ -215,30 +229,42 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: GET THE BHZ HAMILTONIAN ALONG THE Gamma-X-M-Gamma path
   !---------------------------------------------------------------------
-  subroutine build_hk_GXMG()
+  subroutine build_hk_GXMG(kpath_)
     integer                            :: i,j
     integer                            :: Npts
+    real(8),dimension(:,:),optional        :: kpath_
     real(8),dimension(:,:),allocatable :: kpath
+    character(len=64)                      :: file
     !This routine build the H(k) along the GXMG path in BZ,
     !Hk(k) is constructed along this path.
-    if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
-    Npts = 4
-    Lk=(Npts-1)*Nkpath
+    if(present(kpath_))then
+       if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) BHZ along a given path:"
+       Npts = size(kpath_,1)
+       Lk=(Npts-1)*Nkpath
+       allocate(kpath(Npts,size(kpath_,2)))
+       kpath=kpath_
+       file="Eig_path.nint"
+    else
+       if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
+       Npts = 4
+       Lk=(Npts-1)*Nkpath
+       allocate(kpath(Npts,3))
+       kpath(1,:)=kpoint_Gamma
+       kpath(2,:)=kpoint_M1
+       kpath(3,:)=kpoint_X1
+       kpath(4,:)=kpoint_Gamma
+       file="Eigenbands.nint"
+    endif
     if(allocated(Hk))deallocate(Hk)
     if(allocated(wtk))deallocate(wtk)
     allocate(Hk(Nso,Nso,Lk))
     allocate(wtk(Lk))
-    allocate(kpath(Npts,2))
-    kpath(1,:)=kpoint_Gamma
-    kpath(2,:)=kpoint_M1
-    kpath(3,:)=kpoint_X1
-    kpath(4,:)=kpoint_Gamma
     Hk     = build_hk_model(hk_bhz,Nso,kpath,Nkpath)
     wtk = 1d0/Lk
     if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_bhz,Nso,kpath,Lk,&
          colors_name=[character(len=20) :: 'red','blue','red','blue'],&
          points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
-         file="Eigenband.nint")
+         file=reg(file))
   end subroutine build_hk_GXMG
 
 
@@ -355,7 +381,8 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: GET A(k,w)
   !---------------------------------------------------------------------
-  subroutine get_Akw
+  subroutine get_Akw()
+    integer,parameter                           :: Lw=250
     integer                                     :: i,j,ik=0
     integer                                     :: ix,iy
     integer                                     :: iorb,jorb
@@ -365,42 +392,58 @@ contains
     real(8)                                     :: foo
     real(8)                                     :: kx,ky    
     complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta,fgk
-    complex(8),dimension(:,:,:,:,:),allocatable :: gloc,Sreal,Smats
+    complex(8),dimension(:,:,:,:,:),allocatable :: gloc,Sreal_,Sreal
     complex(8),dimension(:,:,:,:),allocatable   :: gk,gfoo,ReSmat
     complex(8),dimension(:,:,:),allocatable     :: Hktilde
     complex(8)                                  :: iw
-    real(8)                                     :: wm(Lmats),wr(Lreal)
-    real(8),dimension(:,:),allocatable          :: Ktrim,Ev
+    real(8)                                     :: wr_(Lreal),wr(Lw)
+    real(8),dimension(:,:),allocatable          :: Kpath
     character(len=20)                           :: suffix
     if(ED_MPI_ID==0)then
        !
-       wm = pi/beta*real(2*arange(1,Lmats)-1,8)
-       wr = linspace(wini,wfin,Lreal)
+       wr_ = linspace(wini,wfin,Lreal)
+       wr  = linspace(-akrange,akrange,Lw)
        !
-       print*,"Get A(k,w):"
+       call build_hk_GXMG()
+       ! !Uncomment these lines and comment the previous one to use a different path
+       ! !attention: the path should be edited. now it's the same as GXMG
+       ! allocate(kpath(4,3))
+       ! kpath(1,:)=kpoint_Gamma
+       ! kpath(2,:)=kpoint_M1
+       ! kpath(3,:)=kpoint_X1
+       ! kpath(4,:)=kpoint_Gamma
+       ! call build_hk_GXMG(kpath)
+
+       print*,"Get A(k,w):",Lk
        !
-       call build_hk_GXMG
-       !
-       allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
-       call read_sigma(Sreal)
-       allocate(gk(Lk,Nspin,Norb,Lreal))
+       allocate(Sreal_(Nspin,Nspin,Norb,Norb,Lreal))
+       call read_sigma(Sreal_)
+       allocate(Sreal(Nspin,Nspin,Norb,Norb,Lw))
+       Sreal=zero
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             call cubic_spline(wr_,Sreal_(ispin,ispin,iorb,iorb,:),wr,Sreal(ispin,ispin,iorb,iorb,:))
+          enddo
+       enddo
+       allocate(gk(Lk,Nspin,Norb,Lw))
        allocate(gfoo(Nspin,Nspin,Norb,Norb))
        call start_progress(LOGfile)
-       do i=1,Lreal
+       do i=1,Lw
           iw=dcmplx(wr(i),eps)
           zeta=zero
           forall(iso=1:Nso)zeta(iso,iso)=iw+xmu
           zeta(:,:) = zeta(:,:)-so2j(Sreal(:,:,:,:,i),Nso)
           do ik=1,Lk
-             fgk = inverse_gk(zeta,Hk(:,:,ik))
+             fgk = zeta - Hk(:,:,ik)!inverse_gk(zeta,Hk(:,:,ik))
+             call inv(fgk)
              gfoo(:,:,:,:) = j2so(fgk(:,:))
              forall(ispin=1:Nspin,iorb=1:Norb)gk(ik,ispin,iorb,i) = gfoo(ispin,ispin,iorb,iorb)
           enddo
-          call progress(i,Lreal)
+          call progress(i,Lw)
        enddo
        call stop_progress()
        !PRINT
-       do ispin=1,Nspin
+       do ispin=1,1
           do iorb=1,Norb
              unit=free_unit()
              suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
@@ -428,7 +471,7 @@ contains
     integer                                     :: ispin,jspin
     integer                                     :: iso,unit
     real(8),dimension(Nso)                      :: dzeta
-    complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta,fgk
+    complex(8),dimension(Nso,Nso)               :: zeta,gfk
     complex(8),dimension(:,:,:,:,:),allocatable :: gloc,Sreal,Smats
     complex(8),dimension(:,:,:,:),allocatable   :: gk,gfoo,ReSmat
     complex(8)                                  :: iw
@@ -478,10 +521,14 @@ contains
     write(LOGfile,*)"Solving for the poles..."
     maxNinterval=-1
     do ik=1,Lk
+       !
        do i=1,Lreal
-          forall(iorb=1:Nso)zeta(iorb,iorb)=wr(i)+xmu
-          zeta(:,:) = zeta(:,:) - dreal(so2j(Sreal(:,:,:,:,i),Nso))
-          Den(i) = dreal((zeta(1,1) - Hk(1,1,ik))*(zeta(2,2) - Hk(2,2,ik))) - Hk(1,2,ik)*Hk(2,1,ik)
+          ! forall(iorb=1:Nso)zeta(iorb,iorb)=wr(i)+xmu
+          ! zeta(:,:) = (wr(i)+xmu)*eye(Nso) - dreal(so2j(Sreal(:,:,:,:,i),Nso))
+          ! Den(i) = dreal((zeta(1,1) - Hk(1,1,ik))*(zeta(2,2) - Hk(2,2,ik))) - abs(Hk(1,2,ik)*Hk(2,1,ik))
+          zeta = (wr(i)+xmu)*eye(Nso) - dreal(so2j(Sreal(:,:,:,:,i),Nso))
+          gfk  = zeta - Hk(:,:,ik)
+          Den(i) = det(Gfk)
        enddo
        Xcsign(0)=0.d0
        count=0
@@ -498,26 +545,26 @@ contains
        Ninterval=count
        if(count>maxNinterval)maxNinterval=count
        call init_finter(finter_func,wr,Den,3)
-       do int=1,Ninterval
-          Mpoles(ik,int) = fzero_brentq(det_poles,Xcsign(int-1),Xcsign(int))
-          Mweight(ik,int)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1),Nso))
-       enddo
-       ipoles(ik) = fzero_brentq(det_poles,0.d0,wr(Lreal))
+       ! do int=1,Ninterval
+       !    Mpoles(ik,int) = fzero_brentq(det_poles,Xcsign(int-1),Xcsign(int))
+       !    Mweight(ik,int)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1),Nso))
+       ! enddo
+       ipoles(ik) = fzero_brentq(det_poles,-wr(Lreal),wr(Lreal))
        iweight(ik)= get_weight(hk(:,:,ik)-so2j(Smats(:,:,:,:,1),Nso))
        call delete_finter(finter_func)
     enddo
     call splot("BHZpoles.ed",(/(ik-1,ik=1,Lk)/),ipoles(:),iweight(:))
     unit=free_unit()
-    open(unit,file="BHZpoles_all.ed")
-    do int=1,maxNinterval
-       if(any((Mpoles(:,int)/=0.d0)))then
-          do ik=1,Lk
-             if(Mpoles(ik,int)/=0.d0)write(unit,*)ik-1,Mpoles(ik,int),Mweight(ik,int)
-          enddo
-          write(unit,*)""
-       endif
-    enddo
-    close(unit)
+    ! open(unit,file="BHZpoles_all.ed")
+    ! do int=1,maxNinterval
+    !    if(any((Mpoles(:,int)/=0.d0)))then
+    !       do ik=1,Lk
+    !          if(Mpoles(ik,int)/=0.d0)write(unit,*)ik-1,Mpoles(ik,int),Mweight(ik,int)
+    !       enddo
+    !       write(unit,*)""
+    !    endif
+    ! enddo
+    ! close(unit)
     !
     if(.false.)then
        call build_hk
@@ -661,8 +708,8 @@ contains
     Hk          = zero
     Hk(1:2,1:2) = hk_bhz2x2(kx,ky)
     Hk(3:4,3:4) = conjg(hk_bhz2x2(-kx,-ky))
-    Hk(1,4) = -delta ; Hk(4,1)=-delta
-    Hk(2,3) =  delta ; Hk(3,2)= delta
+    ! Hk(1,4) = -delta ; Hk(4,1)=-delta
+    ! Hk(2,3) =  delta ; Hk(3,2)= delta
     Hk(1,3) = xi*rh*(sin(kx)-xi*sin(ky))
     Hk(3,1) =-xi*rh*(sin(kx)+xi*sin(ky))
   end function hk_bhz

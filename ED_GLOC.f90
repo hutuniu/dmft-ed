@@ -4,7 +4,7 @@ module ED_GLOC
   USE ED_AUX_FUNX
   USE SF_TIMER
   USE SF_IOTOOLS,   only: reg,txtfy,splot,store_data
-  USE SF_LINALG,    only: eye,inv,inv_sym
+  USE SF_LINALG,    only: eye,inv,inv_sym,inv_tridiag,get_tridiag
   USE SF_ARRAYS,    only: linspace,arange
   USE SF_MISC,      only: assert_shape
   implicit none
@@ -96,27 +96,6 @@ contains
     !
     wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
-    ! zeta_mats=zero
-    ! zeta_real=zero
-    ! do ispin=1,Nspin
-    !    do iorb=1,Norb
-    !       io = iorb + (ispin-1)*Norb
-    !       zeta_mats(io,io,:) = xi*wm(:)       + xmu 
-    !       zeta_real(io,io,:) = wr(:) + xi*eps + xmu
-    !    enddo
-    ! enddo
-    ! do ispin=1,Nspin
-    !    do jspin=1,Nspin
-    !       do iorb=1,Norb
-    !          do jorb=1,Norb
-    !             io = iorb + (ispin-1)*Norb
-    !             jo = jorb + (jspin-1)*Norb
-    !             zeta_mats(io,jo,:) = zeta_mats(io,jo,:) - Smats(ispin,jspin,iorb,jorb,:)
-    !             zeta_real(io,jo,:) = zeta_real(io,jo,:) - Sreal(ispin,jspin,iorb,jorb,:)
-    !          enddo
-    !       enddo
-    !    enddo
-    ! enddo
     do i=1,Lmats
        zeta_mats(:,:,i)=(xi*wm(i)+xmu)*eye(Nso) - nn2so_reshape(Smats(:,:,:,:,i),Nspin,Norb)
     enddo
@@ -139,7 +118,8 @@ contains
     if(ED_MPI_ID==0.AND.ed_verbose<4)call print_Gloc(Gmats,Greal,"Gloc",iprint)
   end subroutine ed_get_gloc_normal_main
 
-  subroutine ed_get_gloc_normal_lattice_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,hk_symm,Gamma_mats,Gamma_real)
+  subroutine ed_get_gloc_normal_lattice_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,&
+       iprint,hk_symm,tridiag,Gamma_mats,Gamma_real,local_Gamma_mats,local_Gamma_real)
     complex(8),dimension(:,:,:),intent(in)          :: Hk        ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
     real(8),dimension(size(Hk,3)),intent(in)        :: Wtk       ![Nk]
     complex(8),dimension(:,:,:,:,:,:),intent(in)    :: Smats     ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
@@ -147,10 +127,14 @@ contains
     complex(8),dimension(:,:,:,:,:,:),intent(inout) :: Gmats     !as Smats
     complex(8),dimension(:,:,:,:,:,:),intent(inout) :: Greal     !as Sreal
     integer,intent(in)                              :: iprint    !
+    logical,optional                                :: tridiag
+    logical                                         :: tridiag_
     logical,dimension(size(Hk,3)),optional          :: hk_symm
     logical,dimension((size(Hk,3)))                 :: hk_symm_
     complex(8),dimension(:,:,:),optional            :: Gamma_mats![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lmats]
     complex(8),dimension(:,:,:),optional            :: Gamma_real![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lreal]
+    complex(8),dimension(:,:,:,:),optional          :: local_Gamma_mats![Nlat][Nspin*Norb][Nspin*Norb][Lmats]
+    complex(8),dimension(:,:,:,:),optional          :: local_Gamma_real![Nlat][Nspin*Norb][Nspin*Norb][Lreal]
     !allocatable arrays
     complex(8),dimension(:,:,:,:,:,:),allocatable   :: Gkmats    !as Smats
     complex(8),dimension(:,:,:,:,:,:),allocatable   :: Gkreal    !as Sreal
@@ -177,11 +161,22 @@ contains
     if(present(Gamma_mats))&
          call assert_shape(Gamma_mats,[Nlso,Nlso,Lmats],"ed_get_gloc_normal_lattice_main","Gamma_mats")         
     if(present(Gamma_real))&
-         call assert_shape(Gamma_real,[Nlso,Nlso,Lreal],"ed_get_gloc_normal_lattice_main","Gamma_real")         
+         call assert_shape(Gamma_real,[Nlso,Nlso,Lreal],"ed_get_gloc_normal_lattice_main","Gamma_real")
+    if(present(local_Gamma_mats))&
+         call assert_shape(local_Gamma_mats,[Nlat,Nso,Nso,Lmats],"ed_get_gloc_normal_lattice_main","local_Gamma_mats")         
+    if(present(local_Gamma_real))&
+         call assert_shape(local_Gamma_real,[Nlat,Nso,Nso,Lreal],"ed_get_gloc_normal_lattice_main","local_Gamma_real")         
     !
+    if(present(Gamma_mats).AND.present(local_Gamma_mats))stop "ed_get_gloc_normal_lattice_main error: Gamma_mats & local_Gamma_mats present"
+    if(present(Gamma_real).AND.present(local_Gamma_real))stop "ed_get_gloc_normal_lattice_main error: Gamma_real & local_Gamma_real present"
+    if(tridiag_.AND.(present(Gamma_mats).OR.present(Gamma_real)))then
+       if(mpiID==0)write(LOGfile,"(A)")"ed_get_gloc_normal_lattice_main warning: called with tridiag=TRUE and Gamma Embded: Disreagarded."
+    endif
+    !
+    tridiag_=.false.;if(present(tridiag))tridiag_=tridiag
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     !
-    if(mpiID==0)write(LOGfile,*)"Get local GF (id=0):"
+    if(mpiID==0)write(LOGfile,"(A)")"Get local GF (id=0):"
     !
     if(allocated(wm))deallocate(wm)
     if(allocated(wr))deallocate(wr)
@@ -194,30 +189,6 @@ contains
     !
     wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
-    ! zeta_mats=zero
-    ! zeta_real=zero
-    ! do ilat=1,Nlat
-    !    do ispin=1,Nspin
-    !       do iorb=1,Norb
-    !          io = iorb + (ispin-1)*Norb
-    !          js = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
-    !          zeta_mats(ilat,io,io,:) = xi*wm(:)       + xmu! - Eloc_(js)
-    !          zeta_real(ilat,io,io,:) = wr(:) + xi*eps + xmu! - Eloc_(js)
-    !       enddo
-    !    enddo
-    !    do ispin=1,Nspin
-    !       do jspin=1,Nspin
-    !          do iorb=1,Norb
-    !             do jorb=1,Norb
-    !                io = iorb + (ispin-1)*Norb
-    !                jo = jorb + (jspin-1)*Norb
-    !                zeta_mats(ilat,io,jo,:) = zeta_mats(ilat,io,jo,:) - Smats(ilat,ispin,jspin,iorb,jorb,:)
-    !                zeta_real(ilat,io,jo,:) = zeta_real(ilat,io,jo,:) - Sreal(ilat,ispin,jspin,iorb,jorb,:)
-    !             enddo
-    !          enddo
-    !       enddo
-    !    enddo
-    ! enddo
     do ilat=1,Nlat
        do i=1,Lmats
           zeta_mats(ilat,:,:,i) = (xi*wm(i)+xmu)*eye(Nso)     - nn2so_reshape(Smats(ilat,:,:,:,:,i),Nspin,Norb)
@@ -231,24 +202,132 @@ contains
     if(mpiID==0)call start_timer
     Gmats=zero
     Greal=zero
-    do ik=1,Lk
-       if(present(Gamma_mats))then
-          call add_to_gloc_normal_lattice(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=Gamma_mats)
-       else
-          call add_to_gloc_normal_lattice(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)
-       endif
-       if(present(Gamma_real))then
-          call add_to_gloc_normal_lattice(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Gembed=Gamma_real)
-       else
-          call add_to_gloc_normal_lattice(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
-       endif
-       Gmats = Gmats + Gkmats*Wtk(ik)
-       Greal = Greal + Gkreal*Wtk(ik)
-       if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
-    end do
+    select case(tridiag_)
+    case default
+       if(mpiID==0)write(LOGfile,"(A)")"Direct Inversion:"
+       do ik=1,Lk
+          if(present(Gamma_mats))then
+             call add_to_gloc_normal_lattice(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=Gamma_mats)
+          else
+             call add_to_gloc_normal_lattice(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)
+          endif
+          if(present(Gamma_real))then
+             call add_to_gloc_normal_lattice(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Gembed=Gamma_real)
+          else
+             call add_to_gloc_normal_lattice(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+          endif
+          Gmats = Gmats + Gkmats*Wtk(ik)
+          Greal = Greal + Gkreal*Wtk(ik)
+          if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+       end do
+    case(.true.)
+       if(mpiID==0)write(LOGfile,"(A)")"Tridiag Iterative Inversion:"
+       do ik=1,Lk
+          if(present(local_Gamma_mats))then
+             call add_to_gloc_normal_tridiag(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=local_Gamma_mats)
+          else
+             call add_to_gloc_normal_tridiag(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)
+          endif
+          if(present(local_Gamma_real))then
+             call add_to_gloc_normal_tridiag(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Gembed=local_Gamma_real)
+          else
+             call add_to_gloc_normal_tridiag(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+          endif
+          Gmats = Gmats + Gkmats*Wtk(ik)
+          Greal = Greal + Gkreal*Wtk(ik)
+          if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+       end do
+    end select
     if(mpiID==0)call stop_timer
     if(mpiID==0)call print_gloc_lattice(Gmats,Greal,"LG",iprint)
   end subroutine ed_get_gloc_normal_lattice_main
+
+  ! subroutine ed_get_gloc_normal_lattice_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,hk_symm,Gamma_mats,Gamma_real)
+  !   complex(8),dimension(:,:,:),intent(in)          :: Hk        ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+  !   real(8),dimension(size(Hk,3)),intent(in)        :: Wtk       ![Nk]
+  !   complex(8),dimension(:,:,:,:,:,:),intent(in)    :: Smats     ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+  !   complex(8),dimension(:,:,:,:,:,:),intent(in)    :: Sreal     ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+  !   complex(8),dimension(:,:,:,:,:,:),intent(inout) :: Gmats     !as Smats
+  !   complex(8),dimension(:,:,:,:,:,:),intent(inout) :: Greal     !as Sreal
+  !   integer,intent(in)                              :: iprint    !
+  !   logical,dimension(size(Hk,3)),optional          :: hk_symm
+  !   logical,dimension((size(Hk,3)))                 :: hk_symm_
+  !   complex(8),dimension(:,:,:),optional            :: Gamma_mats![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lmats]
+  !   complex(8),dimension(:,:,:),optional            :: Gamma_real![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lreal]
+  !   !allocatable arrays
+  !   complex(8),dimension(:,:,:,:,:,:),allocatable   :: Gkmats    !as Smats
+  !   complex(8),dimension(:,:,:,:,:,:),allocatable   :: Gkreal    !as Sreal
+  !   complex(8),dimension(:,:,:,:),allocatable       :: zeta_mats ![Nlat][Nspin*Norb][Nspin*Norb][Lmats]
+  !   complex(8),dimension(:,:,:,:),allocatable       :: zeta_real ![Nlat][Nspin*Norb][Nspin*Norb][Lreal]
+  !   !local integers
+  !   integer                                         :: Nlat,Nspin,Norb,Nso,Nlso,Lmats,Lreal,Lk
+  !   integer                                         :: i,ik,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,js
+  !   !
+  !   !Testing part:
+  !   Nlat  = size(Smats,1)
+  !   Nspin = size(Smats,2)
+  !   Norb  = size(Smats,4)
+  !   Lmats = size(Smats,6)
+  !   Lreal = size(Sreal,6)
+  !   Lk    = size(Hk,3)
+  !   Nso   = Nspin*Norb
+  !   Nlso  = Nlat*Nspin*Norb
+  !   call assert_shape(Hk,[Nlso,Nlso,Lk],"ed_get_gloc_normal_lattice_main","Hk")
+  !   call assert_shape(Smats,[Nlat,Nspin,Nspin,Norb,Norb,Lmats],"ed_get_gloc_normal_lattice_main","Smats")
+  !   call assert_shape(Sreal,[Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_gloc_normal_lattice_main","Sreal")
+  !   call assert_shape(Gmats,[Nlat,Nspin,Nspin,Norb,Norb,Lmats],"ed_get_gloc_normal_lattice_main","Gmats")
+  !   call assert_shape(Greal,[Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_gloc_normal_lattice_main","Greal")
+  !   if(present(Gamma_mats))&
+  !        call assert_shape(Gamma_mats,[Nlso,Nlso,Lmats],"ed_get_gloc_normal_lattice_main","Gamma_mats")         
+  !   if(present(Gamma_real))&
+  !        call assert_shape(Gamma_real,[Nlso,Nlso,Lreal],"ed_get_gloc_normal_lattice_main","Gamma_real")         
+  !   !
+  !   hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
+  !   !
+  !   if(mpiID==0)write(LOGfile,*)"Get local GF (id=0):"
+  !   !
+  !   if(allocated(wm))deallocate(wm)
+  !   if(allocated(wr))deallocate(wr)
+  !   allocate(wm(Lmats))
+  !   allocate(wr(Lreal))
+  !   allocate(Gkmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+  !   allocate(Gkreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+  !   allocate(zeta_mats(Nlat,Nso,Nso,Lmats))
+  !   allocate(zeta_real(Nlat,Nso,Nso,Lreal))
+  !   !
+  !   wm = pi/beta*(2*arange(1,Lmats)-1)
+  !   wr = linspace(wini,wfin,Lreal)
+  !   do ilat=1,Nlat
+  !      do i=1,Lmats
+  !         zeta_mats(ilat,:,:,i) = (xi*wm(i)+xmu)*eye(Nso)     - nn2so_reshape(Smats(ilat,:,:,:,:,i),Nspin,Norb)
+  !      enddo
+  !      do i=1,Lreal
+  !         zeta_real(ilat,:,:,i) = (wr(i)+xi*eps+xmu)*eye(Nso) - nn2so_reshape(Sreal(ilat,:,:,:,:,i),NSpin,Norb)
+  !      enddo
+  !   enddo
+  !   !
+  !   !pass each Z_site to the routines that invert (Z-Hk) for each k-point 
+  !   if(mpiID==0)call start_timer
+  !   Gmats=zero
+  !   Greal=zero
+  !   do ik=1,Lk
+  !      if(present(Gamma_mats))then
+  !         call add_to_gloc_normal_lattice(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=Gamma_mats)
+  !      else
+  !         call add_to_gloc_normal_lattice(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)
+  !      endif
+  !      if(present(Gamma_real))then
+  !         call add_to_gloc_normal_lattice(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Gembed=Gamma_real)
+  !      else
+  !         call add_to_gloc_normal_lattice(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+  !      endif
+  !      Gmats = Gmats + Gkmats*Wtk(ik)
+  !      Greal = Greal + Gkreal*Wtk(ik)
+  !      if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+  !   end do
+  !   if(mpiID==0)call stop_timer
+  !   if(mpiID==0)call print_gloc_lattice(Gmats,Greal,"LG",iprint)
+  ! end subroutine ed_get_gloc_normal_lattice_main
 
 
   !+-----------------------------------------------------------------------------+!
@@ -350,6 +429,71 @@ contains
     Gkout = Gktmp
 #endif
   end subroutine add_to_gloc_normal_lattice
+
+  subroutine add_to_gloc_normal_tridiag(zeta,Hk,hk_symm,Gkout,Gembed)
+    complex(8),dimension(:,:,:,:),intent(in)        :: zeta    ![Nlat][Nspin*Norb][Nspin*Norb][Lfreq]
+    complex(8),dimension(:,:),intent(in)            :: Hk      ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
+    logical,intent(in)                              :: hk_symm
+    complex(8),dimension(:,:,:,:,:,:),intent(inout) :: Gkout   ![Nlat][Nspin][Nspin][Norb][Norb][Lfreq]
+    complex(8),dimension(:,:,:,:),optional          :: Gembed  ![Nlat][Nspin*Norb][Nspin*Norb][Lfreq]
+    !
+    complex(8),dimension(:,:,:),allocatable         :: Diag
+    complex(8),dimension(:,:,:),allocatable         :: Sub
+    complex(8),dimension(:,:,:),allocatable         :: Over
+    complex(8),dimension(:,:,:,:,:,:),allocatable   :: Gktmp   ![Nlat][Nspin][Nspin][Norb][Norb][Lfreq]
+    complex(8),dimension(:,:,:),allocatable         :: Gmatrix ![Nlat][Nspin*Norb][Nspin*Norb]
+    integer                                         :: Nlat,Nspin,Norb,Nso,Nlso,Lfreq
+    integer                                         :: i,is,ilat,jlat,iorb,jorb,ispin,jspin,io,jo
+    !
+    Nlat  = size(zeta,1)
+    Nspin = size(Gkout,2)
+    Norb  = size(Gkout,4)
+    Lfreq = size(zeta,4)
+    Nso   = Nspin*Norb
+    Nlso  = Nlat*Nspin*Norb
+    !
+    call assert_shape(zeta,[Nlat,Nso,Nso,Lfreq],"add_to_gloc_tridiag_normal","zeta")
+    call assert_shape(Hk,[Nlso,Nlso],"add_to_gloc_tridiag_normal","Hk")
+    call assert_shape(Gkout,[Nlat,Nspin,Nspin,Norb,Norb,Lfreq],"add_to_gloc_tridiag_normal","Gkout")
+    if(present(Gembed))&
+         call assert_shape(Gembed,[Nlat,Nso,Nso,Lfreq],"add_to_gloc_tridiag_normal","Gembed")
+    !
+    allocate(Sub(Nlat-1,Nso,Nso))
+    allocate(Diag(Nlat,Nso,Nso))
+    allocate(Over(Nlat-1,Nso,Nso))
+    allocate(Gktmp(Nlat,Nspin,Nspin,Norb,Norb,Lfreq))
+    allocate(Gmatrix(Nlat,Nso,Nso))
+    Gktmp=zero
+    do i=1+mpiID,Lfreq,mpiSIZE
+       call get_tridiag(Nlat,Nso,Hk,Sub,Diag,Over)
+       Diag = zeta(:,:,:,i) - Diag
+       if(present(Gembed))Diag = Diag - Gembed(:,:,:,i)
+       call inv_tridiag(Nlat,Nso,-Sub,Diag,-Over,Gmatrix)
+       !store the diagonal blocks directly into the tmp output 
+       do ilat=1,Nlat
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ispin-1)*Norb
+                      jo = jorb + (jspin-1)*Norb
+                      Gktmp(ilat,ispin,jspin,iorb,jorb,i) = Gmatrix(ilat,io,jo)
+                   enddo
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    Gkout=zero
+#ifdef _MPI_INEQ
+    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+    Gkout = Gktmp
+#endif
+  end subroutine add_to_gloc_normal_tridiag
+
+
+
 
 
   !+-----------------------------------------------------------------------------+!
@@ -550,46 +694,6 @@ contains
     !
     wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
-    ! zeta_mats=zero
-    ! zeta_real=zero
-    ! do ispin=1,Nspin
-    !    do iorb=1,Norb
-    !       io = iorb + (ispin-1)*Norb
-    !       !
-    !       !SYMMETRIES in Matsubara-frequencies  [assuming a real order parameter]
-    !       !G22(iw) = -[G11[iw]]*
-    !       !G21(iw) =   G12[w]
-    !       zeta_mats(1,1,io,io,:) = xi*wm(:) + xmu
-    !       zeta_mats(2,2,io,io,:) = xi*wm(:) - xmu
-    !       !
-    !       !SYMMETRIES in real-frequencies   [assuming a real order parameter]
-    !       !G22(w)  = -[G11[-w]]*
-    !       !G21(w)  =   G12[w]
-    !       zeta_real(1,1,io,io,:) = dcmplx(wr(:),eps)                  + xmu    
-    !       zeta_real(2,2,io,io,:) = -conjg( dcmplx(wr(Lreal:1:-1),eps) + xmu )
-    !    enddo
-    ! enddo
-    ! do ispin=1,Nspin
-    !    do jspin=1,Nspin
-    !       do iorb=1,Norb
-    !          do jorb=1,Norb
-    !             io = iorb + (ispin-1)*Norb
-    !             jo = jorb + (jspin-1)*Norb
-    !             !
-    !             zeta_mats(1,1,io,jo,:) = zeta_mats(1,1,io,jo,:) - Smats(1,ispin,jspin,iorb,jorb,:)
-    !             zeta_mats(1,2,io,jo,:) = zeta_mats(1,2,io,jo,:) - Smats(2,ispin,jspin,iorb,jorb,:)
-    !             zeta_mats(2,1,io,jo,:) = zeta_mats(2,1,io,jo,:) - Smats(2,ispin,jspin,iorb,jorb,:)
-    !             zeta_mats(2,2,io,jo,:) = zeta_mats(2,2,io,jo,:) + conjg(Smats(1,ispin,jspin,iorb,jorb,:))
-    !             !
-    !             zeta_real(1,1,io,jo,:) = zeta_real(1,1,io,jo,:) - Sreal(1,ispin,jspin,iorb,jorb,:)
-    !             zeta_real(1,2,io,jo,:) = zeta_real(1,2,io,jo,:) - Sreal(2,ispin,jspin,iorb,jorb,:)
-    !             zeta_real(2,1,io,jo,:) = zeta_real(2,1,io,jo,:) - Sreal(2,ispin,jspin,iorb,jorb,:)
-    !             zeta_real(2,2,io,jo,:) = zeta_real(2,2,io,jo,:) + conjg( Sreal(1,ispin,jspin,iorb,jorb,Lreal:1:-1) )
-    !             !
-    !          enddo
-    !       enddo
-    !    enddo
-    ! enddo
     do i=1,Lmats
        zeta_mats(1,1,:,:,i) = (xi*wm(i)+xmu)*eye(Nso) -        nn2so_reshape(Smats(1,:,:,:,:,i),Nspin,Norb)
        zeta_mats(1,2,:,:,i) =                         -        nn2so_reshape(Smats(2,:,:,:,:,i),Nspin,Norb)

@@ -1,6 +1,6 @@
 MODULE ED_INPUT_VARS
   USE SCIFOR_VERSION
-  USE DMFT_PARSE_INPUT
+  USE SF_PARSE_INPUT
   USE ED_VARS_GLOBAL
   implicit none
 
@@ -52,6 +52,7 @@ MODULE ED_INPUT_VARS
   character(len=7)     :: ed_mode             !flag to set ed symmetry type: normal=normal (default), superc=superconductive, nonsu2=broken SU(2)
   logical              :: ed_para             !flag to enforce non-magnetic solution
   real(8)              :: ed_vsf_ratio        !
+  real(8)              :: ed_bath_noise_thr   !
   character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
   character(len=100)   :: ed_file_suffix      !suffix string attached to the output files.
   real(8)              :: nread               !fixed density. if 0.d0 fixed chemical potential calculation.
@@ -59,7 +60,6 @@ MODULE ED_INPUT_VARS
   real(8)              :: ndelta              !initial chemical potential step
   integer              :: niter
   integer              :: ed_verbose
-
 
   !Some parameters for function dimension:
   !=========================================================
@@ -147,6 +147,7 @@ contains
     call parse_input_variable(ed_mpi_colors,"ED_MPI_COLORS",INPUTunit,default=1,comment="Number of mpi colors or groups splitting the initial MPI size")
     call parse_input_variable(ed_para,"ED_PARA",INPUTunit,default=.false.,comment="Flag to force paramagnetic solution (only used in ed_mode=nonsu2 now).")
     call parse_input_variable(ed_vsf_ratio,"ED_VSF_RATIO",INPUTunit,default=0.1d0,comment="Ration of the spin-flip hopping to spin-hold ones in the nonSU2 channel.")
+    call parse_input_variable(ed_bath_noise_thr,"ED_BATH_NOISE_THR",INPUTunit,default=0.d0,comment="Noise added to the impurity hybridization")
     call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")

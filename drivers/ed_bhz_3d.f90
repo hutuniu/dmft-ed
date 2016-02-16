@@ -1,4 +1,4 @@
-program ed_bhz_3d
+paprogram ed_bhz_3d
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
