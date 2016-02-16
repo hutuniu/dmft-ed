@@ -1,3 +1,4 @@
+
 ##$ COMPILER: suppprted compilers are ifort, gnu >v4.7
 ##$ use mpif90 for parallel compiler
 FC=mpif90
