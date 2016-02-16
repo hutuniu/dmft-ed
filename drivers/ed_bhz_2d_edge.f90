@@ -9,7 +9,7 @@ program ed_bhz_2d_edge
   integer                                       :: iloop
   integer                                       :: Nlso
   integer                                       :: Nso
-  integer                                       :: ilat
+  integer                                       :: ilat,iy,iorb,ispin
   logical                                       :: converged
   !Bath:
   integer                                       :: Nb
@@ -29,12 +29,13 @@ program ed_bhz_2d_edge
   complex(8),allocatable,dimension(:,:)         :: gamma2
   complex(8),allocatable,dimension(:,:)         :: gamma5
 
-  real(8),allocatable,dimension(:)              :: Wtk
+  real(8),allocatable,dimension(:)              :: Wtk,wm,wr
   real(8),allocatable,dimension(:)              :: kxgrid
+  real(8),dimension(:,:),allocatable            :: dens,rho
   integer                                       :: Nk,Ly,Nkpath
   real(8)                                       :: e0,mh,lambda,wmixing
-  logical                                       :: spinsym
-  character(len=16)                             :: finput
+  logical                                       :: spinsym,tridiag
+  character(len=60)                             :: finput
   character(len=32)                             :: hkfile
 
 #ifdef _MPI_INEQ
@@ -46,11 +47,12 @@ program ed_bhz_2d_edge
   call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
 #endif
 
-  call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ.conf')
+  call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ_EDGE.conf')
   call parse_input_variable(hkfile,"HKFILE",finput,default="hkfile.in")
   call parse_input_variable(nk,"NK",finput,default=100)
   call parse_input_variable(Ly,"Ly",finput,default=20)
   call parse_input_variable(Nkpath,"NKPATH",finput,default=501)
+  call parse_input_variable(tridiag,"TRIDIAG",finput,default=.true.)
   call parse_input_variable(mh,"MH",finput,default=1d0)
   call parse_input_variable(lambda,"LAMBDA",finput,default=0.3d0)
   call parse_input_variable(e0,"e0",finput,default=1d0)
@@ -78,7 +80,10 @@ program ed_bhz_2d_edge
   allocate(Greal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))
   allocate(S0(Nlat,Nspin,Nspin,Norb,Norb))
+  allocate(dens(Ly,Norb),rho(Ly,Norb))
+  allocate(wm(Lmats),wr(Lreal))
   S0=zero
+
 
 
   !Buil the Hamiltonian on a grid or on  path
@@ -104,7 +109,7 @@ program ed_bhz_2d_edge
      call ed_get_sigma_real_lattice(Sreal,Nlat)
      S0 = Smats(:,:,:,:,:,1)
      ! compute the local gf:
-     call ed_get_gloc_lattice(Hkr,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
+     call ed_get_gloc_lattice(Hkr,Wtk,Gmats,Greal,Smats,Sreal,iprint=1,tridiag=tridiag)
      ! compute the Weiss field
      call ed_get_weiss_lattice(Gmats,Smats,Weiss,Hloc,iprint=1)
      ! fit baths and mix result with old baths
@@ -138,6 +143,7 @@ contains
   !+-----------------------------------------------------------------------------+!
   subroutine build_hkr(file)
     character(len=*),optional          :: file
+    integer :: i,ik
     !
     !SETUP THE GAMMA MATRICES:
     allocate(gamma1(Nso,Nso),gamma2(Nso,Nso),gamma5(Nso,Nso))
@@ -145,15 +151,11 @@ contains
     gamma2=kron_pauli( pauli_tau_0,-pauli_sigma_y )
     gamma5=kron_pauli( pauli_tau_0, pauli_sigma_z )
     !
-    !PRINT H(kx,Ry) ALONG A -pi:pi PATH
-    if(mpiID==0)call build_eigenbands()
-    !
     !SETUP THE H(kx,Ry):
     if(mpiID==0)then
-       write(LOGfile,*)"Build H(k_x,r_y) for BHZ-stripe:"
-       write(*,*)"# of k-points     :",Nk
-       write(*,*)"# of layers       :",Nlat
-       write(*,*)"# of SO-bands     :",Nso
+       write(LOGfile,*)"Build H(kx,y) for BHZ-stripe:"
+       write(*,*)"# of kx-points     :",Nk
+       write(*,*)"# of y-layers      :",Nlat
     endif
     !
 
@@ -178,6 +180,31 @@ contains
     allocate(bhzHloc(Nlso,Nlso))
     bhzHloc = extract_Hloc(Hkr,Nlat,Nspin,Norb)
     !
+    !Solve H(kx,Ry) ALONG A -pi:pi PATH
+    if(mpiID==0)call build_eigenbands()
+    !
+    ! compute the local gf:
+    Smats=zero
+    Sreal=zero
+    wm = pi/beta*(2*arange(1,Lmats)-1)
+    wr = linspace(wini,wfin,Lreal)
+    call ed_get_gloc_lattice(Hkr,Wtk,Gmats,Greal,Smats,Sreal,iprint=0,tridiag=tridiag)
+    open(10,file="density_"//reg(txtfy(tridiag))//".nint")
+    open(11,file="rho_"//reg(txtfy(tridiag))//".nint")
+    do iy=1,Ly
+       ispin=1
+       do iorb=1,Norb
+          call splot("Gloc_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_"//reg(txtfy(iy,4))//"_iw.nint",wm,Gmats(iy,ispin,ispin,iorb,iorb,:))
+          call splot("Gloc_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_"//reg(txtfy(iy,4))//"_realw.nint",wr,&
+               -dimag(Greal(iy,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(iy,ispin,ispin,iorb,iorb,:)))
+          dens(iy,iorb) = fft_get_density(Gmats(iy,ispin,ispin,iorb,iorb,:),beta)
+          rho(iy,iorb)  = -dimag(Gmats(iy,ispin,ispin,iorb,iorb,1))/pi
+       enddo
+       write(10,"(I4,1000F20.12)")iy,(dens(iy,iorb),iorb=1,Norb)
+       write(11,"(I4,1000F20.12)")iy,(rho(iy,iorb),iorb=1,Norb)
+    enddo
+    close(10)
+    close(11)
   end subroutine build_hkr
 
 
@@ -191,13 +218,14 @@ contains
     integer                            :: Npts
     character(len=64)                  :: file
     if(present(kpath_))then
-       if(ED_MPI_ID==0)write(LOGfile,*)"Build E(k) along a given path:"
+       if(ED_MPI_ID==0)write(LOGfile,*)"Solve H(kx,y) along a given path:"
        Npts = size(kpath_,1)
        allocate(kpath(Npts,size(kpath_,2)))
        kpath=kpath_
        file="Eig_path.nint"
     else
        !PRINT H(kx,Ry) ALONG A -pi:pi PATH
+       if(ED_MPI_ID==0)write(LOGfile,*)"Solve H(kx,y) along [-pi:pi]:"
        Npts=3
        allocate(Kpath(Npts,1))
        kpath(1,:)=[-1]*pi
@@ -230,21 +258,21 @@ contains
     do i=1,Nlat
        Idmin=1+(i-1)*N
        Idmax=      i*N
-       Hrk(Idmin:Idmax,Idmin:Idmax) = Hmat + select_block(i,S0)
+       Hrk(Idmin:Idmax,Idmin:Idmax)=Hmat + select_block(i,S0)
     enddo
     do i=1,Nlat-1
        Idmin=1 + (i-1)*N
        Idmax=        i*N
-       Itmin=1 + i*N
+       Itmin=1 +     i*N
        Itmax=    (i+1)*N
-       Hrk(Idmin:Idmax,Itmin:Itmax) = Tmat
-       Hrk(Itmin:Itmax,Idmin:Idmax) = TmatH
+       Hrk(Idmin:Idmax,Itmin:Itmax)=Tmat
+       Hrk(Itmin:Itmax,Idmin:Idmax)=TmatH
     enddo
     if(pbc)then
        Itmin=1+(Nlat-1)*N
        Itmax=0+Nlat*N
-       Hrk(1:N,Itmin:Itmax) = TmatH
-       Hrk(Itmin:Itmax,1:N) = Tmat
+       Hrk(1:N,Itmin:Itmax)=TmatH
+       Hrk(Itmin:Itmax,1:N)=Tmat
     endif
   end function bhz_edge_model
 
@@ -260,5 +288,8 @@ contains
     complex(8),dimension(N,N)  :: H
     H = -0.5d0*e0*gamma5 + xi*0.5d0*lambda*gamma2
   end function T0_rk_bhz
+
+
+
 
 end program ed_bhz_2d_edge
