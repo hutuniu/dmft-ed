@@ -56,8 +56,8 @@ EXE=ed_bhz_2d_edge
 #EXE=ed_hm_slab
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
-#EXE=ed_nano
-EXE=hartree_nano
+EXE=ed_nano
+#EXE=hartree_nano
 
 ##$ --> Extended Hubbard models 
 #EXE=ed_cdwhm_bethe
