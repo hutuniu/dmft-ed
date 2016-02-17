@@ -1,4 +1,4 @@
-program ed_bhz_3d
+paprogram ed_bhz_3d
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
@@ -16,9 +16,8 @@ program ed_bhz_3d
   complex(8),allocatable :: Smats(:,:,:,:,:),Sreal(:,:,:,:,:)
   complex(8),allocatable :: Gmats(:,:,:,:,:),Greal(:,:,:,:,:)
   !hamiltonian input:
-  complex(8),allocatable :: Hk(:,:,:),bhzHloc(:,:)
+  complex(8),allocatable :: Hk(:,:,:),bhzHloc(:,:),sigmaBHZ(:,:)
   real(8),allocatable    :: Wtk(:)
-  real(8),allocatable    :: kxgrid(:),kygrid(:),kzgrid(:)
   integer,allocatable    :: ik2ix(:),ik2iy(:),ik2iz(:)
   !variables for the model:
   integer                :: Nk,Nkpath
@@ -66,15 +65,27 @@ program ed_bhz_3d
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(SigmaBHZ(Nso,Nso))
+  call set_sigmaBHZ()           !this set sigma_BHZ(0) to zero
+  !
   !
   !
   if(getpoles)then
+     call read_sigma(Sreal)
+     call read_sigma(Smats)
+     !Get 3d bands for U=0 Hamiltonian
+     call build_Hk_path()
+     !Get 3d Bands from Top. Hamiltonian
+     call solve_hk_topological( so2j(Smats(:,:,:,:,1),Nso) )
+     !Get Poles
      call get_poles
+
      stop
   endif
   !
-  !Buil the Hamiltonian on a grid or on  path
-  call build_hk(trim(hkfile))
+  !
+  !Buil the Hamiltonian on a grid or on path
+  call build_hk(trim(hkfile))!
   !
   !Setup solver
   Nb=get_bath_size()
@@ -118,7 +129,10 @@ program ed_bhz_3d
      if(ED_MPI_ID==0)call end_loop
   enddo
   !
+  !Get kinetic energy:
   Eout = ed_kinetic_energy(Hk,Wtk,Smats)
+  !Get 3d Bands from Top. Hamiltonian
+  call solve_hk_topological( so2j(Smats(:,:,:,:,1),Nso) )
   !
 #ifdef _MPI
   call MPI_FINALIZE(ED_MPI_ERR)
@@ -144,6 +158,7 @@ contains
     integer                             :: unit
     complex(8),dimension(Nso,Nso,Lmats) :: Gmats
     complex(8),dimension(Nso,Nso,Lreal) :: Greal
+    real(8)                             :: kxgrid(Nk),kygrid(Nk),kzgrid(Nk)
     real(8)                             :: wm(Lmats),wr(Lreal),dw,n0(Nso)
     !
     !get H(k) and solve the non-interacting problem along a path in 3d:
@@ -156,15 +171,9 @@ contains
     if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
     if(allocated(Hk))deallocate(Hk)
     if(allocated(wtk))deallocate(wtk)
-    if(allocated(kxgrid))deallocate(kxgrid)
-    if(allocated(kygrid))deallocate(kygrid)
-    if(allocated(kzgrid))deallocate(kzgrid)
     allocate(Hk(Nso,Nso,Lk))
     allocate(wtk(Lk))
-    allocate(kxgrid(Nk),kygrid(Nk),kzgrid(Nk))
-    kxgrid = kgrid(Nk)
-    kygrid = kgrid(Nk)
-    kzgrid = kgrid(Nk)
+    kxgrid = kgrid(Nk);kygrid = kgrid(Nk);kzgrid = kgrid(Nk)
     Hk     = build_hk_model(hk_bhz,Nso,kxgrid,kygrid,kzgrid)
     wtk    = 1d0/Lk
     if(ED_MPI_ID==0.AND.present(file))then
@@ -179,6 +188,7 @@ contains
     endif
     !
     !Get the local part of H(k)
+    if(allocated(bhzHloc))deallocate(bhzHloc)
     allocate(bhzHloc(Nso,Nso))
     bhzHloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs(dreal(bhzHloc))<1.d-9)bhzHloc=0d0
@@ -210,34 +220,38 @@ contains
   !PURPOSE: GET THE BHZ HAMILTONIAN ALONG A 3D PATH IN THE BZ
   !---------------------------------------------------------------------
   subroutine build_hk_path(kpath_)
-    integer                            :: i,j
-    integer                            :: Npts
-    real(8),dimension(:,:),optional :: kpath_
-    real(8),dimension(:,:),allocatable :: kpath
-    !This routine build the H(k) along the GXMG path in BZ,
-    !Hk(k) is constructed along this path.
-    if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
+    integer                                :: i,j
+    integer                                :: Npts
+    real(8),dimension(:,:),optional        :: kpath_
+    real(8),dimension(:,:),allocatable     :: kpath
+    character(len=64)                      :: file
+    !
+    !This routine build the H(k) along the GXMG path in BZ, Hk(k) is constructed along this path.
+    !
+    sigmaBHZ=zero
     if(present(kpath_))then
+       if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) BHZ along a given path:"
        Npts = size(kpath_,1)
        Lk=(Npts-1)*Nkpath
-       allocate(kpath(Npts,size(kpath_,2)))
+       allocate(kpath(Npts,size(kpath_,2)))      
        kpath=kpath_
+       file="Eig_path.nint"
     else
-       Npts = 9
+       if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) BHZ along the X-G-M-R-Z-A-G-Z path:"
+       Npts = 8
        Lk=(Npts-1)*Nkpath
        allocate(kpath(Npts,3))
-       kpath(1,:)=[0,0,0]!G
-       kpath(2,:)=[1,0,0]!X
+       kpath(1,:)=[0,1,0]!X
+       kpath(2,:)=[0,0,0]!G
        kpath(3,:)=[1,1,0]!M
-       kpath(4,:)=[0,0,0]!G
-       kpath(5,:)=[1,1,1]!R
-       kpath(6,:)=[1,0,1]!M
-       kpath(7,:)=[0,0,1]!X
-       kpath(8,:)=[1,1,1]!R
-       kpath(9,:)=[0,0,0]!G
+       kpath(4,:)=[1,1,1]!R
+       kpath(5,:)=[0,0,1]!Z
+       kpath(6,:)=[1,0,1]!A
+       kpath(7,:)=[0,0,0]!G
+       kpath(8,:)=[0,0,1]!Z
        kpath=kpath*pi
+       file="Eigenbands.nint"
     endif
-    print*,Lk
     if(allocated(Hk))deallocate(Hk)
     if(allocated(wtk))deallocate(wtk)
     allocate(Hk(Nso,Nso,Lk))
@@ -246,10 +260,40 @@ contains
     wtk    = 1d0/Lk
     if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_bhz,Nso,kpath,Lk,&
          colors_name=[character(len=20) :: 'red','blue','red','blue'],&
-         points_name=[character(len=20) :: "G","X","M","G","R","M","X","R","G"],&
-         file="Eigenband.nint")
+         points_name=[character(len=20) :: "X","G","M","R","Z","A","G","Z"],&
+         file=reg(file))
   end subroutine build_hk_path
 
+
+  subroutine solve_hk_topological(sigma)
+    integer                                :: i,j
+    integer                                :: Npts
+    complex(8),dimension(Nso,Nso)          :: sigma(Nso,Nso)
+    real(8),dimension(:,:),allocatable     :: kpath
+    !
+    !This routine build the H(k) along the GXMG path in BZ, Hk(k) is constructed along this path.
+    if(ED_MPI_ID==0)then
+       if(ED_MPI_ID==0)write(LOGfile,*)"Build H_TOP(k) BHZ along the X-G-M-R-Z-A-G-Z path:"
+       !
+       Npts = 8
+       Lk=(Npts-1)*Nkpath
+       allocate(kpath(Npts,3))
+       kpath(1,:)=[0,1,0]!X
+       kpath(2,:)=[0,0,0]!G
+       kpath(3,:)=[1,1,0]!M
+       kpath(4,:)=[1,1,1]!R
+       kpath(5,:)=[0,0,1]!Z
+       kpath(6,:)=[1,0,1]!A
+       kpath(7,:)=[0,0,0]!G
+       kpath(8,:)=[0,0,1]!Z
+       kpath=kpath*pi
+       call set_sigmaBHZ(sigma)
+       if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_bhz,Nso,kpath,Lk,&
+            colors_name=[character(len=20) :: 'red','blue','red','blue'],&
+            points_name=[character(len=20) :: "X","G","M","R","Z","A","G","Z"],&
+            file="Eig_Htop.ed")
+    endif
+  end subroutine solve_hk_topological
 
 
 
@@ -257,6 +301,11 @@ contains
   !--------------------------------------------------------------------!
   !BHZ HAMILTONIAN:
   !--------------------------------------------------------------------!
+  subroutine set_SigmaBHZ(sigma)
+    complex(8),dimension(Nso,Nso),optional :: sigma(Nso,Nso)
+    sigmaBHZ = zero;if(present(sigma))sigmaBHZ=sigma
+  end subroutine set_SigmaBHZ
+
   function hk_bhz(kpoint,N) result(hk)
     real(8),dimension(:)      :: kpoint
     integer                   :: N
@@ -276,6 +325,9 @@ contains
          lambda*sin(-kx)*pauli_tau_x + lambda*sin(-ky)*pauli_tau_y)
     Hk(1:2,3:4) = lambda*sin(kz)*pauli_tau_x
     Hk(3:4,1:2) = lambda*sin(kz)*pauli_tau_x
+    !add the SigmaBHZ term to get Topologial Hamiltonian if required:
+    Hk = Hk + dreal(SigmaBHZ)
+    !
   end function hk_bhz
 
 
@@ -314,10 +366,13 @@ contains
     call read_sigma(Sreal)
     call read_sigma(Smats)
     !
-    allocate(kpath(3,3))
-    kpath(1,:)=[-0.125,-0.125,-0.125]!G-e<-M
+    allocate(kpath(6,3))
+    kpath(1,:)=[-0.125,-0.125,-0.125]!G-e<-R
     kpath(2,:)=[0,0,0]!G
-    kpath(3,:)=[0.125,0.125,0.125]!G+e->M
+    kpath(3,:)=[0.125,0.125,0.125]!G+e->R
+    kpath(4,:)=[1-0.125,1-0.125,1-0.125]!R-e<-G
+    kpath(5,:)=[1,1,1]!R
+    kpath(6,:)=[1+0.125,1+0.125,1+0.125]!R+e->G
     kpath=kpath*pi
     call build_hk_path(kpath)
     !

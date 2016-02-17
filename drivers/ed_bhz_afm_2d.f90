@@ -7,29 +7,44 @@ program ed_bhz_afm_2d
   USE SCIFOR
   USE DMFT_TOOLS
   implicit none
-  integer                   :: ip,iloop,Lk,Nso,Nlso,ispin,iorb
-  logical                   :: converged
-  integer                   :: Nineq
+  integer                                       :: ip,iloop,Lk,Nso,Nlso,ispin,iorb
+  logical                                       :: converged
+  integer                                       :: Nineq
   !Bath:
-  integer                   :: Nb
-  real(8),allocatable       :: Bath(:,:),Bath_prev(:,:)
+  integer                                       :: Nb
+  real(8),allocatable                           :: Bath(:,:),Bath_prev(:,:)
   !The local hybridization function:
-  complex(8),allocatable    :: Delta(:,:,:,:,:,:)
-  complex(8),allocatable    :: Smats(:,:,:,:,:,:)
-  complex(8),allocatable    :: Sreal(:,:,:,:,:,:)
-  complex(8),allocatable    :: Gmats(:,:,:,:,:,:)
-  complex(8),allocatable    :: Greal(:,:,:,:,:,:)
+  !The local hybridization function:
+  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Weiss_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Smats,Smats_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Sreal,Sreal_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Gmats,Gmats_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Greal,Greal_ineq
   !Hamiltonian input:
-  complex(8),allocatable    :: Hk(:,:,:),bhzHloc(:,:),Hloc(:,:,:,:,:)
-  real(8),allocatable       :: Wtk(:)
+  complex(8),allocatable,dimension(:,:,:)       :: Hk ![Nlat*Nspin*Norb,Nlat*Nspin*Norb,Nk]
+  complex(8),allocatable,dimension(:,:)         :: bhzHloc
+  complex(8),allocatable,dimension(:,:,:,:,:)   :: Hloc
+  complex(8),allocatable,dimension(:,:,:,:,:)   :: Hloc_ineq
+  real(8),allocatable,dimension(:)              :: Wtk
   !variables for the model:
-  integer                   :: Nktot,Nkx,Nkpath,unit
-  real(8)                   :: mh,lambda,wmixing
-  character(len=16)         :: finput
-  character(len=32)         :: hkfile
-  logical                   :: waverage,spinsym,fullsym
+  integer                                       :: Nktot,Nkx,Nkpath,unit
+  real(8)                                       :: mh,lambda,wmixing
+  character(len=16)                             :: finput
+  character(len=32)                             :: hkfile
+  logical                                       :: waverage,spinsym,fullsym
   !Dirac matrices:
-  complex(8),dimension(4,4) :: Gamma1,Gamma2,Gamma3,Gamma4,Gamma5
+  complex(8),dimension(4,4)                     :: Gamma1,Gamma2,Gamma3,Gamma4,Gamma5
+
+
+#ifdef _MPI_INEQ
+  ! START MPI !
+  call MPI_INIT(mpiERR)
+  call MPI_COMM_RANK(MPI_COMM_WORLD,mpiID,mpiERR)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
+  write(*,"(A,I4,A,I4,A)")'Processor ',mpiID,' of ',mpiSIZE,' is alive'
+  call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+#endif
+
 
   !Parse additional variables && read Input && read H(k)^4x4
   call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ.conf')
@@ -73,12 +88,27 @@ program ed_bhz_afm_2d
   Gamma5 = kron_pauli(pauli_0,pauli_z)
 
   !Allocate Weiss Field:
-  allocate(Delta(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Greal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+  !
+  allocate(Weiss_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Smats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Sreal_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(Gmats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Greal_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lreal))
+  !
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))
+  allocate(Hloc_ineq(Nineq,Nspin,Nspin,Norb,Norb))
+
+  !   allocate(Delta(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+  !   allocate(Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+  !   allocate(Sreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+  !   allocate(Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+  !   allocate(Greal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+  !   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))
+
 
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
@@ -86,13 +116,15 @@ program ed_bhz_afm_2d
 
   !Setup solver
   Nb=get_bath_size()
-  allocate(bath(Nlat,Nb))
-  allocate(Bath_prev(Nlat,Nb))
-  do ip=1,Nlat
-     ed_file_suffix="_site"//reg(txtfy(ip))
-     call ed_init_solver(bath(ip,:))
-     call break_symmetry_bath(bath(ip,:),sb_field,(-1d0)**(ip+1))
-     write(LOGfile,*)"Updated Hloc, site:",ip
+  allocate(Bath(Nineq,Nb))
+  allocate(Bath_prev(Nineq,Nb))
+  call ed_init_solver_lattice(Bath)
+  do ip=1,Nineq
+     ! ed_file_suffix="_site"//reg(txtfy(ip))
+     ! call ed_init_solver(bath(ip,:))
+     call break_symmetry_bath(Bath(ip,:),sb_field,(-1d0)**(ip+1))
+     ! write(LOGfile,*)"Updated Hloc, site:",ip
+     Hloc_ineq(ip,:,:,:,:) = Hloc(ip,:,:,:,:)
   enddo
 
 
@@ -100,16 +132,23 @@ program ed_bhz_afm_2d
   iloop=0;converged=.false.
   do while(.not.converged.AND.iloop<nloop)
      iloop=iloop+1
-     call start_loop(iloop,nloop,"DMFT-loop")
+     if(mpiID==0) call start_loop(iloop,nloop,"DMFT-loop")
      !
-     !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
+     ! Solve the impurity problems
+     ! do ip=1,Nineq
+     !    write(LOGfile,*)"Solving site:",ip
+     !    ed_file_suffix="_site"//reg(txtfy(ip))
+     !    call set_hloc(Hloc(ip,:,:,:,:))
+     !    call ed_solve(bath(ip,:))
+     !    call ed_get_sigma_matsubara(Smats(ip,:,:,:,:,:))
+     !    call ed_get_sigma_real(Sreal(ip,:,:,:,:,:))
+     ! enddo
+     call ed_solve_lattice(Bath,Hloc_ineq,iprint=1)
+     call ed_get_sigma_matsubara_lattice(Smats_ineq,Nineq)
+     call ed_get_sigma_real_lattice(Sreal_ineq,Nineq)
      do ip=1,Nineq
-        write(LOGfile,*)"Solving site:",ip
-        ed_file_suffix="_site"//reg(txtfy(ip))
-        call set_hloc(Hloc(ip,:,:,:,:))
-        call ed_solve(bath(ip,:))
-        call ed_get_sigma_matsubara(Smats(ip,:,:,:,:,:))
-        call ed_get_sigma_real(Sreal(ip,:,:,:,:,:))
+        Smats(ip,:,:,:,:,:) = Smats_ineq(ip,:,:,:,:,:)
+        Sreal(ip,:,:,:,:,:) = Sreal_ineq(ip,:,:,:,:,:)
      enddo
      if(fullsym)then
         do ispin=1,2
@@ -124,51 +163,132 @@ program ed_bhz_afm_2d
      !
      ! compute the local gf:
      call ed_get_gloc_lattice(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
-     !
-     ! compute the Weiss field
-     call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc,iprint=1)
-     !
-     ! fit the new bath
      do ip=1,Nineq
-        ed_file_suffix="_is"//reg(txtfy(ip))
-        call set_hloc(Hloc(ip,:,:,:,:))
-        call ed_chi2_fitgf(delta(ip,1,1,:,:,:),bath(ip,:),ispin=1)
-        if(.not.spinsym)then
-           call ed_chi2_fitgf(delta(ip,2,2,:,:,:),bath(ip,:),ispin=2)
-        else
-           call spin_symmetrize_bath(bath(ip,:))
-        endif
+        Gmats_ineq(ip,:,:,:,:,:) = Gmats(ip,:,:,:,:,:)
+        Greal_ineq(ip,:,:,:,:,:) = Greal(ip,:,:,:,:,:)
      enddo
      !
-     ! manipulate the baths according to the symmetry
-     if(fullsym)then
-        do ispin=1,2
-           call copy_component_bath(bath(1,:),3-ispin,bath(2,:),ispin)
+     ! Compute the Weiss field
+     call ed_get_weiss_lattice(Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=1)
+     ! call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc,iprint=1)
+     !
+     ! fit the new bath
+     ! do ip=1,Nineq
+     !    ed_file_suffix="_site"//reg(txtfy(ip))
+     !    call set_hloc(Hloc(ip,:,:,:,:))
+     !    call ed_chi2_fitgf(delta(ip,1,1,:,:,:),bath(ip,:),ispin=1)
+     !    if(.not.spinsym)then
+     !       call ed_chi2_fitgf(delta(ip,2,2,:,:,:),bath(ip,:),ispin=2)
+     !    else
+     !       call spin_symmetrize_bath(bath(ip,:))
+     !    endif
+     ! enddo
+     call ed_chi2_fitgf_lattice(Bath,Weiss_ineq,Hloc_ineq,ispin=1)     
+     if(spinsym)then
+        do ip=1,Nineq
+           call spin_symmetrize_bath(Bath(ip,:))
         enddo
-        bath(3,:)=bath(1,:)
-        bath(4,:)=bath(2,:)
-     elseif(.not.fullsym)then
-        if(waverage)then
-           bath(1,:)=(bath(1,:)+bath(3,:))/2.d0
-           bath(2,:)=(bath(2,:)+bath(4,:))/2.d0
-        endif
-        bath(3,:)=bath(1,:)
-        bath(4,:)=bath(2,:)
+     else
+        call ed_chi2_fitgf_lattice(Bath,Weiss_ineq,Hloc_ineq,ispin=2)
      endif
+     !
+     ! ! manipulate the baths according to the symmetry
+     ! if(fullsym)then
+     !    do ispin=1,2
+     !       call copy_component_bath(bath(1,:),3-ispin,bath(2,:),ispin)
+     !    enddo
+     !    bath(3,:)=bath(1,:)
+     !    bath(4,:)=bath(2,:)
+     ! elseif(.not.fullsym)then
+     !    if(waverage)then
+     !       bath(1,:)=(bath(1,:)+bath(3,:))/2.d0
+     !       bath(2,:)=(bath(2,:)+bath(4,:))/2.d0
+     !    endif
+     !    bath(3,:)=bath(1,:)
+     !    bath(4,:)=bath(2,:)
+     ! endif
      !
      ! Mixing:
      if(iloop>1)bath = wmixing*bath + (1.d0-wmixing)*Bath_prev
      Bath_prev=Bath
      !
      ! Convergence
-     converged = check_convergence(delta(1,1,1,1,1,1:Lfit),dmft_error,nsuccess,nloop)
+     if(mpiID==0)converged = check_convergence(Weiss_ineq(1,1,1,1,1,1:Lfit),dmft_error,nsuccess,nloop)
+#ifdef _MPI_INEQ
+     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
      !
-     call end_loop
+     ! End Dmft loop
+     if(mpiID==0) call end_loop()
   enddo
+
+#ifdef _MPI_INEQ
+  call MPI_FINALIZE(mpiERR)
+#endif
   print*,"Bravo"
 
 
 contains
+
+
+
+
+  subroutine get_shcond()
+    real(8),dimension(L)                :: wm,vm
+    complex(8),dimension(2,2)           :: g0k,KerU,KerD
+    complex(8),dimension(2,2,2,Nktot,L) :: Gk
+    complex(8),dimension(L)             :: Kmats
+    complex(8),dimension(2,2,2,Nktot)   :: Vkx,Vky
+    complex(8)                          :: Ksum
+    real(8)                             :: kx,ky,C_qsh
+    integer                             :: iw,iv,ik,i,j
+    wm = pi/beta*real(2*arange(1,L)-1,8)
+    vm = pi/beta*real(2*arange(1,L)-2,8)
+    Kmats=zero
+    ik=0
+    do i=1,Nkx
+       kx = kxgrid(i)
+       do j=1,Nkx
+          ky = kxgrid(j)
+          ik=ik+1
+          Vkx(1,:,:,ik) = sin(kx)*pauli_tau_z + lambda*cos(kx)*pauli_tau_x
+          Vky(1,:,:,ik) = sin(ky)*pauli_tau_z + lambda*cos(ky)*pauli_tau_y
+          Vkx(2,:,:,ik) = sin(kx)*pauli_tau_z - lambda*cos(kx)*pauli_tau_x
+          Vky(2,:,:,ik) = sin(ky)*pauli_tau_z + lambda*cos(ky)*pauli_tau_y
+          do iw=1,L
+             g0k = (xi*wm(iw)+xmu)*eye(2)-hk_bhz2x2(kx,ky)
+             call inv(g0k)
+             Gk(1,:,:,ik,iw) = g0k
+             g0k = (xi*wm(iw)+xmu)*eye(2)-conjg(hk_bhz2x2(-kx,-ky))
+             call inv(g0k)
+             Gk(2,:,:,ik,iw) = g0k
+          enddo
+       enddo
+    enddo
+    call start_timer
+    do iv=1,L
+       Ksum=zero
+       do iw=1,L-iv+1
+          do ik=1,Nktot
+             KerU = matmul( Vky(1,:,:,ik) , Gk(1,:,:,ik,iw+iv-1) )
+             KerU = matmul( KerU          , Vkx(1,:,:,ik)      )
+             KerU = matmul( KerU          , Gk(1,:,:,ik,iw)    )
+             KerD = matmul( Vky(2,:,:,ik) , Gk(2,:,:,ik,iw+iv-1) )
+             KerD = matmul( KerD          , Vkx(2,:,:,ik)      )
+             KerD = matmul( KerD          , Gk(2,:,:,ik,iw)    )
+             Ksum = Ksum + trace_matrix(KerU,2)-trace_matrix(KerD,2)
+          enddo
+       enddo
+       Kmats(iv) = -Ksum/beta*2*pi/Nktot
+       call eta(iv,L)
+    enddo
+    call stop_timer
+    C_qsh = dreal(Kmats(2))/vm(2)
+    open(100,file="qsh_conductance.nint")
+    write(100,*) C_qsh
+    close(100)
+    print*,C_qsh
+  end subroutine get_shcond
 
 
 
