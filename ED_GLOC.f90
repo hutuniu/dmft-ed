@@ -145,6 +145,10 @@ contains
     integer                                         :: i,ik,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,js
     !
     !Testing part:
+    !
+    tridiag_=.false.;if(present(tridiag))tridiag_=tridiag
+    hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
+    !
     Nlat  = size(Smats,1)
     Nspin = size(Smats,2)
     Norb  = size(Smats,4)
@@ -172,10 +176,6 @@ contains
     if(tridiag_.AND.(present(Gamma_mats).OR.present(Gamma_real)))then
        if(mpiID==0)write(LOGfile,"(A)")"ed_get_gloc_normal_lattice_main warning: called with tridiag=TRUE and Gamma Embded: Disreagarded."
     endif
-    !
-    tridiag_=.false.;if(present(tridiag))tridiag_=tridiag
-    hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
-    !
     if(mpiID==0)write(LOGfile,"(A)")"Get local GF (id=0):"
     !
     if(allocated(wm))deallocate(wm)

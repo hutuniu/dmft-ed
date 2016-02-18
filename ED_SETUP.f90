@@ -3,7 +3,7 @@ MODULE ED_SETUP
   USE ED_VARS_GLOBAL
   USE ED_AUX_FUNX
   USE SF_TIMER
-  USE SF_IOTOOLS, only:free_unit,reg
+  USE SF_IOTOOLS, only:free_unit,reg,file_length
   implicit none
   private
 
@@ -13,6 +13,7 @@ MODULE ED_SETUP
   end interface print_state_vector
 
 
+  public :: setup_ed_dimensions
   public :: init_ed_structure
   public :: setup_pointers_normal
   public :: setup_pointers_superc
@@ -35,13 +36,7 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : Init calculation
   !+------------------------------------------------------------------+
-  subroutine init_ed_structure(Hunit)
-    character(len=64)                        :: Hunit
-    logical                                  :: control
-    real(8),dimension(Nspin,Nspin,Norb,Norb) :: reHloc         !local hamiltonian, real part 
-    real(8),dimension(Nspin,Nspin,Norb,Norb) :: imHloc         !local hamiltonian, imag part
-    integer                                  :: i,dim_sector_max,iorb,jorb,ispin,jspin
-    !
+  subroutine setup_ed_dimensions()
     !Norb=# of impurity orbitals
     !Nbath=# of bath sites (per orbital or not depending on bath_type)
     !Ns=total number of sites
@@ -57,16 +52,31 @@ contains
     select case(ed_mode)
     case default
        Nsectors = (Ns+1)*(Ns+1)
-       dim_sector_max=get_normal_sector_dimension(nup=Ns/2,ndw=Ns-Ns/2)
        Nhel     = 1
     case ("superc")
        Nsectors = Nlevels+1        !sz=-Ns:Ns=2*Ns+1=Nlevels+1
-       dim_sector_max=get_superc_sector_dimension(0)
        Nhel     = 1
     case("nonsu2")
        Nsectors = Nlevels+1        !n=0:2*Ns=2*Ns+1=Nlevels+1
-       dim_sector_max=get_nonsu2_sector_dimension(Ns)
        Nhel     = 2
+    end select
+  end subroutine setup_ed_dimensions
+
+  subroutine init_ed_structure(Hunit)
+    character(len=64)                        :: Hunit
+    logical                                  :: control
+    real(8),dimension(Nspin,Nspin,Norb,Norb) :: reHloc         !local hamiltonian, real part 
+    real(8),dimension(Nspin,Nspin,Norb,Norb) :: imHloc         !local hamiltonian, imag part
+    integer                                  :: i,dim_sector_max,iorb,jorb,ispin,jspin
+    !
+    call setup_ed_dimensions()
+    select case(ed_mode)
+    case default
+       dim_sector_max=get_normal_sector_dimension(nup=Ns/2,ndw=Ns-Ns/2)
+    case ("superc")
+       dim_sector_max=get_superc_sector_dimension(0)
+    case("nonsu2")
+       dim_sector_max=get_nonsu2_sector_dimension(Ns)
     end select
     !
     if(ED_MPI_ID==0)then
@@ -151,7 +161,6 @@ contains
           lanc_nstates_total=lanc_nstates_total+1
           if(ED_MPI_ID==0)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_total:",lanc_nstates_total
        endif
-
     endif
 
     if(finiteT)then
@@ -223,6 +232,12 @@ contains
   subroutine setup_pointers_normal
     integer                          :: i,in,dim,isector,jsector
     integer                          :: nup,ndw,jup,jdw,iorb
+    integer                          :: unit,status,istate,counter
+    logical                          :: IOfile
+    integer                          :: anint
+    real(8)                          :: adouble
+    integer                          :: list_len
+    integer,dimension(:),allocatable :: list_sector
     if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
     if(ED_MPI_ID==0)call start_timer
     isector=0
@@ -234,9 +249,32 @@ contains
           getndw(isector)=ndw
           dim = get_normal_sector_dimension(nup,ndw)
           getdim(isector)=dim
-          neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
        enddo
     enddo
+    inquire(file="state_list"//reg(ed_file_suffix)//".restart",exist=IOfile)
+    if(IOfile)then
+       write(LOGfile,"(A)")"Restarting from a state_list file:"
+       list_len=file_length("state_list"//reg(ed_file_suffix)//".restart")
+       allocate(list_sector(list_len))
+       open(free_unit(unit),file="state_list"//reg(ed_file_suffix)//".restart",status="old")
+       read(unit,*)!read comment line
+       status=0
+       do while(status>=0)
+          read(unit,"(i3,f18.12,2x,ES19.12,1x,2i3,3x,i3,i10)",iostat=status)istate,adouble,adouble,nup,ndw,isector,anint
+          list_sector(istate)=isector
+          if(nup/=getnup(isector).OR.ndw/=getndw(isector))&
+               stop "setup_pointers_normal error: nup!=getnup(isector).OR.ndw!=getndw(isector) "
+       enddo
+       close(unit)
+       lanc_nstates_total = list_len
+       do isector=1,Nsectors
+          neigen_sector(isector) = max(1,count(list_sector==isector))
+       enddo
+    else
+       do isector=1,Nsectors
+          neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
+       enddo
+    endif
     twin_mask=.true.
     if(ed_twin)then
        do isector=1,Nsectors
@@ -303,6 +341,12 @@ contains
   subroutine setup_pointers_superc
     integer                          :: i,isz,in,dim,isector,jsector
     integer                          :: sz,iorb,jsz
+    integer                          :: unit,status,istate
+    logical                          :: IOfile
+    integer                          :: anint
+    real(8)                          :: adouble
+    integer                          :: list_len
+    integer,dimension(:),allocatable :: list_sector
     if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
     if(ED_MPI_ID==0)call start_timer
     isector=0
@@ -315,6 +359,28 @@ contains
        getdim(isector)=dim
        neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
     enddo
+    inquire(file="state_list"//reg(ed_file_suffix)//".restart",exist=IOfile)
+    if(IOfile)then
+       list_len=file_length("state_list"//reg(ed_file_suffix)//".restart")
+       allocate(list_sector(list_len))
+       open(free_unit(unit),file="state_list"//reg(ed_file_suffix)//".restart",status="old")
+       read(unit,*)!read comment line
+       status=0
+       do while(status>=0)
+          read(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)",iostat=status) istate,adouble,adouble,sz,isector,anint
+          list_sector(istate)=isector
+          if(sz/=getsz(isector))stop "setup_pointers_superc error: sz!=getsz(isector)."
+       enddo
+       close(unit)
+       lanc_nstates_total = list_len
+       do isector=1,Nsectors
+          neigen_sector(isector) = max(1,count(list_sector==isector))
+       enddo
+    else
+       do isector=1,Nsectors
+          neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
+       enddo
+    endif
     twin_mask=.true.
     !<TODO 
     !build the twin sector statements in the Superconducting channel.
@@ -385,6 +451,12 @@ contains
   subroutine setup_pointers_nonsu2
     integer                          :: i,dim,isector,jsector
     integer                          :: in,jn,iorb
+    integer                          :: unit,status,istate
+    logical                          :: IOfile
+    integer                          :: anint
+    real(8)                          :: adouble
+    integer                          :: list_len
+    integer,dimension(:),allocatable :: list_sector
     if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
     if(ED_MPI_ID==0)call start_timer
     isector=0
@@ -396,6 +468,28 @@ contains
        getdim(isector)=dim
        neigen_sector(isector) = min(dim,lanc_nstates_sector)
     enddo
+    inquire(file="state_list"//reg(ed_file_suffix)//".restart",exist=IOfile)
+    if(IOfile)then
+       list_len=file_length("state_list"//reg(ed_file_suffix)//".restart")
+       allocate(list_sector(list_len))
+       open(free_unit(unit),file="state_list"//reg(ed_file_suffix)//".restart",status="old")
+       read(unit,*)!read comment line
+       status=0
+       do while(status>=0)
+          read(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)",iostat=status) istate,adouble,adouble,in,isector,anint
+          list_sector(istate)=isector
+          if(in/=getn(isector))stop "setup_pointers_superc error: n!=getn(isector)."
+       enddo
+       close(unit)
+       lanc_nstates_total = list_len
+       do isector=1,Nsectors
+          neigen_sector(isector) = max(1,count(list_sector==isector))
+       enddo
+    else
+       do isector=1,Nsectors
+          neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
+       enddo
+    endif
     twin_mask=.true.
     !<TODO 
     !build the twin sector statements in the non-SU2 channel.

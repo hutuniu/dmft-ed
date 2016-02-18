@@ -12,14 +12,14 @@ PLAT=intel
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-#FPP_INEQ=MPI_INEQ
+FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
 #FPP_ED=MPI
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=$(HOME)/opt
+LIBDIR=/opt
 
 
 ##$ CHOOSE THE MODEL BY SELECTING THE PROGRAM DRIVER
@@ -64,7 +64,6 @@ EXE=ed_nano
 #EXE=ed_cdwhm_bethe_loop
 #EXE=ed_ehm_bethe
 #EXE=ed_ed_ehm_bethe_loop
-
 
 ##$ --> nonSU2 
 #EXE=ed_SIO

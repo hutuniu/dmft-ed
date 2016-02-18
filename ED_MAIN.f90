@@ -253,7 +253,8 @@ module ED_MAIN
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: SAmatsii,SArealii        ![Nlat][Nspin][Nspin][Norb][Norb][L]
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Gmatsii,Grealii          ![Nlat][Nspin][Nspin][Norb][Norb][L]
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Fmatsii,Frealii          ![Nlat][Nspin][Nspin][Norb][Norb][L]
-
+  integer,allocatable,dimension(:,:)                 :: neigen_sectorii          ![Nlat][Nsectors]
+  integer,allocatable,dimension(:)                   :: neigen_totalii           ![Nlat]
   real(8),dimension(:),allocatable                   :: wr,wm
   character(len=64)                                  :: suffix
 
@@ -295,18 +296,25 @@ contains
   end subroutine ed_init_solver
 
   subroutine ed_init_solver_lattice(bath)
-    real(8),dimension(:,:) :: bath ![Nlat][:]
-    integer                :: ilat,Nineq
-    logical                :: check_dim
-    character(len=5)       :: tmp_suffix
+    real(8),dimension(:,:)             :: bath ![Nlat][:]
+    integer                            :: ilat,Nineq,Nsect
+    logical                            :: check_dim
+    character(len=5)                   :: tmp_suffix
     Nineq = size(bath,1)
     if(Nineq > Nlat)stop "init_lattice_bath error: size[bath,1] > Nlat"
+    call setup_ed_dimensions() ! < Nsectors
+    if(allocated(neigen_sectorii))deallocate(neigen_sectorii)
+    if(allocated(neigen_totalii))deallocate(neigen_totalii)
+    allocate(neigen_sectorii(Nineq,Nsectors))
+    allocate(neigen_totalii(Nineq))
     do ilat=1,Nineq
        check_dim = check_bath_dimension(bath(ilat,:))
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
        write(tmp_suffix,'(I4.4)') ilat
        ed_file_suffix="_site"//trim(tmp_suffix)
        call ed_init_solver(bath(ilat,:))
+       neigen_sectorii(ilat,:) = neigen_sector(:)
+       neigen_totalii(ilat)    = lanc_nstates_total
     end do
 #ifdef _MPI_INEQ
     call MPI_Barrier(MPI_COMM_WORLD,mpiERR)
@@ -348,32 +356,35 @@ contains
 
   subroutine ed_solve_lattice(bath,Hloc,iprint,Uloc_ii,Ust_ii,Jh_ii)
     !inputs
-    real(8)                  :: bath(:,:) ![Nlat][Nb]
-    complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
-    integer                  :: iprint
-    real(8),optional         :: Uloc_ii(size(bath,1),Norb)
-    real(8),optional         :: Ust_ii(size(bath,1))
-    real(8),optional         :: Jh_ii(size(bath,1))
+    real(8)          :: bath(:,:) ![Nlat][Nb]
+    complex(8)       :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    integer          :: iprint
+    real(8),optional :: Uloc_ii(size(bath,1),Norb)
+    real(8),optional :: Ust_ii(size(bath,1))
+    real(8),optional :: Jh_ii(size(bath,1))
     !MPI  auxiliary vars
-    complex(8)               :: Smats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)               :: Sreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8)               :: SAmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)               :: SAreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8)               :: Gmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)               :: Greal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8)               :: Fmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)               :: Freal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
-    real(8)                  :: nii_tmp(size(bath,1),Norb)
-    real(8)                  :: dii_tmp(size(bath,1),Norb)
-    real(8)                  :: mii_tmp(size(bath,1),Norb)
-    real(8)                  :: pii_tmp(size(bath,1),Norb)
-    real(8)                  :: eii_tmp(size(bath,1),4)
-    real(8)                  :: ddii_tmp(size(bath,1),4)
+    complex(8)       :: Smats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)       :: Sreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)       :: SAmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)       :: SAreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)       :: Gmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)       :: Greal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)       :: Fmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)       :: Freal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
+    real(8)          :: nii_tmp(size(bath,1),Norb)
+    real(8)          :: dii_tmp(size(bath,1),Norb)
+    real(8)          :: mii_tmp(size(bath,1),Norb)
+    real(8)          :: pii_tmp(size(bath,1),Norb)
+    real(8)          :: eii_tmp(size(bath,1),4)
+    real(8)          :: ddii_tmp(size(bath,1),4)
+    !
+    integer          :: neigen_sectortmp(size(bath,1),Nsectors)
+    integer          :: neigen_totaltmp(size(bath,1))
     ! 
-    integer                  :: ilat,iorb,jorb,ispin,jspin
-    integer                  :: Nsites
-    logical                  :: check_dim
-    character(len=5)         :: tmp_suffix
+    integer          :: ilat,iorb,jorb,ispin,jspin
+    integer          :: Nsites
+    logical          :: check_dim
+    character(len=5) :: tmp_suffix
     !
     ! Check dimensions !
     Nsites=size(bath,1)
@@ -415,6 +426,11 @@ contains
     allocate(Fmatsii(Nsites,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(Frealii(Nsites,Nspin,Nspin,Norb,Norb,Lreal))
     !
+    if(size(neigen_sectorii,1)/=Nsites)stop "ed_solve_lattice error: size(neigen_sectorii,1)!=Nsites"
+    if(size(neigen_totalii)/=Nsites)stop "ed_solve_lattice error: size(neigen_totalii,1)!=Nsites"
+    neigen_sectortmp = 0
+    neigen_totaltmp  = 0
+    !
     !Check the dimensions of the bath are ok:
     do ilat=1+mpiID,Nsites,mpiSIZE
        check_dim = check_bath_dimension(bath(ilat,:))
@@ -449,8 +465,12 @@ contains
        !Set the local part of the Hamiltonian.
        call set_Hloc(Hloc(ilat,:,:,:,:))
        ! 
-       !Solve the impurity problem for the ilat-th site
+       !Solve the impurity problem for the ilat-th site\
+       neigen_sector(:)   = neigen_sectorii(ilat,:)
+       lanc_nstates_total = neigen_totalii(ilat)
        call ed_solve(bath(ilat,:))
+       neigen_sectortmp(ilat,:)   = neigen_sector(:)
+       neigen_totaltmp(ilat)      = lanc_nstates_total
        Smats_tmp(ilat,:,:,:,:,:)  = impSmats(:,:,:,:,:)
        Sreal_tmp(ilat,:,:,:,:,:)  = impSreal(:,:,:,:,:)
        SAmats_tmp(ilat,:,:,:,:,:) = impSAmats(:,:,:,:,:)
@@ -468,6 +488,10 @@ contains
     enddo
     if(mpiID==0)call stop_timer
 #ifdef _MPI_INEQ
+    neigen_sectorii=0
+    neigen_totalii =0
+    call MPI_ALLREDUCE(neigen_sectortmp,neigen_sectorii,Nsites*Nsectors,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+    call MPI_ALLREDUCE(neigen_totaltmp,neigen_totalii,Nsites,MPI_INTEGER,MPI_SUM,MPI_COMM_WORLD,MPIerr)
     call MPI_ALLREDUCE(Smats_tmp,Smatsii,Nsites*Nspin*Nspin*Norb*Norb*Lmats,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
     call MPI_ALLREDUCE(Sreal_tmp,Srealii,Nsites*Nspin*Nspin*Norb*Norb*Lreal,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
     call MPI_ALLREDUCE(SAmats_tmp,SAmatsii,Nsites*Nspin*Nspin*Norb*Norb*Lmats,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
@@ -483,6 +507,8 @@ contains
     call MPI_ALLREDUCE(eii_tmp,eii,Nsites*4,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
     call MPI_ALLREDUCE(ddii_tmp,ddii,Nsites*4,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
 #else
+    neigen_sectorii=neigen_sectortmp
+    neigen_totalii =neigen_totaltmp
     Smatsii  =  Smats_tmp
     Srealii  =  Sreal_tmp
     SAmatsii = SAmats_tmp

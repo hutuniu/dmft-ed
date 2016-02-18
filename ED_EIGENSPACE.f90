@@ -269,7 +269,8 @@ contains        !some routine to perform simple operation on the lists
        p%next%next%isreal=.false.
        p%next%next%itwin=.true.
        p%next%next%sector=get_twin_sector(sector)
-       p%next%next%twin => p%next
+       p%next%next%twin => p%next      ! wiggled arrow of the twin_wout_vector points to its twin_w_vector
+       p%next%twin      => p%next%next ! wiggled arrow of the twin_w_vector points to its twin_wout_vector
        space%size = space%size+1
     endif
     if(.not.associated(c))then !end of the list special case (current=>current%next)
@@ -297,34 +298,96 @@ contains        !some routine to perform simple operation on the lists
   !+------------------------------------------------------------------+
   !PURPOSE  : remove last element from the list, if +n is given remove 
   ! the n-th element, if +e is given remove the state with state%e=e
+  ! hint: CIRCLE = twin state (a state flagged with itwin=T bearing no vector)
+  !       SQUARE = normal state (itwin=F bearing vector)
   !+------------------------------------------------------------------+
   subroutine es_pop_state(space,n)
     type(sparse_espace),intent(inout) :: space
     integer,optional,intent(in)       :: n
     integer                           :: i,pos
-    type(sparse_estate),pointer       :: p,c
+    logical                           :: bool(2)
+    type(sparse_estate),pointer       :: pp,p,c
+    !
     pos= space%size ; if(present(n))pos=n
+    !
     if(pos>space%size)stop "es_pop_state: pos > espace.size"
     if(space%size==0)stop "es_pop_state: empty list"
-    c => space%root
+    pp => null()
+    p  => null()
+    c  => space%root
     do i=1,pos
-       p => c
-       c => c%next
+       pp => p
+       p  => c
+       c  => c%next
        if(.not.associated(c))return !empty or end of the list
     end do
-    p%next => c%next !reallocate and skip the deleted link
-    if(associated(c%vec))deallocate(c%vec)
-    if(associated(c%cvec))deallocate(c%cvec)
-    if(associated(c%twin))c%twin=>null()
-    deallocate(c)           !free link
-    if(pos==space%size)then     !pop last term carrying e=emax, update emax
-       space%emax = p%e
-    elseif(pos==1)then          !pop first term carrying e=emin, update emin
-       space%emin = p%e
+    !c is a circle, so the prev/next are necessarily squares: remove c and p (twins)
+    if(c%itwin)then             
+       pp%next => c%next
+       !delete C
+       if(associated(c%vec))deallocate(c%vec)
+       if(associated(c%cvec))deallocate(c%cvec)
+       if(associated(c%twin))c%twin=>null()
+       deallocate(c)
+       !delete P
+       if(associated(p%vec))deallocate(p%vec)
+       if(associated(p%cvec))deallocate(p%cvec)
+       if(associated(p%twin))p%twin=>null()
+       deallocate(p)
+       p => pp
+       space%size=space%size-2
+    else
+       !c is a square:
+       !if c%next is associated:
+       ! if it is a circle: delete c and c%next (twins)
+       ! if it is a square: delete c
+       !else c%next is not associated: delete c
+       if(associated(c%next))then
+          if(c%next%itwin)then
+             p%next => c%next%next 
+             !delete C
+             if(associated(c%vec))deallocate(c%vec)
+             if(associated(c%cvec))deallocate(c%cvec)
+             if(associated(c%twin))c%twin=>null()
+             deallocate(c)
+             !delete C%NEXT
+             if(associated(c%next%vec))deallocate(c%next%vec)
+             if(associated(c%next%cvec))deallocate(c%next%cvec)
+             if(associated(c%next%twin))c%next%twin=>null()
+             deallocate(c%next)
+             space%size=space%size-2
+          else
+             p%next => c%next      
+             if(associated(c%vec))deallocate(c%vec)
+             if(associated(c%cvec))deallocate(c%cvec)
+             if(associated(c%twin))c%twin=>null()
+             deallocate(c)
+             space%size=space%size-1
+          endif
+       else
+          p%next => c%next      
+          if(associated(c%vec))deallocate(c%vec)
+          if(associated(c%cvec))deallocate(c%cvec)
+          if(associated(c%twin))c%twin=>null()
+          deallocate(c)
+          space%size=space%size-1
+       endif
     endif
-    space%size=space%size-1
-    p=>null()
-    c=>null()
+    if(space%size>0)then
+       !    space%root%next => null()
+       !    space%size=0
+       !    space%emax=-huge(1.d0)
+       !    space%emin=huge(1.d0)
+       ! else
+       if(pos==space%size)then     !pop last term carrying e=emax, update emax
+          space%emax = p%e
+       elseif(pos==1)then          !pop first term carrying e=emin, update emin
+          space%emin = p%e
+       endif
+    endif
+    pp=>null()
+    p =>null()
+    c =>null()
   end subroutine es_pop_state
 
 

@@ -444,19 +444,21 @@ contains
           lanc_nstates_total=lanc_nstates_total + lanc_nstates_step
           if(ED_MPI_ID==0)write(LOGfile,"(A,I4)")"Increasing lanc_nstates_total:",lanc_nstates_total
        else
-          !Find the energy level beyond which cutoff condition is verified & cut the list to that size
-          do i=1,Nsize
-             Ei = es_return_energy(state_list,i)
-             if(exp(-beta*(Ei-Egs)) <= cutoff)exit
-          enddo
-          nstates_below_cutoff=i
-          if(trim_state_list)lanc_nstates_total=max(nstates_below_cutoff,lanc_nstates_step)
-          NtoBremoved=state_list%size - nstates_below_cutoff + 1
-          do i=1,NtoBremoved
+          ! !Find the energy level beyond which cutoff condition is verified & cut the list to that size
+          isector = es_return_sector(state_list,state_list%size)
+          Ei      = es_return_energy(state_list,state_list%size)
+          do while ( exp(-beta*(Ei-Egs)) <= cutoff )
+             if(ed_verbose<4.AND.ED_MPI_ID==0)write(LOGfile,"(A,I4,2x,I3,I3)")"Trimming state:",isector,getnup(isector),getndw(isector)
              call es_pop_state(state_list)
+             isector = es_return_sector(state_list,state_list%size)
+             Ei      = es_return_energy(state_list,state_list%size)
+
           enddo
-          if(ed_verbose<4.AND.ED_MPI_ID==0.AND.trim_state_list)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
-          if(ed_verbose<4.AND.ED_MPI_ID==0)write(*,"(A,I4)")"Trim list_size to         :",state_list%size
+          if(ed_verbose<4.AND.ED_MPI_ID==0)call print_state_list(LOGfile)
+          if(trim_state_list)then
+             lanc_nstates_total=max(state_list%size,lanc_nstates_step)
+             if(ed_verbose<4.AND.ED_MPI_ID==0)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
+          endif
        endif
     endif
   end subroutine ed_analysis
