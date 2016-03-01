@@ -17,16 +17,16 @@ program ed_STO
   complex(8),allocatable :: Smats(:,:,:,:,:),Sreal(:,:,:,:,:)
   complex(8),allocatable :: Gmats(:,:,:,:,:),Greal(:,:,:,:,:)
   !hamiltonian input:
-  complex(8),allocatable :: Hk(:,:,:),bhzHloc(:,:),Ti3dt2g_Hloc(:,:)
+  complex(8),allocatable :: Hk(:,:,:)
+  complex(8),allocatable :: Ti3dt2g_Hloc(:,:)
   real(8),allocatable    :: Wtk(:)
   real(8),allocatable    :: kxgrid(:),kygrid(:),kzgrid(:)
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
   real(8)                :: soc,ivb,wmixing,sumdens
-  logical                :: surface,Hk_test
+  logical                :: surface,Hk_test,rotateG0loc
   character(len=16)      :: finput
   character(len=32)      :: hkfile
-  logical                :: spinsym
   !convergence function
   complex(8),allocatable :: delta_conv(:,:,:),delta_conv_avrg(:)
   !density matrix
@@ -48,16 +48,15 @@ program ed_STO
   call parse_input_variable(nk,     "NK",finput,        default=10)
   call parse_input_variable(nkpath, "NKPATH",finput,    default=500)
   call parse_input_variable(wmixing,"WMIXING",finput,   default=0.5d0)
-  call parse_input_variable(spinsym,"SPINSYM",finput,   default=.true.)
   call parse_input_variable(soc,    "SOC",finput,       default=0.25d0)
   call parse_input_variable(ivb,    "IVB",finput,       default=0.02d0)
   call parse_input_variable(surface,"SURFACE",finput,   default=.false.)
   call parse_input_variable(Hk_test,"HK_TEST",finput,   default=.false.)
+  call parse_input_variable(rotateG0loc,"ROTATEG0loc",finput, default=.false.)
   call ed_read_input(trim(finput))
-
-  !if(Nspin/=2.OR.Norb/=2)stop "Wrong setup from input file: Nspin=Norb=2 -> 4Spin-Orbitals"
+  !
   Nso=Nspin*Norb
-
+  !
   !Allocate Weiss Field:
   allocate(delta(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Smats(Nspin,Nspin,Norb,Norb,Lmats))
@@ -92,6 +91,9 @@ program ed_STO
      call build_hk_path
      call ed_get_sigma_real(Sreal)
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
+     call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
+     if(ED_MPI_ID==0)call rotate_Gloc(Greal)
+     if(ED_MPI_ID==1)call Quantum_operator()
      call ed_get_weiss(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2(Ti3dt2g_Hloc),iprint=3)
      !density matrix
      if(ED_MPI_ID==0)then
@@ -101,7 +103,7 @@ program ed_STO
      Bath_=bath
      if (ed_mode=="normal") then
         call ed_chi2_fitgf(delta,bath,ispin=1)
-        call spin_symmetrize_bath(bath,save=.true.)
+        call spin_symmetrize_bath(bath,save=.false.)
      else
         call ed_chi2_fitgf(delta,bath)
      endif
@@ -169,36 +171,46 @@ contains
     integer                             :: unit
     complex(8),dimension(Nso,Nso,Lmats) :: Gmats
     complex(8),dimension(Nso,Nso,Lreal) :: Greal
-    complex(8),dimension(6,6)           :: theta
+    complex(8),dimension(6,6)           :: theta,impHloc_rot
     real(8)                             :: wm(Lmats),wr(Lreal),dw
 
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for STO:"
-
-    if(.not.surface) Lk=Nk**3
-    if(surface)      Lk=Nk**2
-    
+    !
+    !Alloco quantità
+    !
+    if(surface) then
+       Lk=Nk**2
+    else
+       Lk=Nk**3
+    endif
     if(ED_MPI_ID==0)write(*,*)"# of k-points     :",Lk
     if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
     if(allocated(Hk))deallocate(Hk)
     allocate(Hk(Nso,Nso,Lk));allocate(wtk(Lk));allocate(kxgrid(Nk),kygrid(Nk),kzgrid(Nk))
+    wtk = 1.0d0/Lk
     kxgrid=0.0d0;kygrid=0.0d0;kzgrid=0.0d0
     kxgrid = kgrid(Nk)
     kygrid = kgrid(Nk)
     if(.not.surface) kzgrid = kgrid(Nk)
-
-    if(.not.surface) Hk = build_hk_model(hk_Ti3dt2g,Nso,kxgrid,kygrid,kzgrid)
-    if(surface)      Hk = build_hk_model(hk_Ti3dt2g,Nso,kxgrid,kygrid,[0d0])
-
-    wtk = 1.0d0/Lk
-    if(ED_MPI_ID==0.AND.present(file))then
-        if(.not.surface) call write_hk_w90(file,Nso,Nd=Norb,Np=1,Nineq=1,hk=Hk,kxgrid=kxgrid,kygrid=kxgrid,kzgrid=kzgrid)
-        if(surface)      call write_hk_w90(file,Nso,Nd=Norb,Np=1,Nineq=1,hk=Hk,kxgrid=kxgrid,kygrid=kxgrid,kzgrid=[0d0] )
+    !
+    !scrivo H(k)
+    !
+    if(surface) then
+       Hk = build_hk_model(hk_Ti3dt2g,Nso,kxgrid,kygrid,[0d0])
+       if(ED_MPI_ID==0.AND.present(file)) call write_hk_w90(file,Nso,Nd=Norb,Np=1,Nineq=1,hk=Hk,kxgrid=kxgrid,kygrid=kxgrid,kzgrid=[0d0] )
+    else
+       Hk = build_hk_model(hk_Ti3dt2g,Nso,kxgrid,kygrid,kzgrid)
+       if(ED_MPI_ID==0.AND.present(file)) call write_hk_w90(file,Nso,Nd=Norb,Np=1,Nineq=1,hk=Hk,kxgrid=kxgrid,kygrid=kxgrid,kzgrid=kzgrid)
     endif
-
+    !
+    !calcolo impHloc = Sum_k [ H(k) ]
+    !
     allocate(Ti3dt2g_Hloc(Nso,Nso))
     Ti3dt2g_Hloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs((Ti3dt2g_Hloc))<1.d-9)Ti3dt2g_Hloc=0d0
-
+    !
+    !scrivo impHloc
+    !
     if(ED_MPI_ID==0) then
        call write_Hloc(Ti3dt2g_Hloc)
        write(*,*)
@@ -213,8 +225,9 @@ contains
        enddo
        write(*,*)
     endif
-
+    !
     !Build the local GF in the spin-orbital Basis:
+    !
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     do ik=1,Lk
@@ -237,27 +250,79 @@ contains
           enddo
        enddo
     enddo
-    !Build the local GF in the J-Jz Basis: theta funziona per Gloc nell'ordine di Z o per H *solo al punto gamma*
-    if(.not.Hk_test) then
-    call build_rotation(theta)
-    do i=1,Lmats
-       Gmats(:,:,i)=matmul(transpose(conjg(theta)),matmul(Gmats(:,:,i),theta))
-    enddo
-    do i=1,Lreal
-       Greal(:,:,i)=matmul(transpose(conjg(theta)),matmul(Greal(:,:,i),theta))
-    enddo
+    open(unit=106,file='sum_w_G0loc.dat',status='unknown',action='write',position='rewind')
     do ispin=1,Nspin
        do jspin=1,Nspin
           do iorb=1,Norb
              do jorb=1,Norb
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
-                call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
-                call splot("G0loc_rot_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(Greal(io,jo,:)))
              enddo
           enddo
        enddo
     enddo
+    close(106)
+    !
+    !Build the local GF in the J-Jz Basis (theta is already in the A1 shape)
+    !
+    if((rotateG0loc).and.(.not.Hk_test)) then
+       call build_rotation(theta,impHloc_rot)
+       do i=1,Lreal
+          Greal(:,:,i)=matmul(transpose(conjg(theta)),matmul(Greal(:,:,i),theta))
+       enddo
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   call splot("G0locrot_a_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+                enddo
+             enddo
+          enddo
+       enddo
+       open(unit=106,file='sum_w_G0loc_rot_anlytc.dat',status='unknown',action='write',position='rewind')
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(Greal(io,jo,:)))
+                enddo
+             enddo
+          enddo
+       enddo
+       close(106)
+       !
+       do i=1,Lreal
+          Greal(:,:,i)=matmul(transpose(conjg(impHloc_rot)),matmul(Greal(:,:,i),impHloc_rot))
+       enddo
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   call splot("G0locrot_H_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+                enddo
+             enddo
+          enddo
+       enddo
+       open(unit=106,file='sum_w_G0loc_rot_Hloc.dat',status='unknown',action='write',position='rewind')
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(Greal(io,jo,:)))
+                enddo
+             enddo
+          enddo
+       enddo
+       close(106)
     endif
 
   end subroutine build_hk
@@ -366,7 +431,7 @@ contains
   end function hk_Ti3dt2g_Hartree
 
   !---------------------------------------------------------------------
-  !PURPOSE: various 2x2 band BULK structures
+  !PURPOSE: 2x2 band structures
   !---------------------------------------------------------------------
   function band_cos_omo(kx,ky,kz) result(hk)
     real(8)                         :: kx,ky,kz
@@ -433,7 +498,7 @@ contains
        if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g_Hartree,Nso,kpath,Lk,&
             colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
             points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
-            file="Eigenband_bulk_H.nint")
+            file="Eigenband_bulk_Hartree.nint")
 
 
     else
@@ -455,7 +520,7 @@ contains
        if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g_Hartree,Nso,kpath,Lk,&
             colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
             points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
-            file="Eigenband_surf_H.nint")
+            file="Eigenband_surf_Hartree.nint")
     endif
   end subroutine build_hk_path
 
@@ -553,8 +618,10 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: Build the rotation "theta" that diagonalizes SOC
   !---------------------------------------------------------------------
-  subroutine build_rotation(theta_)
-    complex(8),dimension(6,6),intent(out) :: theta_
+  subroutine build_rotation(theta_,impHloc_rot_)
+    complex(8),dimension(6,6),intent(out)           :: theta_
+    complex(8),dimension(6,6),optional,intent(out)  :: impHloc_rot_
+    real(8),dimension(6)                            :: impHloc_eig
     theta_=cmplx(0.0d0,0.0d0)
     !J=1/2 jz=-1/2
     theta_(1,1)=-Xi
@@ -585,6 +652,13 @@ contains
     theta_(6,6)=+2.0d0*Xi
     theta_(:,6)=theta_(:,6)/sqrt(6.)
     theta_=reshape_Z_to_A1(theta_)
+
+    if(present(impHloc_rot_)) then
+       impHloc_rot_=zero
+       impHloc_rot_=Ti3dt2g_Hloc
+       call matrix_diagonalize(impHloc_rot_,impHloc_eig,'V','U')
+    endif
+
   end subroutine build_rotation
 
 
@@ -616,6 +690,283 @@ contains
     call inversion_test(g0k,g0k_tmp,1.e-9)
 
   end function inverse_g0k
+
+  subroutine rotate_Gloc(Gsowr)
+    implicit none
+    complex(8),allocatable,intent(in)             ::   Gsowr(:,:,:,:,:)
+    complex(8),allocatable                        ::   G_in(:,:,:),G_out(:,:,:)
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)   ::   theta,impHloc_rot
+    integer                                       ::   io,jo
+    integer                                       ::   ispin,jspin
+    integer                                       ::   iorb,jorb
+    real(8)                                       ::   wr(Lreal),dw
+    !
+    write(*,*) "A(w) rotation"
+    !
+    wr = linspace(wini,wfin,Lreal,mesh=dw)
+    call build_rotation(theta,impHloc_rot)
+    if(allocated( G_in))deallocate( G_in);allocate( G_in(Nspin*Norb,Nspin*Norb,Lreal));G_in=zero
+    if(allocated(G_out))deallocate(G_out);allocate(G_out(Nspin*Norb,Nspin*Norb,Lreal));G_out=zero
+    !
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                G_in(io,jo,:)=Gsowr(ispin,jspin,iorb,jorb,:)
+             enddo
+          enddo
+       enddo
+    enddo
+    open(unit=106,file='sum_w_Gloc.dat',status='unknown',action='write',position='rewind')
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_in(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    close(106)
+    !
+    do i=1,Lreal
+       G_out(:,:,i)=matmul(transpose(conjg(impHloc_rot)),matmul(G_in(:,:,i),impHloc_rot))
+    enddo
+    !
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                call splot("Glocrot_H_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    open(unit=106,file='sum_w_Gloc_rot_Hloc.dat',status='unknown',action='write',position='rewind')
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_in(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    close(106)
+    !
+    G_out=zero
+    do i=1,Lreal
+       G_out(:,:,i)=matmul(transpose(conjg(theta)),matmul(G_in(:,:,i),theta))
+    enddo
+    !
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                call splot("Glocrot_a_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    open(unit=106,file='sum_w_Gloc_rot_anlytc.dat',status='unknown',action='write',position='rewind')
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_in(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    close(106)
+    !
+  end subroutine rotate_Gloc
+
+  !---------------------------------------------------------------------
+  !PURPOSE: 
+  !---------------------------------------------------------------------
+  subroutine Quantum_operator()
+    implicit none
+    complex(8),allocatable             :: Gso(:,:,:,:,:)
+    complex(8),allocatable             :: Stot(:,:,:),Ltot(:,:,:)
+    complex(8)                         :: LdotS
+    complex(8)                         :: Sx,Lx,Sy,Ly,Sz,Lz,jz
+    integer                            :: ilat,io,jo
+    integer                            :: ispin,jspin
+    integer                            :: iorb,jorb
+    real(8)                            :: wm(Lmats),wr(Lreal),dw
+    real(8)                            :: site_mag(Norb)
+    !
+    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wr = linspace(wini,wfin,Lreal,mesh=dw)
+    allocate( Gso(Nspin,Nspin,Norb,Norb,Lmats)); Gso=zero
+    call ed_get_gimp_matsubara(Gso)
+    !
+    !##############################################################
+    !
+    !                              S
+    !
+    !##############################################################
+    !
+    write(*,*) "Computing total Spin operator per orbital"
+    write(*,*) "Lmats used:",Lmats
+    allocate(Stot(3,Norb,Norb));Stot=zero
+    !
+    do iorb=1,Norb
+       do jorb=1,Norb
+          !Sx
+          Stot(1,iorb,jorb)=sum(    (Gso(1,2,iorb,jorb,:)+Gso(2,1,iorb,jorb,:) ))/beta
+          !Sy
+          Stot(2,iorb,jorb)=sum( xi*(Gso(2,1,iorb,jorb,:)-Gso(1,2,iorb,jorb,:) ))/beta
+          !Sz
+          Stot(3,iorb,jorb)=sum(    (Gso(1,1,iorb,jorb,:)-Gso(2,2,iorb,jorb,:) ))/beta
+       enddo
+    enddo
+    !
+    site_mag=0.d0
+    site_mag=ed_get_mag()
+    !
+    open(unit=105,file='Stot.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(105,'(a100)') "#diagonal orbital"
+    write(105,'(30a20)') "Re{Sx}_11","Re{Sx}_22","Re{Sx}_33" &
+                        ,"Re{Sy}_11","Re{Sy}_22","Re{Sy}_33" &
+                        ,"Re{Sz}_11","Re{Sz}_22","Re{Sz}_33" &
+                        ,"Im{Sx}_11","Im{Sx}_22","Im{Sx}_33" &
+                        ,"Im{Sy}_11","Im{Sy}_22","Im{Sy}_33" &
+                        ,"Im{Sz}_11","Im{Sz}_22","Im{Sz}_33" &
+                        ,"mag" 
+    write(105,'(30F20.12)') real(Stot(1,1,1)), real(Stot(1,2,2)), real(Stot(1,3,3)) &
+                          , real(Stot(2,1,1)), real(Stot(2,2,2)), real(Stot(2,3,3)) &
+                          , real(Stot(3,1,1)), real(Stot(3,2,2)), real(Stot(3,3,3)) &
+                          ,aimag(Stot(1,1,1)),aimag(Stot(1,2,2)),aimag(Stot(1,3,3)) &       
+                          ,aimag(Stot(2,1,1)),aimag(Stot(2,2,2)),aimag(Stot(2,3,3)) &
+                          ,aimag(Stot(3,1,1)),aimag(Stot(3,2,2)),aimag(Stot(3,3,3)) &
+                          ,site_mag(1)/2.,site_mag(2)/2.,site_mag(3)/2.
+    write(105,*)
+    write(105,*)
+    write(105,'(a100)') "#inter-orbital"
+    write(105,'(30a20)') "#Sx(orb_1)","Sx(orb_2)","Sx(orb_3)","Sy(orb_1)","Sy(orb_2)","Sy(orb_3)","Sz(orb_1)","Sz(orb_2)","Sz(orb_3)"
+    do iorb=1,Norb
+       write(105,'(30F20.12)') (real(Stot(1,iorb,jorb)),jorb=1,Norb) &
+                              ,(real(Stot(2,iorb,jorb)),jorb=1,Norb) &
+                              ,(real(Stot(3,iorb,jorb)),jorb=1,Norb)
+    enddo
+    write(105,*)
+    do iorb=1,Norb
+       write(105,'(30F20.12)') (aimag(Stot(1,iorb,jorb)),jorb=1,Norb) &
+                              ,(aimag(Stot(2,iorb,jorb)),jorb=1,Norb) &
+                              ,(aimag(Stot(3,iorb,jorb)),jorb=1,Norb)
+    enddo
+    close(105)
+    !
+    !##############################################################
+    !
+    !                              L
+    !
+    !##############################################################
+    !
+    write(*,*) "Computing total Orbital operator per spin"
+    write(*,*) "Lmats used:",Lmats
+    allocate(Ltot(3,Nspin,Nspin));Ltot=zero
+    !
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          !Lx
+          Ltot(1,ispin,jspin)=sum(  xi*(Gso(ispin,jspin,1,3,:)-Gso(ispin,jspin,3,1,:))  )/beta
+          !Ly
+          Ltot(2,ispin,jspin)=sum(  xi*(Gso(ispin,jspin,3,2,:)-Gso(ispin,jspin,2,3,:))  )/beta
+          !Lz
+          Ltot(3,ispin,jspin)=sum(  xi*(Gso(ispin,jspin,1,2,:)-Gso(ispin,jspin,2,1,:))  )/beta
+       enddo
+    enddo
+    !
+    open(unit=106,file='Ltot.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(106,'(a100)') "#diagonal spin"
+    write(106,'(a8,30a20)') "Re{Lx}_1","Re{Lx}_2" &
+                           ,"Re{Ly}_1","Re{Ly}_2" &
+                           ,"Re{Lz}_1","Re{Lz}_2" &
+                           ,"Im{Lx}_1","Im{Lx}_2" &
+                           ,"Im{Ly}_1","Im{Ly}_2" &
+                           ,"Im{Lz}_1","Im{Lz}_2"
+    write(106,'(30F20.12)') real(Ltot(1,1,1)), real(Ltot(1,2,2)) &
+                         ,  real(Ltot(2,1,1)), real(Ltot(2,2,2)) &
+                         ,  real(Ltot(3,1,1)), real(Ltot(3,2,2)) &
+                         , aimag(Ltot(1,1,1)),aimag(Ltot(1,2,2)) &       
+                         , aimag(Ltot(2,1,1)),aimag(Ltot(2,2,2)) &
+                         , aimag(Ltot(3,1,1)),aimag(Ltot(3,2,2))
+    write(106,*)
+    write(106,*)
+    write(106,'(a100)') "#inter-spin"
+    write(106,'(30a20)') "#Lx(spin_1)","Lx(spin_2)","Ly(spin_1)","Ly(spin_2)","Lz(spin_1)","Lz(spin_2)"
+    do ispin=1,Nspin
+       write(106,'(30F20.12)') (real(Ltot(1,ispin,jspin)),jspin=1,Nspin) &
+                              ,(real(Ltot(2,ispin,jspin)),jspin=1,Nspin) &
+                              ,(real(Ltot(3,ispin,jspin)),jspin=1,Nspin)
+    enddo
+    write(106,*)
+    do ispin=1,Nspin
+       write(106,'(30F20.12)') (aimag(Ltot(1,ispin,jspin)),jspin=1,Nspin) &
+                              ,(aimag(Ltot(2,ispin,jspin)),jspin=1,Nspin) &
+                              ,(aimag(Ltot(3,ispin,jspin)),jspin=1,Nspin)
+    enddo
+    close(106)
+    !
+    !##############################################################
+    !
+    !                              L.dot.S
+    !
+    !##############################################################
+    !
+    write(*,*) "Computing total L dot S operator per site"
+    write(*,*) "Lmats used:",Lmats
+    LdotS=zero
+    !
+    LdotS=sum(       +xi*Gso(1,1,1,2,:) &
+                     +xi*Gso(1,2,1,3,:) &  
+                     -xi*Gso(2,2,1,2,:) &  
+                     +xi*Gso(2,1,1,3,:) &  
+                     -xi*Gso(1,1,2,1,:) &  
+                     -   Gso(1,2,2,3,:) &  
+                     +xi*Gso(2,2,2,1,:) &  
+                     +   Gso(2,1,2,3,:) &  
+                     -xi*Gso(1,2,3,1,:) &  
+                     +   Gso(1,2,3,2,:) &  
+                     -xi*Gso(2,1,3,1,:) &  
+                     -   Gso(2,1,3,2,:) &  
+                      )/beta
+    LdotS=LdotS/2.d0
+    !
+    open(unit=107,file='Jz.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(107,'(30a20)') "Re{Sz}_11","Re{Sz}_22","Re{Sz}_33","Im{Sz}_11","Im{Sz}_22","Im{Sz}_33","Re{Tr[Sz]}","Im{Tr[Sz]}" &
+                                                ,"Re{Lz}_uu","Im{Lz}_uu","Re{Lz}_dd","Im{Lz}_dd","Re{Tr[Lz]}","Im{Tr[Lz]}" &
+                                                ,"Re{jz}","Im{jz}","Re{L.S}","Im{L.S}"
+    Sx=trace(Stot(1,:,:));Sy=trace(Stot(2,:,:));Sz=trace(Stot(3,:,:))
+    Lx=trace(Ltot(1,:,:));Ly=trace(Ltot(2,:,:));Lz=trace(Ltot(3,:,:))
+    jz=Sz+Lz
+    write(107,'(30F20.12)') real(Stot(3,1,1)), real(Stot(3,2,2)), real(Stot(3,3,3)) &
+                         , aimag(Stot(3,1,1)),aimag(Stot(3,2,2)),aimag(Stot(3,3,3)),real(Sz),aimag(Sz) &
+                         ,  real(Ltot(3,1,1)), real(Ltot(3,2,2)) &
+                         , aimag(Ltot(3,1,1)),aimag(Ltot(3,2,2)),real(Lz),aimag(Lz) &
+                         ,  real(jz),aimag(jz),real(LdotS),aimag(LdotS)
+    close(107)
+    !
+    deallocate(Ltot,Stot)
+    !
+  end subroutine Quantum_operator
+
+
 
 
 

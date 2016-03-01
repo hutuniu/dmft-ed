@@ -1075,77 +1075,77 @@ contains
 
 
 
-
-
-
-
-
-
-
-
-
   !----------------------------------------------------------------------------------------!
   ! PURPOSE: evaluate the NORMALcomplete Green's function given Hamiltonian and self-energy.
   ! Hk is a big sparse matrix of the form H(k;R_i,R_j)_{ab}^{ss'}
   ! size [Nlat*Nspin*Norb]**2*[Nk]
   !----------------------------------------------------------------------------------------!
-  !>>>>> WARNING: THESE ARE NOT UPDATED <<<<<<
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE:  ADDITIONAL INTERFACES to the main procedures intersite Gloc included
+  !+-----------------------------------------------------------------------------+!
   subroutine ed_get_gij_normal_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,hk_symm,Gamma_mats,Gamma_real)
-    complex(8),dimension(:,:,:)              :: Hk              ![Nlat*Norb*Nspin][Nlat*Norb*Nspin][Nk]
-    real(8)                                  :: Wtk(size(Hk,3)) ![Nk]
-    complex(8),intent(inout)                 :: Gmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8),intent(inout)                 :: Greal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    complex(8),intent(inout)                 :: Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8),intent(inout)                 :: Sreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    integer                                  :: iprint
-    complex(8)                               :: zeta_mats(Nlat,Nspin*Norb,Nspin*Norb,Lmats)
-    complex(8)                               :: zeta_real(Nlat,Nspin*Norb,Nspin*Norb,Lreal)
-    complex(8)                               :: Gkmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats)
-    complex(8)                               :: Gkreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal)
-    logical,optional                         :: hk_symm(size(Hk,3))
-    logical                                  :: hk_symm_(size(Hk,3))
-    complex(8),optional                      :: Gamma_mats(size(Hk,1),size(Hk,2),Lmats)
-    complex(8),optional                      :: Gamma_real(size(Hk,1),size(Hk,2),Lreal)
-    integer                                  :: i,ik,Lk,Nlso,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,js
+    complex(8),dimension(:,:,:),intent(in)            :: Hk        ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
+    real(8),dimension(size(Hk,3)),intent(in)          :: Wtk       ![Nk]
+    complex(8),dimension(:,:,:,:,:,:),intent(in)      :: Smats     !      [Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+    complex(8),dimension(:,:,:,:,:,:),intent(in)      :: Sreal     !      [Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+    complex(8),dimension(:,:,:,:,:,:,:),intent(inout) :: Gmats     ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lmats]
+    complex(8),dimension(:,:,:,:,:,:,:),intent(inout) :: Greal     ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+    integer,intent(in)                                :: iprint
+    logical,dimension(size(Hk,3)),optional            :: hk_symm
+    logical,dimension((size(Hk,3)))                   :: hk_symm_
+    complex(8),dimension(:,:,:),optional              :: Gamma_mats![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lmats]
+    complex(8),dimension(:,:,:),optional              :: Gamma_real![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lreal]
+    !allocatable arrays
+    complex(8),dimension(:,:,:,:,:,:,:),allocatable   :: Gkmats    !as Smats
+    complex(8),dimension(:,:,:,:,:,:,:),allocatable   :: Gkreal    !as Sreal
+    complex(8),dimension(:,:,:,:),allocatable         :: zeta_mats ![Nlat][Nspin*Norb][Nspin*Norb][Lmats]
+    complex(8),dimension(:,:,:,:),allocatable         :: zeta_real ![Nlat][Nspin*Norb][Nspin*Norb][Lreal]
+    !local integers
+    integer                                           :: Nlat,Nspin,Norb,Nso,Nlso,Lmats,Lreal,Lk
+    integer                                           :: i,ik,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,js
     !
-    Lk=size(Hk,3)
-    Nlso=Nlat*Norb*Nspin
-    if(size(Hk,1)/=Nlso.OR.size(Hk,2)/=Nlso) stop "rdmft_get_gloc_normal error: wrong dimensions of Hk"
+    !Testing part:
+    Nlat  = size(Smats,1)
+    Nspin = size(Smats,2)
+    Norb  = size(Smats,4)
+    Lmats = size(Smats,6)
+    Lreal = size(Sreal,6)
+    Lk    = size(Hk,3)
+    Nso   = Nspin*Norb
+    Nlso  = Nlat*Nspin*Norb
+    call assert_shape(Hk,[Nlso,Nlso,Lk],"ed_get_gij_normal_main","Hk")
+    call assert_shape(Smats,[Nlat,Nspin,Nspin,Norb,Norb,Lmats],"ed_get_gij_normal_main","Smats")
+    call assert_shape(Sreal,[Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_gij_normal_main","Sreal")
+    call assert_shape(Gmats,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats],"ed_get_gij_normal_main","Gmats")
+    call assert_shape(Greal,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_gij_normal_main","Greal")
+    if(present(Gamma_mats))&
+         call assert_shape(Gamma_mats,[Nlso,Nlso,Lmats],"ed_get_gij_normal_main","Gamma_mats")         
+    if(present(Gamma_real))&
+         call assert_shape(Gamma_real,[Nlso,Nlso,Lreal],"ed_get_gij_normal_main","Gamma_real")         
+    !
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     !
-    if(mpiID==0)write(LOGfile,*)"Get full GF (id=0):"
-    !here we create the "array" *zeta* of Nlat blocks, each of size (Nspin*Norb)
-    !then we use a newly created function *blocks_to_matrix* to spread the blocks into
-    !a matrix of rank 2 dimensions Nlso*Nlso
+    if(mpiID==0)write(LOGfile,*)"Get local GF (id=0):"
+    if(mpiID==0)write(*,*)"Get local GF FULL (id=0):"
+    !
     if(allocated(wm))deallocate(wm)
     if(allocated(wr))deallocate(wr)
     allocate(wm(Lmats))
     allocate(wr(Lreal))
+    allocate(Gkmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));Gkmats=zero
+    allocate(Gkreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));Gkreal=zero
+    allocate(zeta_mats(Nlat,Nso,Nso,Lmats))
+    allocate(zeta_real(Nlat,Nso,Nso,Lreal))
+    !
     wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
     !
-    zeta_mats=zero
-    zeta_real=zero
     do ilat=1,Nlat
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             io = iorb + (ispin-1)*Norb
-             js = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
-             zeta_mats(ilat,io,io,:) = xi*wm(:)       + xmu !- Eloc_(js)
-             zeta_real(ilat,io,io,:) = wr(:) + xi*eps + xmu !- Eloc_(js)
-          enddo
+       do i=1,Lmats
+          zeta_mats(ilat,:,:,i) = (xi*wm(i)+xmu)*eye(Nso)     - nn2so_reshape(Smats(ilat,:,:,:,:,i),Nspin,Norb)
        enddo
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   zeta_mats(ilat,io,jo,:) = zeta_mats(ilat,io,jo,:) - Smats(ilat,ispin,jspin,iorb,jorb,:)
-                   zeta_real(ilat,io,jo,:) = zeta_real(ilat,io,jo,:) - Sreal(ilat,ispin,jspin,iorb,jorb,:)
-                enddo
-             enddo
-          enddo
+       do i=1,Lreal
+          zeta_real(ilat,:,:,i) = (wr(i)+xi*eps+xmu)*eye(Nso) - nn2so_reshape(Sreal(ilat,:,:,:,:,i),NSpin,Norb)
        enddo
     enddo
     !
@@ -1154,6 +1154,7 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
+    !if(mpiID==0)write(*,*)ik
        if(present(Gamma_mats))then
           call add_to_gij_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=Gamma_mats)
        else
@@ -1169,29 +1170,34 @@ contains
        if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
     end do
     if(mpiID==0)call stop_timer
-    if(mpiID==0)then
-       call print_gij_lattice(Gmats,Greal,"Gij",iprint)
-    endif
+    if(mpiID==0)call print_gij_lattice(Gmats,Greal,"Gij",iprint)
   end subroutine ed_get_gij_normal_main
 
-  !+-----------------------------------------------------------------------------+!
-  !PURPOSE: evaluate the GF for a single k-point
-  !+-----------------------------------------------------------------------------+!
   subroutine add_to_gij_normal(zeta,Hk,hk_symm,Gkout,Gembed)
-    complex(8)                               :: zeta(:,:,:,:)              ![Nlat][Nspin][Nspin][Norb][Norb][Lfreq]
-    complex(8)                               :: Hk(Nlat*Nspin*Norb,Nlat*Nspin*Norb) 
-    logical                                  :: hk_symm
-    !output:
-    complex(8),intent(inout)                 :: Gkout(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta,4))
-    complex(8)                               :: Gktmp(Nlat,Nlat,Nspin,Nspin,Norb,Norb,size(zeta,4))
-    !
-    complex(8)                               :: Gmatrix(Nlat*Nspin*Norb,Nlat*Nspin*Norb)
-    complex(8),optional                      :: Gembed(Nlat*Nspin*Norb,Nlat*Nspin*Norb,size(zeta,4)) ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lfreq]
-    integer                                  :: i,is,Lfreq,ilat,jlat,iorb,jorb,ispin,jspin,io,jo
-    if(size(zeta,1)/=Nlat)stop "add_to_gij_normal error: zeta wrong size 1 = Nlat"
-    if(size(zeta,2)/=Nspin*Norb)stop "add_to_gij_normal error: zeta wrong size 2 = Nspin*Norb"
-    if(size(zeta,3)/=Nspin*Norb)stop "add_to_gij_normal error: zeta wrong size 3 = Nspin*Norb"
+    complex(8),dimension(:,:,:,:),intent(in)          :: zeta    ![Nlat][Nspin*Norb][Nspin*Norb][Lfreq]
+    complex(8),dimension(:,:),intent(in)              :: Hk      ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
+    logical,intent(in)                                :: hk_symm
+    complex(8),dimension(:,:,:,:,:,:,:),intent(inout) :: Gkout   ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lfreq]
+    complex(8),dimension(:,:,:),optional              :: Gembed  ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lfreq]
+    !allocatable arrays
+    complex(8),dimension(:,:,:,:,:,:,:),allocatable   :: Gktmp   ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lfreq]
+    complex(8),dimension(:,:),allocatable             :: Gmatrix ![Nlat*Nspin*Norb][Nlat*Nspin*Norb]
+    !local integers
+    integer                                           :: Nlat,Nspin,Norb,Nso,Nlso,Lfreq
+    integer                                           :: i,is,ilat,jlat,iorb,jorb,ispin,jspin,io,jo
+    Nlat  = size(zeta,1)
+    Nspin = size(Gkout,3)
+    Norb  = size(Gkout,5)
     Lfreq = size(zeta,4)
+    Nso   = Nspin*Norb
+    Nlso  = Nlat*Nspin*Norb
+    call assert_shape(zeta,[Nlat,Nso,Nso,Lfreq],"add_to_gij_normal","zeta")
+    call assert_shape(Hk,[Nlso,Nlso],"add_to_gij_normal","Hk")
+    call assert_shape(Gkout,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lfreq],"add_to_gij_normal","Gkout")
+    if(present(Gembed))&
+         call assert_shape(Gembed,[Nlso,Nlso,Lfreq],"add_to_gij_normal","Gembed")   
+    allocate(Gktmp(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lfreq))
+    allocate(Gmatrix(Nlso,Nlso))
     Gktmp=zero
     do i=1+mpiID,Lfreq,mpiSIZE
        Gmatrix  = blocks_to_matrix(zeta(:,:,:,i)) - Hk
@@ -1217,7 +1223,6 @@ contains
              enddo
           enddo
        enddo
-       !
     enddo
     Gkout=zero
 #ifdef _MPI_INEQ
@@ -1226,13 +1231,6 @@ contains
     Gkout = Gktmp
 #endif
   end subroutine add_to_gij_normal
-
-
-
-
-
-
-
 
 
   !----------------------------------------------------------------------------------------!
@@ -1393,27 +1391,6 @@ contains
     Fkout = Fktmp
 #endif
   end subroutine add_to_gij_superc
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: print a local GF according to iprint variable
@@ -1578,6 +1555,5 @@ contains
        enddo
     end select
   end subroutine print_gij_lattice
-
 
 end module ED_GLOC

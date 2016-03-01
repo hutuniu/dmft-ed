@@ -28,7 +28,7 @@ program ed_SIO
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   character(len=32)      :: HlocFILE
-  logical                :: spinsym,IOfile
+  logical                :: spinsym,IOfile,paraJz,intersite,rotateG0loc
   !convergence function
   complex(8),allocatable :: delta_conv(:,:,:,:),delta_conv_avrg(:)
   !rotation on impHloc
@@ -44,13 +44,16 @@ program ed_SIO
 #endif
 
   !Parse additional variables && read Input && read H(k)^4x4
-  call parse_cmd_variable(finput,     "FINPUT",           default='inputED_SIO.in')
-  !call parse_input_variable(hkfile,   "HKFILE",finput,    default="hkfile.in")
-  call parse_input_variable(HlocFILE, "HlocFILE",finput,  default="Hloc.dat")
-  call parse_input_variable(nk,       "NK",finput,        default=10)
-  call parse_input_variable(wmixing,  "WMIXING",finput,   default=0.5d0)
-  call parse_input_variable(soc,      "SOC",finput,       default=1.d0)
-  call parse_input_variable(Nlat,     "NLAT",finput,      default=8)
+  call parse_cmd_variable(finput,       "FINPUT",             default='inputED_SIO.in')
+  call parse_input_variable(HlocFILE,   "HlocFILE",finput,    default="Hloc.dat")
+  call parse_input_variable(nk,         "NK",finput,          default=10)
+  call parse_input_variable(wmixing,    "WMIXING",finput,     default=0.5d0)
+  call parse_input_variable(soc,        "SOC",finput,         default=1.d0)
+  call parse_input_variable(Nlat,       "NLAT",finput,        default=8)
+  call parse_input_variable(paraJz,     "PARAJz",finput,      default=.false.)
+  call parse_input_variable(intersite,  "INTERSITE",finput,   default=.true.)
+  call parse_input_variable(rotateG0loc,"ROTATEG0loc",finput, default=.false.)
+
   call ed_read_input(trim(finput))
 
   Nso=Nspin*Norb
@@ -83,21 +86,28 @@ program ed_SIO
      !
      call ed_solve_lattice(bath,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc),iprint=3)
      !
-     !post processing on interacting Gfs
-     if(mpiID==0)call rotate_Gimp()
      if(mpiID==1)call Quantum_operator()
-
      !
      call ed_get_sigma_matsubara_lattice(Smats,Nlat)
      call ed_get_sigma_real_lattice(Sreal,Nlat)
      !
-     !if (iloop==1) then
-        !if(mpiID==0) call spin_symmetrize_lattice(Smats,5)
-        !if(mpiID==0) call spin_symmetrize_lattice(Sreal,5)
-     !endif      
-     !
      call ed_get_gloc_lattice(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
+     !
+     call rotate_Gloc()
+     !
      call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc),iprint=3)
+     !
+     if(paraJz) then
+        delta(1,:,:,:,:,:)=(delta(1,:,:,:,:,:)+delta(2,:,:,:,:,:))/2
+        delta(2,:,:,:,:,:)=(delta(1,:,:,:,:,:)+delta(2,:,:,:,:,:))/2
+        delta(3,:,:,:,:,:)=(delta(3,:,:,:,:,:)+delta(4,:,:,:,:,:))/2
+        delta(4,:,:,:,:,:)=(delta(3,:,:,:,:,:)+delta(4,:,:,:,:,:))/2
+        delta(5,:,:,:,:,:)=(delta(5,:,:,:,:,:)+delta(6,:,:,:,:,:))/2
+        delta(6,:,:,:,:,:)=(delta(5,:,:,:,:,:)+delta(6,:,:,:,:,:))/2
+        delta(7,:,:,:,:,:)=(delta(7,:,:,:,:,:)+delta(8,:,:,:,:,:))/2
+        delta(8,:,:,:,:,:)=(delta(7,:,:,:,:,:)+delta(8,:,:,:,:,:))/2
+     endif
+     !
      Bath_=bath
      call ed_chi2_fitgf_lattice(bath,delta,Hloc=reshape_A1_to_A2_L(Ti3dt2g_Hloc))
      if(iloop>1) Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
@@ -167,7 +177,6 @@ contains
     real(8)                                           :: wm(Lmats),wr(Lreal),dw,xmu_0
     real(8)                                           :: dumR(Nlat*Nso,Nlat*Nso),dumI(Nlat*Nso,Nlat*Nso)
     complex(8),dimension(Nlat,Nspin,Nspin,Norb,Norb)  :: Hloc_dum
-    logical                                           :: intersite
     complex(8),allocatable                            :: site_matrix_in(:,:),site_matrix_out(:,:)
     complex(8),allocatable                            :: impHloc_app(:,:)
     !
@@ -179,7 +188,6 @@ contains
     complex(8)                                        :: L_print(Nlat*Nspin,Nlat*Nspin)
     complex(8)                                        :: Lz(Nspin,Nspin)
     !
-    logical                                           :: condition
     integer                                           :: ndx
     real(8)                                           :: alf
     complex(8)                                        :: Jz_avrg
@@ -269,12 +277,6 @@ contains
     if(allocated(impHloc_eig)) deallocate(impHloc_eig)
     allocate(impHloc_eig(Nlat*Nspin*Norb));impHloc_eig=0.d0
     !
-    !
-    !
-    intersite=.true.
-    !
-    !
-    !
     if (intersite) then
        !
        impHloc_rot=zero
@@ -351,13 +353,13 @@ contains
     !
     !#######################################################
     !
-    go to 223
+    if (rotateG0loc) then
     !
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     xmu_0=Ti3dt2g_Hloc(1,1)
+    !wr=wr+xmu_0
     do ik=1,Lk
-       write(*,*)ik
        do i=1,Lmats
           Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+xmu_0,Hk(:,:,ik) )/Lk
        enddo
@@ -438,7 +440,7 @@ contains
        enddo
     enddo
     close(105)
-    223 continue
+    endif
     !
   end subroutine non_interacting_setup
 
@@ -466,10 +468,11 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: rotaizione delle Gimp per portarle in una base simile a J,jz
   !---------------------------------------------------------------------
-  subroutine rotate_Gimp()
+  subroutine rotate_Gloc()
     implicit none
-    complex(8),allocatable             :: G_in(:,:,:),G_out(:,:,:),Gso(:,:,:,:,:,:),analytic_rot_(:,:)
-    integer                            :: ilat,io,jo
+    complex(8),allocatable             :: Gsowr(:,:,:,:,:,:,:),Gsoiw(:,:,:,:,:,:,:)
+    complex(8),allocatable             :: G_in(:,:,:),G_out(:,:,:),analytic_rot_(:,:)
+    integer                            :: ilat,jlat,io,jo
     integer                            :: ispin,jspin
     integer                            :: iorb,jorb
     real(8)                            :: wm(Lmats),wr(Lreal),dw
@@ -477,34 +480,41 @@ contains
     write(*,*) "A(w) rotation"
     !
     wr = linspace(wini,wfin,Lreal,mesh=dw)
-    allocate(  Gso(Nlat,Nspin,Nspin,Norb,Norb,Lreal));Gso=zero
-    allocate( G_in(Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lreal));G_in=zero
-    allocate(G_out(Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lreal));G_out=zero
+    if(allocated(Gsowr))deallocate(Gsowr);allocate(Gsowr(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal));Gsowr=zero
+    if(allocated(Gsoiw))deallocate(Gsoiw);allocate(Gsoiw(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats));Gsoiw=zero
+    if(allocated( G_in))deallocate( G_in);allocate( G_in(Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lreal));G_in=zero
+    if(allocated(G_out))deallocate(G_out);allocate(G_out(Nlat*Nspin*Norb,Nlat*Nspin*Norb,Lreal));G_out=zero
     !
-    call ed_get_gimp_real_lattice(Gso,Nlat)
+    call  ed_get_gij_lattice(Hk,Wtk,Gsoiw,Gsowr,Smats,Sreal,iprint=0)
     !
+    if(mpiID==0)then
+
     do ilat=1,Nlat
+    do jlat=1,Nlat
        do ispin=1,Nspin
           do jspin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
                    io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
-                   jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
-                   G_in(io,jo,:)=Gso(ilat,ispin,jspin,iorb,jorb,:)
+                   jo = jorb + (jspin-1)*Norb + (jlat-1)*Norb*Nspin
+                   G_in(io,jo,:)=Gsowr(ilat,jlat,ispin,jspin,iorb,jorb,:)
                 enddo
              enddo
           enddo
        enddo
     enddo
-    open(unit=106,file='sum_w_impG.dat',status='unknown',action='write',position='rewind')
+    enddo
+    open(unit=106,file='sum_w_Gloc.dat',status='unknown',action='write',position='rewind')
     do ilat=1,Nlat
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
-                   jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
-                   write(106,*) io,jo,"---",ilat,ilat,ispin,jspin,iorb,jorb,sum(abs(G_in(io,jo,:)))
+       do jlat=1,Nlat
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
+                      jo = jorb + (jspin-1)*Norb + (jlat-1)*Norb*Nspin
+                      write(106,*) io,jo,"---",ilat,jlat,ispin,jspin,iorb,jorb,sum(abs(G_in(io,jo,:)))
+                   enddo
                 enddo
              enddo
           enddo
@@ -523,21 +533,23 @@ contains
                 do jorb=1,Norb
                    io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
                    jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
-                   call splot("impGrot_H_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_lat"//reg(txtfy(ilat))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+                   call splot("Glocrot_H_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_lat"//reg(txtfy(ilat))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
                 enddo
              enddo
           enddo
        enddo
     enddo
-    open(unit=106,file='sum_w_impG_rot_Hloc.dat',status='unknown',action='write',position='rewind')
+    open(unit=106,file='sum_w_Gloc_rot_Hloc.dat',status='unknown',action='write',position='rewind')
     do ilat=1,Nlat
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
-                   jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
-                   write(106,*) io,jo,"---",ilat,ilat,ispin,jspin,iorb,jorb,sum(abs(G_out(io,jo,:)))
+       do jlat=1,Nlat
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
+                      jo = jorb + (jspin-1)*Norb + (jlat-1)*Norb*Nspin
+                      write(106,*) io,jo,"---",ilat,jlat,ispin,jspin,iorb,jorb,sum(abs(G_out(io,jo,:)))
+                   enddo
                 enddo
              enddo
           enddo
@@ -545,6 +557,8 @@ contains
     enddo
     close(106)
     !
+    if(allocated(analytic_rot_))deallocate(analytic_rot_)
+    if(allocated(analytic_rot))deallocate(analytic_rot)
     allocate(analytic_rot_(Nspin*Norb,Nspin*Norb))
     allocate(analytic_rot(Nlat*Nspin*Norb,Nlat*Nspin*Norb))
     !
@@ -596,21 +610,23 @@ contains
                 do jorb=1,Norb
                    io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
                    jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
-                   call splot("impGrot_a_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_lat"//reg(txtfy(ilat))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+                   call splot("Glocrot_a_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_lat"//reg(txtfy(ilat))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
                 enddo
              enddo
           enddo
        enddo
     enddo
-    open(unit=106,file='sum_w_impG_rot_anlytc.dat',status='unknown',action='write',position='rewind')
+    open(unit=106,file='sum_w_Gloc_rot_anlytc.dat',status='unknown',action='write',position='rewind')
     do ilat=1,Nlat
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
-                   jo = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin
-                   write(106,*) io,jo,"---",ilat,ilat,ispin,jspin,iorb,jorb,sum(abs(G_out(io,jo,:)))
+       do jlat=1,Nlat
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      io = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin
+                      jo = jorb + (jspin-1)*Norb + (jlat-1)*Norb*Nspin
+                      write(106,*) io,jo,"---",ilat,jlat,ispin,jspin,iorb,jorb,sum(abs(G_out(io,jo,:)))
+                   enddo
                 enddo
              enddo
           enddo
@@ -618,7 +634,8 @@ contains
     enddo
     close(106)
     !
-  end subroutine rotate_Gimp
+    endif
+  end subroutine rotate_Gloc
 
 
   !---------------------------------------------------------------------

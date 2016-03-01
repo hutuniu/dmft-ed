@@ -1571,7 +1571,12 @@ subroutine add_to_lanczos_gf_nonsu2(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,
   !
   Egs = state_list%emin       !get the gs energy
   pesoBZ = vnorm2/zeta_function
-  if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
+  if((finiteT).and.(beta*(Ei-Egs).lt.200))then
+     pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
+  else
+     pesoBZ=0.d0
+  endif
+  !if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
   !
   itype=(3+isign)/2
   diag=0.d0 ; subdiag=0.d0 ; Z=0.d0

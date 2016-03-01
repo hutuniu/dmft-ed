@@ -347,18 +347,22 @@ contains
     integer             :: hist_n
     integer,allocatable :: list_sector(:),count_sector(:)    
     !POST PROCESSING:
-    unit=free_unit()
-    open(unit,file="state_list"//reg(ed_file_suffix)//".ed")
-    call print_state_list(unit)
-    close(unit)
-    if(ed_verbose<=3)call print_state_list(LOGfile)
+    !unit=free_unit()
+    !open(unit,file="state_list"//reg(ed_file_suffix)//".ed")
+    !call print_state_list(unit)
+    !close(unit)
+    !if(ed_verbose<=3)call print_state_list(LOGfile)
     !
     zeta_function=0d0
     Egs = state_list%emin
     if(finiteT)then
        do i=1,state_list%size
           ei            = es_return_energy(state_list,i)
-          zeta_function = zeta_function + exp(-beta*(Ei-Egs))
+          if(beta*(Ei-Egs).lt.200)then
+             zeta_function = zeta_function + exp(-beta*(Ei-Egs))
+          else
+             write(LOGfile,"(A)")"FiniteTemp Warning: Too many states beyond machine precision"
+          endif
        enddo
     else
        zeta_function=real(state_list%size,8)
@@ -391,7 +395,7 @@ contains
     if(finiteT)then
        if(ED_MPI_ID==0)then
           unit=free_unit()
-          open(unit,file="histogram_states"//reg(ed_file_suffix)//".ed",access='append')
+          open(unit,file="histogram_states"//reg(ed_file_suffix)//".ed",position='append')
           hist_n = Nsectors
           hist_a = 1d0
           hist_b = dble(Nsectors)
@@ -440,24 +444,25 @@ contains
        Egs  = state_list%emin
        Ec   = state_list%emax
        Nsize= state_list%size
-       if(exp(-beta*(Ec-Egs)) > cutoff)then
-          lanc_nstates_total=lanc_nstates_total + lanc_nstates_step
-          if(ED_MPI_ID==0)write(LOGfile,"(A,I4)")"Increasing lanc_nstates_total:",lanc_nstates_total
-       else
-          ! !Find the energy level beyond which cutoff condition is verified & cut the list to that size
-          isector = es_return_sector(state_list,state_list%size)
-          Ei      = es_return_energy(state_list,state_list%size)
-          do while ( exp(-beta*(Ei-Egs)) <= cutoff )
-             if(ed_verbose<4.AND.ED_MPI_ID==0)write(LOGfile,"(A,I4,2x,I3,I3)")"Trimming state:",isector,getnup(isector),getndw(isector)
-             call es_pop_state(state_list)
+       if(beta*(Ei-Egs).lt.200)then
+          if(exp(-beta*(Ec-Egs)) > cutoff)then
+             lanc_nstates_total=lanc_nstates_total + lanc_nstates_step
+             if(ED_MPI_ID==0)write(LOGfile,"(A,I4)")"Increasing lanc_nstates_total:",lanc_nstates_total
+          else
+             ! !Find the energy level beyond which cutoff condition is verified & cut the list to that size
              isector = es_return_sector(state_list,state_list%size)
              Ei      = es_return_energy(state_list,state_list%size)
-
-          enddo
-          if(ed_verbose<4.AND.ED_MPI_ID==0)call print_state_list(LOGfile)
-          if(trim_state_list)then
-             lanc_nstates_total=max(state_list%size,lanc_nstates_step)
-             if(ed_verbose<4.AND.ED_MPI_ID==0)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
+             do while ( exp(-beta*(Ei-Egs)) <= cutoff )
+                if(ed_verbose<4.AND.ED_MPI_ID==0)write(LOGfile,"(A,I6,2x,I10,I10)")"Trimming state:",isector,getnup(isector),getndw(isector)
+                call es_pop_state(state_list)
+                isector = es_return_sector(state_list,state_list%size)
+                Ei      = es_return_energy(state_list,state_list%size)
+             enddo
+             !if(ed_verbose<4.AND.ED_MPI_ID==0)call print_state_list(LOGfile)
+             if(trim_state_list)then
+                lanc_nstates_total=max(state_list%size,lanc_nstates_step)
+                if(ed_verbose<4.AND.ED_MPI_ID==0)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
+             endif
           endif
        endif
     endif
