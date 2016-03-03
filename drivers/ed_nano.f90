@@ -892,7 +892,7 @@ contains
   ! purpose: evaluate the effective exchange as in Katsnelson PRB 61, 8906 (2000), eq. (21)
   ! given the non-local Green's function, the local (auxiliary) self-energy S_i = (S_iup-S_ido)/2 
   ! and the fermi distribution on the real axis. 
-  ! Jeff_ij = -1/pi Im \int_{-infty}^{infty} S_i(w) G_ijup(w) S_j(w) G_ijdo(w) f(w) dw
+  ! Jeff_ij = 1/pi Im \int_{-infty}^{infty} S_i(w) G_ijup(w) S_j(w) G_ijdo(w) f(w) dw
   !----------------------------------------------------------------------------------------!
   subroutine ed_get_jeff(Gret,Sret)
     complex(8),intent(inout)                  :: Gret(:,:,:,:,:,:,:) ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
@@ -948,9 +948,10 @@ contains
           kernel=0.d0
           do i=1,Lreal
              ! jeff kernel: non-local Green's function and fermi function convolution
+             !              in the multi-orbital case: matrix product and trace over the orbitals required
              kernel = kernel + Saux(ilat,1,1,i)*Gret(ilat,jlat,1,1,1,1,i)*Saux(jlat,1,1,i)*Gret(jlat,ilat,2,2,1,1,i)*fermi(wr(i),beta)
           enddo
-          jeff(ilat,jlat) = -1.d0*dimag(kernel)/pi
+          jeff(ilat,jlat) = 1.d0*dimag(kernel)/pi
        enddo
     enddo
     !

@@ -333,7 +333,7 @@ contains
 
   !+-------------------------------------------------------------------+
   !PURPOSE  : analyse the spectrum and print some information after 
-  !lanczos  diagonalization. 
+  !lanczos diagonalization. 
   !+------------------------------------------------------------------+
   subroutine ed_analysis()
     integer             :: nup,ndw,sz,n,isector,dim
@@ -347,11 +347,11 @@ contains
     integer             :: hist_n
     integer,allocatable :: list_sector(:),count_sector(:)    
     !POST PROCESSING:
-    !unit=free_unit()
-    !open(unit,file="state_list"//reg(ed_file_suffix)//".ed")
-    !call print_state_list(unit)
-    !close(unit)
-    !if(ed_verbose<=3)call print_state_list(LOGfile)
+    unit=free_unit()
+    open(unit,file="state_list"//reg(ed_file_suffix)//".ed")
+    call print_state_list(unit)
+    close(unit)
+    if(ed_verbose<=3)call print_state_list(LOGfile)
     !
     zeta_function=0d0
     Egs = state_list%emin
@@ -390,8 +390,8 @@ contains
     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12)")'Z   =',zeta_function
     !
     !
-    !Get histogram distribution of the sector contributing to the evaluated spectrum:
-    !Go thru states list and update the neigen_sector(isector) sector-by-sector
+    !get histogram distribution of the sector contributing to the evaluated spectrum:
+    !go through states list and update the neigen_sector(isector) sector-by-sector
     if(finiteT)then
        if(ED_MPI_ID==0)then
           unit=free_unit()
@@ -449,7 +449,7 @@ contains
              lanc_nstates_total=lanc_nstates_total + lanc_nstates_step
              if(ED_MPI_ID==0)write(LOGfile,"(A,I4)")"Increasing lanc_nstates_total:",lanc_nstates_total
           else
-             ! !Find the energy level beyond which cutoff condition is verified & cut the list to that size
+             !find the energy level beyond which cutoff condition is verified & cut the list to that size
              isector = es_return_sector(state_list,state_list%size)
              Ei      = es_return_energy(state_list,state_list%size)
              do while ( exp(-beta*(Ei-Egs)) <= cutoff )

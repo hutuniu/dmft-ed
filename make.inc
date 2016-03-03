@@ -5,7 +5,7 @@ FC=mpif90
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=intel
+PLAT=gnu
 
 
 ##$ PRECOMPILATION FLAGS
@@ -15,11 +15,12 @@ PLAT=intel
 FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
-#FPP_ED=MPI
+FPP_ED=
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=/opt
+LIBDIR=$(HOME)/opt
+
 
 
 ##$ CHOOSE THE MODEL BY SELECTING THE PROGRAM DRIVER
@@ -43,50 +44,34 @@ LIBDIR=/opt
 #EXE=ed_tddpam_bethe
 
 ##$ --> B-H-Z MODELS
-#EXE=ed_bhz_2d
-#EXE=ed_bhz_3d
-EXE=ed_bhz_2d_edge
-#EXE=ed_bhz_afm_2d
-#EXE=ed_bhz_afm_3d
-
-
+#EXE=ed_2x2bhz
+#EXE=ed_bhz
+#EXE=ed_bhz_afm
+#EXE=ed_bhz_edge
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
-#EXE=ed_hm_slab
+#EXE=ed_hm_slab_hyb
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 EXE=ed_nano
-#EXE=hartree_nano
-
-##$ --> Extended Hubbard models 
 #EXE=ed_cdwhm_bethe
-#EXE=ed_cdwhm_bethe_loop
-#EXE=ed_ehm_bethe
-#EXE=ed_ed_ehm_bethe_loop
 
-##$ --> nonSU2 
-#EXE=ed_SIO
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
-DIR=drivers
+DIR =drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
 DIREXE=$(HOME)/.bin
 
 
 ifeq ($(PLAT),intel)
-FFLAG = -O2 -ftz -fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
-DFLAG = -p -O0 -g -fpe0 -warn -warn errors  -debug extended -traceback -check all,noarg_temp_created -fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
-OFLAG = -O3 -ftz -prof-use -prof-gen -ip -ipo -fpp -D_$(FPP_INEQ) -D_$(FPP_ED)
+FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
 endif
 
 ifeq ($(PLAT),gnu)
-INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib
-INCARGS+=-I$(LIBDIR)/dmft_tools/gnu/include -L$(LIBDIR)/dmft_tools/gnu/lib
-FFLAG = -O2 -funroll-all-loops -ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS) 
-DFLAG = -O0 -p -g -Wall -fimplicit-none -ffpe-trap=zero,overflow,underflow  -Wall  -Wline-truncation  -Wcharacter-truncation  -Wsurprising  -Waliasing  -Wimplicit-interface  -Wunused-parameter  -fwhole-file  -fcheck=all  -pedantic  -fbacktrace -fcheck=bounds -ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
-OFLAG = -O3 -ffast-math -march=native -funroll-all-loops -fno-protect-parens -flto -ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS 
+INCARGS=-I$(LIBDIR)/scifor/gnu/include -I$(LIBDIR)/dmft_tools/gnu/include
+FFLAG +=-ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
 endif
 
 
@@ -101,7 +86,7 @@ endif
 ##$ 
 ##$ ELSE:
 ##$ 
-ARGS= -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas -larpack -lparpack
+ARGS=  -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas  -larpack -lparpack
 
 
 
@@ -110,6 +95,7 @@ ARGS= -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas -larpack -lparpack
 ##$ 
 REV=$(shell git rev-parse HEAD)
 BRANCH=_$(shell git rev-parse --abbrev-ref HEAD)
+REV=$(shell git rev-parse HEAD)
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 
 ifeq ($(BRANCH),_master)
