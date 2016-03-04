@@ -13,8 +13,8 @@ program ed_ahm_disorder
   complex(8),allocatable,dimension(:,:,:)     :: Delta,errDelta
   real(8),allocatable,dimension(:)            :: erandom
   real(8),allocatable,dimension(:,:)          :: bath,bath_prev,errBath
-  logical                                     :: converged,phsym,bool
-  real(8)                                     :: wmixing,Wdis,ts
+  logical                                     :: converged,phsym,bool,gfpoles,getkin
+  real(8)                                     :: wmixing,Wdis,ts,Eout(2)
   integer                                     :: i,is,iloop,nrandom,idum
   integer                                     :: Nb,Lf
   real(8),dimension(:),allocatable            :: wm,wr
@@ -38,8 +38,10 @@ program ed_ahm_disorder
   call parse_input_variable(Wdis,"WDIS",finput,default=0.d0)
   call parse_input_variable(idum,"IDUM",finput,default=1234567)
   call parse_input_variable(phsym,"PHSYM",finput,default=.false.)
+  call parse_input_variable(gfpoles,"GFPOLES",finput,default=.false.)
+  call parse_input_variable(getkin,"GETKIN",finput,default=.false.)
   call ed_read_input(trim(finput))
-
+  if(gfpoles.AND.ed_verbose>4)ed_verbose=4
 
   !CHECK SETUP:
   if(Nspin/=1.OR.Norb/=1)stop "ed_ahm_disorder error: Nspin != 1 OR Norb != 1"
@@ -99,16 +101,22 @@ program ed_ahm_disorder
   Hk(:,:,1) = Hk(:,:,1) + diag(Erandom)
 
 
-
   ! SET THE LOCAL PART WITH DISORDER
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))
   Hloc(1:Nlat,1,1,1,1) = one*Erandom(:)
 
 
-
   ! INITIALIZE DMFT SOLVER
   call  ed_init_solver_lattice(bath)
 
+
+  if(getkin)then
+     call read_sigma_matsubara()
+     Eout = ed_kinetic_energy_lattice(Hk,[1d0],Smats(1,:,:),Smats(2,:,:))
+     call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+     call MPI_FINALIZE(mpiERR)
+     stop
+  endif
 
   ! DMFT LOOP
   ! everywhere iprint=0: printing is postponed to the end
@@ -119,6 +127,11 @@ program ed_ahm_disorder
 
      bath_prev = bath
      call ed_solve_lattice(bath,Hloc,iprint=0)
+     if(gfpoles)then
+        call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+        call MPI_FINALIZE(mpiERR)
+        stop
+     endif
      nii = ed_get_dens_lattice(Nlat)
      dii = ed_get_docc_lattice(Nlat)
      pii = ed_get_phisc_lattice(Nlat)
@@ -147,11 +160,21 @@ program ed_ahm_disorder
   enddo
   !+-------------------------------------+!
 
+  Eout = ed_kinetic_energy_lattice(Hk,[1d0],Smats(1,:,:),Smats(2,:,:))
   call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
   call MPI_FINALIZE(mpiERR)
 
 
 contains
+
+
+  subroutine read_sigma_matsubara()
+    if(mpiID==0)then
+       call read_data("LSigma_iw.ed",Smats(1,1:Nlat,1:Lmats),wm(1:Lmats))
+       call read_data("LSelf_iw.ed",Smats(2,1:Nlat,1:Lmats),wm(1:Lmats))
+    endif
+    call MPI_BCAST(Smats,size(Smats),MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,mpiERR)
+  end subroutine read_sigma_matsubara
 
 
   subroutine print_sc_out(converged)

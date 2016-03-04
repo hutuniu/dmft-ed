@@ -310,12 +310,13 @@ contains
     do ilat=1,Nineq
        check_dim = check_bath_dimension(bath(ilat,:))
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
-       write(tmp_suffix,'(I4.4)') ilat
-       ed_file_suffix="_site"//trim(tmp_suffix)
+       ! write(tmp_suffix,'(I4.4)') ilat
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))!trim(tmp_suffix)
        call ed_init_solver(bath(ilat,:))
        neigen_sectorii(ilat,:) = neigen_sector(:)
        neigen_totalii(ilat)    = lanc_nstates_total
     end do
+    ed_file_suffix=""
 #ifdef _MPI_INEQ
     call MPI_Barrier(MPI_COMM_WORLD,mpiERR)
 #endif
@@ -454,8 +455,8 @@ contains
     if(mpiID==0)call start_timer
     if(mpiID/=0)LOGfile = 800+mpiID
     do ilat=1+mpiID,Nsites,mpiSIZE
-       write(tmp_suffix,'(I4.4)') ilat
-       ed_file_suffix="_site"//trim(tmp_suffix)
+       !write(tmp_suffix,'(I4.4)') ilat
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))!trim(tmp_suffix)
        !
        !If required set the local value of U per each site
        if(present(Uloc_ii))Uloc(1:Norb) = Uloc_ii(ilat,1:Norb)
@@ -592,6 +593,7 @@ contains
           end select
        endif
     endif
+    ed_file_suffix=""
   end subroutine ed_solve_lattice
 
 
