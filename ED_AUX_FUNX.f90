@@ -2,7 +2,7 @@ MODULE ED_AUX_FUNX
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE SF_TIMER
-  USE SF_IOTOOLS, only:free_unit,reg
+  USE SF_IOTOOLS, only:free_unit,reg,txtfy
   implicit none
   private
 
@@ -100,17 +100,17 @@ contains
     Nj = size(hloc,2)
     if(present(file))then
        do iorb=1,Ni
-          write(unit,"(90F12.6)")(dreal(Hloc(iorb,jorb)),jorb=1,Nj)
+          write(unit,"(2000F12.6)")(dreal(Hloc(iorb,jorb)),jorb=1,Nj)
        enddo
        write(unit,*)""
        do iorb=1,Ni
-          write(unit,"(90F12.6)")(dimag(Hloc(iorb,jorb)),jorb=1,Nj)
+          write(unit,"(2000F12.6)")(dimag(Hloc(iorb,jorb)),jorb=1,Nj)
        enddo
        write(unit,*)""
        close(unit)
     else
        do iorb=1,Ni
-          write(unit,"(20(A1,F7.3,A1,F7.3,A1,2x))")&
+          write(unit,"(2000(A1,F7.3,A1,F7.3,A1,2x))")&
                ('(',dreal(Hloc(iorb,jorb)),',',dimag(Hloc(iorb,jorb)),')',jorb =1,Nj)
        enddo
        write(unit,*)""
@@ -130,20 +130,20 @@ contains
     if(present(file))then
        do ispin=1,Nspin
           do iorb=1,Norb
-             write(unit,"(90F12.6)")((dreal(Hloc(ispin,jspin,iorb,jorb)),jorb=1,Norb),jspin=1,Nspin)
+             write(unit,"(2000F12.6)")((dreal(Hloc(ispin,jspin,iorb,jorb)),jorb=1,Norb),jspin=1,Nspin)
           enddo
        enddo
        write(unit,*)""
        do ispin=1,Nspin
           do iorb=1,Norb
-             write(unit,"(90F12.6)")((dimag(Hloc(ispin,jspin,iorb,jorb)),jorb=1,Norb),jspin=1,Nspin)
+             write(unit,"(2000F12.6)")((dimag(Hloc(ispin,jspin,iorb,jorb)),jorb=1,Norb),jspin=1,Nspin)
           enddo
        enddo
        write(unit,*)""
     else
        do ispin=1,Nspin
           do iorb=1,Norb
-             write(LOGfile,"(20(A1,F7.3,A1,F7.3,A1,2x))")&
+             write(LOGfile,"(2000(A1,F7.3,A1,F7.3,A1,2x))")&
                   (&
                   (&
                   '(',dreal(Hloc(ispin,jspin,iorb,jorb)),',',dimag(Hloc(ispin,jspin,iorb,jorb)),')',&
@@ -558,7 +558,7 @@ contains
 
   !+-----------------------------------------------------------------------------+!
   !PURPOSE:
-  ! - strid_index: given an array of indices ivec=[i_1,...,i_L] and the corresponding 
+  ! - stride_index: given an array of indices ivec=[i_1,...,i_L] and the corresponding 
   !                array of ranges nvec=[N_1,...,N_L], evaluate the index of the 
   !                stride corresponding the actual ivec with respect to nvec as 
   !                I_stride = i1 + \sum_{k=2}^L (i_k-1)\prod_{l=1}^{k-1}N_k
@@ -650,8 +650,8 @@ contains
     ! 
     do i_ind=1,Nindep
        unit=free_unit()
-       write(tmp_suffix,'(I4.4)') i_ind
-       ed_file_suffix="_site"//trim(tmp_suffix)
+       !write(tmp_suffix,'(I4.4)') i_ind
+       ed_file_suffix="_site"//reg(txtfy(i_ind,Npad=4))!trim(tmp_suffix)
        if(mpiID==0) open(unit,file='equivalents'//trim(tmp_suffix)//'.lattice')
        map_ind2lat(i_ind,1) = indep_list(i_ind)
        if(mpiID==0) write(unit,*) icol(indep_list(i_ind)),irow(indep_list(i_ind))
@@ -668,6 +668,7 @@ contains
           if(i_ind /= map_lat2ind(check_maps)) stop "WRONG MAPS"
        end do
     end do
+    ed_file_suffix=""
     ! allocate(Ineq_sites_list(Nindep))
     ! Ineq_sites_list = indep_list
   end subroutine get_independent_sites

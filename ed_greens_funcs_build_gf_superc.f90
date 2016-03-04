@@ -2,13 +2,17 @@
 !PURPOSE  : Evaluate Green's functions using Lanczos algorithm
 !+------------------------------------------------------------------+
 subroutine build_gf_superc()
-  integer    :: iorb,jorb,ispin,i
+  integer    :: iorb,jorb,ispin,i,isign
   complex(8) :: barGmats(Norb,Lmats),barGreal(Norb,Lreal)
   !
   if(.not.allocated(auxGmats))allocate(auxGmats(3,Lmats))
   if(.not.allocated(auxGreal))allocate(auxGreal(3,Lreal))
+  if(.not.allocated(auxGpoles))allocate(auxGpoles(2,3,lanc_nGFiter))
+  if(.not.allocated(auxGweights))allocate(auxGweights(2,3,lanc_nGFiter))
   auxGmats=zero
   auxGreal=zero
+  auxGpoles=zero
+  auxGweights=zero
   barGmats=zero
   barGreal=zero
   !
@@ -25,6 +29,12 @@ subroutine build_gf_superc()
      barGreal(                 iorb,:) = auxGreal(2,:)
      impFmats(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGmats(3,:)-auxGmats(1,:)-auxGmats(2,:))
      impFreal(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGreal(3,:)-auxGreal(1,:)-auxGreal(2,:))
+
+     !
+     GFpoles(ispin,ispin,iorb,iorb,:,:)   = auxGpoles(:,1,:)
+     GFweights(ispin,ispin,iorb,iorb,:,:) = auxGweights(:,1,:)
+     !
+
      ! UNCOMMENT THIS AND FOLLOWING LINES MARKED WITH >ANOMAL TO USE THE MORE GENERAL ALGORITHM
      ! FOR THE EVALUATION OF THE ANOMALOUS GF
      ! >ANOMAL
@@ -617,7 +627,7 @@ end subroutine lanc_build_gf_superc_mix_d
 subroutine add_to_lanczos_gf_superc(vnorm2,Ei,nlanc,alanc,blanc,isign,ichan)
   complex(8)                                 :: vnorm2,pesoBZ,peso
   real(8)                                    :: Ei,Egs,de
-  integer                                    :: nlanc
+  integer                                    :: nlanc,itype
   real(8),dimension(nlanc)                   :: alanc,blanc 
   integer                                    :: isign,ichan
   real(8),dimension(size(alanc),size(alanc)) :: Z
@@ -629,6 +639,7 @@ subroutine add_to_lanczos_gf_superc(vnorm2,Ei,nlanc,alanc,blanc,isign,ichan)
   pesoBZ = vnorm2/zeta_function
   if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
   !
+  itype=(3+isign)/2
   diag=0.d0 ; subdiag=0.d0 ; Z=0.d0
   forall(i=1:Nlanc)Z(i,i)=1.d0
   diag(1:Nlanc)    = alanc(1:Nlanc)
@@ -645,5 +656,9 @@ subroutine add_to_lanczos_gf_superc(vnorm2,Ei,nlanc,alanc,blanc,isign,ichan)
         iw=dcmplx(wr(i),eps)
         auxGreal(ichan,i)=auxGreal(ichan,i) + peso/(iw-isign*de)
      enddo
+     ! GFpoles(ispin,ispin,iorb,jorb,itype,j)   = isign*de
+     ! GFweights(ispin,ispin,iorb,jorb,itype,j) = peso
+     auxGpoles(itype,ichan,j)   = isign*de
+     auxGweights(itype,ichan,j) = peso
   enddo
 end subroutine add_to_lanczos_gf_superc

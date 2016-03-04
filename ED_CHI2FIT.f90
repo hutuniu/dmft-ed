@@ -275,8 +275,8 @@ contains
     do ilat=1+mpiID,Nsites,mpiSIZE
        bath_tmp(ilat,:)=bath(ilat,:)
        call set_Hloc(Hloc(ilat,:,:,:,:))
-       write(tmp_suffix,'(I4.4)') ilat
-       ed_file_suffix="_site"//trim(tmp_suffix)
+       !write(tmp_suffix,'(I4.4)') ilat
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))!trim(tmp_suffix)
        if(present(ispin))then
           ispin_=ispin
           if(ispin_>Nspin)stop "ed_fit_bath_sites error: required spin index > Nspin"
@@ -362,8 +362,8 @@ contains
        bath_tmp(ilat,:) = bath(ilat,:)
        !
        call set_Hloc(Hloc(ilat,:,:,:,:))
-       write(tmp_suffix,'(I4.4)') ilat
-       ed_file_suffix="_site"//trim(tmp_suffix)
+       !write(tmp_suffix,'(I4.4)') ilat
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))!trim(tmp_suffix)
        if(present(ispin))then
           ispin_=ispin
           if(ispin_>Nspin)stop "ed_fit_bath_sites error: required spin index > Nspin"
