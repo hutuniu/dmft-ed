@@ -31,7 +31,7 @@ program ed_bhz_2d_edge
 
   real(8),allocatable,dimension(:)              :: Wtk,wm,wr
   real(8),allocatable,dimension(:)              :: kxgrid
-  real(8),dimension(:,:),allocatable            :: dens,rho
+  real(8),dimension(:,:),allocatable            :: dens,rho,kpath
   integer                                       :: Nk,Ly,Nkpath
   real(8)                                       :: e0,mh,lambda,wmixing
   logical                                       :: spinsym,tridiag,getsigma
@@ -62,7 +62,6 @@ program ed_bhz_2d_edge
   !
   call ed_read_input(trim(finput))
 
-
   !set the global number of lattice sites equal to the number of layers along the y-axis
   Nlat = Ly
 
@@ -92,6 +91,7 @@ program ed_bhz_2d_edge
   Hloc = lso2nnn_reshape(bhzHloc,Nlat,Nspin,Norb)
 
 
+
   !Setup solver
   Nb=get_bath_size()
   allocate(Bath(Nlat,Nb), Bath_Prev(Nlat,Nb) )
@@ -99,8 +99,18 @@ program ed_bhz_2d_edge
 
 
   if(getsigma)then
+     print*,"Entering ed_solve_lattice."
      call ed_solve_lattice(bath,Hloc,iprint=1)
+     call ed_get_sigma_matsubara_lattice(Smats,Nlat)
+     S0 = Smats(:,:,:,:,:,1)
+     allocate(kpath(3,1))
+     kpath(1,1)=-pi/2
+     kpath(2,1)= 0d0
+     kpath(3,1)= pi/2
+     if(mpiID==0)call build_eigenbands(kpath)
+#ifdef _MPI_INEQ
      call MPI_FINALIZE(mpiERR)
+#endif
      stop
   endif
 
@@ -132,7 +142,7 @@ program ed_bhz_2d_edge
      bath=wmixing*bath + (1.d0-wmixing)*bath_prev
      if(mpiID==0)converged = check_convergence(Weiss(:,1,1,1,1,:),dmft_error,nsuccess,nloop)
 #ifdef _MPI_INEQ
-     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
+     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
 #endif
   end do
 
@@ -166,14 +176,13 @@ contains
        write(*,*)"# of y-layers      :",Nlat
     endif
     !
-
     if(allocated(Kxgrid))deallocate(Kxgrid)
     allocate(Kxgrid(Nk))
     if(allocated(Hkr))deallocate(Hkr)
     allocate(Hkr(Nlso,Nlso,Nk))
     kxgrid = kgrid(Nk)
     Hkr    = build_Hkr_model(bhz_edge_model,Ly,Nso,kxgrid,[0d0],[0d0],pbc=.false.)
-    call write_hk_w90("Hkrfile.data",&
+    if(mpiID==0)call write_hk_w90("Hkrfile.in",&
          No=Nlso,&
          Nd=Norb,&
          Np=0,&
@@ -188,8 +197,11 @@ contains
     allocate(bhzHloc(Nlso,Nlso))
     bhzHloc = extract_Hloc(Hkr,Nlat,Nspin,Norb)
     !
-    !Solve H(kx,Ry) ALONG A -pi:pi PATH
-    if(mpiID==0)call build_eigenbands()
+    !     !Solve H(kx,Ry) ALONG A -pi:pi PATH
+    !     if(mpiID==0)call build_eigenbands()
+    ! #ifdef _MPI_INEQ
+    !     call MPI_Barrier(MPI_COMM_WORLD,mpiERR)
+    ! #endif
     !
     !
     ! THIS CAN BE DONE SEPARATELY IN THE TIGHT-BINDING CODE:
@@ -228,14 +240,14 @@ contains
     integer                            :: Npts
     character(len=64)                  :: file
     if(present(kpath_))then
-       if(ED_MPI_ID==0)write(LOGfile,*)"Solve H(kx,y) along a given path:"
+       if(mpiID==0)write(LOGfile,*)"Solve H(kx,y) along a given path:"
        Npts = size(kpath_,1)
        allocate(kpath(Npts,size(kpath_,2)))
        kpath=kpath_
        file="Eig_path.nint"
     else
        !PRINT H(kx,Ry) ALONG A -pi:pi PATH
-       if(ED_MPI_ID==0)write(LOGfile,*)"Solve H(kx,y) along [-pi:pi]:"
+       if(mpiID==0)write(LOGfile,*)"Solve H(kx,y) along [-pi:pi]:"
        Npts=3
        allocate(Kpath(Npts,1))
        kpath(1,:)=[-1]*pi

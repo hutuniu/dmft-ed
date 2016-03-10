@@ -91,6 +91,7 @@ contains
   !+-------------------------------------------------------------------+
   subroutine ed_read_input(INPUTunit)
     character(len=*) :: INPUTunit
+    integer :: mpi_ierr
     !
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals.")
@@ -158,9 +159,10 @@ contains
     call substring_delete(Hfile,".restart")
     call substring_delete(Hfile,".ed")
     Ltau=max(int(beta),Ltau)
-    if(ED_MPI_ID==0.AND.mpiID==0)call save_input_file(INPUTunit)
-    !
-    if(ED_MPI_ID==0.AND.mpiID==0)call sf_version(revision)
+    if(ED_MPI_ID==0.AND.mpiID==0)then
+       call save_input_file(INPUTunit)
+       call sf_version(revision)
+    endif
   end subroutine ed_read_input
 
 
