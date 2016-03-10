@@ -525,73 +525,71 @@ contains
     eii      = eii_tmp
     ddii     = ddii_tmp
 #endif
-    if(ed_verbose>4)then
-       if(mpiID==0)then
-          if(allocated(wm))deallocate(wm)
-          if(allocated(wr))deallocate(wr)
-          allocate(wm(Lmats))
-          allocate(wr(Lreal))
-          wm = pi/beta*(2*arange(1,Lmats)-1)
-          wr = linspace(wini,wfin,Lreal)
-          select case(iprint)
-          case (0)
-             write(LOGfile,*)"Sigma not written on file."
-          case(1)                  !print only diagonal elements
-             write(LOGfile,*)"write spin-orbital diagonal elements:"
-             do ispin=1,Nspin
-                do iorb=1,Norb
+    if(mpiID==0)then
+       if(allocated(wm))deallocate(wm)
+       if(allocated(wr))deallocate(wr)
+       allocate(wm(Lmats))
+       allocate(wr(Lreal))
+       wm = pi/beta*(2*arange(1,Lmats)-1)
+       wr = linspace(wini,wfin,Lreal)
+       select case(iprint)
+       case (0)
+          write(LOGfile,*)"Sigma not written on file."
+       case(1)                  !print only diagonal elements
+          write(LOGfile,*)"write spin-orbital diagonal elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,ispin,iorb,iorb,:),wm)
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                call store_data("LSigma"//reg(suffix),Srealii(:,ispin,ispin,iorb,iorb,:),wr)
+                if(ed_mode=="superc")then
                    suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
-                   call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,ispin,iorb,iorb,:),wm)
+                   call store_data("LSelf"//reg(suffix),SAmatsii(:,ispin,ispin,iorb,iorb,:),wm)
                    suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                   call store_data("LSigma"//reg(suffix),Srealii(:,ispin,ispin,iorb,iorb,:),wr)
+                   call store_data("LSelf"//reg(suffix),SArealii(:,ispin,ispin,iorb,iorb,:),wr)
+                endif
+             enddo
+          enddo
+       case(2)                  !print spin-diagonal, all orbitals 
+          write(LOGfile,*)"write spin diagonal and all orbitals elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,ispin,iorb,jorb,:),wm)
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                   call store_data("LSigma"//reg(suffix),Srealii(:,ispin,ispin,iorb,jorb,:),wr)
                    if(ed_mode=="superc")then
-                      suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
-                      call store_data("LSelf"//reg(suffix),SAmatsii(:,ispin,ispin,iorb,iorb,:),wm)
-                      suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                      call store_data("LSelf"//reg(suffix),SArealii(:,ispin,ispin,iorb,iorb,:),wr)
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                      call store_data("LSelf"//reg(suffix),SAmatsii(:,ispin,ispin,iorb,jorb,:),wm)
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                      call store_data("LSelf"//reg(suffix),SArealii(:,ispin,ispin,iorb,jorb,:),wr)
                    endif
                 enddo
              enddo
-          case(2)                  !print spin-diagonal, all orbitals 
-             write(LOGfile,*)"write spin diagonal and all orbitals elements:"
-             do ispin=1,Nspin
+          enddo
+       case default                  !print all off-diagonals
+          write(LOGfile,*)"write all elements:"
+          do ispin=1,Nspin
+             do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
-                      call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,ispin,iorb,jorb,:),wm)
-                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                      call store_data("LSigma"//reg(suffix),Srealii(:,ispin,ispin,iorb,jorb,:),wr)
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                      call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,jspin,iorb,jorb,:),wm)
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
+                      call store_data("LSigma"//reg(suffix),Srealii(:,ispin,jspin,iorb,jorb,:),wr)
                       if(ed_mode=="superc")then
-                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
-                         call store_data("LSelf"//reg(suffix),SAmatsii(:,ispin,ispin,iorb,jorb,:),wm)
-                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-                         call store_data("LSelf"//reg(suffix),SArealii(:,ispin,ispin,iorb,jorb,:),wr)
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                         call store_data("LSelf"//reg(suffix),Smatsii(:,ispin,jspin,iorb,jorb,:),wm)
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
+                         call store_data("LSelf"//reg(suffix),Srealii(:,ispin,jspin,iorb,jorb,:),wr)
                       endif
                    enddo
                 enddo
              enddo
-          case default                  !print all off-diagonals
-             write(LOGfile,*)"write all elements:"
-             do ispin=1,Nspin
-                do jspin=1,Nspin
-                   do iorb=1,Norb
-                      do jorb=1,Norb
-                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
-                         call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,jspin,iorb,jorb,:),wm)
-                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
-                         call store_data("LSigma"//reg(suffix),Srealii(:,ispin,jspin,iorb,jorb,:),wr)
-                         if(ed_mode=="superc")then
-                            suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
-                            call store_data("LSelf"//reg(suffix),Smatsii(:,ispin,jspin,iorb,jorb,:),wm)
-                            suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
-                            call store_data("LSelf"//reg(suffix),Srealii(:,ispin,jspin,iorb,jorb,:),wr)
-                         endif
-                      enddo
-                   enddo
-                enddo
-             enddo
-          end select
-       endif
+          enddo
+       end select
     endif
     ed_file_suffix=""
   end subroutine ed_solve_lattice

@@ -34,7 +34,7 @@ program ed_bhz_2d_edge
   real(8),dimension(:,:),allocatable            :: dens,rho
   integer                                       :: Nk,Ly,Nkpath
   real(8)                                       :: e0,mh,lambda,wmixing
-  logical                                       :: spinsym,tridiag
+  logical                                       :: spinsym,tridiag,getsigma
   character(len=60)                             :: finput
   character(len=32)                             :: hkfile
 
@@ -57,6 +57,7 @@ program ed_bhz_2d_edge
   call parse_input_variable(lambda,"LAMBDA",finput,default=0.3d0)
   call parse_input_variable(e0,"e0",finput,default=1d0)
   call parse_input_variable(spinsym,"SPINSYM",finput,default=.true.)
+  call parse_input_variable(getsigma,"GETSIGMA",finput,default=.false.)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   !
   call ed_read_input(trim(finput))
@@ -95,6 +96,13 @@ program ed_bhz_2d_edge
   Nb=get_bath_size()
   allocate(Bath(Nlat,Nb), Bath_Prev(Nlat,Nb) )
   call ed_init_solver_lattice(bath)
+
+
+  if(getsigma)then
+     call ed_solve_lattice(bath,Hloc,iprint=1)
+     call MPI_FINALIZE(mpiERR)
+     stop
+  endif
 
   !DMFT loop:
   iloop=0 ; converged=.false.
@@ -183,28 +191,30 @@ contains
     !Solve H(kx,Ry) ALONG A -pi:pi PATH
     if(mpiID==0)call build_eigenbands()
     !
-    ! compute the local gf:
-    Smats=zero
-    Sreal=zero
-    wm = pi/beta*(2*arange(1,Lmats)-1)
-    wr = linspace(wini,wfin,Lreal)
-    call ed_get_gloc_lattice(Hkr,Wtk,Gmats,Greal,Smats,Sreal,iprint=0,tridiag=tridiag)
-    open(10,file="density_"//reg(txtfy(tridiag))//".nint")
-    open(11,file="rho_"//reg(txtfy(tridiag))//".nint")
-    do iy=1,Ly
-       ispin=1
-       do iorb=1,Norb
-          call splot("Gloc_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_"//reg(txtfy(iy,4))//"_iw.nint",wm,Gmats(iy,ispin,ispin,iorb,iorb,:))
-          call splot("Gloc_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_"//reg(txtfy(iy,4))//"_realw.nint",wr,&
-               -dimag(Greal(iy,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(iy,ispin,ispin,iorb,iorb,:)))
-          dens(iy,iorb) = fft_get_density(Gmats(iy,ispin,ispin,iorb,iorb,:),beta)
-          rho(iy,iorb)  = -dimag(Gmats(iy,ispin,ispin,iorb,iorb,1))/pi
-       enddo
-       write(10,"(I4,1000F20.12)")iy,(dens(iy,iorb),iorb=1,Norb)
-       write(11,"(I4,1000F20.12)")iy,(rho(iy,iorb),iorb=1,Norb)
-    enddo
-    close(10)
-    close(11)
+    !
+    ! THIS CAN BE DONE SEPARATELY IN THE TIGHT-BINDING CODE:
+    ! ! compute the local gf:
+    ! Smats=zero
+    ! Sreal=zero
+    ! wm = pi/beta*(2*arange(1,Lmats)-1)
+    ! wr = linspace(wini,wfin,Lreal)
+    ! call ed_get_gloc_lattice(Hkr,Wtk,Gmats,Greal,Smats,Sreal,iprint=0,tridiag=tridiag)
+    ! open(10,file="density_"//reg(txtfy(tridiag))//".nint")
+    ! open(11,file="rho_"//reg(txtfy(tridiag))//".nint")
+    ! do iy=1,Ly
+    !    ispin=1
+    !    do iorb=1,Norb
+    !       call splot("Gloc_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_"//reg(txtfy(iy,4))//"_iw.nint",wm,Gmats(iy,ispin,ispin,iorb,iorb,:))
+    !       call splot("Gloc_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_"//reg(txtfy(iy,4))//"_realw.nint",wr,&
+    !            -dimag(Greal(iy,ispin,ispin,iorb,iorb,:))/pi,dreal(Greal(iy,ispin,ispin,iorb,iorb,:)))
+    !       dens(iy,iorb) = fft_get_density(Gmats(iy,ispin,ispin,iorb,iorb,:),beta)
+    !       rho(iy,iorb)  = -dimag(Gmats(iy,ispin,ispin,iorb,iorb,1))/pi
+    !    enddo
+    !    write(10,"(I4,1000F20.12)")iy,(dens(iy,iorb),iorb=1,Norb)
+    !    write(11,"(I4,1000F20.12)")iy,(rho(iy,iorb),iorb=1,Norb)
+    ! enddo
+    ! close(10)
+    ! close(11)
   end subroutine build_hkr
 
 
