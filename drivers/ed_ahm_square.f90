@@ -147,7 +147,8 @@ contains
        nk    = 4d0/beta*matssum + 2d0*free
        Ekin  = Ekin   + wt(ik)*nk*dreal(Hk(1,1,ik))
     enddo
-    print*,"3. prev Ekin=",Ekin
+    print*,"get_ekin Ekin=",Ekin
+    print*,"get_ekin Ekin=",free
   end function get_ekin
 
 
@@ -200,19 +201,19 @@ contains
     allocate(Coef(2*Nso))
     allocate(Nk_hf(2*Nso))
 
-    ! !<TO BE REMOVED
-    ! !Get asymptotic self-energies
-    ! Sigma_infty =   dreal(Smats(1,1,1,1,1,Lmats))
-    ! S_infty     =   dreal(Smats(2,1,1,1,1,Lmats))
-    ! Efree=0d0
-    ! do ik=1,Lk
-    !    csi   = dreal(Hk(1,1,ik))-(xmu-Sigma_infty)
-    !    Ei    = dsqrt(csi**2 + S_infty**2)
-    !    free  = 0.5d0*(1d0 - csi/Ei)*dtanh(0.5d0*beta*Ei)
-    !    write(100,*)ik,free
-    !    Efree = Efree + wt(ik)*2d0*free*dreal(Hk(1,1,ik))
-    ! enddo
-    ! print*,Efree
+    !<TO BE REMOVED
+    !Get asymptotic self-energies
+    Sigma_infty =   dreal(Smats(1,1,1,1,1,Lmats))
+    S_infty     =   dreal(Smats(2,1,1,1,1,Lmats))
+    Efree=0d0
+    do ik=1,Lk
+       csi   = dreal(Hk(1,1,ik))-(xmu-Sigma_infty)
+       Ei    = dsqrt(csi**2 + S_infty**2)
+       free  = 0.5d0*(1d0 - csi/Ei)*dtanh(0.5d0*beta*Ei)
+       write(100,*)ik,free
+       Efree = Efree + wt(ik)*2d0*free*dreal(Hk(1,1,ik))
+    enddo
+    print*,"Old style Efree:",Efree
 
 
     efree=0d0
@@ -230,9 +231,10 @@ contains
           nk_hf(is) = dot_product(Coef,fermi(Eval,beta))
           efree = efree + wt(ik)*nk_hf(is)*Hktmp(is,is)
        enddo
-       efree2 = efree2 + wt(ik)*trace(matmul(diag(nk_hf),Hktmp(:,:)))
+       efree2 = efree2 + wt(ik)*trace(matmul(diag(nk_hf),Hktmp))
     enddo
-    print*,"Efree        =",Efree,Efree2
+    print*,"New gen. Efree 1:",Efree
+    print*,"New gen. Efree 2:",Efree2
 
 
     allocate(Gknambu(2*Nso,2*Nso))
@@ -263,11 +265,13 @@ contains
        Ekin = Ekin + wt(ik)*4d0/beta*matssum*dreal(Hk(1,1,ik))
     enddo
     Ekin2=Ekin2*4/beta
-    print*,"Ekin_        =",Ekin,Ekin2
-    print*,"Ekin_ + Efree=",Ekin+Efree,Ekin2+Efree2
+    print*,"Ekin_tmp sum      =",Ekin
+    print*,"Ekin_tmp + Efree  =",Ekin+Efree
+    print*,"Ekin_tmp trace    =",Ekin2
+    print*,"Ekin_tmp + Efree  =",Ekin2+Efree2
 
-
-    Ekin=get_ekin()
+    Ekin=Ekin+Efree
+    !Ekin=get_ekin()
   end function get_ekin_2
 
 

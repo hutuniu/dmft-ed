@@ -393,8 +393,10 @@ contains
     ed_Eloc=Hl+Lail0+Lail1
     Eout = [ed_Ekin,ed_Eloc]
     deallocate(wm)
-    call write_kinetic_info()
-    call write_kinetic(Eout)
+    if(ED_MPI_ID==0)then
+       call write_kinetic_info()
+       call write_kinetic(Eout)
+    endif
   end function kinetic_energy_impurity_normal_main
   !
   !> Sigma [Nspin][Nspin][Norb][Norb][L]
@@ -463,8 +465,10 @@ contains
     real(8),dimension(size(Hk,1),size(Hk,1))        :: Sigma_HF,Self_HF
     complex(8),dimension(size(Hk,1),size(Hk,1))     :: Ak,Bk,Ck,Hloc
     complex(8),dimension(size(Hk,1),size(Hk,1))     :: Gk,Tk
-    complex(8),dimension(2*size(Hk,1),2*size(Hk,1)) :: GkNambu,HkNambu,HlocNambu,Evec
-    real(8),dimension(2*size(Hk,1))                 :: Eval,Coef,Nk_HF
+    complex(8),dimension(2*size(Hk,1),2*size(Hk,1)) :: GkNambu,HkNambu,HlocNambu,AkNambu
+    real(8),dimension(2*size(Hk,1))                 :: NkNambu
+    complex(8),dimension(2*size(Hk,1),2*size(Hk,1)) :: Evec
+    real(8),dimension(2*size(Hk,1))                 :: Eval,Coef
     real(8)                                         :: spin_degeneracy
     real(8)                                         :: H0,Hl,H0free,Hlfree,ed_Ekin,ed_Eloc,H0tmp
     real(8)                                         :: Eout(2)
@@ -546,21 +550,28 @@ contains
        call eigh(Evec,Eval)
        do is=1,2*Nso
           Coef = Evec(:,is)*conjg(Evec(:,is))
-          Nk_hf(is) = dot_product(Coef,fermi(Eval,beta))
+          NkNambu(is) = dot_product(Coef,fermi(Eval,beta))
        enddo
-       Ak = matmul( diag(nk_hf) , HkNambu )
-       H0free = H0free + Wtk(ik)*trace_matrix(Ak,Nso)
-       Bk = matmul( diag(nk_hf) , HlocNambu )
-       Hlfree = Hlfree + Wtk(ik)*trace_matrix(Bk,Nso)
+       AkNambu = matmul( diag(NkNambu) , HkNambu )
+       H0free = H0free + Wtk(ik)*trace_matrix(AkNambu(:Nso,:Nso),Nso) !Take only the 11 part
+       AkNambu = matmul( diag(NkNambu) , HlocNambu )
+       Hlfree = Hlfree + Wtk(ik)*trace_matrix(AkNambu(:Nso,:Nso),Nso)
     enddo
     H0free=spin_degeneracy*H0free
     Hlfree=spin_degeneracy*Hlfree
+    ! !<DEBUG 2*Nlso bug
+    ! print*,"ED_ENERGY Efree0:",H0free
+    ! print*,"ED_ENERGY Efreel:",Hlfree
+    ! print*,"ED_ENERGY Total :",H0free+Hlfree
+    ! !>DEBUG
     ed_Ekin=H0+H0free
     ed_Eloc=Hl+Hlfree
     deallocate(wm)
     Eout = [ed_Ekin,ed_Eloc]
-    call write_kinetic_info()
-    call write_kinetic(Eout)
+    if(ED_MPI_ID==0)then
+       call write_kinetic_info()
+       call write_kinetic(Eout)
+    endif
   end function kinetic_energy_impurity_superc_main
   !
   !> Sigma  [Nspin][Nspin][Norb][Norb][L]
@@ -755,8 +766,10 @@ contains
     ed_Eloc_lattice=ed_Eloc_lattice/dble(Nlat)
     Eout = [ed_Ekin_lattice,ed_Eloc_lattice]
     deallocate(wm)
-    call write_kinetic_info()
-    call write_kinetic(Eout)
+    if(mpiID==0)then
+       call write_kinetic_info()
+       call write_kinetic(Eout)
+    endif
   end function kinetic_energy_lattice_normal_main
   !
   !> Sigma [Nlat][Nspin][Nspin][Norb][Norb][L]
@@ -853,8 +866,10 @@ contains
     complex(8),dimension(size(Sigma,1),size(Sigma,2),size(Sigma,3)) :: Self_HF  ![Nlat][Nso][Nso]
     complex(8),dimension(size(Hk,1),size(Hk,2))                     :: Ak,Bk,Ck,Hloc,Hloc_tmp
     complex(8),dimension(size(Hk,1),size(Hk,2))                     :: Gk,Tk
-    complex(8),dimension(2*size(Hk,1),2*size(Hk,2))                 :: Gknambu,HkNambu,HlocNambu,Evec
-    real(8),dimension(2*size(Hk,1))                                 :: Eval,Coef,Nk_HF,NkDiag
+    complex(8),dimension(2*size(Hk,1),2*size(Hk,2))                 :: Gknambu,HkNambu,HlocNambu,AkNambu
+    real(8),dimension(2*size(Hk,1))                                 :: NkNambu
+    complex(8),dimension(2*size(Hk,1),2*size(Hk,2))                 :: Evec
+    real(8),dimension(2*size(Hk,1))                                 :: Eval,Coef
     real(8)                                                         :: spin_degeneracy
     !
     real(8)                                                         :: H0,Hl
@@ -956,8 +971,8 @@ contains
     enddo
     if(mpiID==0)call stop_timer
     spin_degeneracy=3.d0-dble(Nspin) !2 if Nspin=1, 1 if Nspin=2
-    H0 = H0/beta*2d0*spin_degeneracy!;print*,"Ekin_=",H0/Nlat
-    Hl = Hl/beta*2d0*spin_degeneracy!;print*,"Eloc_=",Hl/Nlat
+    H0 = H0/beta*2d0*spin_degeneracy;print*,"Ekin_=",H0/Nlat
+    Hl = Hl/beta*2d0*spin_degeneracy;print*,"Eloc_=",Hl/Nlat
     !
     !
     !get tail subtracted contribution: Tr[ Hk.Tk ]
@@ -975,15 +990,16 @@ contains
        Evec(Nlso+1:2*Nlso,1:Nlso)             =             +  blocks_to_matrix(Self_HF)
        Evec(Nlso+1:2*Nlso,Nlso+1:2*Nlso)      = -Hk(:,:,ik) -  blocks_to_matrix(Sigma_HF)
        call eigh(Evec,Eval)
-       NkDiag = fermi(Eval,beta)
-       GkNambu = matmul(Evec,matmul(diag(NkDiag),conjg(transpose(Evec))))
-       Ak = matmul(HkNambu, GkNambu)
-       H0free = H0free + Wtk(ik)*trace_matrix(Ak,Nlso)
-       Bk = matmul(HlocNambu, GkNambu)
-       Hlfree = Hlfree + Wtk(ik)*trace_matrix(Bk,Nlso)
+       NkNambu = fermi(Eval,beta)
+       GkNambu = matmul(Evec,matmul(diag(NkNambu),conjg(transpose(Evec))))
+       AkNambu = matmul(HkNambu  , GkNambu)
+       H0free  = H0free + Wtk(ik)*trace_matrix( AkNambu(:Nlso,:Nlso) , Nlso) !take only the 11 part
+       AkNambu = matmul(HlocNambu, GkNambu)
+       Hlfree  = Hlfree + Wtk(ik)*trace_matrix( AkNambu(:Nlso,:Nlso) , Nlso)
+
     enddo
-    H0free=spin_degeneracy*H0free!;print*,"Efree=",H0free/Nlat
-    Hlfree=spin_degeneracy*Hlfree!;print*,"Efree_loc=",Hlfree/Nlat
+    H0free=spin_degeneracy*H0free;print*,"Efree=",H0free/Nlat
+    Hlfree=spin_degeneracy*Hlfree;print*,"Efree_loc=",Hlfree/Nlat
     !
     ed_Ekin_lattice=H0+H0free
     ed_Eloc_lattice=Hl+Hlfree
@@ -992,8 +1008,10 @@ contains
     ed_Eloc_lattice=ed_Eloc_lattice/dble(Nlat)
     Eout = [ed_Ekin_lattice,ed_Eloc_lattice]
     deallocate(wm)
-    call write_kinetic_info()
-    call write_kinetic(Eout)
+    if(mpiID==0)then
+       call write_kinetic_info()
+       call write_kinetic(Eout)
+    endif
   end function kinetic_energy_lattice_superc_main
 
 
