@@ -761,7 +761,7 @@ contains
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     !
     if(mpiID==0)write(LOGfile,*)"Get local GF (id=0):"
-    if(ED_MPI_ID==0)write(LOGfile,*)"print in mode "//reg(txtfy(iprint))
+    if(mpiID==0)write(LOGfile,*)"print in mode "//reg(txtfy(iprint))
     if(allocated(wm))deallocate(wm)
     if(allocated(wr))deallocate(wr)
     allocate(wm(Lmats))
@@ -810,6 +810,7 @@ contains
        call print_gloc_lattice(Gmats(2,:,:,:,:,:,:),Greal(2,:,:,:,:,:,:),"LF",iprint)
     endif
   end subroutine ed_get_gloc_superc_lattice_main
+
 
 
 

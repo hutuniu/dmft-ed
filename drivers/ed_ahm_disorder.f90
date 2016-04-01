@@ -13,7 +13,7 @@ program ed_ahm_disorder
   complex(8),allocatable,dimension(:,:,:)     :: Delta,errDelta
   real(8),allocatable,dimension(:)            :: erandom
   real(8),allocatable,dimension(:,:)          :: bath,bath_prev,errBath
-  logical                                     :: converged,phsym,bool,gfpoles,getkin
+  logical                                     :: converged,phsym,bool,gfpoles,getkin,bdgflag
   real(8)                                     :: wmixing,Wdis,ts,Eout(2)
   integer                                     :: i,is,iloop,nrandom,idum
   integer                                     :: Nb,Lf
@@ -40,6 +40,7 @@ program ed_ahm_disorder
   call parse_input_variable(phsym,"PHSYM",finput,default=.false.)
   call parse_input_variable(gfpoles,"GFPOLES",finput,default=.false.)
   call parse_input_variable(getkin,"GETKIN",finput,default=.false.)
+  call parse_input_variable(bdgflag,"BDGFLAG",finput,default=.false.,comment="Perform Bogoliubov-deGennes calculations rather than DMFT")
   call ed_read_input(trim(finput))
   if(gfpoles.AND.ed_verbose>4)ed_verbose=4
 
@@ -107,12 +108,22 @@ program ed_ahm_disorder
 
 
   ! INITIALIZE DMFT SOLVER
-  call  ed_init_solver_lattice(bath)
-
+  if(bdgflag)then
+     nii=0.5d0
+     pii=deltasc
+     call read_hfb_solution()
+  else
+     call ed_init_solver_lattice(bath)
+  endif
 
   if(getkin)then
-     call read_sigma_matsubara()
-     Eout = ed_kinetic_energy_lattice(Hk,[1d0],Smats(1,:,:),Smats(2,:,:))
+     if(bdgflag)then
+        call read_hfb_solution()
+        if(mpiID==0)Eout = Bdg_Kinetic(nii(:,1),pii(:,1),dreal(Hk))
+     else
+        call read_sigma_matsubara()
+        Eout = ed_kinetic_energy_lattice(Hk,[1d0],Smats(1,:,:),Smats(2,:,:))
+     endif
      call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
      call MPI_FINALIZE(mpiERR)
      stop
@@ -123,49 +134,79 @@ program ed_ahm_disorder
   iloop=0 ; converged=.false.
   do while(.not.converged.AND.iloop<nloop) 
      iloop=iloop+1
-     if(mpiID==0)call start_loop(iloop,nloop,"DMFT-loop",unit=LOGfile)
 
-     bath_prev = bath
-     call ed_solve_lattice(bath,Hloc,iprint=0)
-     if(gfpoles)then
-        call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
-        call MPI_FINALIZE(mpiERR)
-        stop
+     if(bdgflag)then
+        if(mpiID==0)call start_loop(iloop,nloop,"BdG-loop",unit=LOGfile)
+        if(mpiID==0)call bdg_solve(nii(:,1),pii(:,1),dreal(Hk))
+        call MPI_BCAST(nii,size(nii),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpiERR)
+        call MPI_BCAST(pii,size(pii),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpiERR)
+        dii=nii*nii
+        eii = uloc(1)*dii
+     else
+        if(mpiID==0)call start_loop(iloop,nloop,"DMFT-loop",unit=LOGfile)
+        bath_prev = bath
+        call ed_solve_lattice(bath,Hloc,iprint=0)
+        if(gfpoles)then
+           call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+           call MPI_FINALIZE(mpiERR)
+           stop
+        endif
+        nii = ed_get_dens_lattice(Nlat)
+        dii = ed_get_docc_lattice(Nlat)
+        pii = ed_get_phisc_lattice(Nlat)
+        eii = ed_get_eimp_lattice(Nlat)
+        call ed_get_sigma_matsubara_lattice(Smats(1,:,:),Nlat)
+        call ed_get_self_matsubara_lattice(Smats(2,:,:),Nlat)
+        call ed_get_sigma_real_lattice(Sreal(1,:,:),Nlat)
+        call ed_get_self_real_lattice(Sreal(2,:,:),Nlat)
+        call ed_get_gloc_lattice(Hk,[1d0],Gmats,Greal,Smats,Sreal,iprint=0)
+        call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc,iprint=0)
+        call ed_chi2_fitgf_lattice(bath,Delta,Hloc)
+        bath = wmixing*bath + (1.d0-wmixing)*bath_prev
+        if(phsym)then
+           do i=1,Nlat
+              call ph_symmetrize_bath(bath(i,:))
+           enddo
+        endif
      endif
-     nii = ed_get_dens_lattice(Nlat)
-     dii = ed_get_docc_lattice(Nlat)
-     pii = ed_get_phisc_lattice(Nlat)
-     eii = ed_get_eimp_lattice(Nlat)
-     call ed_get_sigma_matsubara_lattice(Smats(1,:,:),Nlat)
-     call ed_get_self_matsubara_lattice(Smats(2,:,:),Nlat)
-     call ed_get_sigma_real_lattice(Sreal(1,:,:),Nlat)
-     call ed_get_self_real_lattice(Sreal(2,:,:),Nlat)
 
-     call ed_get_gloc_lattice(Hk,[1d0],Gmats,Greal,Smats,Sreal,iprint=0)
-     call ed_get_weiss_lattice(Gmats,Smats,Delta,Hloc,iprint=0)
-     call ed_chi2_fitgf_lattice(bath,Delta,Hloc)
-     bath = wmixing*bath + (1.d0-wmixing)*bath_prev
-     if(phsym)then
-        do i=1,Nlat
-           call ph_symmetrize_bath(bath(i,:))
-        enddo
-     endif
-
-     !if(mpiID==0)converged = check_convergence_local(bath(:,:),dmft_error,Nsuccess,nloop,index=2,total=3,id=0,file="BATHerror.err",reset=.false.)
-     !if(mpiID==0)converged = check_convergence(Delta(1,:,:),dmft_error,Nsuccess,nloop,index=3,total=3,id=0,file="DELTAerror.err",reset=.false.)
-     if(mpiID==0)converged = check_convergence_local(pii,dmft_error,Nsuccess,nloop,index=1,total=3,id=0,file="error.err")
+     if(mpiID==0)converged = check_convergence_local(pii,dmft_error,Nsuccess,nloop,id=0,file="error.err")
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
+     if(bdgflag.AND.converged)then
+        do i=1,Lmats
+           Smats(1,:,i) =  Uloc(1)*(nii(:,1)-0.5d0)
+           Smats(2,:,i) =  Uloc(1)*pii(:,1)
+        enddo
+        do i=1,Lreal
+           Sreal(1,:,i) =  Uloc(1)*(nii(:,1)-0.5d0)
+           Sreal(2,:,i) =  Uloc(1)*pii(:,1)
+        enddo
+        call ed_get_gloc_lattice(Hk,[1d0],Gmats,Greal,Smats,Sreal,iprint=0)
+     endif
      call print_sc_out(converged)
      if(mpiID==0)call end_loop()
   enddo
   !+-------------------------------------+!
 
-  Eout = ed_kinetic_energy_lattice(Hk,[1d0],Smats(1,:,:),Smats(2,:,:))
+  if(bdgflag)then
+     if(mpiID==0)Eout = Bdg_Kinetic(nii(:,1),pii(:,1),dreal(Hk))
+  else
+     Eout = ed_kinetic_energy_lattice(Hk,[1d0],Smats(1,:,:),Smats(2,:,:))
+  endif
   call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
   call MPI_FINALIZE(mpiERR)
 
 
 contains
+
+
+
+
+
+  ! !******************************************************************
+  ! !******************************************************************
+
+
 
 
   subroutine read_sigma_matsubara()
@@ -175,6 +216,105 @@ contains
     endif
     call MPI_BCAST(Smats,size(Smats),MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,mpiERR)
   end subroutine read_sigma_matsubara
+
+  subroutine read_hfb_solution()
+    if(mpiID==0)then
+       call read_data("nVSisite.ed",nii(:,1))
+       call read_data("phiVSisite.ed",pii(:,1))
+    endif
+    call MPI_BCAST(nii,size(nii),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpiERR)
+    call MPI_BCAST(pii,size(pii),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpiERR)
+  end subroutine read_hfb_solution
+
+
+
+
+  ! !******************************************************************
+  ! !******************************************************************
+
+
+
+
+
+  subroutine BdG_Solve(nii,pii,H)
+    real(8),dimension(Nlat),intent(inout)   :: nii
+    real(8),dimension(Nlat),intent(inout)   :: pii
+    real(8),dimension(Nlat,Nlat),intent(in) :: H
+    real(8),dimension(Nlat)                 :: Sigma_HFB
+    real(8),dimension(Nlat)                 :: Self_HFB
+    real(8),dimension(2*Nlat,2*Nlat)        :: Hnambu
+    real(8),dimension(2*Nlat)               :: Enambu
+    real(8),dimension(2*Nlat)               :: RhoDiag  !diagonal density matrix 
+    real(8),dimension(2*Nlat,2*Nlat)        :: RhoNambu !Nambu density matrix
+    integer                                 :: ilat
+    write(*,*)"Solving B-dG problem:"
+    Sigma_HFB(:) =  Uloc(1)*(nii-0.5d0)
+    Self_HFB(:)  =  Uloc(1)*pii(:)
+    Hnambu(1:Nlat,1:Nlat)               =  H + diag(Sigma_HFB)
+    Hnambu(1:Nlat,Nlat+1:2*Nlat)        =    + diag(Self_HFB)
+    Hnambu(Nlat+1:2*Nlat,1:Nlat)        =    + diag(Self_HFB)
+    Hnambu(Nlat+1:2*Nlat,Nlat+1:2*Nlat) = -H - diag(Sigma_HFB)
+    call eigh(HNambu,ENambu)
+    RhoDiag  = fermi(ENambu,beta)
+    RhoNambu = matmul(HNambu, matmul(diag(RhoDiag),transpose(HNambu)) ) 
+    forall(ilat=1:Nlat)
+       nii(ilat) = RhoNambu(ilat,ilat)
+       pii(ilat) = RhoNambu(ilat,ilat+Nlat)
+    end forall
+  end subroutine BdG_Solve
+
+
+  function BdG_Kinetic(nii,pii,H) result(Ekin)
+    real(8),dimension(Nlat),intent(inout)   :: nii
+    real(8),dimension(Nlat),intent(inout)   :: pii
+    real(8),dimension(Nlat,Nlat),intent(in) :: H
+    real(8),dimension(Nlat)                 :: Sigma_HFB
+    real(8),dimension(Nlat)                 :: Self_HFB
+    real(8),dimension(2*Nlat,2*Nlat)        :: Hnambu,HHNambu
+    real(8),dimension(2*Nlat)               :: Enambu
+    real(8),dimension(2*Nlat)               :: RhoDiag  !diagonal density matrix 
+    real(8),dimension(2*Nlat,2*Nlat)        :: RhoNambu !Nambu density matrix
+    integer                                 :: ilat,unit
+    real(8),dimension(2)                    :: Ekin
+    write(*,*)"Get B-dG Kinetic Energy:"
+    Ekin=0d0
+    Sigma_HFB(:) =  Uloc(1)*(nii-0.5d0)
+    Self_HFB(:)  =  Uloc(1)*pii
+    HHNambu=zero
+    HHnambu(1:Nlat,1:Nlat)               =  H
+    HHnambu(Nlat+1:2*Nlat,Nlat+1:2*Nlat) = -H
+    !
+    Hnambu(1:Nlat,1:Nlat)               =  H + diag(Sigma_HFB)
+    Hnambu(1:Nlat,Nlat+1:2*Nlat)        =    + diag(Self_HFB)
+    Hnambu(Nlat+1:2*Nlat,1:Nlat)        =    + diag(Self_HFB)
+    Hnambu(Nlat+1:2*Nlat,Nlat+1:2*Nlat) = -H - diag(Sigma_HFB)
+    call eigh(HNambu,ENambu)
+    RhoDiag   = fermi(ENambu,beta)
+    RhoNambu  = matmul(HNambu, matmul(diag(RhoDiag),transpose(HNambu)) ) 
+    HNambu    = matmul(HHNambu,RhoNambu)
+    Ekin(1) = (3-Nspin)*trace(HNambu(1:Nlat,1:Nlat))/Nlat
+    !
+    unit = free_unit()
+    open(unit,file="kinetic_info.ed")
+    write(unit,"(A1,90(A14,1X))")"#",reg(txtfy(1))//"<K>",reg(txtfy(2))//"<Eloc>"
+    close(unit)
+    !
+    unit = free_unit()
+    open(unit,file="kinetic_last"//reg(ed_file_suffix)//".ed")
+    write(unit,"(90F15.9)")Ekin(1),Ekin(2)
+    close(unit)
+    !
+  end function BdG_Kinetic
+
+
+
+
+
+
+  ! !******************************************************************
+  ! !******************************************************************
+
+
 
 
   subroutine print_sc_out(converged)
@@ -192,19 +332,17 @@ contains
     complex(8),dimension(2,Lreal)  :: aGreal,aSreal
     character(len=50)              :: suffix,cloop,cfoo
 
-
+    if(bdgflag)nii=2*nii
     if(mpiID==0)then
        suffix=".ed"
        write(cfoo,'(I4.4)')iloop
        cloop = "_loop"//trim(cfoo)//".ed"
-
        !Get CDW "order parameter"
        do is=1,Nlat
           row=irow(is)
           col=icol(is)
           cdwii(is) = (-1.d0)**(row+col)*(nii(is,1)-1.d0)
        enddo
-
        nimp = sum(nii(:,1))/dble(Nlat)
        phi  = sum(pii(:,1))/dble(Nlat)
        docc = sum(dii(:,1))/dble(Nlat)
@@ -213,7 +351,6 @@ contains
        print*,"<phi>   =",phi
        print*,"<docc>  =",docc
        print*,"<ccdw>  =",ccdw
-
        call splot("nVSiloop.ed",iloop,nimp,append=.true.)
        call splot("phiVSiloop.ed",iloop,phi,append=.true.)
        call splot("doccVSiloop.ed",iloop,docc,append=.true.)
@@ -223,13 +360,8 @@ contains
        call store_data("doccVSisite"//trim(suffix),dii(:,1))
        call store_data("epotVSisite"//trim(suffix),eii(:,1))
        call store_data("cdwVSisite"//trim(suffix),cdwii)
-
-
        !WHEN CONVERGED IS ACHIEVED PLOT ADDITIONAL INFORMATION:
        if(converged)then
-
-          !Eout = ed_kinetic_energy_lattice(Hk,[1d0],Smats(1,:,:),Smats(2,:,:))
-          Eout=0d0
           unit=free_unit()
           open(unit,file='internal_energy.ed')
           write(unit,'(10(F18.10))')Eout(1),sum(eii(:,1))/Nlat,sum(eii(:,2))/Nlat,sum(eii(:,3))/Nlat,sum(eii(:,4))/Nlat,Eout(2)
@@ -237,37 +369,14 @@ contains
           open(unit,file='internal_energy_info.ed')
           write(unit,"(A,10A18)")"#","1<K>","2<Hi>","3<V=Hi-Ehf>","4<Eloc>","5<Ehf>","6<E0>"
           close(unit)
-
           call store_data("LG_iw"//trim(suffix),Gmats(1,1:Nlat,1:Lmats),wm(1:Lmats))
           call store_data("LF_iw"//trim(suffix),Gmats(2,1:Nlat,1:Lmats),wm(1:Lmats))
           call store_data("LG_realw"//trim(suffix),Greal(1,1:Nlat,1:Lreal),wr(1:Lreal))
           call store_data("LF_realw"//trim(suffix),Greal(2,1:Nlat,1:Lreal),wr(1:Lreal))
-
           call store_data("LSigma_iw"//trim(suffix),Smats(1,1:Nlat,1:Lmats),wm(1:Lmats))
           call store_data("LSelf_iw"//trim(suffix),Smats(2,1:Nlat,1:Lmats),wm(1:Lmats))
           call store_data("LSigma_realw"//trim(suffix),Sreal(1,1:Nlat,1:Lreal),wr(1:Lreal))
           call store_data("LSelf_realw"//trim(suffix),Sreal(2,1:Nlat,1:Lreal),wr(1:Lreal))
-
-
-          ! !Plot observables: n,delta,n_cdw,rho,sigma,zeta
-          ! do is=1,Nlat
-          !    row=irow(is)
-          !    col=icol(is)
-          !    sii(is)   = dimag(Smats(1,is,1))-&
-          !         wm(1)*(dimag(Smats(1,is,2))-dimag(Smats(1,is,1)))/(wm(2)-wm(1))
-          !    rii(is)   = dimag(Gmats(1,is,1))-&
-          !         wm(1)*(dimag(Gmats(1,is,2))-dimag(Gmats(1,is,1)))/(wm(2)-wm(1))
-          !    zii(is)   = 1.d0/( 1.d0 + abs( dimag(Smats(1,is,1))/wm(1) ))
-          ! enddo
-          ! rii=abs(rii)
-          ! sii=abs(sii)
-          ! zii=abs(zii)
-          ! call store_data("rhoVSisite"//trim(suffix),rii)
-          ! call store_data("sigmaVSisite"//trim(suffix),sii)
-          ! call store_data("zetaVSisite"//trim(suffix),zii)
-
-
-
           do row=1,Nside
              grid_x(row)=row
              grid_y(row)=row
@@ -283,26 +392,6 @@ contains
           call splot3d("3d_doccVSij"//trim(suffix),grid_x,grid_y,dij)
           call splot3d("3d_phiVSij"//trim(suffix),grid_x,grid_y,pij)
           call splot3d("3d_epotVSij"//trim(suffix),grid_x,grid_y,eij)
-
-
-          !Plot averaged local functions
-          aGmats    = sum(Gmats,dim=2)/real(Nlat,8)
-          aSmats = sum(Smats,dim=2)/real(Nlat,8)
-
-          aGreal    = sum(Greal,dim=2)/real(Nlat,8)
-          aSreal = sum(Sreal,dim=2)/real(Nlat,8)
-
-          call splot("aSigma_iw"//trim(suffix),wm,aSmats(1,:))
-          call splot("aSelf_iw"//trim(suffix),wm,aSmats(2,:))
-          call splot("aSigma_realw"//trim(suffix),wr,aSreal(1,:))
-          call splot("aSelf_realw"//trim(suffix),wr,aSreal(2,:))
-
-          call splot("aG_iw"//trim(suffix),wm,aGmats(1,:))
-          call splot("aF_iw"//trim(suffix),wm,aGmats(2,:))
-          call splot("aG_realw"//trim(suffix),wr,aGreal(1,:))
-          call splot("aF_realw"//trim(suffix),wr,aGreal(2,:))
-
-
           call get_moments(nii(:,1),mean,sdev,var,skew,kurt)
           call splot("statistics.n"//trim(suffix),mean,sdev,var,skew,kurt)
           data_mean(1)=mean
@@ -318,8 +407,6 @@ contains
           !
           call get_moments(cdwii,mean,sdev,var,skew,kurt)
           call splot("statistics.cdwn"//trim(suffix),mean,sdev,var,skew,kurt)
-
-
           data_covariance(1,:)=nii(:,1)
           data_covariance(2,:)=pii(:,1)
           covariance_nd = get_covariance(data_covariance,data_mean)
@@ -328,7 +415,6 @@ contains
              write(10,"(2f24.12)")(covariance_nd(i,j),j=1,2)
           enddo
           close(10)
-
           covariance_nd=0d0
           do i=1,2
              do j=1,2
@@ -343,8 +429,10 @@ contains
           enddo
           close(10)
        end if
-
     end if
+
+    if(bdgflag)nii=nii/2
+
   end subroutine print_sc_out
 
 
