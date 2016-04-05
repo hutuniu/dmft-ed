@@ -39,7 +39,10 @@ MODULE ED_BATH_USER
   end interface copy_component_bath
 
   public :: get_size_bath
+
+  public :: check_size_bath                  
   public :: get_bath_size
+  public :: check_bath_dimension
   public :: get_component_size_bath
   public :: get_spin_component_size_bath
   public :: get_orb_component_size_bath
@@ -48,8 +51,6 @@ MODULE ED_BATH_USER
   public :: set_component_bath
   public :: copy_component_bath
   public :: save_bath
-  public :: check_size_bath                  
-  public :: check_bath_dimension
   !explicit symmetries:
   public :: break_symmetry_bath              
   public :: spin_symmetrize_bath             
@@ -87,6 +88,7 @@ contains
           !( e [Nspin][Norb][Nbath] + v [Nspin][Norb][Nbath] + u [Nspin][Norb][Nbath] )
           bath_size = Norb*Nbath + Norb*Nbath + Norb*Nbath
        end select
+       if(.not.present(ispin))bath_size=Nspin*bath_size
     case('hybrid')
        select case(ed_mode)
        case default
@@ -99,8 +101,20 @@ contains
           !(e [Nspin][1][Nbath] + v [Nspin][Norb][Nbath] + u [Nspin][Norb][Nbath] )
           bath_size = Nbath + Norb*Nbath + Norb*Nbath
        end select
+       if(.not.present(ispin))bath_size=Nspin*bath_size
+    case('replica')
+       select case(ed_mode) !bath size depends on impHloc. Hence maximum dimension is allocated assuming real and complex components
+       case default
+          !(Hloc(k) [Nspin*Norb]^2*[Nbath]*2 + V [Nspin*Norb]*2 )
+          bath_size = (Nspin*Norb)**2 * Nbath * 2 + Nspin * Norb * Nbath
+       case ("superc")
+          !
+
+       case ("nonsu2")
+          !
+          bath_size = (Nspin*Norb)**2 * Nbath * 2 + Nspin * Norb * Nbath
+       end select
     end select
-    if(.not.present(ispin))bath_size=Nspin*bath_size
   end function get_size_bath
 
   function get_component_size_bath(itype) result(Ndim)

@@ -19,6 +19,7 @@ program ed_STO
   !hamiltonian input:
   complex(8),allocatable :: Hk(:,:,:)
   complex(8),allocatable :: Ti3dt2g_Hloc(:,:)
+  complex(8),allocatable :: Ti3dt2g_Hloc_nn(:,:,:,:)
   real(8),allocatable    :: Wtk(:)
   real(8),allocatable    :: kxgrid(:),kygrid(:),kzgrid(:)
   !variables for the model:
@@ -63,6 +64,7 @@ program ed_STO
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(Ti3dt2g_Hloc_nn(Nspin,Nspin,Norb,Norb))
   allocate(density_matrix(Nspin*Norb,Nspin*Norb))
   allocate(dm_eig(Nspin*Norb),dm_rot(Nspin*Norb,Nspin*Norb))
   allocate(delta_conv(Nso,Nso,Lmats))
@@ -71,13 +73,23 @@ program ed_STO
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
   call build_hk_path
+  Ti3dt2g_Hloc_nn=reshape_A1_to_A2(Ti3dt2g_Hloc)
 
   !Setup solver
   Nb=get_bath_size()
   allocate(Bath(Nb))
   allocate(Bath_(Nb))
+
+
+  !old
+  !1) alloco impHloc e la riempo se trovo il file
   call ed_init_solver(bath)
+  !2) riempio impHloc
   call set_hloc(reshape_A1_to_A2(Ti3dt2g_Hloc))
+
+  !new
+  !1) alloco impHloc e la riempo se trovo il file, e la riempo con argomento opzionale, se non è presente tiene quella che ha letto dal file o a zero e posso cmq settarla fuori come prima
+  call ed_init_solver(bath,Ti3dt2g_Hloc_nn)
 
   !DMFT loop
   iloop=0;converged=.false.

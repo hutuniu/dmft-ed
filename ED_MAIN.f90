@@ -263,23 +263,39 @@ contains
   !+-----------------------------------------------------------------------------+!
   ! PURPOSE: allocate and initialize one or multiple baths -+!
   !+-----------------------------------------------------------------------------+!
-  subroutine ed_init_solver(bath_,hwband,Hunit)
+  subroutine ed_init_solver(bath_,himp,hwband,Hunit)
     real(8),dimension(:),intent(inout)   :: bath_
     real(8),optional,intent(in)          :: hwband
+    complex(8),allocatable,optional,intent(in)     :: himp(:,:,:,:)
     real(8)                              :: hwband_
+    complex(8)                           :: himp_(Nspin,Nspin,Norb,Norb)
     character(len=*),optional,intent(in) :: Hunit
     character(len=64)                    :: Hunit_
     logical                              :: check 
     logical,save                         :: isetup=.true.
+
     hwband_=2.d0;if(present(hwband))hwband_=hwband
     Hunit_='inputHLOC.in';if(present(Hunit))Hunit_=Hunit
     if(ed_verbose<2.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(ed_file_suffix)
+    himp_=zero;if(present(himp))himp_=himp
+
+    !qui alloco le gf, impHloc=0 e setto le dimensioni dei blocchi
     if(isetup)call init_ed_structure(Hunit_)
+    call set_hloc(himp_)
+
     bath_ = 0.d0
     check = check_bath_dimension(bath_)
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"
+
     call allocate_dmft_bath(dmft_bath)
     call init_dmft_bath(dmft_bath,hwband_)
+
+
+
+
+
+
+
     call get_dmft_bath(dmft_bath,bath_)
     if(isetup)then
        select case(ed_mode)
