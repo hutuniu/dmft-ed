@@ -1002,11 +1002,15 @@ contains
   !##################################################################
   !
   !     CHECK USER BATH SIZE (this is here for self-consistence)
+  !     for bath_type='replica' this subroutine is used when impHloc 
+  !     is already allocated. Hence no intercafe is needed as in the 
+  !     case of the function in ED_BATH_USER
   !
   !##################################################################
   function check_size_bath(bath_) result(bool)
     real(8),dimension(:) :: bath_
     integer              :: bath_size
+    integer              :: ndx,ispin,iorb,jspin,jorb
     logical              :: bool
     select case(bath_type)
     case default
@@ -1018,6 +1022,7 @@ contains
        case ("nonsu2")
           bath_size = Norb*Nbath + Norb*Nbath + Norb*Nbath
        end select
+       bath_size = Nspin*bath_size
     case('hybrid')
        select case(ed_mode)
        case default
@@ -1027,20 +1032,30 @@ contains
        case ("nonsu2")
           bath_size = Nbath + Norb*Nbath + Norb*Nbath
        end select
+       bath_size = Nspin*bath_size
     case('replica')
+       ndx=0
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                   if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                enddo
+             enddo
+          enddo
+       enddo
        select case(ed_mode)
        case default
-          bath_size = (Nspin*Norb)**2 * Nbath * 2 + Nspin * Norb * Nbath
+          bath_size = ndx * Nbath + Nspin * Norb * Nbath
        case ("superc")
-
+          !
        case ("nonsu2")
-          bath_size = (Nspin*Norb)**2 * Nbath * 2 + Nspin * Norb * Nbath
+          bath_size = ndx * Nbath + Nspin * Norb * Nbath
        end select
     end select
-    bath_size = Nspin*bath_size
     bool  = ( size(bath_) == bath_size )
   end function check_size_bath
-
 
 
 

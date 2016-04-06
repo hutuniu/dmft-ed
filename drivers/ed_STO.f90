@@ -75,7 +75,7 @@ program ed_STO
   call build_hk_path
   Ti3dt2g_Hloc_nn=reshape_A1_to_A2(Ti3dt2g_Hloc)
 
-  !Setup solver
+  !Setup solver impHloc non è ne' allocata ne' riempita
   Nb=get_bath_size()
   allocate(Bath(Nb))
   allocate(Bath_(Nb))

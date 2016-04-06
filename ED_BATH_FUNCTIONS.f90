@@ -6,6 +6,7 @@ MODULE ED_BATH_FUNCTIONS
   USE ED_VARS_GLOBAL
   USE ED_BATH_DMFT
   USE ED_BATH_USER
+  USE ED_AUX_FUNX
   implicit none
 
   private
@@ -222,7 +223,9 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: Delta
-    integer                                             :: i,iorb,jorb,ispin,jspin,ih,k,L
+    integer                                             :: i,ih,k,L
+    integer                                             :: iorb,jorb,ispin,jspin,ibath
+    integer                                             :: io,jo
     real(8),dimension(Nbath)                            :: eps,dps,vps
     real(8),dimension(Norb,Nbath)                       :: vops
     real(8),dimension(Nspin,Nbath)                      :: hps
@@ -232,6 +235,10 @@ contains
     real(8),dimension(Nspin,Nbath)                      :: ehel
     real(8),dimension(Nspin,Nspin,Nbath)                :: whel
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
+    !
+    real(8),dimension(Nspin*Norb,Nspin*Norb)            :: V_k
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: invH_k
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: Delta_so
     !
     Delta=zero
     !
@@ -340,6 +347,81 @@ contains
                    enddo
                 enddo
              enddo
+          enddo
+          !
+       end select
+       !
+    case ("replica")
+       !
+       select case(ed_mode)
+       case default
+          !
+          Delta_so=zero
+          invH_k=zero
+          do i=1,L
+             !
+             do ibath=1,Nbath
+                !
+                V_k=0.0d0
+                do ispin=1,Nspin
+                   do jspin=1,Nspin
+                      do iorb=1,Norb
+                         do jorb=1,Norb
+                            io = iorb + (ispin-1) * Norb
+                            jo = jorb + (jspin-1) * Norb
+                            invH_k(io,jo,i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
+                            V_k(io,io)=dmft_bath_%v(ispin,iorb,ibath)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+                !
+                invH_k(:,:,i) = eye(Nspin*Norb) * x(i) - invH_k(:,:,i)
+                call inv(invH_k(:,:,i))
+                !
+                Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
+                !
+             enddo
+             !
+             Delta(:,:,:,:,i)=so2nn_reshape(Delta_so(:,:,i),Nspin,Norb)
+             !
+          enddo
+          !
+       case ("superc")
+          !
+
+          !
+       case ("nonsu2")
+          !
+          Delta_so=zero
+          invH_k=zero
+          do i=1,L
+             !
+             do ibath=1,Nbath
+                !
+                V_k=0.0d0
+                do ispin=1,Nspin
+                   do jspin=1,Nspin
+                      do iorb=1,Norb
+                         do jorb=1,Norb
+                            io = iorb + (ispin-1) * Norb
+                            jo = jorb + (jspin-1) * Norb
+                            invH_k(io,jo,i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
+                            V_k(io,io)=dmft_bath_%v(ispin,iorb,ibath)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+                !
+                invH_k(:,:,i) = eye(Nspin*Norb) * x(i) - invH_k(:,:,i)
+                call inv(invH_k(:,:,i))
+                !
+                Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
+                !
+             enddo
+             !
+             Delta(:,:,:,:,i)=so2nn_reshape(Delta_so(:,:,i),Nspin,Norb)
+             !
           enddo
           !
        end select
@@ -567,7 +649,9 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: Delta
-    integer                                             :: iorb,jorb,ispin,jspin,k,ih,i,L
+    integer                                             :: i,ih,k,L
+    integer                                             :: iorb,jorb,ispin,jspin,ibath
+    integer                                             :: io,jo
     real(8),dimension(Nbath)                            :: eps,dps,vps
     real(8),dimension(Norb,Nbath)                       :: vops
     real(8),dimension(Nspin,Nbath)                      :: hps
@@ -577,6 +661,10 @@ contains
     real(8),dimension(Nspin,Nbath)                      :: ehel
     real(8),dimension(Nspin,Nspin,Nbath)                :: whel
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
+    !
+    real(8),dimension(Nspin*Norb,Nspin*Norb)            :: V_k
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: invH_k
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: Delta_so
     !
     Delta=zero
     !
@@ -685,6 +773,81 @@ contains
                    enddo
                 enddo
              enddo
+          enddo
+          !
+       end select
+       !
+    case ("replica")
+       !
+       select case(ed_mode)
+       case default
+          !
+          Delta_so=zero
+          invH_k=zero
+          do i=1,L
+             !
+             do ibath=1,Nbath
+                !
+                V_k=0.0d0
+                do ispin=1,Nspin
+                   do jspin=1,Nspin
+                      do iorb=1,Norb
+                         do jorb=1,Norb
+                            io = iorb + (ispin-1) * Norb
+                            jo = jorb + (jspin-1) * Norb
+                            invH_k(io,jo,i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
+                            V_k(io,io)=dmft_bath_%v(ispin,iorb,ibath)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+                !
+                invH_k(:,:,i) = eye(Nspin*Norb) * x(i) - invH_k(:,:,i)
+                call inv(invH_k(:,:,i))
+                !
+                Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
+                !
+             enddo
+             !
+             Delta(:,:,:,:,i)=so2nn_reshape(Delta_so(:,:,i),Nspin,Norb)
+             !
+          enddo
+          !
+       case ("superc")
+          !
+
+          !
+       case ("nonsu2")
+          !
+          Delta_so=zero
+          invH_k=zero
+          do i=1,L
+             !
+             do ibath=1,Nbath
+                !
+                V_k=0.0d0
+                do ispin=1,Nspin
+                   do jspin=1,Nspin
+                      do iorb=1,Norb
+                         do jorb=1,Norb
+                            io = iorb + (ispin-1) * Norb
+                            jo = jorb + (jspin-1) * Norb
+                            invH_k(io,jo,i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
+                            V_k(io,io)=dmft_bath_%v(ispin,iorb,ibath)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+                !
+                invH_k(:,:,i) = eye(Nspin*Norb) * x(i) - invH_k(:,:,i)
+                call inv(invH_k(:,:,i))
+                !
+                Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
+                !
+             enddo
+             !
+             Delta(:,:,:,:,i)=so2nn_reshape(Delta_so(:,:,i),Nspin,Norb)
+             !
           enddo
           !
        end select
@@ -993,7 +1156,7 @@ contains
        end select
        !
        !
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
+    case ("hybrid","replica")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
        !
        !
        select case(ed_mode)
@@ -1371,7 +1534,7 @@ contains
        end select
        !
        !
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
+    case ("hybrid","replica")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
        !
        !
        select case(ed_mode)
@@ -1742,7 +1905,7 @@ contains
           !
        end select
        !
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
+    case ("hybrid","replica")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
        !
        select case(ed_mode)
        case default
@@ -2064,7 +2227,7 @@ contains
           !
        end select
        !
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
+    case ("hybrid","replica")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
        !
        select case(ed_mode)
        case default
