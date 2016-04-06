@@ -32,8 +32,10 @@ contains
     integer,dimension(Nlevels)         :: ib
     integer                            :: mpiQ,mpiR                
     integer                            :: dim
-    integer                            :: i,j,m,ms,iorb,jorb,ispin,impi,ishift
+    integer                            :: i,j,m,ms,impi,ishift
+    integer                            :: iorb,jorb,ispin,jspin
     integer                            :: kp,k1,k2,k3,k4
+    integer                            :: alfa,beta
     real(8)                            :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)            :: nup,ndw
     real(8)                            :: htmp
@@ -106,8 +108,10 @@ contains
     integer,dimension(Nlevels)            :: ib
     integer                               :: mpiQ,mpiR                
     integer                               :: dim
-    integer                               :: i,j,m,ms,iorb,jorb,ispin,impi,ishift
+    integer                               :: i,j,m,ms,impi,ishift
+    integer                               :: iorb,jorb,ispin,jspin
     integer                               :: kp,k1,k2,k3,k4
+    integer                               :: alfa,beta
     real(8)                               :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)               :: nup,ndw
     complex(8)                            :: htmp

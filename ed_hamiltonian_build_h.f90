@@ -14,13 +14,15 @@
      htmp = htmp + dot_product(eloc(1,:),nup) + dot_product(eloc(Nspin,:),ndw)
      !
      !Hbath: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
-     do iorb=1,size(dmft_bath%e,2)
-        do kp=1,Nbath
-           ms=getBathStride(iorb,kp)
-           htmp =htmp + dmft_bath%e(1,iorb,kp)*real(ib(ms),8) + &
-                dmft_bath%e(Nspin,iorb,kp)*real(ib(ms+Ns),8)
+     if(bath_type/="replica") then
+        do iorb=1,size(dmft_bath%e,2)
+           do kp=1,Nbath
+              ms=getBathStride(iorb,kp)
+              htmp =htmp + dmft_bath%e(1,iorb,kp)*real(ib(ms),8) + &
+                   dmft_bath%e(Nspin,iorb,kp)*real(ib(ms+Ns),8)
+           enddo
         enddo
-     enddo
+     endif
      !
      !Density-density interaction: same orbital, opposite spins
      !\sum_\a \pm U_\a*(n_{\a,up}*n_{\a,dw})
@@ -185,6 +187,10 @@
      !
      !IMPURITY--BATH HYBRIDIZATION
      !==> Hybridizations between imp. and bath
+
+     select case(bath_type)
+     case default
+
      do iorb=1,Norb
         do kp=1,Nbath
            ms=getBathStride(iorb,kp)
@@ -276,8 +282,6 @@
      enddo
      !
      !
-     !
-     !
      !ANOMALOUS PAIR-CREATION/DESTRUCTION
      if(ed_mode=="superc")then
         do iorb=1,size(dmft_bath%e,2)
@@ -306,6 +310,100 @@
            enddo
         enddo
      endif
+
+     case("replica")
+
+     !DIAGONAL-HYBRIDIZATION
+     do iorb=1,Norb
+        do kp=1,Nbath
+           ms=getBathStride(iorb,kp)
+           !
+           !IMP UP <--> BATH UP
+           if( (dmft_bath%v(1,iorb,kp)/=0d0) .AND. (ib(iorb)==1) .AND. (ib(ms)==0) )then
+              call c(iorb,m,k1,sg1)
+              call cdg(ms,k1,k2,sg2)
+              j = binary_search(Hmap,k2)
+              htmp = dmft_bath%v(1,iorb,kp)*sg1*sg2
+              !
+              call sp_insert_element(spH0,htmp,impi,j)
+              !
+           endif
+           !
+           if( (dmft_bath%v(1,iorb,kp)/=0d0) .AND. (ib(iorb)==0) .AND. (ib(ms)==1) )then
+              call c(ms,m,k1,sg1)
+              call cdg(iorb,k1,k2,sg2)
+              j=binary_search(Hmap,k2)
+              htmp = dmft_bath%v(1,iorb,kp)*sg1*sg2
+              !
+              call sp_insert_element(spH0,htmp,impi,j)
+              !
+           endif
+           !IMP DW <--> BATH DW
+           if( (dmft_bath%v(Nspin,iorb,kp)/=0d0) .AND. (ib(iorb+Ns)==1) .AND. (ib(ms+Ns)==0) )then
+              call c(iorb+Ns,m,k1,sg1)
+              call cdg(ms+Ns,k1,k2,sg2)
+              j=binary_search(Hmap,k2)
+              htmp=dmft_bath%v(Nspin,iorb,kp)*sg1*sg2
+              !
+              call sp_insert_element(spH0,htmp,impi,j)
+              !
+           endif
+           !
+           if( (dmft_bath%v(Nspin,iorb,kp)/=0d0) .AND. (ib(iorb+Ns)==0) .AND. (ib(ms+Ns)==1) )then
+              call c(ms+Ns,m,k1,sg1)
+              call cdg(iorb+Ns,k1,k2,sg2)
+              j=binary_search(Hmap,k2)
+              htmp=dmft_bath%v(Nspin,iorb,kp)*sg1*sg2
+              !
+              call sp_insert_element(spH0,htmp,impi,j)
+              !
+           endif
+        enddo
+     enddo
+
+     !CLUSTER-HAMILTONIAN - no inter-cluster couplings
+     do kp=1,Nbath
+        !
+        do iorb=1,Norb
+           do jorb=1,Norb
+              do ispin=1,Nspin
+                 do jspin=1,Nspin
+                    !
+                    if(dmft_bath%h(ispin,jspin,iorb,jorb,kp)/=0d0) then
+                       !
+                       !STRIDE:  {Norb,up}[Norb,up(k=1)][Norb,up(k=2)]{Norb,dw}[Norb,dw(k=1)][Norb,dw(k=2)]
+                       !
+                       ! [ c+_(iorb,ispin)c_(jorb,jspin) ]_k + h.c. = c+_alpha c_beta + c+_beta c_alpha
+                       !  
+                       alfa = iorb + kp*Norb + (ispin-1)*Ns
+                       beta = jorb + kp*Norb + (jspin-1)*Ns
+                       !
+                       if ((ib(beta)==1) .AND. (ib(alfa)==0)) then
+                          call c(beta,m,k1,sg1)
+                          call cdg(alfa,k1,k2,sg2)
+                          j = binary_search(Hmap,k2)
+                          htmp = dmft_bath%v(1,iorb,kp)*sg1*sg2
+                          call sp_insert_element(spH0,htmp,impi,j)
+                       endif
+                       !
+                       if( (ib(alfa)==1) .AND. (ib(beta)==0) )then
+                          call c(alfa,m,k1,sg1)
+                          call cdg(beta,k1,k2,sg2)
+                          j = binary_search(Hmap,k2)
+                          htmp = dmft_bath%v(1,iorb,kp)*sg1*sg2
+                          call sp_insert_element(spH0,htmp,impi,j)
+                       endif
+                    endif
+                    !
+                 enddo
+              enddo
+           enddo
+        enddo
+        !
+     enddo
+
+     end select
+
 
   enddo states
 
