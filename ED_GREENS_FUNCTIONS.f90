@@ -259,7 +259,7 @@ contains
           enddo
        enddo
        !
-    case ('hybrid')             !Diagonal in spin only. Full Orbital structure
+    case ("hybrid","replica")             !Diagonal in spin only. Full Orbital structure
        !
        !Get Gimp^-1
        do ispin=1,Nspin
@@ -483,7 +483,7 @@ contains
           enddo
        enddo
        !
-       case ("hybrid")
+       case ("hybrid","replica")
        !
        !Get Gimp^-1 - Matsubara freq.
        do i=1,Lmats
@@ -573,7 +573,7 @@ contains
           getJorb(l)=iorb
        enddo
        totNorb=l
-    case ('hybrid')             !Diagonal in spin only. Full Orbital structure
+    case ("hybrid")             !Diagonal in spin only. Full Orbital structure
        totNorb=Norb*(Norb+1)/2
        allocate(getIorb(totNorb),getJorb(totNorb))
        l=0

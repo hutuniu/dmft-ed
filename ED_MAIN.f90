@@ -289,14 +289,8 @@ contains
 
     call allocate_dmft_bath(dmft_bath)
     call init_dmft_bath(dmft_bath,hwband_)
-
-
-
-
-
-
-
     call get_dmft_bath(dmft_bath,bath_)
+
     if(isetup)then
        select case(ed_mode)
        case default
