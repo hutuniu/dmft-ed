@@ -293,6 +293,7 @@ contains
 #else
     bath = bath_tmp
 #endif
+    ed_file_suffix=""
   end subroutine ed_fit_bath_sites_normal
 
   subroutine ed_fit_bath_sites_normal_1b(bath,Delta,Hloc,spin)
@@ -379,6 +380,7 @@ contains
 #else
     bath = bath_tmp
 #endif
+    ed_file_suffix=""
   end subroutine ed_fit_bath_sites_superc
 
   subroutine ed_fit_bath_sites_superc_1b(bath,Delta,Hloc,ispin)

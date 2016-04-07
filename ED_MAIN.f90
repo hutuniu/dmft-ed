@@ -427,8 +427,8 @@ contains
     allocate(Fmatsii(Nsites,Nspin,Nspin,Norb,Norb,Lmats))
     allocate(Frealii(Nsites,Nspin,Nspin,Norb,Norb,Lreal))
     !
-    if(size(neigen_sectorii,1)/=Nsites)stop "ed_solve_lattice error: size(neigen_sectorii,1)!=Nsites"
-    if(size(neigen_totalii)/=Nsites)stop "ed_solve_lattice error: size(neigen_totalii,1)!=Nsites"
+    if(size(neigen_sectorii,1)<Nsites)stop "ed_solve_lattice error: size(neigen_sectorii,1)<Nsites"
+    if(size(neigen_totalii)<Nsites)stop "ed_solve_lattice error: size(neigen_totalii,1)<Nsites"
     neigen_sectortmp = 0
     neigen_totaltmp  = 0
     !

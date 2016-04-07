@@ -15,7 +15,6 @@ program ed_bhz_2d_edge
   logical                                       :: converged
   !Bath:
   integer                                       :: Nb
-  real(8),allocatable,dimension(:,:)            :: Bath
   real(8),allocatable,dimension(:,:)            :: Bath_ineq
   real(8),allocatable,dimension(:,:)            :: Bath_prev
   !The local hybridization function:
@@ -82,22 +81,27 @@ program ed_bhz_2d_edge
   !set the total lattice-spin-orbit dimension:
   Nlso=Nlat*Nspin*Norb
 
+  ! !<DEBUG 
+  ! stop "Stop for MPI concatenate test reason"
+  ! !>DEBUG
+
 
 
   !Allocate Functions:
-  allocate(Weiss(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
+
   allocate(Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Greal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb))
   !
+  allocate(Weiss(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Smats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lreal))
+  allocate(Gmats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Hloc_ineq(Nineq,Nspin,Nspin,Norb,Norb))
   allocate(S0(Nlat,Nspin,Nspin,Norb,Norb))
   S0=zero
-
 
 
   !Buil the Hamiltonian on a grid or on  path
@@ -111,14 +115,9 @@ program ed_bhz_2d_edge
 
   !Setup solver
   Nb=get_bath_size()
-  allocate(Bath(Nlat,Nb) )
   allocate(Bath_ineq(Nineq,Nb) )
   allocate(Bath_prev(Nineq,Nb) )
-  call ed_init_solver_lattice(Bath)
-  do ineq=1,Nineq
-     ilat = ineq2ilat(ineq)
-     Bath_ineq(ineq,:) = Bath(ilat,:)
-  enddo
+  call ed_init_solver_lattice(Bath_ineq)
 
 
 
@@ -158,9 +157,7 @@ program ed_bhz_2d_edge
      ! fit baths and mix result with old baths
      call ed_chi2_fitgf_lattice(Bath_ineq,Weiss,Hloc_ineq,ispin=1)
      if(spinsym)then
-        do ineq=1,Nineq
-           call spin_symmetrize_bath(Bath_ineq(ineq,:))
-        enddo
+        call spin_symmetrize_bath(Bath_ineq)
      else
         call ed_chi2_fitgf_lattice(Bath_ineq,Weiss,Hloc_ineq,ispin=2)
      endif
