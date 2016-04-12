@@ -12,13 +12,13 @@ MODULE ED_BATH_USER
 
   !Ensure backward compatibility: [yeah I am lazy...]
   interface get_bath_size
-     module procedure get_size_bath_normal_hybrid
-     module procedure get_size_bath_replica
+     module procedure get_size_bath!_normal_hybrid
+     !module procedure get_size_bath_replica
   end interface get_bath_size
 
   interface get_size_bath
-     module procedure get_size_bath_normal_hybrid
-     module procedure get_size_bath_replica
+     module procedure get_size_bath!_normal_hybrid
+     !module procedure get_size_bath_replica
   end interface get_size_bath
   !
   interface check_bath_dimension
@@ -78,9 +78,10 @@ contains
   ! 2 for get_spin_component_size_bath & get_orb_component_size_bath
   ! 1 for get_spin_orb_component_size_bath
   !+-------------------------------------------------------------------+
-  function get_size_bath_normal_hybrid(ispin) result(bath_size)
-    integer :: bath_size
-    integer,optional :: ispin
+  function get_size_bath(Hloc_nn,ispin_) result(bath_size)
+    integer :: bath_size,ndx,ispin,iorb,jspin,jorb
+    integer,optional :: ispin_
+    complex(8),allocatable,optional,intent(in) :: Hloc_nn(:,:,:,:)
     select case(bath_type)
     case default
        select case(ed_mode)
@@ -94,6 +95,7 @@ contains
           !( e [Nspin][Norb][Nbath] + v [Nspin][Norb][Nbath] + u [Nspin][Norb][Nbath] )
           bath_size = Norb*Nbath + Norb*Nbath + Norb*Nbath
        end select
+       if(.not.present(ispin_))bath_size=Nspin*bath_size
     case('hybrid')
        select case(ed_mode)
        case default
@@ -106,17 +108,38 @@ contains
           !(e [Nspin][1][Nbath] + v [Nspin][Norb][Nbath] + u [Nspin][Norb][Nbath] )
           bath_size = Nbath + Norb*Nbath + Norb*Nbath
        end select
+       if(.not.present(ispin_))bath_size=Nspin*bath_size
     case('replica')
-       write(*,*) "ERROR: bath_type='replica' but impHloc_nn not provided to get_size_bath"
+       !
+       if(.not.present(Hloc_nn))stop "ERROR: bath_type='replica' but impHloc_nn not provided to get_size_bath"
+       ndx=0
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                   if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                enddo
+             enddo
+          enddo
+       enddo
+       select case(ed_mode)
+       case default
+          bath_size = ndx * Nbath + Nspin * Norb * Nbath
+       case ("superc")
+          !
+       case ("nonsu2")
+          bath_size = ndx * Nbath + Nspin * Norb * Nbath
+       end select
+       !
     end select
-    if(.not.present(ispin))bath_size=Nspin*bath_size
-  end function get_size_bath_normal_hybrid
+  end function get_size_bath!_normal_hybrid
 
   function get_size_bath_replica(Hloc_nn) result(bath_size)
     integer                           :: bath_size,ndx
     integer                           :: ispin,iorb,jspin,jorb
     complex(8),allocatable,intent(in) :: Hloc_nn(:,:,:,:)
-    if(bath_type/="replica")write(*,*) "ERROR: bath_type/='replica' but impHloc_nn provided to get_size_bath"
+    if(bath_type/="replica")stop "ERROR: bath_type/='replica' but impHloc_nn provided to get_size_bath"
     ndx=0
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -1248,11 +1271,16 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : Check if the dimension of the bath array are consistent
   !+-------------------------------------------------------------------+
-  function check_size_bath(bath_) result(bool)
+  function check_size_bath(bath_,Hloc_nn) result(bool)
     real(8),dimension(:) :: bath_
     integer              :: Ntrue
     logical              :: bool
-    Ntrue = get_size_bath()
+    complex(8),optional,allocatable,intent(in) :: Hloc_nn(:,:,:,:)
+    if (present(Hloc_nn))then
+       Ntrue = get_size_bath(Hloc_nn)
+    else
+       Ntrue = get_size_bath()
+    endif
     bool  = ( size(bath_) == Ntrue )
   end function check_size_bath
 

@@ -17,6 +17,7 @@ MODULE ED_BATH_DMFT
   public :: allocate_dmft_bath               !INTERNAL (for effective_bath)
   public :: deallocate_dmft_bath             !INTERNAL (for effective_bath)
   public :: init_dmft_bath                   !INTERNAL (for effective_bath)
+  public :: init_dmft_bath_mask              !INTERNAL (for effective_bath)
   public :: write_dmft_bath                  !INTERNAL (for effective_bath)
   public :: save_dmft_bath                   !INTERNAL (for effective_bath)
   public :: set_dmft_bath                    !INTERNAL (for effective_bath)
@@ -175,21 +176,13 @@ contains
        deallocate(noise)
     !
     case('replica')
+       !
        do i=1,Nbath
           dmft_bath_%h(:,:,:,:,i)=impHloc
           dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath*Norb)))
        enddo
-       dmft_bath_%mask=.false.
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)dmft_bath_%mask(ispin,jspin,iorb,jorb,1)=.true.
-                   if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)dmft_bath_%mask(ispin,jspin,iorb,jorb,2)=.true.
-                enddo
-             enddo
-          enddo
-       enddo
+       call init_dmft_bath_mask(dmft_bath)
+       !
     end select
     !
     !Read from file if exist:
@@ -315,6 +308,44 @@ contains
        close(unit)
     endif
   end subroutine init_dmft_bath
+
+
+  subroutine init_dmft_bath_mask(dmft_bath_)
+    type(effective_bath) :: dmft_bath_
+    integer              :: io,jo,iorb,ispin,jorb,jspin
+    !
+    if(.not.(allocated(impHloc))) then
+       stop "impHloc not allocated on mask initialization"
+    endif
+    dmft_bath_%mask=.false.
+    select case (ed_mode)
+    case default
+       !
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)dmft_bath_%mask(ispin,jspin,iorb,jorb,1)=.true.
+                   if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)dmft_bath_%mask(ispin,jspin,iorb,jorb,2)=.true.
+                enddo
+             enddo
+           enddo
+        enddo
+        !
+     case("normal")
+       !
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                if( abs(real(impHloc(ispin,ispin,iorb,jorb))).gt.1e-6)dmft_bath_%mask(ispin,ispin,iorb,jorb,1)=.true.
+                if(abs(aimag(impHloc(ispin,ispin,iorb,jorb))).gt.1e-6)dmft_bath_%mask(ispin,ispin,iorb,jorb,2)=.true.
+             enddo
+           enddo
+        enddo
+        !
+     end select
+     !
+  end subroutine init_dmft_bath_mask
 
 
 
@@ -676,34 +707,32 @@ contains
        !
        select case(ed_mode)
        case default
-          !all hybrd
+          !
           dmft_bath_%v=zero
+          dmft_bath_%h=zero
+          !
           do ispin=1,Nspin
+             !all hybrd
              do iorb=1,Norb
                 do i=1,Nbath
                    io=io+1
                    dmft_bath_%v(ispin,iorb,i)=bath_(io)
                 enddo
              enddo
-          enddo
-          !all non-vanishing terms in imploc
-          dmft_bath_%h=zero
-          do i=1,Nbath
-             do ispin=1,Nspin
-                do jspin=1,Nspin
-                   do iorb=1,Norb
-                      do jorb=1,Norb
-                         element_R=0.0d0;element_I=0.0d0
-                         if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1)) then
-                            io=io+1
-                            element_R=bath_(io)
-                         endif
-                         if(dmft_bath_%mask(ispin,jspin,iorb,jorb,2)) then
-                            io=io+1
-                            element_I=bath_(io)
-                         endif
-                         dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(element_R,element_I)
-                      enddo
+             !all non-vanishing terms in imploc - diagonal spin
+             do i=1,Nbath
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      element_R=0.0d0;element_I=0.0d0
+                      if(dmft_bath_%mask(ispin,ispin,iorb,jorb,1)) then
+                         io=io+1
+                         element_R=bath_(io)
+                      endif
+                      if(dmft_bath_%mask(ispin,ispin,iorb,jorb,2)) then
+                         io=io+1
+                         element_I=bath_(io)
+                      endif
+                      dmft_bath_%h(ispin,ispin,iorb,jorb,i)=cmplx(element_R,element_I)
                    enddo
                 enddo
              enddo
@@ -713,21 +742,21 @@ contains
 
           !
        case("nonsu2")
-          !all hybrd
+          !
           dmft_bath_%v=zero
+          dmft_bath_%h=zero
+          !
           do ispin=1,Nspin
+             !all hybrd
              do iorb=1,Norb
                 do i=1,Nbath
                    io=io+1
                    dmft_bath_%v(ispin,iorb,i)=bath_(io)
                 enddo
              enddo
-          enddo
-          !all non-vanishing terms in imploc
-          dmft_bath_%h=zero
-          do i=1,Nbath
-             do ispin=1,Nspin
-                do jspin=1,Nspin
+             !all non-vanishing terms in imploc - all spin
+             do jspin=1,Nspin
+                do i=1,Nbath
                    do iorb=1,Norb
                       do jorb=1,Norb
                          element_R=0.0d0;element_I=0.0d0
@@ -927,31 +956,28 @@ contains
        !
        select case(ed_mode)
        case default
+          !
           io = 0
-          !all hybrd
           do ispin=1,Nspin
+             !all hybrd
              do iorb=1,Norb
                 do i=1,Nbath
                    io=io+1
                    bath_(io)=dmft_bath_%v(ispin,iorb,i)
                 enddo
              enddo
-          enddo
-          !all non-vanishing terms in imploc
-          do i=1,Nbath
-             do ispin=1,Nspin
-                do jspin=1,Nspin
-                   do iorb=1,Norb
-                      do jorb=1,Norb
-                         if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1)) then
-                            io=io+1
-                            bath_(io)=real(dmft_bath_%h(ispin,jspin,iorb,jorb,i))
-                         endif
-                         if(dmft_bath_%mask(ispin,jspin,iorb,jorb,2)) then
-                            io=io+1
-                            bath_(io)=aimag(dmft_bath_%h(ispin,jspin,iorb,jorb,i))
-                         endif
-                      enddo
+             !all non-vanishing terms in imploc - diagonal spin
+             do i=1,Nbath
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      if(dmft_bath_%mask(ispin,ispin,iorb,jorb,1)) then
+                         io=io+1
+                         bath_(io)=real(dmft_bath_%h(ispin,ispin,iorb,jorb,i))
+                       endif
+                       if(dmft_bath_%mask(ispin,ispin,iorb,jorb,2)) then
+                         io=io+1
+                         bath_(io)=aimag(dmft_bath_%h(ispin,ispin,iorb,jorb,i))
+                      endif
                    enddo
                 enddo
              enddo
@@ -963,18 +989,16 @@ contains
           !
        case("nonsu2")
           io = 0
-          !all hybrd
           do ispin=1,Nspin
+             !all hybrd
              do iorb=1,Norb
                 do i=1,Nbath
                    io=io+1
                    bath_(io)=dmft_bath_%v(ispin,iorb,i)
                 enddo
              enddo
-          enddo
-          !all non-vanishing terms in imploc
-          do i=1,Nbath
-             do ispin=1,Nspin
+             !all non-vanishing terms in imploc - all spin
+             do i=1,Nbath
                 do jspin=1,Nspin
                    do iorb=1,Norb
                       do jorb=1,Norb

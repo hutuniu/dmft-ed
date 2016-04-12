@@ -1,5 +1,5 @@
 
-program ed_STO
+program ed_TEST_REPLICA
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
@@ -44,15 +44,15 @@ program ed_STO
 #endif
 
   !Parse additional variables && read Input && read H(k)^4x4
-  call parse_cmd_variable(finput,   "FINPUT",           default='inputED_STO.in')
+  call parse_cmd_variable(finput,   "FINPUT",           default='inputED_REPL.in')
   call parse_input_variable(hkfile, "HKFILE",finput,    default="hkfile.in")
   call parse_input_variable(nk,     "NK",finput,        default=10)
   call parse_input_variable(nkpath, "NKPATH",finput,    default=500)
   call parse_input_variable(wmixing,"WMIXING",finput,   default=0.5d0)
-  call parse_input_variable(soc,    "SOC",finput,       default=0.25d0)
-  call parse_input_variable(ivb,    "IVB",finput,       default=0.02d0)
+  call parse_input_variable(soc,    "SOC",finput,       default=0.0d0)
+  call parse_input_variable(ivb,    "IVB",finput,       default=0.0d0)
   call parse_input_variable(surface,"SURFACE",finput,   default=.false.)
-  call parse_input_variable(Hk_test,"HK_TEST",finput,   default=.false.)
+  call parse_input_variable(Hk_test,"HK_TEST",finput,   default=.true.)
   call parse_input_variable(rotateG0loc,"ROTATEG0loc",finput, default=.false.)
   call ed_read_input(trim(finput))
   !
@@ -80,13 +80,6 @@ program ed_STO
   allocate(Bath(Nb))
   allocate(Bath_(Nb))
 
-
-  !old
-  !1) alloco impHloc e la riempo se trovo il file
-  call ed_init_solver(bath)
-  !2) riempio impHloc
-  call set_hloc(reshape_A1_to_A2(Ti3dt2g_Hloc))
-
   !new
   !1) alloco impHloc e la riempo se trovo il file, e la riempo con argomento opzionale, se non è presente tiene quella che ha letto dal file o a zero e posso cmq settarla fuori come prima
   call ed_init_solver(bath,Ti3dt2g_Hloc_nn)
@@ -100,17 +93,17 @@ program ed_STO
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solve(bath)
      call ed_get_sigma_matsubara(Smats)
-     call build_hk_path
+     !call build_hk_path
      call ed_get_sigma_real(Sreal)
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
-     if(ED_MPI_ID==0)call rotate_Gloc(Greal)
-     if(ED_MPI_ID==1)call Quantum_operator()
+     !if(ED_MPI_ID==0)call rotate_Gloc(Greal)
+     !if(ED_MPI_ID==1)call Quantum_operator()
      call ed_get_weiss(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2(Ti3dt2g_Hloc),iprint=3)
      !density matrix
-     if(ED_MPI_ID==0)then
-        call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-     endif
+     !if(ED_MPI_ID==0)then
+     !   call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+     !endif
      !Fit the new bath, starting from the old bath + the supplied delta 
      Bath_=bath
      if (ed_mode=="normal") then
@@ -1076,5 +1069,5 @@ contains
   end subroutine inversion_test
 
 
-end program ed_STO
+end program ed_TEST_REPLICA
 

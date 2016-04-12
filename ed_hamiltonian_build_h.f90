@@ -22,52 +22,6 @@
      htmp = htmp + dot_product(eloc(1,:),nup) + dot_product(eloc(Nspin,:),ndw)
      !
      !
-     !   ==> IMPURITY LOCAL HYBRIDIZATION <==
-     !
-     do iorb=1,Norb
-        do jorb=1,Norb
-           ! HYBRIDIZATION TERMS I: same or different orbitals, same spins.
-           ! SPIN UP
-           if((impHloc(1,1,iorb,jorb)/=0d0).AND.(ib(iorb)==0).AND.(ib(jorb)==1))then
-              call c(jorb,m,k1,sg1)
-              call cdg(iorb,k1,k2,sg2)
-              j=binary_search(Hmap,k2)
-              htmp = impHloc(1,1,iorb,jorb)*sg1*sg2
-              call sp_insert_element(spH0,htmp,impi,j)
-           endif
-           ! SPIN DW
-           if((impHloc(Nspin,Nspin,iorb,jorb)/=0d0).AND.(ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
-              call c(jorb+Ns,m,k1,sg1)
-              call cdg(iorb+Ns,k1,k2,sg2)
-              j=binary_search(Hmap,k2)
-              htmp = impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2
-              call sp_insert_element(spH0,htmp,impi,j)
-           endif
-           ! HYBRIDIZATION TERMS II: same or different orbitals, opposite spins.
-           ! UP-DW
-           if(impHloc(1,Nspin,iorb,jorb)/=0d0)then
-              if( (ib(iorb)==0).AND.(ib(jorb+Ns)==1) )then
-                 call c(jorb+Ns,m,k1,sg1)
-                 call cdg(iorb,k1,k2,sg2)
-                 j=binary_search(Hmap,k2)
-                 htmp = impHloc(1,Nspin,iorb,jorb)*sg1*sg2
-                 call sp_insert_element(spH0,htmp,impi,j)
-              endif
-           endif
-           ! DW-UP
-           if(impHloc(Nspin,1,iorb,jorb)/=0d0)then
-              if( (ib(iorb+Ns)==0).AND.(ib(jorb)==1) )then
-                 call c(jorb,m,k1,sg1)
-                 call cdg(iorb+Ns,k1,k2,sg2)
-                 j=binary_search(Hmap,k2)
-                 htmp = impHloc(Nspin,1,iorb,jorb)*sg1*sg2
-                 call sp_insert_element(spH0,htmp,impi,j)
-              endif
-           endif
-        enddo
-     enddo
-     !
-     !
      !     ==> IMPURITY INTERACTIONS <==
      !
      ! DENSITY-DENSITY INTERACTIONS: same orbital, opposite spins
@@ -162,6 +116,52 @@
      endif
      !
      !
+     !   ==> IMPURITY LOCAL HYBRIDIZATION <==
+     !
+     do iorb=1,Norb
+        do jorb=1,Norb
+           ! HYBRIDIZATION TERMS I: same or different orbitals, same spins.
+           ! SPIN UP
+           if((impHloc(1,1,iorb,jorb)/=0d0).AND.(ib(iorb)==0).AND.(ib(jorb)==1))then
+              call c(jorb,m,k1,sg1)
+              call cdg(iorb,k1,k2,sg2)
+              j=binary_search(Hmap,k2)
+              htmp = impHloc(1,1,iorb,jorb)*sg1*sg2
+              call sp_insert_element(spH0,htmp,impi,j)
+           endif
+           ! SPIN DW
+           if((impHloc(Nspin,Nspin,iorb,jorb)/=0d0).AND.(ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
+              call c(jorb+Ns,m,k1,sg1)
+              call cdg(iorb+Ns,k1,k2,sg2)
+              j=binary_search(Hmap,k2)
+              htmp = impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2
+              call sp_insert_element(spH0,htmp,impi,j)
+           endif
+           ! HYBRIDIZATION TERMS II: same or different orbitals, opposite spins.
+           ! UP-DW
+           if(impHloc(1,Nspin,iorb,jorb)/=0d0)then
+              if( (ib(iorb)==0).AND.(ib(jorb+Ns)==1) )then
+                 call c(jorb+Ns,m,k1,sg1)
+                 call cdg(iorb,k1,k2,sg2)
+                 j=binary_search(Hmap,k2)
+                 htmp = impHloc(1,Nspin,iorb,jorb)*sg1*sg2
+                 call sp_insert_element(spH0,htmp,impi,j)
+              endif
+           endif
+           ! DW-UP
+           if(impHloc(Nspin,1,iorb,jorb)/=0d0)then
+              if( (ib(iorb+Ns)==0).AND.(ib(jorb)==1) )then
+                 call c(jorb,m,k1,sg1)
+                 call cdg(iorb+Ns,k1,k2,sg2)
+                 j=binary_search(Hmap,k2)
+                 htmp = impHloc(Nspin,1,iorb,jorb)*sg1*sg2
+                 call sp_insert_element(spH0,htmp,impi,j)
+              endif
+           endif
+        enddo
+     enddo
+     !
+     !
      !##############################################
      !#                                            #
      !#              BATH HAMILTONIAN              #
@@ -171,13 +171,14 @@
      !
      if(bath_type/="replica") then
         ! DIAGONAL BATH HAMILTONIAN: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
+        htmp=0.0d0
         do iorb=1,size(dmft_bath%e,2)
            do kp=1,Nbath
               ms=getBathStride(iorb,kp)
-              htmp =htmp + dmft_bath%e(1,iorb,kp)*real(ib(ms),8) + &
-                   dmft_bath%e(Nspin,iorb,kp)*real(ib(ms+Ns),8)
+              htmp =htmp + dmft_bath%e(1,iorb,kp)*real(ib(ms),8) + dmft_bath%e(Nspin,iorb,kp)*real(ib(ms+Ns),8)
            enddo
         enddo
+        call sp_insert_element(spH0,htmp,impi,i)
         !
      else
         ! CLUSTER REPLICA-HAMILTONIAN - no inter-cluster couplings

@@ -263,12 +263,12 @@ contains
   !+-----------------------------------------------------------------------------+!
   ! PURPOSE: allocate and initialize one or multiple baths -+!
   !+-----------------------------------------------------------------------------+!
-  subroutine ed_init_solver(bath_,himp,hwband,Hunit)
+  subroutine ed_init_solver(bath_,himp_,hwband,Hunit)
     real(8),dimension(:),intent(inout)   :: bath_
     real(8),optional,intent(in)          :: hwband
-    complex(8),allocatable,optional,intent(in)     :: himp(:,:,:,:)
+    complex(8),allocatable,optional,intent(in)     :: himp_(:,:,:,:)
     real(8)                              :: hwband_
-    complex(8)                           :: himp_(Nspin,Nspin,Norb,Norb)
+    complex(8)                           :: himp(Nspin,Nspin,Norb,Norb)
     character(len=*),optional,intent(in) :: Hunit
     character(len=64)                    :: Hunit_
     logical                              :: check 
@@ -277,15 +277,19 @@ contains
     hwband_=2.d0;if(present(hwband))hwband_=hwband
     Hunit_='inputHLOC.in';if(present(Hunit))Hunit_=Hunit
     if(ed_verbose<2.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(ed_file_suffix)
-    himp_=zero;if(present(himp))himp_=himp
-
-    !qui alloco le gf, impHloc=0 e setto le dimensioni dei blocchi
-    if(isetup)call init_ed_structure(Hunit_)
-    call set_hloc(himp_)
-
-    bath_ = 0.d0
-    check = check_bath_dimension(bath_)
+    himp=zero
+    if(present(himp_))then
+       check = check_size_bath(bath_,himp_)
+       himp=himp_
+    else
+       check = check_size_bath(bath_)
+    endif
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"
+    bath_ = 0.d0
+
+    !qui alloco le gf, impHloc=0 e provo a leggerla da file , setto le dimensioni dei blocchi
+    if(isetup)call init_ed_structure(Hunit_)
+    call set_hloc(himp)
 
     call allocate_dmft_bath(dmft_bath)
     call init_dmft_bath(dmft_bath,hwband_)
@@ -344,7 +348,7 @@ contains
   subroutine ed_solve(bath_)
     real(8),dimension(:),intent(in) :: bath_
     logical                         :: check
-    check = check_bath_dimension(bath_)
+    check = check_bath_dimension(bath_,impHloc)
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath)
     call set_dmft_bath(bath_,dmft_bath)
