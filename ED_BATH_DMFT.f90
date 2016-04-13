@@ -130,7 +130,7 @@ contains
     integer              :: io,jo,iorb,ispin,jorb,jspin
     logical              :: IOfile
     real(8)              :: de
-    real(8),allocatable  :: noise(:)
+    real(8),allocatable  :: noise(:),noise2(:,:)
     if(.not.dmft_bath_%status)stop "init_dmft_bath error: bath not allocated"
     select case(bath_type)
     !
@@ -181,7 +181,41 @@ contains
           dmft_bath_%h(:,:,:,:,i)=impHloc
           dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath*Norb)))
        enddo
-       call init_dmft_bath_mask(dmft_bath)
+   !    if (ed_mode=="normal")then
+          Nh=Nbath/2
+          if(mod(Nbath,2)==0)de=hwband_/max(Nh-1,1)
+          if(mod(Nbath,2)/=0)de=hwband_/Nh
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                dmft_bath_%h(ispin,ispin,iorb,iorb,1)    =-hwband_
+                dmft_bath_%h(ispin,ispin,iorb,iorb,Nbath)= hwband_
+                if(mod(Nbath,2)==0)then
+                   dmft_bath_%h(ispin,ispin,iorb,iorb,Nh)  = -1.d-4
+                   dmft_bath_%h(ispin,ispin,iorb,iorb,Nh+1)=  1.d-4
+                   do i=2,Nh-1
+                      dmft_bath_%h(ispin,ispin,iorb,iorb,i)   =-hwband_ + (i-1)*de 
+                      dmft_bath_%h(ispin,ispin,iorb,iorb,Nbath-i+1)= hwband_ - (i-1)*de
+                   enddo
+                else
+                   dmft_bath_%h(ispin,ispin,iorb,iorb,Nh+1)= 0.d0
+                   do i=2,Nh
+                      dmft_bath_%h(ispin,ispin,iorb,iorb,i)        =-hwband_ + (i-1)*de
+                      dmft_bath_%h(ispin,ispin,iorb,iorb,Nbath-i+1)= hwband_ - (i-1)*de
+                   enddo
+                endif
+             enddo
+          enddo
+    !   else
+    !      allocate(noise2(Nspin*Norb,Nspin*Norb));noise2=0.d0
+    !      call random_number(noise2)
+    !      noise2=noise2*ed_bath_noise_thr
+    !      do i=1,Nbath
+    !         dmft_bath_%h(:,:,:,:,i)=impHloc+so2nn_reshape(noise2,Nspin,Norb)
+    !      enddo
+    !      deallocate(noise2)
+    !   endif
+
+       call init_dmft_bath_mask(dmft_bath_)
        !
     end select
     !
@@ -311,7 +345,7 @@ contains
 
 
   subroutine init_dmft_bath_mask(dmft_bath_)
-    type(effective_bath) :: dmft_bath_
+    type(effective_bath),intent(inout) :: dmft_bath_
     integer              :: io,jo,iorb,ispin,jorb,jspin
     !
     if(.not.(allocated(impHloc))) then
@@ -322,11 +356,23 @@ contains
     case default
        !
        do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)dmft_bath_%mask(ispin,jspin,iorb,jorb,1)=.true.
-                   if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)dmft_bath_%mask(ispin,jspin,iorb,jorb,2)=.true.
+          do iorb=1,Norb
+             !diagonal elements always present
+             dmft_bath_%mask(ispin,ispin,iorb,iorb,1)=.true.
+             !off-diagonal elements
+             do jspin=ispin+1,Nspin
+                do jorb=iorb+1,Norb
+                   !Re
+                   if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)then
+                      dmft_bath_%mask(ispin,jspin,iorb,jorb,1)=.true.
+                      dmft_bath_%mask(jspin,ispin,jorb,iorb,1)=.true.
+                   endif
+                   !Im
+                   if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)then
+                      dmft_bath_%mask(ispin,jspin,iorb,jorb,2)=.true.
+                      dmft_bath_%mask(jspin,ispin,jorb,iorb,2)=.true.
+                      if(ed_mode=="d") stop "complex impHloc and ed_mode='d' are not compatible"
+                   endif
                 enddo
              enddo
            enddo
@@ -336,9 +382,21 @@ contains
        !
        do ispin=1,Nspin
           do iorb=1,Norb
+             !diagonal elements always present
+             dmft_bath_%mask(ispin,ispin,iorb,iorb,1)=.true.
+             !off-diagonal elements
              do jorb=1,Norb
-                if( abs(real(impHloc(ispin,ispin,iorb,jorb))).gt.1e-6)dmft_bath_%mask(ispin,ispin,iorb,jorb,1)=.true.
-                if(abs(aimag(impHloc(ispin,ispin,iorb,jorb))).gt.1e-6)dmft_bath_%mask(ispin,ispin,iorb,jorb,2)=.true.
+                !Re
+                if( abs(real(impHloc(ispin,ispin,iorb,jorb))).gt.1e-6)then
+                   dmft_bath_%mask(ispin,ispin,iorb,jorb,1)=.true.
+                   dmft_bath_%mask(ispin,ispin,jorb,iorb,1)=.true.
+                endif
+                !Im
+                if(abs(aimag(impHloc(ispin,ispin,iorb,jorb))).gt.1e-6)then
+                   dmft_bath_%mask(ispin,ispin,iorb,jorb,2)=.true.
+                   dmft_bath_%mask(ispin,ispin,jorb,iorb,2)=.true.
+                   if(ed_mode=="d") stop "complex impHloc and ed_mode='d' are not compatible"
+                endif
              enddo
            enddo
         enddo
@@ -711,6 +769,7 @@ contains
           dmft_bath_%v=zero
           dmft_bath_%h=zero
           !
+          io = 0
           do ispin=1,Nspin
              !all hybrd
              do iorb=1,Norb
@@ -746,6 +805,7 @@ contains
           dmft_bath_%v=zero
           dmft_bath_%h=zero
           !
+          io = 0
           do ispin=1,Nspin
              !all hybrd
              do iorb=1,Norb
@@ -1058,15 +1118,27 @@ contains
        end select
        bath_size = Nspin*bath_size
     case('replica')
+       !
+       if(.not.allocated(impHloc))stop "ERROR: bath_type='replica' but impHloc_nn not provided to get_size_bath"
        ndx=0
+       !off-diagonal non-vanishing elements
        do ispin=1,Nspin
-          do jspin=1,Nspin
+          do jspin=ispin+1,Nspin
              do iorb=1,Norb
-                do jorb=1,Norb
+                do jorb=iorb+1,Norb
                    if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
                    if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
                 enddo
              enddo
+          enddo
+       enddo
+       ndx=ndx*2
+       !Real diagonal elements (always assumed)
+       ndx= ndx + Nspin * Norb
+       !complex diagonal elements checked
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             if(abs(aimag(impHloc(ispin,ispin,iorb,iorb))).gt.1e-6)ndx=ndx+1
           enddo
        enddo
        select case(ed_mode)

@@ -197,11 +197,19 @@
                           alfa = iorb + kp*Norb + (ispin-1)*Ns
                           beta = jorb + kp*Norb + (jspin-1)*Ns
                           !
+                          !diagonal elements
+                          if ((ispin==jspin).and.(iorb==jorb)) then
+                             if(alfa/=beta)stop"wrong alfa beta"
+                             htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*real(ib(alfa),8)
+                             call sp_insert_element(spH0,htmp,impi,i)
+                          endif
+                          !
+                          !off-diagonal elements
                           if ((ib(beta)==1) .AND. (ib(alfa)==0)) then
                              call c(beta,m,k1,sg1)
                              call cdg(alfa,k1,k2,sg2)
                              j = binary_search(Hmap,k2)
-                             htmp = dmft_bath%v(1,iorb,kp)*sg1*sg2
+                             htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*sg1*sg2
                              call sp_insert_element(spH0,htmp,impi,j)
                           endif
                           !
@@ -209,9 +217,10 @@
                              call c(alfa,m,k1,sg1)
                              call cdg(beta,k1,k2,sg2)
                              j = binary_search(Hmap,k2)
-                             htmp = dmft_bath%v(1,iorb,kp)*sg1*sg2
+                             htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*sg1*sg2
                              call sp_insert_element(spH0,htmp,impi,j)
                           endif
+                          !
                        endif
                        !
                     enddo

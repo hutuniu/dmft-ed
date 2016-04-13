@@ -351,6 +351,7 @@ contains
     check = check_bath_dimension(bath_,impHloc)
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath)
+    if(bath_type=="replica")call init_dmft_bath_mask(dmft_bath)
     call set_dmft_bath(bath_,dmft_bath)
     if(ED_MPI_ID==0)then
        if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)

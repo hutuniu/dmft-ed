@@ -113,14 +113,24 @@ contains
        !
        if(.not.present(Hloc_nn))stop "ERROR: bath_type='replica' but impHloc_nn not provided to get_size_bath"
        ndx=0
+       !off-diagonal non-vanishing elements
        do ispin=1,Nspin
-          do jspin=1,Nspin
+          do jspin=ispin+1,Nspin
              do iorb=1,Norb
-                do jorb=1,Norb
+                do jorb=iorb+1,Norb
                    if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
                    if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
                 enddo
              enddo
+          enddo
+       enddo
+       ndx=ndx*2
+       !diagonal elements (always assumed)
+       ndx= ndx + Nspin * Norb
+       !complex diagonal elements checked
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             if(abs(aimag(Hloc_nn(ispin,ispin,iorb,iorb))).gt.1e-6)ndx=ndx+1
           enddo
        enddo
        select case(ed_mode)
@@ -1160,19 +1170,25 @@ contains
     type(effective_bath)   :: dmft_bath_
     logical,optional       :: save
     logical                :: save_
+    integer                :: bath_size
     save_=.true.;if(present(save))save_=save
     if(Nspin==1)then
        if(ED_MPI_ID==0)write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
        return
     endif
-    call allocate_dmft_bath(dmft_bath_)
-    call set_dmft_bath(bath_,dmft_bath_)
-    dmft_bath_%e(Nspin,:,:)=dmft_bath_%e(1,:,:)
-    dmft_bath_%v(Nspin,:,:)=dmft_bath_%v(1,:,:)
-    if(ed_mode=="superc")dmft_bath_%d(Nspin,:,:)=dmft_bath_%d(1,:,:)
-    if(save_)call save_dmft_bath(dmft_bath_)
-    call get_dmft_bath(dmft_bath_,bath_)
-    call deallocate_dmft_bath(dmft_bath_)
+    if (bath_type/="replica") then
+       call allocate_dmft_bath(dmft_bath_)
+       call set_dmft_bath(bath_,dmft_bath_)
+       dmft_bath_%e(Nspin,:,:)=dmft_bath_%e(1,:,:)
+       dmft_bath_%v(Nspin,:,:)=dmft_bath_%v(1,:,:)
+       if(ed_mode=="superc")dmft_bath_%d(Nspin,:,:)=dmft_bath_%d(1,:,:)
+       if(save_)call save_dmft_bath(dmft_bath_)
+       call get_dmft_bath(dmft_bath_,bath_)
+       call deallocate_dmft_bath(dmft_bath_)
+    else
+       bath_size = size(bath_) / 2
+       bath_(1+bath_size:2*bath_size)=bath_(1:bath_size)
+    endif
   end subroutine spin_symmetrize_bath
 
   subroutine ph_symmetrize_bath(bath_,save)

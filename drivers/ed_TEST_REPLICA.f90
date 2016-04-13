@@ -76,7 +76,11 @@ program ed_TEST_REPLICA
   Ti3dt2g_Hloc_nn=reshape_A1_to_A2(Ti3dt2g_Hloc)
 
   !Setup solver impHloc non è ne' allocata ne' riempita
-  Nb=get_bath_size(Ti3dt2g_Hloc_nn)
+  if (bath_type/="replica") then
+     Nb=get_bath_size()
+  else
+     Nb=get_bath_size(Ti3dt2g_Hloc_nn)
+  endif
   allocate(Bath(Nb))
   allocate(Bath_(Nb))
 

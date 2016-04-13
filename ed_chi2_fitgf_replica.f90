@@ -39,7 +39,21 @@ subroutine chi2_fitgf_replica(fg,bath_)
   call init_dmft_bath_mask(dmft_bath)
   call set_dmft_bath(bath_,dmft_bath)
   !
-  array_bath=bath_
+  count=0
+  do ispin=1,Nspin
+     do jspin=1,Nspin
+        do iorb=1,Norb
+           do jorb=1,Norb
+              if ((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv..true.).or.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv..true.))then
+                 count=count+1
+              endif
+           enddo
+        enddo
+     enddo
+  enddo
+  totNso=count
+  allocate(getIspin(totNso),getJspin(totNso))
+  allocate(getIorb(totNso),getJorb(totNso))
   !
   count=0
   do ispin=1,Nspin
@@ -57,7 +71,6 @@ subroutine chi2_fitgf_replica(fg,bath_)
         enddo
      enddo
   enddo
-  totNso=count
   !
   Ldelta = Lfit ; if(Ldelta>size(fg,5))Ldelta=size(fg,5)
   !
@@ -65,6 +78,8 @@ subroutine chi2_fitgf_replica(fg,bath_)
   allocate(Xdelta(Ldelta))
   allocate(Wdelta(Ldelta))
   allocate(array_bath(size(bath_)))
+  !
+  array_bath=bath_
   !
   Xdelta = pi/beta*(2*arange(1,Ldelta)-1)
   !
@@ -136,10 +151,12 @@ subroutine chi2_fitgf_replica(fg,bath_)
   !
   !if(ed_verbose<3)call write_fit_result(ispin)
   !
-  call get_dmft_bath(dmft_bath,bath_)                ! ***  dmft_bath --> bath_ ***    (bath in output)
-  !bath_=array_bath                                  ! *** array_bath --> bath_ ***    (analogo della riga sopra)
+  !call get_dmft_bath(dmft_bath,bath_)                ! ***  dmft_bath --> bath_ ***    (bath in output)
+  bath_=array_bath                                  ! *** array_bath --> bath_ ***    (analogo della riga sopra)
   call deallocate_dmft_bath(dmft_bath)
   deallocate(Gdelta,Xdelta,Wdelta)
+  deallocate(getIspin,getJspin)
+  deallocate(getIorb,getJorb)
   !
 contains
   !
@@ -207,29 +224,35 @@ subroutine chi2_fitgf_replica_normal(fg,bath_,ispin_)
   call set_dmft_bath(bath_,dmft_bath)
   !
   count=0
-  Asize=0
+  do iorb=1,Norb
+     do jorb=1,Norb
+        if ((dmft_bath%mask(ispin_,ispin_,iorb,jorb,1).eqv..true.).or.(dmft_bath%mask(ispin_,ispin_,iorb,jorb,2).eqv..true.))then
+           count=count+1
+        endif
+     enddo
+  enddo
+  totNso=count
+  allocate(getIorb(totNso),getJorb(totNso))
+  !
+  count=0
   do iorb=1,Norb
      do jorb=1,Norb
         if ((dmft_bath%mask(ispin_,ispin_,iorb,jorb,1).eqv..true.).or.(dmft_bath%mask(ispin_,ispin_,iorb,jorb,2).eqv..true.))then
            count=count+1
            getIorb(count)  = iorb
            getJorb(count)  = jorb
-           if (dmft_bath%mask(ispin_,ispin_,iorb,jorb,1).eqv..true.)Asize=Asize+1
-           if (dmft_bath%mask(ispin_,ispin_,iorb,jorb,2).eqv..true.)Asize=Asize+1
         endif
      enddo
   enddo
-  totNso=count
   !
   Ldelta = Lfit ; if(Ldelta>size(fg,3))Ldelta=size(fg,3)
+  if(mod(size(bath_),2).ne.0)stop"something wrong bath size is not even"
+  Asize=size(bath_)/2
   !
   allocate(Gdelta(totNso,Ldelta))
   allocate(Xdelta(Ldelta))
   allocate(Wdelta(Ldelta))
   allocate(array_bath(Asize))
-  !
-  if(mod(size(bath_),2).ne.0)stop"something wrong bath size is not even"
-  if(Asize.ne.int(size(bath_)/2))stop"something wrong Asize is not equal to size(bath_)/2"
   !
   if (ispin_==1) then
      array_bath=bath_(1:Asize)
@@ -301,9 +324,9 @@ subroutine chi2_fitgf_replica_normal(fg,bath_,ispin_)
      close(unit)
   endif
   !
-  bath_=0.0d0
   bath_(1:Asize)=array_bath
-  bath_(1+Asize:2*Asize)=array_bath
+  !questo lo deve fare spin_symmetrize_bath
+  !bath_(1+Asize:2*Asize)=array_bath
   !
   call set_dmft_bath(bath_,dmft_bath)
   !
@@ -315,6 +338,7 @@ subroutine chi2_fitgf_replica_normal(fg,bath_,ispin_)
   !
   call deallocate_dmft_bath(dmft_bath)
   deallocate(Gdelta,Xdelta,Wdelta)
+  deallocate(getIorb,getJorb)
   !
 contains
   !
@@ -467,7 +491,8 @@ function delta_replica(a) result(Delta)
   type(effective_bath)                                :: dmft_bath_tmp
 
   call allocate_dmft_bath(dmft_bath_tmp)
-  call set_dmft_bath(a,dmft_bath_tmp) 
+  call set_dmft_bath(a,dmft_bath_tmp)
+  call init_dmft_bath_mask(dmft_bath_tmp)
 
   Delta=zero
   Delta_so=zero
@@ -479,15 +504,14 @@ function delta_replica(a) result(Delta)
         !
         V_k=0.0d0
         do ispin=1,Nspin
-           do jspin=1,Nspin
-              do iorb=1,Norb
+           do iorb=1,Norb
+              io = iorb + (ispin-1) * Norb
+              V_k(io,io)=dmft_bath_tmp%v(ispin,iorb,ibath)
+              do jspin=1,Nspin
                  do jorb=1,Norb
-                    io = iorb + (ispin-1) * Norb
                     jo = jorb + (jspin-1) * Norb
-                    ndx=ndx+1
-                    if ((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv..true.).or.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv..true.))then
-                       invH_k(io,jo,i)=a(ndx)
-                       V_k(io,io)=a(ndx)
+                    if ((dmft_bath_tmp%mask(ispin,jspin,iorb,jorb,1).eqv..true.).or.(dmft_bath_tmp%mask(ispin,jspin,iorb,jorb,2).eqv..true.))then
+                       invH_k(io,jo,i)=dmft_bath_tmp%h(ispin,jspin,iorb,jorb,ibath)
                     endif
                  enddo
               enddo
@@ -510,6 +534,7 @@ end function delta_replica
 
 function delta_replica_normal(a) result(Delta)
   real(8),dimension(:)                                :: a
+  real(8),allocatable                                 :: a_tmp(:)
   complex(8),dimension(Norb,Norb,Ldelta)              :: Delta
   integer                                             :: iorb,jorb,ibath
   integer                                             :: i,io,jo,ndx
@@ -517,8 +542,13 @@ function delta_replica_normal(a) result(Delta)
   complex(8),dimension(Norb,Norb,Ldelta)              :: invH_k
   type(effective_bath)                                :: dmft_bath_tmp
 
+  allocate(a_tmp(2*size(a)))
+  a_tmp(1:size(a))=a
+  a_tmp(1+size(a):2*size(a))=a
+
   call allocate_dmft_bath(dmft_bath_tmp)
-  call set_dmft_bath(a,dmft_bath_tmp) 
+  call set_dmft_bath(a_tmp,dmft_bath_tmp)
+  call init_dmft_bath_mask(dmft_bath_tmp)
 
   Delta=zero
   invH_k=zero
@@ -531,9 +561,9 @@ function delta_replica_normal(a) result(Delta)
         do iorb=1,Norb
            do jorb=1,Norb
               ndx=ndx+1
-              if ((dmft_bath%mask(Spin_mask,Spin_mask,iorb,jorb,1).eqv..true.).or.(dmft_bath%mask(Spin_mask,Spin_mask,iorb,jorb,2).eqv..true.))then
-                 V_k(iorb,iorb)=a(ndx)
-                 invH_k(iorb,jorb,i)=a(ndx)
+              if ((dmft_bath_tmp%mask(Spin_mask,Spin_mask,iorb,jorb,1).eqv..true.).or.(dmft_bath_tmp%mask(Spin_mask,Spin_mask,iorb,jorb,2).eqv..true.))then
+                 V_k(iorb,iorb)=dmft_bath_tmp%v(Spin_mask,iorb,ibath)
+                 invH_k(iorb,jorb,i)=dmft_bath_tmp%h(Spin_mask,Spin_mask,iorb,jorb,ibath)
               endif
            enddo
         enddo
@@ -545,6 +575,7 @@ function delta_replica_normal(a) result(Delta)
         !
      enddo
   enddo
+  deallocate(a_tmp)
   call deallocate_dmft_bath(dmft_bath_tmp)
   !
 end function delta_replica_normal
