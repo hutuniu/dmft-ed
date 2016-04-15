@@ -126,6 +126,7 @@ contains
     real(8)              :: hybr_aux(Nspin*Norb)
     real(8)              :: himp_aux_R(Nspin*Norb,Nspin*Norb)
     real(8)              :: himp_aux_I(Nspin*Norb,Nspin*Norb)
+    real(8)              :: read_vec(1+2*Nspin*Norb)
     integer              :: i,unit,flen,Nh
     integer              :: io,jo,iorb,ispin,jorb,jspin
     logical              :: IOfile
@@ -177,9 +178,13 @@ contains
     !
     case('replica')
        !
+       allocate(noise(Nbath));noise=0.d0 
+       call random_number(noise)
+       noise=noise*ed_bath_noise_thr
+       !
        do i=1,Nbath
-          dmft_bath_%h(:,:,:,:,i)=impHloc
-          dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath*Norb)))
+          dmft_bath_%h(:,:,:,:,i)=impHloc+noise(i)
+          dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath*Norb)))!+noise(i)
        enddo
    !    if (ed_mode=="normal")then
           Nh=Nbath/2
@@ -228,11 +233,11 @@ contains
        flen = file_length(trim(Hfile)//trim(ed_file_suffix)//".restart")
        !
        open(unit,file=trim(Hfile)//trim(ed_file_suffix)//".restart")
-       read(unit,*)
        !
        select case(bath_type)
        case default
           !
+          read(unit,*)
           select case(ed_mode)
           case default
              do i=1,min(flen,Nbath)
@@ -260,6 +265,7 @@ contains
           end select
           !
        case ('hybrid')
+          read(unit,*)
           !
           select case(ed_mode)
           case default
@@ -303,7 +309,7 @@ contains
                 hybr_aux=0.0d0
                 himp_aux=zero
                 do io=1,Nspin*Norb
-                   read(unit,*) hybr_aux(io),(himp_aux_R(io,jo),jo=1,Nspin*Norb),(himp_aux_I(io,jo),jo=1,Nspin*Norb)
+                   read(unit,"(90(F21.12,1X))") hybr_aux(io),(himp_aux_R(io,jo),jo=1,Nspin*Norb),(himp_aux_I(io,jo),jo=1,Nspin*Norb)
                 enddo
                 read(unit,*)
                 himp_aux=cmplx(himp_aux_R,himp_aux_I)
@@ -324,7 +330,7 @@ contains
                 hybr_aux=0.0d0
                 himp_aux=zero
                 do io=1,Nspin*Norb
-                   read(unit,*) hybr_aux(io),(himp_aux_R(io,jo),jo=1,Nspin*Norb),(himp_aux_I(io,jo),jo=1,Nspin*Norb)
+                   read(unit,"(90(F21.12,1X))") hybr_aux(io),(himp_aux_R(io,jo),jo=1,Nspin*Norb),(himp_aux_I(io,jo),jo=1,Nspin*Norb)!(read_vec(jo),jo=1,(1+2*Nspin*Norb))   ! 
                 enddo
                 read(unit,*)
                 himp_aux=cmplx(himp_aux_R,himp_aux_I)

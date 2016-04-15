@@ -2,7 +2,7 @@
 !PURPOSE  : Evaluate Green's functions using Lanczos algorithm
 !+------------------------------------------------------------------+
 subroutine build_gf_nonsu2()
-  integer :: izero,iorb,jorb,ispin,jspin,i
+  integer :: izero,iorb,jorb,ispin,jspin,i,io,jo
   integer :: isect0,numstates
   real(8) :: norm0
   if(.not.allocated(impGmats))stop "build_gf_nonsu2: Gmats not allocated"
@@ -10,21 +10,21 @@ subroutine build_gf_nonsu2()
   impGmats=zero
   impGreal=zero
 
-  !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
-  do ispin=1,Nspin
-     do iorb=1,Norb
-        if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
-        select case(ed_type)
-        case default
-           call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
-        case ('c')
-           call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
-        end select
-     enddo
-  enddo
-
   select case(bath_type)
   case("normal")
+     !
+     !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
+           select case(ed_type)
+           case default
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
+           case ('c')
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
+           end select
+        enddo
+     enddo
      !
      !same orbital, different spin GF: G_{aa}^{ss'}(z)
      do ispin=1,Nspin
@@ -64,6 +64,19 @@ subroutine build_gf_nonsu2()
      enddo
      !
   case("hybrid")
+     !
+     !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
+           select case(ed_type)
+           case default
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
+           case ('c')
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
+           end select
+        enddo
+     enddo
      !
      !same orbital, different spin GF: G_{aa}^{ss'}(z)
      do ispin=1,Nspin
@@ -178,19 +191,36 @@ subroutine build_gf_nonsu2()
      !
   case("replica")
      !
+     !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
+           select case(ed_type)
+           case default
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
+           case ('c')
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
+           end select
+        enddo
+     enddo
+     !
      !all the non-vanishing impG allowed by the mask
      do ispin=1,Nspin
         do jspin=1,Nspin
            do iorb=1,Norb
               do jorb=1,Norb
-                 if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .true.).or.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .true.))then
-                    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
-                    select case(ed_type)
-                    case default
-                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
-                    case ('c')
-                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
-                    end select
+                 io = iorb + (ispin-1)*Norb
+                 jo = jorb + (jspin-1)*Norb
+                 if (io.ne.jo) then
+                    if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .true.).or.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .true.))then
+                       if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                       select case(ed_type)
+                       case default
+                          call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
+                       case ('c')
+                          call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
+                       end select
+                    endif
                  endif
               enddo
            enddo
@@ -201,14 +231,18 @@ subroutine build_gf_nonsu2()
         do jspin=1,Nspin
            do iorb=1,Norb
               do jorb=1,Norb
-                 if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .true.).or.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .true.))then
-                    !
-                    impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
-                    !
-                    impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
-                    !
+                 io = iorb + (ispin-1)*Norb
+                 jo = jorb + (jspin-1)*Norb
+                 if (io.ne.jo) then
+                    if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .true.).or.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .true.))then
+                       !
+                       impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
+                         - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                       !
+                       impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+                         - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                       !
+                    endif
                  endif
               enddo
            enddo

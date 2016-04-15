@@ -94,7 +94,9 @@ subroutine chi2_fitgf_replica(fg,bath_)
      Wdelta=Xdelta
   end select
   !
+  write(LOGfile,*)"  fitted functions",totNso
   do i=1,totNso
+     write(LOGfile,*)"  s,s',a,b",getIspin(i),getJspin(i),getIorb(i),getJorb(i)
      Gdelta(i,1:Ldelta) = fg(getIspin(i),getJspin(i),getIorb(i),getJorb(i),1:Ldelta)
   enddo
   !
@@ -275,7 +277,9 @@ subroutine chi2_fitgf_replica_normal(fg,bath_,ispin_)
      Wdelta=Xdelta
   end select
   !
+  write(LOGfile,*)"  fitted functions",totNso
   do i=1,totNso
+     write(LOGfile,*)"  a,b",getIorb(i),getJorb(i)
      Gdelta(i,1:Ldelta) = fg(getIorb(i),getJorb(i),1:Ldelta)
   enddo
   !
@@ -400,7 +404,7 @@ function chi2_delta_replica(a) result(chi2)
      chi2_so(l) = sum( abs(Gdelta(l,:)-Delta(ispin,jspin,iorb,jorb,:))**2/Wdelta(:) )
   enddo
   !
-  chi2=sum(chi2_so)
+  chi2=sum(chi2_so)/totNso
   !
 end function chi2_delta_replica
 
@@ -419,7 +423,7 @@ function chi2_delta_replica_normal(a) result(chi2)
      chi2_so(l) = sum( abs(Gdelta(l,:)-Delta(iorb,jorb,:))**2/Wdelta(:) )
   enddo
   !
-  chi2=sum(chi2_so)
+  chi2=sum(chi2_so)/totNso
   !
 end function chi2_delta_replica_normal
 
@@ -505,11 +509,11 @@ function delta_replica(a) result(Delta)
         V_k=0.0d0
         do ispin=1,Nspin
            do iorb=1,Norb
-              io = iorb + (ispin-1) * Norb
-              V_k(io,io)=dmft_bath_tmp%v(ispin,iorb,ibath)
               do jspin=1,Nspin
                  do jorb=1,Norb
+                    io = iorb + (ispin-1) * Norb
                     jo = jorb + (jspin-1) * Norb
+                    V_k(io,io)=dmft_bath_tmp%v(ispin,iorb,ibath)
                     if ((dmft_bath_tmp%mask(ispin,jspin,iorb,jorb,1).eqv..true.).or.(dmft_bath_tmp%mask(ispin,jspin,iorb,jorb,2).eqv..true.))then
                        invH_k(io,jo,i)=dmft_bath_tmp%h(ispin,jspin,iorb,jorb,ibath)
                     endif

@@ -81,6 +81,7 @@ program ed_TEST_REPLICA
   else
      Nb=get_bath_size(Ti3dt2g_Hloc_nn)
   endif
+  write(LOGfile,*)"Bath_size:",Nb
   allocate(Bath(Nb))
   allocate(Bath_(Nb))
 
@@ -116,6 +117,7 @@ program ed_TEST_REPLICA
      else
         call ed_chi2_fitgf(delta,bath)
      endif
+        call spin_symmetrize_bath(bath,save=.false.)
 
      !MIXING:
      if(iloop>1) Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
