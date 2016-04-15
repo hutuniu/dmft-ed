@@ -36,7 +36,7 @@ program ed_nano
   integer                                         :: unit
   character(len=32)                               :: ilabel
   !
-  logical                                         :: phsym,hyb2env,conduct
+  logical                                         :: phsym,hyb2env,conduct,selfcons
   !non-local Green's function:
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gijmats,Gijreal
   !hybridization function to environment
@@ -62,6 +62,10 @@ program ed_nano
   ! parse environment & transport flags
   call parse_input_variable(hyb2env,"hyb2env",finput,default=.false.)
   call parse_input_variable(conduct,"conduct",finput,default=.false.)
+
+  ! parse flag for self-consistent loop
+  call parse_input_variable(selfcons,"selfcons",finput,default=.true.)
+
 
   ! read input
   call ed_read_input(trim(finput))
@@ -174,21 +178,45 @@ program ed_nano
      Sreal_ineq(ineq,2,2,1,1,:) = Uloc(1)*(dens_ineq(ineq,1)-0.5d0)
      ! initialize (uncorrelated) double occupations
      docc_ineq(ineq) = dens_ineq(ineq,1)*dens_ineq(ineq,2)
+     ! set Hloc_ineq
+     ilat = ineq2lat(ineq)
+     Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
   enddo
 
   if(MPIID==0)then
-     do ineq=1,Nineq
-       write(6,*) ineq, dens_ineq(ineq,1), dens_ineq(ineq,2)
-     enddo
-   endif
+    do ineq=1,Nineq
+      write(6,*) ineq, dens_ineq(ineq,1), dens_ineq(ineq,2)
+    enddo
+  endif
 
 
-!  do ineq=1,Nineq
-!     ilat = ineq2lat(ineq)
-!     ! break SU(2) symmetry for magnetic solutions
-!     if(Nspin>1) call break_symmetry_bath(Bath_ineq(ineq,:),sb_field,dble(sb_field_sign(ineq)))
-!     Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
-!  enddo
+  ! calculate Green's function for not-self-consistent calculation and exit
+  if(.not.selfcons)then
+    write(6,*) 'not self-consistent calculation'
+    ! spread self-energies and occupation to all lattice sites
+    do ilat=1,Nlat
+       ineq = lat2ineq(ilat)
+       dens(ilat,:) = dens_ineq(ineq,:)
+       docc(ilat) = docc_ineq(ineq)
+       Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
+       Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
+    enddo
+    call save_sigma(Smats_ineq,Sreal_ineq)
+    ! compute the local gf:
+    if(hyb2env)then
+       call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+    else
+       call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
+    endif
+    ! spread self-energy to all lattice sites
+    do ineq=1,Nineq
+       ilat = ineq2lat(ineq)
+       Greal_ineq(ineq,:,:,:,:,:) = Greal(ilat,:,:,:,:,:)
+       Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
+    enddo
+    stop
+  endif
+
 
 
   iloop=0 ; converged=.false.
@@ -224,11 +252,13 @@ program ed_nano
         call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=0)
      endif
      do ineq=1,Nineq
-        ilat = ineq2lat(ineq)
-        Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
+       ilat = ineq2lat(ineq)
+       Greal_ineq(ineq,:,:,:,:,:) = Greal(ilat,:,:,:,:,:)
+       Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
      enddo
+
      ! compute the Weiss field
-     call ed_get_weiss_lattice(Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=0)
+     !call ed_get_weiss_lattice(Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=0)
 
      ! compute observables
      do ineq=1,Nineq
@@ -302,9 +332,9 @@ program ed_nano
 
       if(mpiID==0)then
         ! convergency criteria
-        converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
-!       ! alternative convergency criteria
-!        converged = check_convergence_local(dens_ineq,dmft_error,nsuccess,nloop)
+        !converged = check_convergence(Weiss_ineq(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
+        ! alternative convergency criteria
+        converged = check_convergence_local(dens_ineq,dmft_error,nsuccess,nloop)
         if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
       endif
 

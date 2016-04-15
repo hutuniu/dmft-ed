@@ -55,6 +55,7 @@ LIBDIR=$(HOME)/opt
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 EXE=ed_nano
+#EXE=hartree_nano
 #EXE=ed_cdwhm_bethe
 
 

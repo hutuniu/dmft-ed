@@ -35,7 +35,7 @@ program ed_nano
   !
   logical                                         :: phsym
   logical                                         :: leads
-  logical                                         :: kinetic,trans,jrkky
+  logical                                         :: kinetic,trans,jrkky,chi0ij
   !non-local Green's function:
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gijmats,Gijreal
   !hybridization function to environment
@@ -61,6 +61,7 @@ program ed_nano
   call parse_input_variable(leads,"leads",finput,default=.false.)
   call parse_input_variable(trans,"trans",finput,default=.false.)
   call parse_input_variable(jrkky,"jrkky",finput,default=.false.)
+  call parse_input_variable(chi0ij,"chi0ij",finput,default=.false.)
   call parse_input_variable(kinetic,"kinetic",finput,default=.false.)
 
   ! read input
@@ -173,6 +174,34 @@ program ed_nano
      ! compute effective exchange
      call ed_get_jeff(Gijreal,Sreal)
      deallocate(Gijreal,Sreal)
+     stop
+  endif
+
+
+
+  ! compute effective non-local exchange
+  if(chi0ij)then
+     ! read converged self-energy
+     call read_sigma(Smats_ineq,Sreal_ineq)
+     do ilat=1,Nlat
+        ineq = lat2ineq(ilat)
+        Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
+        Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
+     enddo
+     ! allocates and extracts non-local Green's function
+     allocate(Gijmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+     allocate(Gijreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
+     if(leads)then
+        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=0,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+        call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=0,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+     else
+        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=0)
+        call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=0)
+     endif
+     deallocate(Gijmats,Smats)
+     ! compute bare non-local susceptibility
+     call ed_get_chi0ij(Gijreal)
+     deallocate(Gijreal)
      stop
   endif
 
@@ -948,7 +977,7 @@ contains
           kernel=0.d0
           do i=1,Lreal
              ! jeff kernel: non-local Green's function and fermi function convolution
-             !              in the multi-orbital case: matrix product and trace over the orbitals required
+             !              in the multi-orbital case: trace over the orbitals required
              kernel = kernel + Saux(ilat,1,1,i)*Gret(ilat,jlat,1,1,1,1,i)*Saux(jlat,1,1,i)*Gret(jlat,ilat,2,2,1,1,i)*fermi(wr(i),beta)
           enddo
           jeff(ilat,jlat) = 1.d0*dimag(kernel)/pi
@@ -968,97 +997,68 @@ contains
     deallocate(Saux,jeff,wr) 
 
   end subroutine ed_get_jeff
-  !subroutine ed_get_jeff(Gret,Sret)
-  !  complex(8),intent(inout)                  :: Gret(:,:,:,:,:,:,:) ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
-  !  complex(8),intent(inout)                  :: Sret(:,:,:,:,:,:)   ![Nlat][Nspin][Nspin][Norb][Norb][Lreal]
-  !  !
-  !  complex(8),dimension(:,:,:,:),allocatable :: Gaux(:,:,:)         ![Nlat][Nlat][Lreal]
-  !  complex(8),dimension(:,:,:,:),allocatable :: Gup(:,:)            ![Nlat][Nlat]
-  !  complex(8),dimension(:,:,:,:),allocatable :: Gdn(:,:)            ![Nlat][Nlat]
-  !  complex(8),dimension(:,:,:,:),allocatable :: Saux(:,:)           ![Nlat][Lreal]
-  !  complex(8)                                :: kernel
-  !  real(8),dimension(:,:),allocatable        :: jeff(:,:)           ![Nlat][Nlat]
-  !  !
-  !  real(8),dimension(:),allocatable          :: wr
-  !  integer                                   :: ilat,jlat,iorb,jorb,i
-  !  !
-  !  !I/O
-  !  integer                                   :: unit
-  !  character(len=30)                         :: suffix
-  !  !
 
-  !  ! check inouts dimensions
-  !  call assert_shape(Gret,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_jeff","Gret")
-  !  call assert_shape(Sret,[Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_jeff","Sret")
 
-  !  allocate(Gaux(Nlat,Nlat,Lreal))
-  !  Gaux(:,:,:)=zero
-  !  !
-  !  allocate(Gup(Nlat,Nlat))
-  !  Gup(:,:)=zero
-  !  !
-  !  allocate(Gdn(Nlat,Nlat))
-  !  Gdn(:,:)=zero
-  !  !
-  !  allocate(Saux(Nlat,Lreal))
-  !  Saux(:,:)=zero
-  !  !
-  !  allocate(jeff(Nlat,Nlat))
-  !  jeff(:,:)=zero
-  !  !
-  !  allocate(wr(Lreal))
-  !  wr = linspace(wini,wfin,Lreal)
-  !  !
-  !  write(*,*) "computing effective non-local exchange"
-  !  !
-  !  ! sanity checks
-  !  if(Nspin/=2)stop "ed_get_jeff error: Nspin /= 2"
-  !  if(Norb>1)stop "ed_get_jeff error: Norb > 1 (mutli-orbital case no timplmented yet)"
-  !  !
-  !  ! define auxiliary local spin-less self-energy
-  !  do ilat=1,Nlat
-  !     Saux(ilat,:) = (Sret(ilat,1,1,1,1,:)-Sret(ilat,2,2,1,1,:))/2.d0
-  !  enddo
-  !  !unit = free_unit()
-  !  !open(unit,file="Saux.ed")
-  !  !do ilat=1,Nlat
-  !  !   do i=1,Lreal
-  !  !      write(unit,'(i5,7f16.9)')ilat,wr(i),Saux(ilat,i),Sret(ilat,1,1,1,1,i),Sret(ilat,2,2,1,1,i)
-  !  !   enddo
-  !  !enddo
-  !  !close(unit)
-  !  !
-  !  ! fill auxiliary Green's function matrix
-  !  do i=1,Lreal
-  !     do ilat=1,Nlat
-  !        do jlat=1,Nlat
-  !           Gup(ilat,jlat)=Gret(ilat,jlat,1,1,1,1,i) ! ij
-  !           Gdn(ilat,jlat)=Gret(jlat,ilat,2,2,1,1,i) ! ji
-  !        enddo
-  !     enddo
-  !     ! perform Green's function matrix multiplication in the lattice-orbital space
-  !     Gaux(:,:,i) = matmul(Gup,Gdn)
-  !  enddo
-  !  !
-  !  ! compute effective exchange and write it on disk
-  !  unit = free_unit()
-  !  open(unit,file="jeff_ij.ed")
-  !  do ilat=1,Nlat
-  !     do jlat=1,Nlat
-  !        kernel=0.d0
-  !        do i=1,Lreal
-  !           ! jeff kernel: non-local Green's function and fermi function convolution
-  !           kernel = kernel + Saux(ilat,i)*Saux(jlat,i)*Gaux(ilat,jlat,i)*fermi(wr(i),beta)
-  !        enddo
-  !        jeff(ilat,jlat) = -1.d0*dimag(kernel)/pi/Lreal
-  !        write(unit,*)ilat,jlat,jeff(ilat,jlat)
-  !     enddo
-  !  enddo
-  !  close(unit)
+  !----------------------------------------------------------------------------------------!
+  ! purpose: evaluate the non-local bare spin susceptibility
+  ! given the non-local Green's function, the local (auxiliary) self-energy S_i = (S_iup-S_ido)/2 
+  ! and the fermi distribution on the real axis. 
+  ! chi0_ij = 1/pi Im \int_{-infty}^{infty} G_ij(w) G_ji(w) f(w) dw
+  !----------------------------------------------------------------------------------------!
+  subroutine ed_get_chi0ij(Gret)
+    complex(8),intent(inout)                  :: Gret(:,:,:,:,:,:,:) ![Nlat][Nlat][Nspin][Nspin][Norb][Norb][Lreal]
+    complex(8)                                :: kernel
+    real(8),dimension(:,:),allocatable        :: jeff(:,:)           ![Nlat][Nlat]
+    real(8),dimension(:),allocatable          :: wr
+    integer                                   :: ilat,jlat,iorb,jorb,i
+    !
+    !I/O
+    integer                                   :: unit
+    character(len=30)                         :: suffix
+    !
+
+    ! check inouts dimensions
+    call assert_shape(Gret,[Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_jeff","Gret")
+
+    allocate(jeff(Nlat,Nlat))
+    jeff(:,:)=zero
+    !
+    allocate(wr(Lreal))
+    wr = linspace(wini,wfin,Lreal)
+    !
+    write(*,*) "computing bare non-local susceptibility"
+    !
+    ! sanity checks
+    if(Nspin/=1)stop "ed_get_chi0ij error: Nspin /= 1"
+    if(Norb>1)stop "ed_get_chi0ij error: Norb > 1 (mutli-orbital case no timplmented yet)"
+    !
+    ! compute bare non-local susceptibility
+    do ilat=1,Nlat
+       do jlat=1,Nlat
+          ! perform integral over frequency
+          kernel=0.d0
+          do i=1,Lreal
+             ! jeff kernel: non-local Green's function and fermi function convolution
+             !              in the multi-orbital case: trace over the orbitals required
+             kernel = kernel + Gret(ilat,jlat,1,1,1,1,i)*Gret(jlat,ilat,1,1,1,1,i)*fermi(wr(i),beta)
+          enddo
+          jeff(ilat,jlat) = 1.d0*dimag(kernel)/pi
+       enddo
+    enddo
+    !
+    ! write bare non-local susceptibility on disk
+    unit = free_unit()
+    open(unit,file="jeff_ij.ed")
+    do ilat=1,Nlat
+       do jlat=1,Nlat
+          write(unit,*)ilat,jlat,jeff(ilat,jlat)
+       enddo
+    enddo
+    close(unit)
  
-  !  deallocate(Gaux,Gup,Gdn,Saux,jeff,wr) 
+    deallocate(jeff,wr) 
 
-  !end subroutine ed_get_jeff
+  end subroutine ed_get_chi0ij
 
 
 
