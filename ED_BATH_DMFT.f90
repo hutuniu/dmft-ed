@@ -133,8 +133,11 @@ contains
     real(8)              :: de
     real(8),allocatable  :: noise(:),noise2(:,:)
     if(.not.dmft_bath_%status)stop "init_dmft_bath error: bath not allocated"
+    allocate(noise(Nbath));noise=0.d0 
+    call random_number(noise)
+    noise=noise*ed_bath_noise_thr
+
     select case(bath_type)
-    !
     case default
        !Get energies:
        dmft_bath_%e(:,:,1)    =-hwband_
@@ -156,9 +159,6 @@ contains
              dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de
           enddo
        endif
-       allocate(noise(Nbath));noise=0.d0 
-       call random_number(noise)
-       noise=noise*ed_bath_noise_thr
        !Get spin-keep yhbridizations
        do i=1,Nbath
           dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))+noise(i)
@@ -174,19 +174,15 @@ contains
              dmft_bath_%u(:,:,i) = dmft_bath_%v(:,:,i)*ed_vsf_ratio+noise(i)
           enddo
        endif
-       deallocate(noise)
+
     !
     case('replica')
        !
-       allocate(noise(Nbath));noise=0.d0 
-       call random_number(noise)
-       noise=noise*ed_bath_noise_thr
-       !
        do i=1,Nbath
           dmft_bath_%h(:,:,:,:,i)=impHloc+noise(i)
-          dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath*Norb)))!+noise(i)
+          dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))+noise(i)
        enddo
-   !    if (ed_mode=="normal")then
+       if ((ed_mode=="normal"))then!.and.(Norb==1))then
           Nh=Nbath/2
           if(mod(Nbath,2)==0)de=hwband_/max(Nh-1,1)
           if(mod(Nbath,2)/=0)de=hwband_/Nh
@@ -218,9 +214,10 @@ contains
     !         dmft_bath_%h(:,:,:,:,i)=impHloc+so2nn_reshape(noise2,Nspin,Norb)
     !      enddo
     !      deallocate(noise2)
-    !   endif
+       endif
 
        call init_dmft_bath_mask(dmft_bath_)
+       deallocate(noise)
        !
     end select
     !

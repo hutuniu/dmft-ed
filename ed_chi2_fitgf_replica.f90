@@ -151,7 +151,7 @@ subroutine chi2_fitgf_replica(fg,bath_)
   !
   call save_dmft_bath(dmft_bath)
   !
-  !if(ed_verbose<3)call write_fit_result(ispin)
+  if(ed_verbose<3)call write_fit_result()
   !
   !call get_dmft_bath(dmft_bath,bath_)                ! ***  dmft_bath --> bath_ ***    (bath in output)
   bath_=array_bath                                  ! *** array_bath --> bath_ ***    (analogo della riga sopra)
@@ -162,7 +162,7 @@ subroutine chi2_fitgf_replica(fg,bath_)
   !
 contains
   !
-  subroutine write_fit_result(ispin)
+  subroutine write_fit_result()
     complex(8)        :: fgand(Nspin,Nspin,Norb,Norb,Ldelta)
     integer           :: i,j,s,l,iorb,jorb,ispin,jspin
     real(8)           :: w
@@ -338,7 +338,7 @@ subroutine chi2_fitgf_replica_normal(fg,bath_,ispin_)
   !
   call save_dmft_bath(dmft_bath)
   !
-  !if(ed_verbose<3)call write_fit_result(ispin)
+  if(ed_verbose<2)call write_fit_result(Spin_mask)
   !
   call deallocate_dmft_bath(dmft_bath)
   deallocate(Gdelta,Xdelta,Wdelta)
@@ -347,7 +347,8 @@ subroutine chi2_fitgf_replica_normal(fg,bath_,ispin_)
 contains
   !
   subroutine write_fit_result(ispin)
-    integer                                :: i,j,l,m,iorb,jorb,ispin,jspin
+    integer,intent(in)                     :: ispin
+    integer                                :: i,j,l,m,iorb,jorb
     real(8)                                :: w
     complex(8),dimension(Norb,Norb,Ldelta) :: fgand
 
@@ -357,21 +358,25 @@ contains
        fgand(:,:,:) = delta_bath_mats(ispin,ispin,xi*Xdelta(:),dmft_bath)
     endif
     !
-
-    do l=1,totNorb
+    do l=1,totNso
        iorb=getIorb(l)
        jorb=getJorb(l)
-       suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//reg(ed_file_suffix)
+       suffix="_l"//reg(txtfy(iorb))//&
+            "_m"//reg(txtfy(jorb))//&
+            "_s"//reg(txtfy(ispin))//&
+            "_r"//reg(txtfy(ispin))//reg(ed_file_suffix)
        unit=free_unit()
        if(cg_scheme=='weiss')then
           open(unit,file="fit_weiss"//reg(suffix)//".ed")
        else
           open(unit,file="fit_delta"//reg(suffix)//".ed")
        endif
+
        do i=1,Ldelta
+          w = Xdelta(i)
           write(unit,"(5F24.15)")Xdelta(i),&
-               dimag(Gdelta(l,i)),dimag(fgand(iorb,jorb,i)),&
-               dreal(Gdelta(l,i)),dreal(fgand(iorb,jorb,i))
+               dimag(fg(iorb,jorb,i)),dimag(fgand(iorb,jorb,i)),&
+               dreal(fg(iorb,jorb,i)),dreal(fgand(iorb,jorb,i))
        enddo
        close(unit)
     enddo

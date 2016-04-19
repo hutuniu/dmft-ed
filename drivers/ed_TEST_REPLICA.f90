@@ -117,7 +117,7 @@ program ed_TEST_REPLICA
      else
         call ed_chi2_fitgf(delta,bath)
      endif
-        call spin_symmetrize_bath(bath,save=.false.)
+       ! call spin_symmetrize_bath(bath,save=.false.)
 
      !MIXING:
      if(iloop>1) Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
@@ -360,7 +360,11 @@ contains
     if(Hk_test) then
        do i=1,Norb
           ndx=2*i-1
-          Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz)
+          Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz) !eye(Nspin)+
+          if(SOC/=zero)then
+             Hk(ndx,ndx+1)=soc
+             Hk(ndx+1,ndx)=soc
+          endif
        enddo
     else
        call get_hopping(HoppingMatrix)
