@@ -277,9 +277,9 @@ subroutine chi2_fitgf_replica_normal(fg,bath_,ispin_)
      Wdelta=Xdelta
   end select
   !
-  write(LOGfile,*)"  fitted functions",totNso
+  if(ED_MPI_ID==0)write(LOGfile,*)"  fitted functions",totNso
   do i=1,totNso
-     write(LOGfile,*)"  a,b",getIorb(i),getJorb(i)
+     if(ED_MPI_ID==0)write(LOGfile,*)"  a,b",getIorb(i),getJorb(i)
      Gdelta(i,1:Ldelta) = fg(getIorb(i),getJorb(i),1:Ldelta)
   enddo
   !
@@ -409,7 +409,7 @@ function chi2_delta_replica(a) result(chi2)
      chi2_so(l) = sum( abs(Gdelta(l,:)-Delta(ispin,jspin,iorb,jorb,:))**2/Wdelta(:) )
   enddo
   !
-  chi2=sum(chi2_so)/totNso
+  chi2=sum(chi2_so)
   !
 end function chi2_delta_replica
 
@@ -428,7 +428,7 @@ function chi2_delta_replica_normal(a) result(chi2)
      chi2_so(l) = sum( abs(Gdelta(l,:)-Delta(iorb,jorb,:))**2/Wdelta(:) )
   enddo
   !
-  chi2=sum(chi2_so)/totNso
+  chi2=sum(chi2_so)
   !
 end function chi2_delta_replica_normal
 

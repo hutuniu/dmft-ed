@@ -198,7 +198,6 @@ contains
                       dmft_bath_%h(ispin,ispin,iorb,iorb,Nbath-i+1)= hwband_ - (i-1)*de
                    enddo
                 else
-                   dmft_bath_%h(ispin,ispin,iorb,iorb,Nh+1)= 0.d0
                    do i=2,Nh
                       dmft_bath_%h(ispin,ispin,iorb,iorb,i)        =-hwband_ + (i-1)*de
                       dmft_bath_%h(ispin,ispin,iorb,iorb,Nbath-i+1)= hwband_ - (i-1)*de
@@ -214,7 +213,7 @@ contains
     !         dmft_bath_%h(:,:,:,:,i)=impHloc+so2nn_reshape(noise2,Nspin,Norb)
     !      enddo
     !      deallocate(noise2)
-       endif
+      endif
 
        call init_dmft_bath_mask(dmft_bath_)
        deallocate(noise)
@@ -355,57 +354,33 @@ contains
        stop "impHloc not allocated on mask initialization"
     endif
     dmft_bath_%mask=.false.
-    select case (ed_mode)
-    case default
-       !
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             !diagonal elements always present
-             dmft_bath_%mask(ispin,ispin,iorb,iorb,1)=.true.
-             !off-diagonal elements
-             do jspin=ispin+1,Nspin
-                do jorb=iorb+1,Norb
+
+    do ispin=1,Nspin
+       do iorb=1,Norb
+         !Re-diagonal elements always present
+         dmft_bath_%mask(ispin,ispin,iorb,iorb,1)=.true.
+         !Im-diagonal elements checked
+         if(abs(aimag(impHloc(ispin,ispin,iorb,iorb))).gt.1e-6)dmft_bath_%mask(ispin,ispin,iorb,iorb,2)=.true.
+         !off-diagonal elements
+         do jspin=1,Nspin
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                if(io/=jo)then
                    !Re
                    if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)then
                       dmft_bath_%mask(ispin,jspin,iorb,jorb,1)=.true.
-                      dmft_bath_%mask(jspin,ispin,jorb,iorb,1)=.true.
                    endif
                    !Im
                    if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)then
                       dmft_bath_%mask(ispin,jspin,iorb,jorb,2)=.true.
-                      dmft_bath_%mask(jspin,ispin,jorb,iorb,2)=.true.
                       if(ed_mode=="d") stop "complex impHloc and ed_mode='d' are not compatible"
                    endif
-                enddo
-             enddo
-           enddo
-        enddo
-        !
-     case("normal")
-       !
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             !diagonal elements always present
-             dmft_bath_%mask(ispin,ispin,iorb,iorb,1)=.true.
-             !off-diagonal elements
-             do jorb=1,Norb
-                !Re
-                if( abs(real(impHloc(ispin,ispin,iorb,jorb))).gt.1e-6)then
-                   dmft_bath_%mask(ispin,ispin,iorb,jorb,1)=.true.
-                   dmft_bath_%mask(ispin,ispin,jorb,iorb,1)=.true.
-                endif
-                !Im
-                if(abs(aimag(impHloc(ispin,ispin,iorb,jorb))).gt.1e-6)then
-                   dmft_bath_%mask(ispin,ispin,iorb,jorb,2)=.true.
-                   dmft_bath_%mask(ispin,ispin,jorb,iorb,2)=.true.
-                   if(ed_mode=="d") stop "complex impHloc and ed_mode='d' are not compatible"
                 endif
              enddo
-           enddo
-        enddo
-        !
-     end select
-     !
+          enddo
+       enddo
+    enddo
   end subroutine init_dmft_bath_mask
 
 
@@ -1097,7 +1072,7 @@ contains
   function check_size_bath(bath_) result(bool)
     real(8),dimension(:) :: bath_
     integer              :: bath_size
-    integer              :: ndx,ispin,iorb,jspin,jorb
+    integer              :: ndx,ispin,iorb,jspin,jorb,io,jo
     logical              :: bool
     select case(bath_type)
     case default
@@ -1126,16 +1101,19 @@ contains
        ndx=0
        !off-diagonal non-vanishing elements
        do ispin=1,Nspin
-          do jspin=ispin+1,Nspin
+          do jspin=1,Nspin
              do iorb=1,Norb
-                do jorb=iorb+1,Norb
-                   if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
-                   if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   if(io/=jo)then
+                      if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                      if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                   endif
                 enddo
              enddo
           enddo
        enddo
-       ndx=ndx*2
        !Real diagonal elements (always assumed)
        ndx= ndx + Nspin * Norb
        !complex diagonal elements checked

@@ -79,7 +79,7 @@ contains
   ! 1 for get_spin_orb_component_size_bath
   !+-------------------------------------------------------------------+
   function get_size_bath(Hloc_nn,ispin_) result(bath_size)
-    integer :: bath_size,ndx,ispin,iorb,jspin,jorb
+    integer :: bath_size,ndx,ispin,iorb,jspin,jorb,io,jo
     integer,optional :: ispin_
     complex(8),allocatable,optional,intent(in) :: Hloc_nn(:,:,:,:)
     select case(bath_type)
@@ -115,17 +115,20 @@ contains
        ndx=0
        !off-diagonal non-vanishing elements
        do ispin=1,Nspin
-          do jspin=ispin+1,Nspin
+          do jspin=1,Nspin
              do iorb=1,Norb
-                do jorb=iorb+1,Norb
-                   if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
-                   if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   if(io/=jo)then
+                      if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                      if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                   endif
                 enddo
              enddo
           enddo
        enddo
-       ndx=ndx*2
-       !diagonal elements (always assumed)
+       !Real diagonal elements (always assumed)
        ndx= ndx + Nspin * Norb
        !complex diagonal elements checked
        do ispin=1,Nspin
