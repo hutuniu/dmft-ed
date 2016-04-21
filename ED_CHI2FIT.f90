@@ -61,7 +61,7 @@ contains
   !+-------------------------------------------------------------+
   !NORMAL:
   subroutine chi2_fitgf_generic_normal(fg,bath,ispin)
-    complex(8),dimension(:,:,:,:,:) :: fg ![Nspin][Nspin][Norb][Norb][Niw]
+    complex(8),dimension(:,:,:,:,:) :: fg ![Nspin][Nspin][Norb][Norb][Niw] 
     real(8),dimension(:)            :: bath
     integer,optional                :: ispin
     integer                         :: ispin_

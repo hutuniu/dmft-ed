@@ -153,8 +153,8 @@ subroutine chi2_fitgf_replica(fg,bath_)
   !
   if(ed_verbose<3)call write_fit_result()
   !
-  !call get_dmft_bath(dmft_bath,bath_)                ! ***  dmft_bath --> bath_ ***    (bath in output)
-  bath_=array_bath                                  ! *** array_bath --> bath_ ***    (analogo della riga sopra)
+  call get_dmft_bath(dmft_bath,bath_)                ! ***  dmft_bath --> bath_ ***    (bath in output)
+  !bath_=array_bath                                  ! *** array_bath --> bath_ ***    (analogo della riga sopra)
   call deallocate_dmft_bath(dmft_bath)
   deallocate(Gdelta,Xdelta,Wdelta)
   deallocate(getIspin,getJspin)
@@ -497,46 +497,88 @@ function delta_replica(a) result(Delta)
   real(8),dimension(Nspin*Norb,Nspin*Norb)            :: V_k
   complex(8),dimension(Nspin*Norb,Nspin*Norb,Ldelta)  :: invH_k
   complex(8),dimension(Nspin*Norb,Nspin*Norb,Ldelta)  :: Delta_so
+  complex(8),dimension(Nspin,Nspin,Norb,Norb,Nbath)   :: invH_knn
   type(effective_bath)                                :: dmft_bath_tmp
 
   call allocate_dmft_bath(dmft_bath_tmp)
-  call set_dmft_bath(a,dmft_bath_tmp)
   call init_dmft_bath_mask(dmft_bath_tmp)
+  call set_dmft_bath(a,dmft_bath_tmp)
 
   Delta=zero
-  Delta_so=zero
   invH_k=zero
-  do i=1,Ldelta
-     !
-     ndx=0
-     do ibath=1,Nbath
-        !
-        V_k=0.0d0
-        do ispin=1,Nspin
-           do iorb=1,Norb
-              do jspin=1,Nspin
-                 do jorb=1,Norb
-                    io = iorb + (ispin-1) * Norb
-                    jo = jorb + (jspin-1) * Norb
-                    V_k(io,io)=dmft_bath_tmp%v(ispin,iorb,ibath)
-                    if ((dmft_bath_tmp%mask(ispin,jspin,iorb,jorb,1).eqv..true.).or.(dmft_bath_tmp%mask(ispin,jspin,iorb,jorb,2).eqv..true.))then
-                       invH_k(io,jo,i)=dmft_bath_tmp%h(ispin,jspin,iorb,jorb,ibath)
-                    endif
-                 enddo
-              enddo
-           enddo
-           !
-           invH_k(:,:,i) = eye(Nspin*Norb) * xi * Xdelta(i) - invH_k(:,:,i)
-           call inv(invH_k(:,:,i))
-           !
-           Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
-           !
-        enddo
-        !
-        Delta(:,:,:,:,i)=so2nn_reshape(Delta_so(:,:,i),Nspin,Norb)
-        !
-     enddo
-  enddo
+
+  !VERSIONE 1 ===>
+  !Delta_so=zero
+  !do i=1,Ldelta
+  !   !
+  !   ndx=0
+  !   do ibath=1,Nbath
+  !      !
+  !      V_k=0.0d0
+  !      do ispin=1,Nspin
+  !         do iorb=1,Norb
+  !            do jspin=1,Nspin
+  !               do jorb=1,Norb
+  !                  io = iorb + (ispin-1) * Norb
+  !                  jo = jorb + (jspin-1) * Norb
+  !                  V_k(io,io)=dmft_bath_tmp%v(ispin,iorb,ibath)
+  !                  if ((dmft_bath_tmp%mask(ispin,jspin,iorb,jorb,1).eqv..true.).or.(dmft_bath_tmp%mask(ispin,jspin,iorb,jorb,2).eqv..true.))then
+  !                     invH_k(io,jo,i)=dmft_bath_tmp%h(ispin,jspin,iorb,jorb,ibath)
+  !                  endif
+  !               enddo
+  !            enddo
+  !         enddo
+  !         !
+  !         invH_k(:,:,i) = eye(Nspin*Norb) * xi * Xdelta(i) - invH_k(:,:,i)
+  !         call inv(invH_k(:,:,i))
+  !         !
+  !         Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
+  !         !
+  !      enddo
+  !      !
+  !      Delta(:,:,:,:,i)=so2nn_reshape(Delta_so(:,:,i),Nspin,Norb)
+  !      !
+  !   enddo
+  !enddo
+             !VERSIONE 2 ===>
+          do i=1,Ldelta
+             invH_knn=zero
+             do ibath=1,Nbath
+                !
+                do ispin=1,Nspin
+                   do jspin=1,Nspin
+                      do iorb=1,Norb
+                         do jorb=1,Norb
+                            io = iorb + (ispin-1) * Norb
+                            jo = jorb + (jspin-1) * Norb
+                            invH_k(io,jo,i)=dmft_bath_tmp%h(ispin,jspin,iorb,jorb,ibath)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+                !
+                invH_k(:,:,i) = zeye(Nspin*Norb) * xi * Xdelta(i) - invH_k(:,:,i)
+                call inv(invH_k(:,:,i))
+                invH_knn(:,:,:,:,ibath)=so2nn_reshape(invH_k(:,:,i),Nspin,Norb)
+                !
+             enddo
+             !
+             do ibath=1,Nbath
+                do ispin=1,Nspin
+                   do jspin=1,Nspin
+                      do iorb=1,Norb
+                         do jorb=1,Norb
+                            Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
+                            dmft_bath_tmp%v(ispin,iorb,ibath)*invH_knn(ispin,jspin,iorb,jorb,ibath)*dmft_bath_tmp%v(jspin,jorb,ibath)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+             !===> VERSIONE 2
+
+
   call deallocate_dmft_bath(dmft_bath_tmp)
   !
 end function delta_replica
@@ -556,8 +598,8 @@ function delta_replica_normal(a) result(Delta)
   a_tmp(1+size(a):2*size(a))=a
 
   call allocate_dmft_bath(dmft_bath_tmp)
-  call set_dmft_bath(a_tmp,dmft_bath_tmp)
   call init_dmft_bath_mask(dmft_bath_tmp)
+  call set_dmft_bath(a_tmp,dmft_bath_tmp)
 
   Delta=zero
   invH_k=zero

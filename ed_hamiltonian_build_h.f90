@@ -16,10 +16,10 @@
      !##############################################
      !
      !
-     !          ==> LOCAL ENERGIES <==
+     !       ==> CHEMICAL POTENTIAL <==
      !
      htmp = htmp - xmu*(sum(nup)+sum(ndw))
-     htmp = htmp + dot_product(eloc(1,:),nup) + dot_product(eloc(Nspin,:),ndw)
+     !htmp = htmp + dot_product(eloc(1,:),nup) + dot_product(eloc(Nspin,:),ndw)
      !
      !
      !     ==> IMPURITY INTERACTIONS <==
@@ -120,47 +120,39 @@
      !
      do iorb=1,Norb
         do jorb=1,Norb
-           ! HYBRIDIZATION TERMS I: same or different orbitals, same spins.
-           ! SPIN UP
-           if((impHloc(1,1,iorb,jorb)/=0d0).AND.(ib(iorb)==0).AND.(ib(jorb)==1))then
-              call c(jorb,m,k1,sg1)
-              call cdg(iorb,k1,k2,sg2)
-              j=binary_search(Hmap,k2)
-              htmp = impHloc(1,1,iorb,jorb)*sg1*sg2
-              call sp_insert_element(spH0,htmp,impi,j)
-           endif
-           ! SPIN DW
-           if((impHloc(Nspin,Nspin,iorb,jorb)/=0d0).AND.(ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
-              call c(jorb+Ns,m,k1,sg1)
-              call cdg(iorb+Ns,k1,k2,sg2)
-              j=binary_search(Hmap,k2)
-              htmp = impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2
-              call sp_insert_element(spH0,htmp,impi,j)
-           endif
-           ! HYBRIDIZATION TERMS II: same or different orbitals, opposite spins.
-           ! UP-DW
-           if(impHloc(1,Nspin,iorb,jorb)/=0d0)then
-              if( (ib(iorb)==0).AND.(ib(jorb+Ns)==1) )then
-                 call c(jorb+Ns,m,k1,sg1)
-                 call cdg(iorb,k1,k2,sg2)
-                 j=binary_search(Hmap,k2)
-                 htmp = impHloc(1,Nspin,iorb,jorb)*sg1*sg2
-                 call sp_insert_element(spH0,htmp,impi,j)
-              endif
-           endif
-           ! DW-UP
-           if(impHloc(Nspin,1,iorb,jorb)/=0d0)then
-              if( (ib(iorb+Ns)==0).AND.(ib(jorb)==1) )then
-                 call c(jorb,m,k1,sg1)
-                 call cdg(iorb+Ns,k1,k2,sg2)
-                 j=binary_search(Hmap,k2)
-                 htmp = impHloc(Nspin,1,iorb,jorb)*sg1*sg2
-                 call sp_insert_element(spH0,htmp,impi,j)
-              endif
-           endif
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 !
+                 if(impHloc(ispin,jspin,iorb,jorb)/=zero) then
+                    !
+                    ! STRIDE:  {Norb,up}[Norb,up(k=1)][Norb,up(k=2)]{Norb,dw}[Norb,dw(k=1)][Norb,dw(k=2)]
+                    ! [ c+_(iorb,ispin)c_(jorb,jspin) ]_0 + h.c. = c+_alpha c_beta + c+_beta c_alpha
+                    !  
+                    alfa = iorb + (ispin-1)*Ns
+                    beta = jorb + (jspin-1)*Ns
+                    !
+                    !diagonal elements
+                    if ((ispin==jspin).and.(iorb==jorb)) then
+                       if(alfa/=beta)stop"wrong alfa beta"
+                       htmp = impHloc(ispin,jspin,iorb,jorb)*real(ib(alfa),8)
+                       call sp_insert_element(spH0,htmp,impi,i)
+                    endif
+                    !
+                    !off-diagonal elements
+                    if ((ib(beta)==1) .AND. (ib(alfa)==0)) then
+                       call c(beta,m,k1,sg1)
+                       call cdg(alfa,k1,k2,sg2)
+                       j = binary_search(Hmap,k2)
+                       htmp = impHloc(ispin,jspin,iorb,jorb)*sg1*sg2
+                       call sp_insert_element(spH0,htmp,impi,j)
+                    endif
+                    !
+                 endif
+                 !
+              enddo
+           enddo
         enddo
      enddo
-     !
      !
      !##############################################
      !#                                            #
@@ -189,7 +181,7 @@
                  do ispin=1,Nspin
                     do jspin=1,Nspin
                        !
-                       if(dmft_bath%h(ispin,jspin,iorb,jorb,kp)/=0d0) then
+                       if(dmft_bath%h(ispin,jspin,iorb,jorb,kp)/=zero) then
                           !
                           ! STRIDE:  {Norb,up}[Norb,up(k=1)][Norb,up(k=2)]{Norb,dw}[Norb,dw(k=1)][Norb,dw(k=2)]
                           ! [ c+_(iorb,ispin)c_(jorb,jspin) ]_k + h.c. = c+_alpha c_beta + c+_beta c_alpha
@@ -208,14 +200,6 @@
                           if ((ib(beta)==1) .AND. (ib(alfa)==0)) then
                              call c(beta,m,k1,sg1)
                              call cdg(alfa,k1,k2,sg2)
-                             j = binary_search(Hmap,k2)
-                             htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*sg1*sg2
-                             call sp_insert_element(spH0,htmp,impi,j)
-                          endif
-                          !
-                          if( (ib(alfa)==1) .AND. (ib(beta)==0) )then
-                             call c(alfa,m,k1,sg1)
-                             call cdg(beta,k1,k2,sg2)
                              j = binary_search(Hmap,k2)
                              htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*sg1*sg2
                              call sp_insert_element(spH0,htmp,impi,j)

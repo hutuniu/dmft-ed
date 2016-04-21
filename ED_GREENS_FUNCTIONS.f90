@@ -871,6 +871,35 @@ contains
              enddo
           enddo
        enddo
+    case ("replica")
+       l=0
+       do iorb=1,Norb
+          do jorb=1,Norb
+             do ispin=1,Nspin
+                do jspin=1,Nspin
+                   if(dmft_bath%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath%mask(ispin,jspin,iorb,jorb,2)) l=l+1
+                enddo
+             enddo
+          enddo
+       enddo
+       totNso = l
+       allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
+       l=0
+       do iorb=1,Norb
+          do jorb=1,Norb
+             do ispin=1,Nspin
+                do jspin=1,Nspin
+                   if((.not.dmft_bath%mask(ispin,jspin,iorb,jorb,1)).and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,2))) cycle
+                   l=l+1
+                   getIorb(l)=iorb
+                   getIspin(l)=ispin
+                   getJorb(l)=jorb
+                   getJspin(l)=jspin
+                   !endif
+                enddo
+             enddo
+          enddo
+       enddo
     end select
     if(l/=totNso)stop "print_gf_nonsu2 error counting the spin-orbitals"
     !!

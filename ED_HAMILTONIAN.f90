@@ -68,7 +68,7 @@ contains
     !Get diagonal part of Hloc
     do ispin=1,Nspin
        do iorb=1,Norb
-          eloc(ispin,iorb)=dreal(impHloc(ispin,ispin,iorb,iorb))
+          eloc(ispin,iorb)=dreal(impHloc(ispin,ispin,iorb,iorb)) 
        enddo
     enddo
     !
@@ -130,7 +130,7 @@ contains
 #ifdef _MPI
     mpiQ = dim/ED_MPI_SIZE
     mpiR = 0
-    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE)
+    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE) 
     call sp_init_matrix(spH0,mpiQ+mpiR)
     ishift     = ED_MPI_ID*mpiQ
     first_state= ED_MPI_ID*mpiQ+1

@@ -126,7 +126,7 @@ contains
     real(8)              :: hybr_aux(Nspin*Norb)
     real(8)              :: himp_aux_R(Nspin*Norb,Nspin*Norb)
     real(8)              :: himp_aux_I(Nspin*Norb,Nspin*Norb)
-    real(8)              :: read_vec(1+2*Nspin*Norb)
+    real(8)              :: re,im
     integer              :: i,unit,flen,Nh
     integer              :: io,jo,iorb,ispin,jorb,jspin
     logical              :: IOfile
@@ -174,16 +174,16 @@ contains
              dmft_bath_%u(:,:,i) = dmft_bath_%v(:,:,i)*ed_vsf_ratio+noise(i)
           enddo
        endif
-
-    !
+       !
     case('replica')
        !
+       dmft_bath_%v=0.0d0
+       dmft_bath_%h=zero
        do i=1,Nbath
-          dmft_bath_%h(:,:,:,:,i)=impHloc+noise(i)
           dmft_bath_%v(:,:,i)=max(0.1d0,1.d0/sqrt(dble(Nbath)))+noise(i)
        enddo
-       if ((ed_mode=="normal"))then!.and.(Norb==1))then
-          Nh=Nbath/2
+       if ((ed_mode=="normal"))then
+          Nh=int(Nbath/2)
           if(mod(Nbath,2)==0)de=hwband_/max(Nh-1,1)
           if(mod(Nbath,2)/=0)de=hwband_/Nh
           do ispin=1,Nspin
@@ -205,17 +205,29 @@ contains
                 endif
              enddo
           enddo
-    !   else
-    !      allocate(noise2(Nspin*Norb,Nspin*Norb));noise2=0.d0
-    !      call random_number(noise2)
-    !      noise2=noise2*ed_bath_noise_thr
-    !      do i=1,Nbath
-    !         dmft_bath_%h(:,:,:,:,i)=impHloc+so2nn_reshape(noise2,Nspin,Norb)
-    !      enddo
-    !      deallocate(noise2)
-      endif
-
-       call init_dmft_bath_mask(dmft_bath_)
+        else
+          do i=1,Nbath
+             do ispin=1,Nspin
+                do jspin=1,Nspin
+                   do iorb=1,Norb
+                      do jorb=1,Norb
+                         re=0.0d0;im=0.0d0
+                         if(dmft_bath_%mask(ispin,jspin,iorb,iorb,1))re=(max(0.1d0,1.d0/sqrt(dble(2*Norb*Nbath)))+noise(i))!*(ispin+jspin+iorb+iorb)
+                         if(dmft_bath_%mask(ispin,jspin,iorb,iorb,2))im=(max(0.1d0,1.d0/sqrt(dble(2*Norb*Nbath)))+noise(i))*(-1)**(ispin-jspin)
+                         io = iorb + (ispin-1)*Norb                           
+                         jo = jorb + (jspin-1)*Norb
+                         if(io==jo)then
+                            dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(re,im)*(-1)**(i)
+                         else
+                            dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(re*abs(impHloc(ispin,jspin,iorb,iorb)),im)
+                         endif
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+       endif
+       !
        deallocate(noise)
        !
     end select
@@ -504,7 +516,11 @@ contains
                    enddo
                 enddo
                 do io=1,Nspin*Norb
-                   write(unit_,"(90(F21.12,1X))") hybr_aux(io),(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                   if(unit_==6)then
+                      write(unit_,"(F12.6,1X,a5,90(F12.6,1X))") hybr_aux(io),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                   else
+                      write(unit_,"(90(F21.12,1X))") hybr_aux(io),(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                   endif
                 enddo
                 write(unit_,*)
              enddo
@@ -520,7 +536,11 @@ contains
                    enddo
                 enddo
                 do io=1,Nspin*Norb
-                   write(unit_,"(90(F21.12,1X))") hybr_aux(io),(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                   if(unit_==6)then
+                      write(unit_,"(F12.6,1X,a5,90(F12.6,1X))") hybr_aux(io),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                   else
+                      write(unit_,"(90(F21.12,1X))") hybr_aux(io),(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                   endif
                 enddo
                 write(unit_,*)
              enddo
@@ -573,8 +593,8 @@ contains
   subroutine set_dmft_bath(bath_,dmft_bath_)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
-    integer                :: stride,io,i
-    integer                :: iorb,ispin,jorb,jspin
+    integer                :: stride,io,jo,i
+    integer                :: iorb,ispin,jorb,jspin,ibath
     logical                :: check
     real(8)                :: element_R,element_I
     if(.not.dmft_bath_%status)stop "set_dmft_bath error: bath not allocated"
@@ -747,29 +767,31 @@ contains
           dmft_bath_%v=zero
           dmft_bath_%h=zero
           !
-          io = 0
+          i = 0
           do ispin=1,Nspin
              !all hybrd
              do iorb=1,Norb
-                do i=1,Nbath
-                   io=io+1
-                   dmft_bath_%v(ispin,iorb,i)=bath_(io)
+                do ibath=1,Nbath
+                   i=i+1
+                   dmft_bath_%v(ispin,iorb,ibath)=bath_(i)
                 enddo
              enddo
-             !all non-vanishing terms in imploc - diagonal spin
-             do i=1,Nbath
-                do iorb=1,Norb
-                   do jorb=1,Norb
+             !all non-vanishing terms in imploc - all spin
+             do iorb=1,Norb
+                do jorb=iorb,Norb
+                   do ibath=1,Nbath
                       element_R=0.0d0;element_I=0.0d0
                       if(dmft_bath_%mask(ispin,ispin,iorb,jorb,1)) then
-                         io=io+1
-                         element_R=bath_(io)
+                         i=i+1
+                         element_R=bath_(i)
                       endif
                       if(dmft_bath_%mask(ispin,ispin,iorb,jorb,2)) then
-                         io=io+1
-                         element_I=bath_(io)
+                         i=i+1
+                         element_I=bath_(i)
                       endif
-                      dmft_bath_%h(ispin,ispin,iorb,jorb,i)=cmplx(element_R,element_I)
+                      dmft_bath_%h(ispin,ispin,iorb,jorb,ibath)=cmplx(element_R,element_I)
+                      !hermiticity
+                      if(iorb/=jorb)dmft_bath_%h(ispin,ispin,jorb,iorb,ibath)=conjg(dmft_bath_%h(ispin,ispin,iorb,jorb,ibath))
                    enddo
                 enddo
              enddo
@@ -783,30 +805,34 @@ contains
           dmft_bath_%v=zero
           dmft_bath_%h=zero
           !
-          io = 0
+          i = 0
           do ispin=1,Nspin
              !all hybrd
              do iorb=1,Norb
-                do i=1,Nbath
-                   io=io+1
-                   dmft_bath_%v(ispin,iorb,i)=bath_(io)
+                do ibath=1,Nbath
+                   i=i+1
+                   dmft_bath_%v(ispin,iorb,ibath)=bath_(i)
                 enddo
              enddo
              !all non-vanishing terms in imploc - all spin
-             do jspin=1,Nspin
-                do i=1,Nbath
-                   do iorb=1,Norb
-                      do jorb=1,Norb
+             do jspin=ispin,Nspin
+                do iorb=1,Norb
+                   do jorb=iorb,Norb
+                      do ibath=1,Nbath
                          element_R=0.0d0;element_I=0.0d0
                          if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1)) then
-                            io=io+1
-                            element_R=bath_(io)
+                            i=i+1
+                            element_R=bath_(i)
                          endif
                          if(dmft_bath_%mask(ispin,jspin,iorb,jorb,2)) then
-                            io=io+1
-                            element_I=bath_(io)
+                            i=i+1
+                            element_I=bath_(i)
                          endif
-                         dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(element_R,element_I)
+                         dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)=cmplx(element_R,element_I)
+                         !hermiticity
+                         if((ispin==jspin).and.(iorb/=jorb))dmft_bath_%h(ispin,ispin,jorb,iorb,ibath)=conjg(dmft_bath_%h(ispin,ispin,iorb,jorb,ibath))
+                         if((ispin/=jspin).and.(iorb==jorb))dmft_bath_%h(jspin,ispin,iorb,iorb,ibath)=conjg(dmft_bath_%h(ispin,jspin,iorb,iorb,ibath))
+                         if((ispin/=jspin).and.(iorb/=jorb))dmft_bath_%h(jspin,ispin,jorb,iorb,ibath)=conjg(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath))
                       enddo
                    enddo
                 enddo
@@ -819,7 +845,6 @@ contains
   end subroutine set_dmft_bath
 
 
-
   !+-------------------------------------------------------------------+
   !PURPOSE  : copy the bath components back to a 1-dim array 
   !+-------------------------------------------------------------------+
@@ -827,7 +852,7 @@ contains
     type(effective_bath)   :: dmft_bath_
     real(8),dimension(:)   :: bath_
     integer                :: stride,io,i
-    integer                :: iorb,ispin,jorb,jspin
+    integer                :: iorb,ispin,jorb,jspin,ibath
     logical                :: check
     if(.not.dmft_bath_%status)stop "get_dmft_bath error: bath not allocated"
     check=check_size_bath(bath_)
@@ -995,26 +1020,26 @@ contains
        select case(ed_mode)
        case default
           !
-          io = 0
+          i = 0
           do ispin=1,Nspin
              !all hybrd
              do iorb=1,Norb
-                do i=1,Nbath
-                   io=io+1
-                   bath_(io)=dmft_bath_%v(ispin,iorb,i)
+                do ibath=1,Nbath
+                   i=i+1
+                   bath_(i)=dmft_bath_%v(ispin,iorb,ibath)
                 enddo
              enddo
              !all non-vanishing terms in imploc - diagonal spin
-             do i=1,Nbath
+             do ibath=1,Nbath
                 do iorb=1,Norb
-                   do jorb=1,Norb
+                   do jorb=iorb,Norb
                       if(dmft_bath_%mask(ispin,ispin,iorb,jorb,1)) then
-                         io=io+1
-                         bath_(io)=real(dmft_bath_%h(ispin,ispin,iorb,jorb,i))
+                         i=i+1
+                         bath_(i)=real(dmft_bath_%h(ispin,ispin,iorb,jorb,ibath))
                        endif
                        if(dmft_bath_%mask(ispin,ispin,iorb,jorb,2)) then
-                         io=io+1
-                         bath_(io)=aimag(dmft_bath_%h(ispin,ispin,iorb,jorb,i))
+                         i=i+1
+                         bath_(i)=aimag(dmft_bath_%h(ispin,ispin,iorb,jorb,ibath))
                       endif
                    enddo
                 enddo
@@ -1026,27 +1051,27 @@ contains
 
           !
        case("nonsu2")
-          io = 0
+          i = 0
           do ispin=1,Nspin
              !all hybrd
              do iorb=1,Norb
-                do i=1,Nbath
-                   io=io+1
-                   bath_(io)=dmft_bath_%v(ispin,iorb,i)
+                do ibath=1,Nbath
+                   i=i+1
+                   bath_(i)=dmft_bath_%v(ispin,iorb,ibath)
                 enddo
              enddo
              !all non-vanishing terms in imploc - all spin
-             do i=1,Nbath
-                do jspin=1,Nspin
-                   do iorb=1,Norb
-                      do jorb=1,Norb
+             do jspin=ispin,Nspin
+                do iorb=1,Norb
+                   do jorb=iorb,Norb
+                      do ibath=1,Nbath
                          if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1)) then
-                            io=io+1
-                            bath_(io)=real(dmft_bath_%h(ispin,jspin,iorb,jorb,i))
+                            i=i+1
+                            bath_(i)=real(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath))
                          endif
                          if(dmft_bath_%mask(ispin,jspin,iorb,jorb,2)) then
-                            io=io+1
-                            bath_(io)=aimag(dmft_bath_%h(ispin,jspin,iorb,jorb,i))
+                            i=i+1
+                            bath_(i)=aimag(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath))
                          endif
                       enddo
                    enddo

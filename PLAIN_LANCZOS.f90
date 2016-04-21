@@ -147,8 +147,8 @@ contains
        call lanczos_plain_iteration_d(iter,vin,vout,a_,b_)
        if(verb)print*,iter,a_,b_
        alanc(iter)=a_
-       if(abs(b_)<threshold_)exit
        if(iter<nitermax)blanc(iter+1)=b_
+       if(abs(b_)<threshold_)exit
     enddo
   end subroutine lanczos_plain_tridiag_d
   !
