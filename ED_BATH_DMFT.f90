@@ -212,14 +212,14 @@ contains
                    do iorb=1,Norb
                       do jorb=1,Norb
                          re=0.0d0;im=0.0d0
-                         if(dmft_bath_%mask(ispin,jspin,iorb,iorb,1))re=(max(0.1d0,1.d0/sqrt(dble(2*Norb*Nbath)))+noise(i))!*(ispin+jspin+iorb+iorb)
-                         if(dmft_bath_%mask(ispin,jspin,iorb,iorb,2))im=(max(0.1d0,1.d0/sqrt(dble(2*Norb*Nbath)))+noise(i))*(-1)**(ispin-jspin)
+                         if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1))re=(max(0.1d0,1.d0/sqrt(dble(2*Norb*Nbath)))+noise(i))
+                         if(dmft_bath_%mask(ispin,jspin,iorb,jorb,2))im=(max(0.1d0,1.d0/sqrt(dble(2*Norb*Nbath)))+noise(i))*(-1)**(ispin-jspin)
                          io = iorb + (ispin-1)*Norb                           
                          jo = jorb + (jspin-1)*Norb
                          if(io==jo)then
                             dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(re,im)*(-1)**(i)
                          else
-                            dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(re*abs(impHloc(ispin,jspin,iorb,iorb)),im)
+                            dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(re*abs(impHloc(ispin,jspin,iorb,jorb)),im)
                          endif
                       enddo
                    enddo
@@ -517,7 +517,7 @@ contains
                 enddo
                 do io=1,Nspin*Norb
                    if(unit_==6)then
-                      write(unit_,"(F12.6,1X,a5,90(F12.6,1X))") hybr_aux(io),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                      write(unit_,"(F10.4,1X,a5,90(F10.4,1X))") hybr_aux(io),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
                    else
                       write(unit_,"(90(F21.12,1X))") hybr_aux(io),(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
                    endif
@@ -537,7 +537,7 @@ contains
                 enddo
                 do io=1,Nspin*Norb
                    if(unit_==6)then
-                      write(unit_,"(F12.6,1X,a5,90(F12.6,1X))") hybr_aux(io),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                      write(unit_,"(F10.4,1X,a5,90(F10.4,1X))") hybr_aux(io),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
                    else
                       write(unit_,"(90(F21.12,1X))") hybr_aux(io),(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
                    endif
