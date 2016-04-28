@@ -1,7 +1,7 @@
 MODULE ED_CHI2FIT
   USE SF_CONSTANTS
   USE SF_OPTIMIZE, only:fmin_cg,fmin_cgplus,fmin_cgminimize
-  USE SF_LINALG,   only:eye,zeye,inv
+  USE SF_LINALG,   only:eye,zeye,inv,inv_her
   USE SF_IOTOOLS,  only:reg,free_unit,txtfy
   USE SF_ARRAYS,   only:arange
   USE SF_MISC,     only:assert_shape
@@ -150,7 +150,7 @@ contains
     integer,optional                                 :: ispin
     integer                                          :: ispin_
     ispin_=1;if(present(ispin))ispin_=ispin
-    if(size(fg,3)<Lfit)stop "chi2_fitgf_generic_normal_NOSPIN error: size[fg,3] < Lfit"
+    if(size(fg,3)<Lfit)stop "chi2_fitgf_generic_normal_NOSPIN error: size[fg,3] < Lfit" 
     fg_=zero
     fg_(ispin_,ispin_,:,:,1:Lfit) = fg(:,:,1:Lfit)
     call chi2_fitgf_generic_normal(fg_,bath,ispin_)

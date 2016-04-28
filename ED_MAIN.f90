@@ -273,6 +273,7 @@ contains
     character(len=64)                    :: Hunit_
     logical                              :: check 
     logical,save                         :: isetup=.true.
+    integer :: i
 
     hwband_=2.d0;if(present(hwband))hwband_=hwband
     Hunit_='inputHLOC.in';if(present(Hunit))Hunit_=Hunit
@@ -294,9 +295,11 @@ contains
     call allocate_dmft_bath(dmft_bath)
     if(bath_type=="replica")call init_dmft_bath_mask(dmft_bath)
     call init_dmft_bath(dmft_bath,hwband_)
-    call get_dmft_bath(dmft_bath,bath_)
+    !
     !call write_dmft_bath(dmft_bath,LOGfile)
-
+    !
+    call get_dmft_bath(dmft_bath,bath_)
+    !
     if(isetup)then
        select case(ed_mode)
        case default

@@ -494,7 +494,7 @@ function delta_replica(a) result(Delta)
   complex(8),dimension(Nspin,Nspin,Norb,Norb,Ldelta)  :: Delta
   integer                                             :: ispin,jspin,iorb,jorb,ibath
   integer                                             :: i,io,jo,ndx
-  real(8),dimension(Nspin*Norb,Nspin*Norb)            :: V_k
+  complex(8),dimension(Nspin*Norb,Nspin*Norb)         :: V_k
   complex(8),dimension(Nspin*Norb,Nspin*Norb,Ldelta)  :: invH_k
   complex(8),dimension(Nspin*Norb,Nspin*Norb,Ldelta)  :: Delta_so
   complex(8),dimension(Nspin,Nspin,Norb,Norb,Nbath)   :: invH_knn
@@ -506,43 +506,6 @@ function delta_replica(a) result(Delta)
 
   Delta=zero
   invH_k=zero
-
-  !VERSIONE 1 ===>
-  !Delta_so=zero
-  !do i=1,Ldelta
-  !   !
-  !   ndx=0
-  !   do ibath=1,Nbath
-  !      !
-  !      V_k=0.0d0
-  !      do ispin=1,Nspin
-  !         do iorb=1,Norb
-  !            do jspin=1,Nspin
-  !               do jorb=1,Norb
-  !                  io = iorb + (ispin-1) * Norb
-  !                  jo = jorb + (jspin-1) * Norb
-  !                  V_k(io,io)=dmft_bath_tmp%v(ispin,iorb,ibath)
-  !                  if ((dmft_bath_tmp%mask(ispin,jspin,iorb,jorb,1).eqv..true.).or.(dmft_bath_tmp%mask(ispin,jspin,iorb,jorb,2).eqv..true.))then
-  !                     invH_k(io,jo,i)=dmft_bath_tmp%h(ispin,jspin,iorb,jorb,ibath)
-  !                  endif
-  !               enddo
-  !            enddo
-  !         enddo
-  !         !
-  !         invH_k(:,:,i) = eye(Nspin*Norb) * xi * Xdelta(i) - invH_k(:,:,i)
-  !         call inv(invH_k(:,:,i))
-  !         !
-  !         Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
-  !         !
-  !      enddo
-  !      !
-  !      Delta(:,:,:,:,i)=so2nn_reshape(Delta_so(:,:,i),Nspin,Norb)
-  !      !
-  !   enddo
-  !enddo
-  !===> VERSIONE 1 
-
-  !VERSIONE 2 ===>
   do i=1,Ldelta
      invH_knn=zero
      do ibath=1,Nbath
@@ -560,6 +523,11 @@ function delta_replica(a) result(Delta)
         enddo
         !
         invH_k(:,:,i) = zeye(Nspin*Norb) * xi * Xdelta(i) - invH_k(:,:,i)
+        !do io=1,Nspin*Norb
+        !   do jo=1+io,Nspin*Norb
+        !      invH_k(jo,io,i)=conjg(invH_k(io,jo,i))
+        !   enddo
+        !enddo
         call inv(invH_k(:,:,i))
         invH_knn(:,:,:,:,ibath)=so2nn_reshape(invH_k(:,:,i),Nspin,Norb)
         !
@@ -571,14 +539,13 @@ function delta_replica(a) result(Delta)
               do iorb=1,Norb
                  do jorb=1,Norb
                     Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
-                      dmft_bath_tmp%v(ispin,iorb,ibath)*invH_knn(ispin,jspin,iorb,jorb,ibath)*dmft_bath_tmp%v(jspin,jorb,ibath)
+                      conjg(dmft_bath_tmp%vr(ispin,iorb,ibath))*invH_knn(ispin,jspin,iorb,jorb,ibath)*dmft_bath_tmp%vr(jspin,jorb,ibath)
                  enddo
               enddo
            enddo
          enddo
      enddo
   enddo
-  !===> VERSIONE 2
   !
   call deallocate_dmft_bath(dmft_bath_tmp)
   !
@@ -590,7 +557,7 @@ function delta_replica_normal(a) result(Delta)
   complex(8),dimension(Norb,Norb,Ldelta)              :: Delta
   integer                                             :: iorb,jorb,ibath
   integer                                             :: i,io,jo,ndx
-  real(8),dimension(Norb,Norb)                        :: V_k
+  complex(8),dimension(Norb,Norb)                     :: V_k
   complex(8),dimension(Norb,Norb,Ldelta)              :: invH_k
   type(effective_bath)                                :: dmft_bath_tmp
 
@@ -609,7 +576,7 @@ function delta_replica_normal(a) result(Delta)
      ndx=0
      do ibath=1,Nbath
         !
-        V_k=0.0d0
+        V_k=zero
         do iorb=1,Norb
            do jorb=1,Norb
               ndx=ndx+1
@@ -623,7 +590,7 @@ function delta_replica_normal(a) result(Delta)
         invH_k(:,:,i) = eye(Norb) * xi * Xdelta(i) - invH_k(:,:,i)
         call inv(invH_k(:,:,i))
         !
-        Delta(:,:,i)=Delta(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
+        Delta(:,:,i)=Delta(:,:,i)+matmul(conjg(V_k),matmul(invH_k(:,:,i),V_k))
         !
      enddo
   enddo

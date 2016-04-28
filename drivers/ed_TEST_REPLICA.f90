@@ -54,6 +54,8 @@ program ed_TEST_REPLICA
   call parse_input_variable(surface,"SURFACE",finput,   default=.false.)
   call parse_input_variable(Hk_test,"HK_TEST",finput,   default=.true.)
   call parse_input_variable(rotateG0loc,"ROTATEG0loc",finput, default=.false.)
+
+
   call ed_read_input(trim(finput))
   !
   Nso=Nspin*Norb
@@ -64,7 +66,7 @@ program ed_TEST_REPLICA
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal))
-  allocate(Ti3dt2g_Hloc_nn(Nspin,Nspin,Norb,Norb))
+
   allocate(density_matrix(Nspin*Norb,Nspin*Norb))
   allocate(dm_eig(Nspin*Norb),dm_rot(Nspin*Norb,Nspin*Norb))
   allocate(delta_conv(Nso,Nso,Lmats))
@@ -73,7 +75,6 @@ program ed_TEST_REPLICA
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
   call build_hk_path
-  Ti3dt2g_Hloc_nn=reshape_A1_to_A2(Ti3dt2g_Hloc)
 
   !Setup solver impHloc non è ne' allocata ne' riempita
   if (bath_type/="replica") then
@@ -94,17 +95,18 @@ program ed_TEST_REPLICA
   do while(.not.converged.AND.iloop<nloop)
      iloop=iloop+1
      if(ED_MPI_ID==0)call start_loop(iloop,nloop,"DMFT-loop")
-
+     call build_hk_path
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solve(bath)
      call ed_get_sigma_matsubara(Smats)
-     call build_hk_path
      call ed_get_sigma_real(Sreal)
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
+#ifdef _MPI
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
-     !if(ED_MPI_ID==0)call rotate_Gloc(Greal)
+#endif
+     if(ED_MPI_ID==0)call rotate_Gloc(Greal)
      !if(ED_MPI_ID==1)call Quantum_operator()
-     call ed_get_weiss(Gmats,Smats,Delta,Hloc=reshape_A1_to_A2(Ti3dt2g_Hloc),iprint=3)
+     call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
      !density matrix
      !if(ED_MPI_ID==0)then
      !   call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
@@ -165,7 +167,7 @@ contains
 
 
 !_______________________________________________________________________
-!                            HAMILTONIAN
+!                      NON-INTERACTING HAMILTONIAN
 !_______________________________________________________________________
   !---------------------------------------------------------------------
   !PURPOSE: H(k) file for main program and write G0_loc
@@ -181,9 +183,12 @@ contains
     integer                             :: unit
     complex(8),dimension(Nso,Nso,Lmats) :: Gmats
     complex(8),dimension(Nso,Nso,Lreal) :: Greal
-    complex(8),dimension(6,6)           :: theta,impHloc_rot
+    complex(8),allocatable              :: G_in(:,:,:,:,:)
     real(8)                             :: wm(Lmats),wr(Lreal),dw
-
+    complex(8),dimension(Nso,Nso)       :: inv_impHloc
+    !
+    if(allocated(Bath))stop" H(K) must be build before bath allocation, errors shall come otherwise"
+    !
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for STO:"
     !
     !Alloco quantità
@@ -215,9 +220,14 @@ contains
     !
     !calcolo impHloc = Sum_k [ H(k) ]
     !
-    allocate(Ti3dt2g_Hloc(Nso,Nso))
+    allocate(Ti3dt2g_Hloc(Nso,Nso));                 Ti3dt2g_Hloc=zero
+    allocate(Ti3dt2g_Hloc_nn(Nspin,Nspin,Norb,Norb));Ti3dt2g_Hloc_nn=zero
     Ti3dt2g_Hloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs((Ti3dt2g_Hloc))<1.d-9)Ti3dt2g_Hloc=0d0
+    Ti3dt2g_Hloc_nn=reshape_A1_to_A2(Ti3dt2g_Hloc)
+    !
+    inv_impHloc=Ti3dt2g_Hloc
+    call inv(inv_impHloc)
     !
     !scrivo impHloc
     !
@@ -232,6 +242,17 @@ contains
        write(*,*) "complex"
        do i=1,Nso
           write(*,'(6F10.4)') (dimag(Ti3dt2g_Hloc(i,j)),j=1,Nso)
+       enddo
+       write(*,*)
+       write(*,*)
+       write(*,*) " inv[Sum over k H(k)] nella versione A1"
+       write(*,*) "real"
+       do i=1,Nso
+          write(*,'(6F10.4)') (real(inv_impHloc(i,j)),j=1,Nso)
+       enddo
+       write(*,*) "complex"
+       do i=1,Nso
+          write(*,'(6F10.4)') (dimag(inv_impHloc(i,j)),j=1,Nso)
        enddo
        write(*,*)
     endif
@@ -260,85 +281,18 @@ contains
           enddo
        enddo
     enddo
-    open(unit=106,file='sum_w_G0loc.dat',status='unknown',action='write',position='rewind')
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(Greal(io,jo,:)))
-             enddo
-          enddo
-       enddo
-    enddo
-    close(106)
-    !
-    !Build the local GF in the J-Jz Basis (theta is already in the A1 shape)
-    !
-    if((rotateG0loc).and.(.not.Hk_test)) then
-       call build_rotation(theta,impHloc_rot)
+    if(rotateG0loc) then
+       allocate(G_in(Nspin,Nspin,Norb,Norb,Lmats))
+       G_in=zero
        do i=1,Lreal
-          Greal(:,:,i)=matmul(transpose(conjg(theta)),matmul(Greal(:,:,i),theta))
+          G_in(:,:,:,:,i)=reshape_A1_to_A2(Greal(:,:,i))
        enddo
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   call splot("G0locrot_a_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
-                enddo
-             enddo
-          enddo
-       enddo
-       open(unit=106,file='sum_w_G0loc_rot_anlytc.dat',status='unknown',action='write',position='rewind')
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(Greal(io,jo,:)))
-                enddo
-             enddo
-          enddo
-       enddo
-       close(106)
-       !
-       do i=1,Lreal
-          Greal(:,:,i)=matmul(transpose(conjg(impHloc_rot)),matmul(Greal(:,:,i),impHloc_rot))
-       enddo
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   call splot("G0locrot_H_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
-                enddo
-             enddo
-          enddo
-       enddo
-       open(unit=106,file='sum_w_G0loc_rot_Hloc.dat',status='unknown',action='write',position='rewind')
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(Greal(io,jo,:)))
-                enddo
-             enddo
-          enddo
-       enddo
-       close(106)
+       call rotate_Gloc(G_in)
     endif
-
   end subroutine build_hk
 
   !---------------------------------------------------------------------
-  !PURPOSE: GET STO HAMILTONIAN in the A1 shape
+  !PURPOSE: GET STO HAMILTONIAN
   !---------------------------------------------------------------------
   function hk_Ti3dt2g(kvec,N) result(hk)
     real(8),dimension(:)        :: kvec
@@ -348,46 +302,51 @@ contains
     real(8)                     :: kx,ky,kz
     integer                     :: N,ndx
     real(8),dimension(Norb,0:6) :: HoppingMatrix
-
+    !
     s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
     s_x(1,2)=cmplx(1.0d0,0.0d0); s_x(2,1)=cmplx(1.0d0,0.0d0)
     s_y(1,2)=cmplx(0.0d0,-1.0d0);s_y(2,1)=cmplx(0.0d0,1.0d0)
     s_z(1,1)=cmplx(1.0d0,0.0d0); s_z(2,2)=cmplx(-1.0d0,0.0d0)
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
-
+    !
+    call get_hopping(HoppingMatrix)
+    !
     Hk=zero
-    if(Hk_test) then
-       do i=1,Norb
-          ndx=2*i-1
-          Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz)
-          if(SOC/=zero)then
-             Hk(ndx,ndx+1)=soc
-             Hk(ndx+1,ndx)=soc
-          endif
-       enddo
-    else
-       call get_hopping(HoppingMatrix)
-       do i=1,Norb
-          ndx=2*i-1
-          Hk(ndx:ndx+1,ndx:ndx+1) = orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
-       enddo
-       !upper triangle
-       Hk(1:2,3:4)= +xi * s_z * soc/2.
-       Hk(1:2,5:6)= -xi * s_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-       Hk(3:4,5:6)= +xi * s_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
-       !lower triangle
+    do i=1,Norb
+       ndx=2*i-1
+       Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
+    enddo
+    !
+    if(SOC/=zero)then
+       if(Hk_test)then
+          do i=1,Norb
+             ndx=2*i-1
+             Hk(ndx,ndx+1) = cmplx(soc,soc/4.d0)
+             !Hk(ndx,ndx+1) = cmplx(soc,0.d0)
+             !Hk(ndx,ndx+1) = cmplx(0.d0,soc)
+          enddo
+       else
+          !REALISTIC SOC (upper triangle)
+          Hk(1:2,3:4)= +xi * s_z * soc/2.
+          Hk(1:2,5:6)= -xi * s_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+          Hk(3:4,5:6)= +xi * s_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+       endif
+       !hermiticity
        do i=1,Nspin*Norb
           do j=1,Nspin*Norb
              Hk(j,i)=conjg(Hk(i,j))
           enddo
        enddo
     endif
-
+    !
     !A1 shape: [Norb*Norb]*Nspin
     Hk = reshape_Z_to_A1(Hk)
-  
+    !
   end function hk_Ti3dt2g
 
+  !---------------------------------------------------------------------
+  !PURPOSE: GET STO HAMILTONIAN corrected with Sigma(iw=0)
+  !---------------------------------------------------------------------
   function hk_Ti3dt2g_Hartree(kvec,N) result(hk)
     real(8),dimension(:)        :: kvec
     complex(8),dimension(N,N)   :: hk
@@ -396,37 +355,42 @@ contains
     real(8)                     :: kx,ky,kz
     integer                     :: N,ndx
     real(8),dimension(Norb,0:6) :: HoppingMatrix
-
+    !
     s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
     s_x(1,2)=cmplx(1.0d0,0.0d0); s_x(2,1)=cmplx(1.0d0,0.0d0)
     s_y(1,2)=cmplx(0.0d0,-1.0d0);s_y(2,1)=cmplx(0.0d0,1.0d0)
     s_z(1,1)=cmplx(1.0d0,0.0d0); s_z(2,2)=cmplx(-1.0d0,0.0d0)
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
-
+    !
+    if(Norb==3)call get_hopping(HoppingMatrix)
+    !
     Hk=zero
-    if(Hk_test) then
-       do i=1,Norb
-          ndx=2*i-1
-          Hk(ndx:ndx+1,ndx:ndx+1) = band_cos_omo(kx,ky,kz)
-       enddo
-    else
-       call get_hopping(HoppingMatrix)
-       do i=1,Norb
-          ndx=2*i-1
-          Hk(ndx:ndx+1,ndx:ndx+1) = orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
-       enddo
-       !upper triangle
-       Hk(1:2,3:4)= +xi * s_z * soc/2.
-       Hk(1:2,5:6)= -xi * s_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-       Hk(3:4,5:6)= +xi * s_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
-       !lower triangle
+    do i=1,Norb
+       ndx=2*i-1
+       Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
+    enddo
+    !
+    if(SOC/=zero)then
+       if(Hk_test)then
+          do i=1,Norb
+             ndx=2*i-1
+             Hk(ndx,ndx+1) = cmplx(soc,soc/3.d0)
+          enddo
+       else
+          !REALISTIC SOC (upper triangle)
+          Hk(1:2,3:4)= +xi * s_z * soc/2.
+          Hk(1:2,5:6)= -xi * s_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+          Hk(3:4,5:6)= +xi * s_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+       endif
+       !hermiticity
        do i=1,Nspin*Norb
           do j=1,Nspin*Norb
              Hk(j,i)=conjg(Hk(i,j))
           enddo
        enddo
     endif
-
+    !
+    !correction with Sigma(iw=0)
     do ispin=1,Nspin
        do jspin=1,Nspin
           do iorb=1,Norb
@@ -438,50 +402,142 @@ contains
           enddo
        enddo
     enddo
-
+    !
     !A1 shape: [Norb*Norb]*Nspin
     Hk = reshape_Z_to_A1(Hk)
-  
+    !
   end function hk_Ti3dt2g_Hartree
 
   !---------------------------------------------------------------------
   !PURPOSE: 2x2 band structures
   !---------------------------------------------------------------------
-  function band_cos_omo(kx,ky,kz) result(hk)
-    real(8)                         :: kx,ky,kz
-    complex(8),dimension(2,2)       :: hk
-    hk = zero
-    hk(1,1) = -2.*(cos(kx)+cos(ky)+cos(kz))
-    hk(2,2) = hk(1,1)
-  end function band_cos_omo
-
-  function orbital_dispersion(kx,ky,kz,t) result(hk)
+  function diagonal_orbital_dispersion(kx,ky,kz,t) result(hk)
     real(8)                           :: kx,ky,kz
     real(8),intent(in),dimension(0:6) :: t
     complex(8),dimension(2,2)         :: hk
     !perovskite dispersion
     hk = zero
-    if(.not.surface)then
-       hk(1,1) = t(0)                      & !onsite
-                 -2.*t(1)*cos(kx)          & !t_100
-                 -2.*t(2)*cos(ky)          & !t_010
-                 -2.*t(3)*cos(kz)          & !t_001
-                 -4.*t(4)*cos(ky)*cos(kz)  & !t_011
-                 -4.*t(5)*cos(kx)*cos(kz)  & !t_101
-                 -4.*t(6)*cos(kx)*cos(ky)    !t_110
-       hk(2,2) = hk(1,1)
+    if (surface) then
+       if(Hk_test)then
+          hk(1,1) = -2.*(cos(kx)+cos(ky))-1.d0
+          hk(2,2) = hk(1,1)
+       else
+          hk(1,1) = t(0)                      & !onsite
+                    -2.*t(1)*cos(kx)          & !t_100
+                    -2.*t(2)*cos(ky)          & !t_010
+                    -1.*t(3)                  & !t_001
+                    -2.*t(4)*cos(ky)          & !t_011
+                    -2.*t(5)*cos(kx)          & !t_101
+                    -4.*t(6)*cos(kx)*cos(ky)    !t_110
+          hk(2,2) = hk(1,1)
+       endif
     else
-       hk(1,1) = t(0)                      & !onsite
-                 -2.*t(1)*cos(kx)          & !t_100
-                 -2.*t(2)*cos(ky)          & !t_010
-                 -1.*t(3)                  & !t_001
-                 -2.*t(4)*cos(ky)          & !t_011
-                 -2.*t(5)*cos(kx)          & !t_101
-                 -4.*t(6)*cos(kx)*cos(ky)    !t_110
-       hk(2,2) = hk(1,1)
-
+       if(Hk_test)then
+          hk(1,1) = -2.*(cos(kx)+cos(ky)+cos(kz))
+          hk(2,2) = hk(1,1)
+       else
+          hk(1,1) = t(0)                      & !onsite
+                    -2.*t(1)*cos(kx)          & !t_100
+                    -2.*t(2)*cos(ky)          & !t_010
+                    -2.*t(3)*cos(kz)          & !t_001
+                    -4.*t(4)*cos(ky)*cos(kz)  & !t_011
+                    -4.*t(5)*cos(kx)*cos(kz)  & !t_101
+                    -4.*t(6)*cos(kx)*cos(ky)    !t_110
+          hk(2,2) = hk(1,1)
+       endif
     endif
-  end function orbital_dispersion
+  end function diagonal_orbital_dispersion
+
+  !---------------------------------------------------------------------
+  !PURPOSE: Build the hopping integrals in k-space for realistic bandstructure
+  !---------------------------------------------------------------------
+  subroutine get_hopping(T)
+  real(8),dimension(Norb,0:6),intent(out)   ::  T
+  real(8),dimension(Norb,0:6)               ::  T_bulk,T_VACSTO,T_LAOSTO
+  real(8)                                   ::  Eo,t1,t2,t3
+  real(8)                                   ::  t_010_yz,t_001_yz
+  real(8)                                   ::  t_100_zx,t_001_zx
+  real(8)                                   ::  t_100_xy,t_010_xy,t_001_xy
+
+  !pristine lattice
+  Eo = 3.31
+  t1 = 0.276536
+  t2 = 0.031329
+  t3 = 0.076842
+
+  !lattice distortion
+  t_010_yz = 0.232 !se c'è solo l'abbassamento del Ti questo dovrebbe essere uguale a t1, magari c'è anche altro dovuto ad LAO
+  t_001_yz = 0.475
+
+  t_100_zx = 0.232
+  t_001_zx = 0.475
+
+  t_100_xy = 0.286
+  t_010_xy = 0.286
+  t_001_xy = 0.03
+
+  !  BULK STO
+  !orbital_1 = YZ
+  T_bulk(1,0) = Eo
+  T_bulk(1,1) = t2
+  T_bulk(1,2) = t1
+  T_bulk(1,3) = t1
+  T_bulk(1,4) = t3
+  T_bulk(1,5) = 0.d0
+  T_bulk(1,6) = 0.d0
+  !orbital_2 = ZX
+  T_bulk(2,0) = Eo
+  T_bulk(2,1) = t1
+  T_bulk(2,2) = t2
+  T_bulk(2,3) = t1
+  T_bulk(2,4) = 0.d0
+  T_bulk(2,5) = t3
+  T_bulk(2,6) = 0.d0
+  !orbital_3 = XY
+  T_bulk(3,0) = Eo
+  T_bulk(3,1) = t1
+  T_bulk(3,2) = t1
+  T_bulk(3,3) = t2
+  T_bulk(3,4) = 0.d0
+  T_bulk(3,5) = 0.d0
+  T_bulk(3,6) = t3
+  !
+  ! VAC/STO (not used)
+  T_VACSTO=T_bulk
+  !
+  !  LAO/STO
+  !orbital_1 = YZ
+  T_LAOSTO(1,0) = 1.087
+  T_LAOSTO(1,1) = t2
+  T_LAOSTO(1,2) = t_010_yz
+  T_LAOSTO(1,3) = t_001_yz
+  T_LAOSTO(1,4) = t3
+  T_LAOSTO(1,5) = 0.d0
+  T_LAOSTO(1,6) = 0.d0
+  !orbital_2 = ZX
+  T_LAOSTO(2,0) = 1.087
+  T_LAOSTO(2,1) = t_100_zx
+  T_LAOSTO(2,2) = t2
+  T_LAOSTO(2,3) = t_001_zx
+  T_LAOSTO(2,4) = 0.d0
+  T_LAOSTO(2,5) = t3
+  T_LAOSTO(2,6) = 0.d0
+  !orbital_3 = XY
+  T_LAOSTO(3,0) = 1.035
+  T_LAOSTO(3,1) = t_100_xy
+  T_LAOSTO(3,2) = t_010_xy
+  T_LAOSTO(3,3) = t_001_xy
+  T_LAOSTO(3,4) = 0.d0
+  T_LAOSTO(3,5) = 0.d0
+  T_LAOSTO(3,6) = t3
+  !
+  if(surface) then
+     T=T_LAOSTO
+  else
+     T=T_bulk
+  endif
+  !
+  end subroutine get_hopping
 
   !---------------------------------------------------------------------
   !PURPOSE: Get the STO(bulk) Hamiltonian along path
@@ -538,104 +594,212 @@ contains
     endif
   end subroutine build_hk_path
 
+
+
+!_______________________________________________________________________
+!                                    Gfs
+!_______________________________________________________________________
   !---------------------------------------------------------------------
-  !PURPOSE: Build the hopping integrals in k-space for realistic bandstructure
+  !PURPOSE: G0_loc functions
   !---------------------------------------------------------------------
-  subroutine get_hopping(T)
-  real(8),dimension(Norb,0:6),intent(out)   ::  T
-  real(8),dimension(Norb,0:6)               ::  T_bulk,T_VACSTO,T_LAOSTO
-  real(8)                                   ::  Eo,t1,t2,t3
-  real(8)                                   ::  t_010_yz,t_001_yz
-  real(8)                                   ::  t_100_zx,t_001_zx
-  real(8)                                   ::  t_100_xy,t_010_xy,t_001_xy
+  function inverse_g0k(iw,hk) result(g0k)
+    implicit none
+    complex(8)                                    :: iw
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: hk
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: g0k,g0k_tmp
+    integer                                       :: i,ndx
+    integer (kind=4), dimension(6)                :: ipiv
+    integer (kind=1)                              :: ok
+    integer (kind=4), parameter                   :: lwork=2000
+    complex (kind=8), dimension(lwork)            :: work
+    real    (kind=8), dimension(lwork)            :: rwork
 
-  !pristine lattice
-  Eo = 3.31
-  t1 = 0.276536
-  t2 = 0.031329
-  t3 = 0.076842
+    g0k=zero
+    g0k_tmp=zero
 
-  !lattice distortion
-  t_010_yz = 0.232 !se c'è solo l'abbassamento del Ti questo dovrebbe essere uguale a t1, magari c'è anche altro dovuto ad LAO
-  t_001_yz = 0.475
+    g0k=iw*eye(Nspin*Norb)+xmu-hk
+    g0k_tmp=g0k
 
-  t_100_zx = 0.232
-  t_001_zx = 0.475
+    call inv(g0k)
+    call inversion_test(g0k,g0k_tmp,1.e-9)
 
-  t_100_xy = 0.286
-  t_010_xy = 0.286
-  t_001_xy = 0.03
-
-  !  BULK STO
-  !orbital1 = YZ
-  T_bulk(1,0) = Eo
-  T_bulk(1,1) = t2
-  T_bulk(1,2) = t1
-  T_bulk(1,3) = t1
-  T_bulk(1,4) = t3
-  T_bulk(1,5) = 0.d0
-  T_bulk(1,6) = 0.d0
-  !orbital1 = ZX
-  T_bulk(2,0) = Eo
-  T_bulk(2,1) = t1
-  T_bulk(2,2) = t2
-  T_bulk(2,3) = t1
-  T_bulk(2,4) = 0.d0
-  T_bulk(2,5) = t3
-  T_bulk(2,6) = 0.d0
-  !orbital1 = XY
-  T_bulk(3,0) = Eo
-  T_bulk(3,1) = t1
-  T_bulk(3,2) = t1
-  T_bulk(3,3) = t2
-  T_bulk(3,4) = 0.d0
-  T_bulk(3,5) = 0.d0
-  T_bulk(3,6) = t3
-
-  ! VAC/STO
-  T_VACSTO=T_bulk
-  
-  !  LAO/STO
-  !orbital1 = YZ
-  T_LAOSTO(1,0) = 1.087
-  T_LAOSTO(1,1) = t2
-  T_LAOSTO(1,2) = t_010_yz
-  T_LAOSTO(1,3) = t_001_yz
-  T_LAOSTO(1,4) = t3
-  T_LAOSTO(1,5) = 0.d0
-  T_LAOSTO(1,6) = 0.d0
-  !orbital1 = ZX
-  T_LAOSTO(2,0) = 1.087
-  T_LAOSTO(2,1) = t_100_zx
-  T_LAOSTO(2,2) = t2
-  T_LAOSTO(2,3) = t_001_zx
-  T_LAOSTO(2,4) = 0.d0
-  T_LAOSTO(2,5) = t3
-  T_LAOSTO(2,6) = 0.d0
-  !orbital1 = XY
-  T_LAOSTO(3,0) = 1.035
-  T_LAOSTO(3,1) = t_100_xy
-  T_LAOSTO(3,2) = t_010_xy
-  T_LAOSTO(3,3) = t_001_xy
-  T_LAOSTO(3,4) = 0.d0
-  T_LAOSTO(3,5) = 0.d0
-  T_LAOSTO(3,6) = t3
-
-  if(.not.surface) then
-     T=T_bulk
-  else
-     T=T_LAOSTO
-  endif
-
-  end subroutine get_hopping
+  end function inverse_g0k
 
   !---------------------------------------------------------------------
-  !PURPOSE: Build the rotation "theta" that diagonalizes SOC
+  !PURPOSE: rotations on G0loc/Gloc
+  !---------------------------------------------------------------------
+  subroutine rotate_Gloc(Gsowr)
+    implicit none
+    complex(8),allocatable,intent(in)             ::   Gsowr(:,:,:,:,:)
+    complex(8),allocatable                        ::   G_in(:,:,:),G_out(:,:,:)
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)   ::   theta,impHloc_rot
+    integer                                       ::   io,jo
+    integer                                       ::   ispin,jspin
+    integer                                       ::   iorb,jorb
+    real(8)                                       ::   wr(Lreal),dw
+    character(len=13)                             ::   file_rotation
+    logical                                       ::   isetup
+    !
+    if(.not.allocated(Bath))isetup=.true.
+    if(allocated(Bath))     isetup=.false.
+    !
+    call build_rotation(theta,impHloc_rot)
+    !
+    wr = linspace(wini,wfin,Lreal,mesh=dw)
+    if(allocated( G_in))deallocate( G_in);allocate( G_in(Nspin*Norb,Nspin*Norb,Lreal));G_in=zero
+    if(allocated(G_out))deallocate(G_out);allocate(G_out(Nspin*Norb,Nspin*Norb,Lreal));G_out=zero
+    !
+    if(isetup) then
+       write(*,*) " A(w) rotation - non interacting system"
+    else
+       write(*,*) " A(w) rotation - interacting system"
+    endif
+    !
+    !
+    !###############################################################
+    !#                                                             #
+    !#                      REFERENCE SYSTEM                       #
+    !#                                                             #
+    !###############################################################
+    !
+    !
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                G_in(io,jo,:)=Gsowr(ispin,jspin,iorb,jorb,:)
+             enddo
+          enddo
+       enddo
+    enddo
+    !save the integral
+    if(isetup) then
+       open(unit=106,file='sum_w_G0loc.dat',status='unknown',action='write',position='rewind')
+    else
+       open(unit=106,file='sum_w_Gloc.dat',status='unknown',action='write',position='rewind')
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_in(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    close(106)
+    !
+    !
+    !###############################################################
+    !#                                                             #
+    !#                   ROTATION WITH impHloc                     #
+    !#                                                             #
+    !###############################################################
+    !
+    !
+    !1)rotation
+    do i=1,Lreal
+       G_out(:,:,i)=matmul(transpose(conjg(impHloc_rot)),matmul(G_in(:,:,i),impHloc_rot))
+    enddo
+    !
+    !2)output save
+    if(isetup) then
+       file_rotation="G0loc_rot_H_l"
+    else
+       file_rotation="Giloc_rot_H_l"
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    !3)save the integral
+    if(isetup) then
+       open(unit=106,file='sum_w_G0loc_rot_H.dat',status='unknown',action='write',position='rewind')
+    else
+       open(unit=106,file='sum_w_Gloc_rot_H.dat',status='unknown',action='write',position='rewind')
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    close(106)
+    !
+    !
+    !###############################################################
+    !#                                                             #
+    !#                    ROTATION WITH theta                      #
+    !#                                                             #
+    !###############################################################
+    !
+    !
+    !1)rotation
+    do i=1,Lreal
+       G_out(:,:,i)=matmul(transpose(conjg(theta)),matmul(G_in(:,:,i),theta))
+    enddo
+    !
+    !2)output save
+    if(isetup) then
+       file_rotation="G0loc_rot_A_l"
+    else
+       file_rotation="Giloc_rot_A_l"
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    !3)save the integral
+    if(isetup) then
+       open(unit=106,file='sum_w_G0loc_rot_A.dat',status='unknown',action='write',position='rewind')
+    else
+       open(unit=106,file='sum_w_Gloc_rot_A.dat',status='unknown',action='write',position='rewind')
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    close(106)
+    !
+  end subroutine rotate_Gloc
+
+  !---------------------------------------------------------------------
+  !PURPOSE: Build the rotations
   !---------------------------------------------------------------------
   subroutine build_rotation(theta_,impHloc_rot_)
-    complex(8),dimension(6,6),intent(out)           :: theta_
-    complex(8),dimension(6,6),optional,intent(out)  :: impHloc_rot_
-    real(8),dimension(6)                            :: impHloc_eig
+    complex(8),dimension(6,6),intent(out)   ::   theta_
+    complex(8),dimension(6,6),intent(out)   ::   impHloc_rot_
+    real(8),dimension(6)                    ::   impHloc_eig
     theta_=cmplx(0.0d0,0.0d0)
     !J=1/2 jz=-1/2
     theta_(1,1)=-Xi
@@ -666,147 +830,133 @@ contains
     theta_(6,6)=+2.0d0*Xi
     theta_(:,6)=theta_(:,6)/sqrt(6.)
     theta_=reshape_Z_to_A1(theta_)
-
-    if(present(impHloc_rot_)) then
-       impHloc_rot_=zero
-       impHloc_rot_=Ti3dt2g_Hloc
-       call matrix_diagonalize(impHloc_rot_,impHloc_eig,'V','U')
-    endif
-
+    !
+    impHloc_rot_=zero
+    impHloc_rot_=Ti3dt2g_Hloc
+    call matrix_diagonalize(impHloc_rot_,impHloc_eig,'V','U')
+    !
   end subroutine build_rotation
 
 
+
 !_______________________________________________________________________
-!                                    Gfs
+!                            reshape functions
 !_______________________________________________________________________
   !---------------------------------------------------------------------
-  !PURPOSE: G0_loc functions DA RIFARE ATTENZIONE CHE H(k) è nella forma A1
+  !PURPOSE: reshape functions
+  !  Z  = [Nspin,Nspin]*Norb
+  !  A1 = [Norb*Norb]*Nspin
+  !  A2 = [Nspin,Nspin,Norb,Norb]
   !---------------------------------------------------------------------
-  function inverse_g0k(iw,hk) result(g0k)
-    implicit none
-    complex(8)                                    :: iw
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: hk
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: g0k,g0k_tmp
-    integer                                       :: i,ndx
-    integer (kind=4), dimension(6)                :: ipiv
-    integer (kind=1)                              :: ok
-    integer (kind=4), parameter                   :: lwork=2000
-    complex (kind=8), dimension(lwork)            :: work
-    real    (kind=8), dimension(lwork)            :: rwork
+  function reshape_Z_to_A1(fg) result(g)
+    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: fg
+    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
+    integer                                         :: i,j,iorb,jorb,ispin,jspin
+    integer                                         :: io1,jo1,io2,jo2
+       g = zero
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !O-index
+                   io1 = iorb + (ispin-1)*Norb
+                   jo1 = jorb + (jspin-1)*Norb
+                   !I-index
+                   io2 = ispin + (iorb-1)*Nspin
+                   jo2 = jspin + (jorb-1)*Nspin
+                   !switch
+                   g(io1,jo1)  = fg(io2,jo2)
+                   !
+                enddo
+             enddo
+          enddo
+       enddo
+  end function reshape_Z_to_A1
 
-    g0k=zero
-    g0k_tmp=zero
+  function reshape_A1_to_Z(fg) result(g)
+    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: fg
+    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
+    integer                                         :: i,j,iorb,jorb,ispin,jspin
+    integer                                         :: io1,jo1,io2,jo2
+       g = zero
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !O-index
+                   io1 = ispin + (iorb-1)*Nspin
+                   jo1 = jspin + (jorb-1)*Nspin
+                   !I-index
+                   io2 = iorb + (ispin-1)*Norb
+                   jo2 = jorb + (jspin-1)*Norb
+                   !switch
+                   g(io1,jo1)  = fg(io2,jo2)
+                   !
+                enddo
+             enddo
+          enddo
+       enddo
+  end function reshape_A1_to_Z
 
-    g0k=iw*eye(Nspin*Norb)-hk
-    g0k_tmp=g0k
+  function reshape_A1_to_A2(fg) result(g)
+    complex(8),dimension(Nso,Nso)                   :: fg
+    complex(8),dimension(Nspin,Nspin,Norb,Norb)     :: g
+    integer                                         :: i,j,iorb,jorb,ispin,jspin,io,jo
+       g = zero
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   g(ispin,jspin,iorb,jorb)  = fg(io,jo)
+                enddo
+             enddo
+          enddo
+       enddo
+  end function reshape_A1_to_A2
 
-    call inv(g0k)
-    call inversion_test(g0k,g0k_tmp,1.e-9)
 
-  end function inverse_g0k
 
-  subroutine rotate_Gloc(Gsowr)
-    implicit none
-    complex(8),allocatable,intent(in)             ::   Gsowr(:,:,:,:,:)
-    complex(8),allocatable                        ::   G_in(:,:,:),G_out(:,:,:)
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)   ::   theta,impHloc_rot
-    integer                                       ::   io,jo
-    integer                                       ::   ispin,jspin
-    integer                                       ::   iorb,jorb
-    real(8)                                       ::   wr(Lreal),dw
-    !
-    write(*,*) "A(w) rotation"
-    !
-    wr = linspace(wini,wfin,Lreal,mesh=dw)
-    call build_rotation(theta,impHloc_rot)
-    if(allocated( G_in))deallocate( G_in);allocate( G_in(Nspin*Norb,Nspin*Norb,Lreal));G_in=zero
-    if(allocated(G_out))deallocate(G_out);allocate(G_out(Nspin*Norb,Nspin*Norb,Lreal));G_out=zero
-    !
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                G_in(io,jo,:)=Gsowr(ispin,jspin,iorb,jorb,:)
-             enddo
-          enddo
-       enddo
-    enddo
-    open(unit=106,file='sum_w_Gloc.dat',status='unknown',action='write',position='rewind')
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_in(io,jo,:)))
-             enddo
-          enddo
-       enddo
-    enddo
-    close(106)
-    !
-    do i=1,Lreal
-       G_out(:,:,i)=matmul(transpose(conjg(impHloc_rot)),matmul(G_in(:,:,i),impHloc_rot))
-    enddo
-    !
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                call splot("Glocrot_H_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
-             enddo
-          enddo
-       enddo
-    enddo
-    open(unit=106,file='sum_w_Gloc_rot_Hloc.dat',status='unknown',action='write',position='rewind')
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_in(io,jo,:)))
-             enddo
-          enddo
-       enddo
-    enddo
-    close(106)
-    !
-    G_out=zero
-    do i=1,Lreal
-       G_out(:,:,i)=matmul(transpose(conjg(theta)),matmul(G_in(:,:,i),theta))
-    enddo
-    !
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                call splot("Glocrot_a_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
-             enddo
-          enddo
-       enddo
-    enddo
-    open(unit=106,file='sum_w_Gloc_rot_anlytc.dat',status='unknown',action='write',position='rewind')
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_in(io,jo,:)))
-             enddo
-          enddo
-       enddo
-    enddo
-    close(106)
-    !
-  end subroutine rotate_Gloc
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   !---------------------------------------------------------------------
   !PURPOSE: 
@@ -984,80 +1134,7 @@ contains
 
 
 
-!_______________________________________________________________________
-!                            reshape functions
-!_______________________________________________________________________
-  !---------------------------------------------------------------------
-  !PURPOSE: reshape functions
-  !  Z  = [Nspin,Nspin]*Norb
-  !  A1 = [Norb*Norb]*Nspin
-  !  A2 = [Nspin,Nspin,Norb,Norb]
-  !---------------------------------------------------------------------
-  function reshape_Z_to_A1(fg) result(g)
-    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: fg
-    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
-    integer                                         :: i,j,iorb,jorb,ispin,jspin
-    integer                                         :: io1,jo1,io2,jo2
-       g = zero
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   !O-index
-                   io1 = iorb + (ispin-1)*Norb
-                   jo1 = jorb + (jspin-1)*Norb
-                   !I-index
-                   io2 = ispin + (iorb-1)*Nspin
-                   jo2 = jspin + (jorb-1)*Nspin
-                   !switch
-                   g(io1,jo1)  = fg(io2,jo2)
-                   !
-                enddo
-             enddo
-          enddo
-       enddo
-  end function reshape_Z_to_A1
-  function reshape_A1_to_Z(fg) result(g)
-    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: fg
-    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
-    integer                                         :: i,j,iorb,jorb,ispin,jspin
-    integer                                         :: io1,jo1,io2,jo2
-       g = zero
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   !O-index
-                   io1 = ispin + (iorb-1)*Nspin
-                   jo1 = jspin + (jorb-1)*Nspin
-                   !I-index
-                   io2 = iorb + (ispin-1)*Norb
-                   jo2 = jorb + (jspin-1)*Norb
-                   !switch
-                   g(io1,jo1)  = fg(io2,jo2)
-                   !
-                enddo
-             enddo
-          enddo
-       enddo
-  end function reshape_A1_to_Z
-  function reshape_A1_to_A2(fg) result(g)
-    complex(8),dimension(Nso,Nso)                   :: fg
-    complex(8),dimension(Nspin,Nspin,Norb,Norb)     :: g
-    integer                                         :: i,j,iorb,jorb,ispin,jspin,io,jo
-       g = zero
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   g(ispin,jspin,iorb,jorb)  = fg(io,jo)
-                enddo
-             enddo
-          enddo
-       enddo
-  end function reshape_A1_to_A2
+
 
   !---------------------------------------------------------------------
   !PURPOSE: Inversion test

@@ -33,13 +33,14 @@ contains
     integer                            :: mpiQ,mpiR                
     integer                            :: dim
     integer                            :: i,j,m,ms,impi,ishift
-    integer                            :: iorb,jorb,ispin,jspin
+    integer                            :: iorb,jorb,ispin,jspin,ibath
     integer                            :: kp,k1,k2,k3,k4
     integer                            :: alfa,beta
     real(8)                            :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)            :: nup,ndw
     real(8)                            :: htmp
     real(8),dimension(Nspin,Norb)      :: eloc
+    real(8),dimension(Nspin,Norb,Nbath):: diag_hybr
     logical                            :: Jcondition
     integer                            :: first_state,last_state
     !
@@ -71,6 +72,25 @@ contains
           eloc(ispin,iorb)=dreal(impHloc(ispin,ispin,iorb,iorb)) 
        enddo
     enddo
+    !Get diagonal hybridization
+    diag_hybr=0.0d0
+    if(bath_type/="replica")then
+       do ibath=1,Nbath
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                diag_hybr(ispin,iorb,ibath)=dmft_bath%v(ispin,iorb,ibath)
+             enddo
+          enddo
+       enddo
+    else
+       do ibath=1,Nbath
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                diag_hybr(ispin,iorb,ibath)=dreal(dmft_bath%vr(ispin,iorb,ibath)) 
+             enddo
+          enddo
+       enddo
+    endif
     !
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
@@ -109,13 +129,14 @@ contains
     integer                               :: mpiQ,mpiR                
     integer                               :: dim
     integer                               :: i,j,m,ms,impi,ishift
-    integer                               :: iorb,jorb,ispin,jspin
+    integer                               :: iorb,jorb,ispin,jspin,ibath
     integer                               :: kp,k1,k2,k3,k4
     integer                               :: alfa,beta
     real(8)                               :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)               :: nup,ndw
     complex(8)                            :: htmp
     complex(8),dimension(Nspin,Norb)      :: eloc
+    complex(8),dimension(Nspin,Norb,Nbath):: diag_hybr
     logical                               :: Jcondition
     integer                               :: first_state,last_state
     !
@@ -150,6 +171,25 @@ contains
           eloc(ispin,iorb)=impHloc(ispin,ispin,iorb,iorb)
        enddo
     enddo
+    !Get diagonal hybridization
+    diag_hybr=zero
+    if(bath_type/="replica")then
+       do ibath=1,Nbath
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                diag_hybr(ispin,iorb,ibath)=cmplx(dmft_bath%v(ispin,iorb,ibath),0.0d0)
+             enddo
+          enddo
+       enddo
+    else
+       do ibath=1,Nbath
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                diag_hybr(ispin,iorb,ibath)=dmft_bath%vr(ispin,iorb,ibath)
+             enddo
+          enddo
+       enddo
+    endif
     !
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX

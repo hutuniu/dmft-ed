@@ -1,7 +1,7 @@
 MODULE ED_BATH_FUNCTIONS
   USE SF_CONSTANTS, only: zero
   USE SF_IOTOOLS, only:free_unit,reg,file_length,txtfy
-  USE SF_LINALG, only: eye,inv,zeye
+  USE SF_LINALG, only: eye,inv,zeye,inv_her
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_BATH_DMFT
@@ -236,7 +236,7 @@ contains
     real(8),dimension(Nspin,Nspin,Nbath)                :: whel
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
     !
-    real(8),dimension(Nspin*Norb,Nspin*Norb)            :: V_k
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)         :: V_k
     complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: invH_k
     complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: Delta_so
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Nbath)   :: invH_knn
@@ -363,7 +363,7 @@ contains
              !
              do ibath=1,Nbath
                 !
-                V_k=0.0d0
+                V_k=zero
                 do ispin=1,Nspin
                    do jspin=1,Nspin
                       do iorb=1,Norb
@@ -371,7 +371,7 @@ contains
                             io = iorb + (ispin-1) * Norb
                             jo = jorb + (jspin-1) * Norb
                             invH_k(io,jo,i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
-                            V_k(io,io)=dmft_bath_%v(ispin,iorb,ibath)
+                            V_k(io,io)=dmft_bath_%vr(ispin,iorb,ibath)
                          enddo
                       enddo
                    enddo
@@ -380,7 +380,7 @@ contains
                 invH_k(:,:,i) = zeye(Nspin*Norb) * x(i) - invH_k(:,:,i)
                 call inv(invH_k(:,:,i))
                 !
-                Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
+                Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(conjg(V_k),matmul(invH_k(:,:,i),V_k))
                 !
              enddo
              !
@@ -397,34 +397,6 @@ contains
           Delta_so=zero
           invH_k=zero
           do i=1,L
-             !VERSIONE 1 ===>
-             !do ibath=1,Nbath
-             !   !
-             !   V_k=0.0d0
-             !   do ispin=1,Nspin
-             !      do jspin=1,Nspin
-             !         do iorb=1,Norb
-             !            do jorb=1,Norb
-             !               io = iorb + (ispin-1) * Norb
-             !               jo = jorb + (jspin-1) * Norb
-             !               invH_k(io,jo,i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
-             !               V_k(io,io)=dmft_bath_%v(ispin,iorb,ibath)
-             !            enddo
-             !         enddo
-             !      enddo
-             !   enddo
-             !   !
-             !   invH_k(:,:,i) = zeye(Nspin*Norb) * x(i) - invH_k(:,:,i)
-             !   call inv(invH_k(:,:,i))
-             !   !
-             !   Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
-             !   !
-             !enddo
-             !!
-             !Delta(:,:,:,:,i)=so2nn_reshape(Delta_so(:,:,i),Nspin,Norb)
-             !===> VERSIONE 1
-
-             !VERSIONE 2 ===>
              invH_knn=zero
              do ibath=1,Nbath
                 !
@@ -441,6 +413,11 @@ contains
                 enddo
                 !
                 invH_k(:,:,i) = zeye(Nspin*Norb) * x(i) - invH_k(:,:,i)
+                !do io=1,Nspin*Norb
+                !   do jo=1+io,Nspin*Norb
+                !      invH_k(jo,io,i)=conjg(invH_k(io,jo,i))
+                !   enddo
+                !enddo
                 call inv(invH_k(:,:,i))
                 invH_knn(:,:,:,:,ibath)=so2nn_reshape(invH_k(:,:,i),Nspin,Norb)
                 !
@@ -452,14 +429,12 @@ contains
                       do iorb=1,Norb
                          do jorb=1,Norb
                             Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
-                            dmft_bath_%v(ispin,iorb,ibath)*invH_knn(ispin,jspin,iorb,jorb,ibath)*dmft_bath_%v(jspin,jorb,ibath)
+                            conjg(dmft_bath_%vr(ispin,iorb,ibath))*invH_knn(ispin,jspin,iorb,jorb,ibath)*dmft_bath_%vr(jspin,jorb,ibath)
                          enddo
                       enddo
                    enddo
                 enddo
              enddo
-             !===> VERSIONE 2
-
           enddo
           !
        end select
@@ -700,7 +675,7 @@ contains
     real(8),dimension(Nspin,Nspin,Nbath)                :: whel
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
     !
-    real(8),dimension(Nspin*Norb,Nspin*Norb)            :: V_k
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)         :: V_k
     complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: invH_k
     complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: Delta_so
     !
@@ -826,7 +801,7 @@ contains
              !
              do ibath=1,Nbath
                 !
-                V_k=0.0d0
+                V_k=zero
                 do ispin=1,Nspin
                    do jspin=1,Nspin
                       do iorb=1,Norb
@@ -834,7 +809,7 @@ contains
                             io = iorb + (ispin-1) * Norb
                             jo = jorb + (jspin-1) * Norb
                             invH_k(io,jo,i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
-                            V_k(io,io)=dmft_bath_%v(ispin,iorb,ibath)
+                            V_k(io,io)=dmft_bath_%vr(ispin,iorb,ibath)
                          enddo
                       enddo
                    enddo
@@ -843,7 +818,7 @@ contains
                 invH_k(:,:,i) = eye(Nspin*Norb) * x(i) - invH_k(:,:,i)
                 call inv(invH_k(:,:,i))
                 !
-                Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
+                Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(conjg(V_k),matmul(invH_k(:,:,i),V_k))
                 !
              enddo
              !
@@ -863,7 +838,7 @@ contains
              !
              do ibath=1,Nbath
                 !
-                V_k=0.0d0
+                V_k=zero
                 do ispin=1,Nspin
                    do jspin=1,Nspin
                       do iorb=1,Norb
@@ -871,7 +846,7 @@ contains
                             io = iorb + (ispin-1) * Norb
                             jo = jorb + (jspin-1) * Norb
                             invH_k(io,jo,i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
-                            V_k(io,io)=dmft_bath_%v(ispin,iorb,ibath)
+                            V_k(io,io)=dmft_bath_%vr(ispin,iorb,ibath)
                          enddo
                       enddo
                    enddo
@@ -880,7 +855,7 @@ contains
                 invH_k(:,:,i) = eye(Nspin*Norb) * x(i) - invH_k(:,:,i)
                 call inv(invH_k(:,:,i))
                 !
-                Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(V_k,matmul(invH_k(:,:,i),V_k))
+                Delta_so(:,:,i)=Delta_so(:,:,i)+matmul(conjg(V_k),matmul(invH_k(:,:,i),V_k))
                 !
              enddo
              !

@@ -37,6 +37,7 @@ MODULE ED_GREENS_FUNCTIONS
   !Non-interacting GF
   !=========================================================
   complex(8),allocatable,dimension(:,:,:,:,:):: impG0mats,impG0real
+  complex(8),allocatable,dimension(:,:,:,:,:):: impDeltamats,impDeltareal
   complex(8),allocatable,dimension(:,:,:,:,:):: impF0mats,impF0real
 
   !AUX GF
@@ -103,12 +104,16 @@ contains
     impSAreal = zero
     !
     if(.not.allocated(impG0mats)) allocate(impG0mats(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(impDeltamats)) allocate(impDeltamats(Nspin,Nspin,Norb,Norb,Lmats))
     if(.not.allocated(impF0mats)) allocate(impF0mats(Nspin,Nspin,Norb,Norb,Lmats))
     if(.not.allocated(impG0real)) allocate(impG0real(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(impDeltareal)) allocate(impDeltareal(Nspin,Nspin,Norb,Norb,Lreal))
     if(.not.allocated(impF0real)) allocate(impF0real(Nspin,Nspin,Norb,Norb,Lreal))
     impG0mats=zero
+    impDeltamats=zero
     impF0mats=zero
     impG0real=zero
+    impDeltareal=zero
     impF0real=zero
     !
     if(.not.allocated(GFpoles))   allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
@@ -166,7 +171,7 @@ contains
     wr     = linspace(wini,wfin,Lreal)
     tau(0:)= linspace(0.d0,beta,Ltau+1)
 
-    if(.not.allocated(spinChi_tau))allocate(spinChi_tau(Norb+1,0:Ltau))
+    if(.not.allocated(spinChi_tau))allocate(spinChi_tau(Norb+1,0:Ltau)) 
     if(.not.allocated(spinChi_w))  allocate(spinChi_w(Norb+1,Lreal))
     if(.not.allocated(spinChi_iv)) allocate(spinChi_iv(Norb+1,0:Lmats))
     spinChi_tau=zero
@@ -411,12 +416,14 @@ contains
     !
     impG0mats=zero
     impG0real=zero
-    invG0mats = zero
-    invG0real = zero
+    impG0mats = zero
+    impG0real = zero
     !
     !Get G0^-1
     invG0mats(:,:,:,:,:)=invg0_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
     invG0real(:,:,:,:,:)=invg0_bath_real(dcmplx(wr(:),eps),dmft_bath)
+    impDeltamats(:,:,:,:,:)=delta_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
+    impDeltareal(:,:,:,:,:)=delta_bath_real(dcmplx(wr(:),eps),dmft_bath)
     !
     select case(bath_type)
        !
@@ -829,7 +836,7 @@ contains
   !PURPOSE  : Print nonSU2 Green's functions
   !+------------------------------------------------------------------+
   subroutine print_gf_nonsu2
-    integer                          :: i,isign,unit(7),iorb,jorb,ispin,jspin
+    integer                          :: i,isign,unit(12),iorb,jorb,ispin,jspin
     integer,dimension(:),allocatable :: getIorb,getJorb,getIspin,getJspin
     integer                          :: totNso,totNorb,totNspin,l
     character(len=20)                :: suffix
@@ -853,15 +860,16 @@ contains
           enddo
        enddo
     case ("hybrid")
-       totNorb =Norb*(Norb+1)/2
-       totNspin=Nspin*(Nspin+1)/2
-       totNso  =totNorb*totNspin
+       !totNorb =Norb*(Norb+1)/2
+       !totNspin=Nspin*(Nspin+1)/2
+       !totNso  =totNorb*totNspin
+       totNso  = (Norb*Nspin)**2
        allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
        l=0
        do iorb=1,Norb
-          do jorb=iorb,Norb
+          do jorb=1,Norb
              do ispin=1,Nspin
-                do jspin=ispin,Nspin
+                do jspin=1,Nspin
                    l=l+1
                    getIorb(l)=iorb
                    getIspin(l)=ispin
@@ -895,7 +903,6 @@ contains
                    getIspin(l)=ispin
                    getJorb(l)=jorb
                    getJspin(l)=jspin
-                   !endif
                 enddo
              enddo
           enddo
@@ -945,6 +952,12 @@ contains
              do i=1,Lreal
                 write(unit(7),"(F26.15,2(F26.15))")wr(i),dimag(impG0real(ispin,jspin,iorb,jorb,i)),dreal(impG0real(ispin,jspin,iorb,jorb,i))
              enddo
+             do i=1,Lmats
+                write(unit(8),"(F26.15,2(F26.15))")wm(i),dimag(impDeltamats(ispin,jspin,iorb,jorb,i)),dreal(impDeltamats(ispin,jspin,iorb,jorb,i))
+             enddo
+             do i=1,Lreal
+                write(unit(9),"(F26.15,2(F26.15))")wr(i),dimag(impDeltareal(ispin,jspin,iorb,jorb,i)),dreal(impDeltareal(ispin,jspin,iorb,jorb,i))
+             enddo
           endif
           call close_units()
        enddo
@@ -967,6 +980,8 @@ contains
       if(ed_verbose<1)then
          open(unit(6),file="impG0"//string//"_iw"//reg(ed_file_suffix)//".ed")
          open(unit(7),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
+         open(unit(8),file="impDelta"//string//"_iw"//reg(ed_file_suffix)//".ed")
+         open(unit(9),file="impDelta"//string//"_realw"//reg(ed_file_suffix)//".ed")
       endif
     end subroutine open_units
     !
@@ -983,6 +998,8 @@ contains
       if(ed_verbose<1)then
          close(unit(6))
          close(unit(7))
+         close(unit(8))
+         close(unit(9))
       endif
     end subroutine close_units
     !
