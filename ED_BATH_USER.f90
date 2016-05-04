@@ -142,28 +142,29 @@ contains
        enddo
        select case(ed_mode)
        case default
-          !              [Re,Im bath ham] * Nbath + [Re diag hybr] * Nbath + [Re free off-diag hybr] * Nbath
-          if(ed_type=="d")bath_size = ndx * Nbath + Nspin * Norb * Nbath
+          !
+          !if(ed_type=="d")bath_size = ndx * Nbath + Nspin * Norb * Nbath
+          if(ed_type=="d")bath_size = ndx * Nbath + Nbath
           if(ed_type=="c")then
-             if(bonded_hybr)then
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath + ( Nspin * Norb - off_im_ndx ) * Nbath
-             elseif(real_hybr)then
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath
+             !if(bonded_hybr)then
+             !   bath_size = ndx * Nbath + Nspin * Norb * Nbath + ( Nspin * Norb - off_im_ndx ) * Nbath
+             if(real_hybr)then
+                !bath_size = ndx * Nbath + Nspin * Norb * Nbath
+                bath_size = ndx * Nbath + Nbath
              else
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath * 2
+                !bath_size = ndx * Nbath + Nspin * Norb * Nbath * 2
+                bath_size = ndx * Nbath + Nbath * 2
              endif
           endif
        case ("superc")
           !
        case ("nonsu2")
-          if(ed_type=="d")bath_size = ndx * Nbath + Nspin * Norb * Nbath
+          if(ed_type=="d")bath_size = ndx * Nbath + Nbath
           if(ed_type=="c")then
-             if(bonded_hybr)then
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath + ( Nspin * Norb - off_im_ndx ) * Nbath
-             elseif(real_hybr)then
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath
+             if(real_hybr)then
+                bath_size = ndx * Nbath + Nbath
              else
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath * 2
+                bath_size = ndx * Nbath + Nbath * 2
              endif
           endif
        end select

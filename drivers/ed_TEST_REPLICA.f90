@@ -105,7 +105,7 @@ program ed_TEST_REPLICA
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
      if(ED_MPI_ID==0)call rotate_Gloc(Greal)
-     !if(ED_MPI_ID==1)call Quantum_operator()
+     if(ED_MPI_ID==0)call Quantum_operator()
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
      !density matrix
      !if(ED_MPI_ID==0)then
@@ -1124,6 +1124,7 @@ contains
                          ,  real(Ltot(3,1,1)), real(Ltot(3,2,2)) &
                          , aimag(Ltot(3,1,1)),aimag(Ltot(3,2,2)),real(Lz),aimag(Lz) &
                          ,  real(jz),aimag(jz),real(LdotS),aimag(LdotS)
+    write(*,*)  "   Re{Jz}",real(jz),"   Im{Jz}",aimag(jz)
     close(107)
     !
     deallocate(Ltot,Stot)

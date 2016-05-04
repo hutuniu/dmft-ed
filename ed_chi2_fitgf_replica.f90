@@ -496,14 +496,13 @@ function delta_replica(a) result(Delta)
   integer                                             :: i,io,jo,ndx
   complex(8),dimension(Nspin*Norb,Nspin*Norb)         :: V_k
   complex(8),dimension(Nspin*Norb,Nspin*Norb,Ldelta)  :: invH_k
-  complex(8),dimension(Nspin*Norb,Nspin*Norb,Ldelta)  :: Delta_so
   complex(8),dimension(Nspin,Nspin,Norb,Norb,Nbath)   :: invH_knn
   type(effective_bath)                                :: dmft_bath_tmp
-
+  !
   call allocate_dmft_bath(dmft_bath_tmp)
   call init_dmft_bath_mask(dmft_bath_tmp)
   call set_dmft_bath(a,dmft_bath_tmp)
-
+  !
   Delta=zero
   invH_k=zero
   do i=1,Ldelta
@@ -523,11 +522,6 @@ function delta_replica(a) result(Delta)
         enddo
         !
         invH_k(:,:,i) = zeye(Nspin*Norb) * xi * Xdelta(i) - invH_k(:,:,i)
-        !do io=1,Nspin*Norb
-        !   do jo=1+io,Nspin*Norb
-        !      invH_k(jo,io,i)=conjg(invH_k(io,jo,i))
-        !   enddo
-        !enddo
         call inv(invH_k(:,:,i))
         invH_knn(:,:,:,:,ibath)=so2nn_reshape(invH_k(:,:,i),Nspin,Norb)
         !
@@ -539,7 +533,7 @@ function delta_replica(a) result(Delta)
               do iorb=1,Norb
                  do jorb=1,Norb
                     Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
-                      conjg(dmft_bath_tmp%vr(ispin,iorb,ibath))*invH_knn(ispin,jspin,iorb,jorb,ibath)*dmft_bath_tmp%vr(jspin,jorb,ibath)
+                      conjg(dmft_bath_tmp%vr(ibath))*invH_knn(ispin,jspin,iorb,jorb,ibath)*dmft_bath_tmp%vr(ibath)
                  enddo
               enddo
            enddo
@@ -576,12 +570,9 @@ function delta_replica_normal(a) result(Delta)
      ndx=0
      do ibath=1,Nbath
         !
-        V_k=zero
         do iorb=1,Norb
            do jorb=1,Norb
-              ndx=ndx+1
               if ((dmft_bath_tmp%mask(Spin_mask,Spin_mask,iorb,jorb,1).eqv..true.).or.(dmft_bath_tmp%mask(Spin_mask,Spin_mask,iorb,jorb,2).eqv..true.))then
-                 V_k(iorb,iorb)=dmft_bath_tmp%v(Spin_mask,iorb,ibath)
                  invH_k(iorb,jorb,i)=dmft_bath_tmp%h(Spin_mask,Spin_mask,iorb,jorb,ibath)
               endif
            enddo
@@ -589,11 +580,19 @@ function delta_replica_normal(a) result(Delta)
         !
         invH_k(:,:,i) = eye(Norb) * xi * Xdelta(i) - invH_k(:,:,i)
         call inv(invH_k(:,:,i))
-        !
-        Delta(:,:,i)=Delta(:,:,i)+matmul(conjg(V_k),matmul(invH_k(:,:,i),V_k))
-        !
      enddo
+     !
+     do ibath=1,Nbath
+        do iorb=1,Norb
+           do jorb=1,Norb
+              Delta(iorb,jorb,i)=Delta(iorb,jorb,i)+ &
+                 conjg(dmft_bath_tmp%vr(ibath))*invH_k(iorb,jorb,ibath)*dmft_bath_tmp%vr(ibath)
+           enddo
+        enddo
+     enddo
+     !
   enddo
+  !
   deallocate(a_tmp)
   call deallocate_dmft_bath(dmft_bath_tmp)
   !

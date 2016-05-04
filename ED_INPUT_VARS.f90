@@ -59,7 +59,7 @@ MODULE ED_INPUT_VARS
   real(8)              :: ndelta              !initial chemical potential step
   integer              :: niter
   integer              :: ed_verbose
-  logical              :: bonded_hybr
+  !logical              :: bonded_hybr
   logical              :: real_hybr
 
   !Some parameters for function dimension:
@@ -150,7 +150,7 @@ contains
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
     call parse_input_variable(ed_verbose,"ED_VERBOSE",INPUTunit,default=0,comment="Verbosity level: 0=all --> 5:almost nothing on the screen.")
     call parse_input_variable(ed_file_suffix,"ED_FILE_SUFFIX",INPUTunit,default=".ed",comment="Suffix in the output files.")
-    call parse_input_variable(bonded_hybr,"bonded_hybr",INPUTunit, default=.false.)
+    !call parse_input_variable(bonded_hybr,"bonded_hybr",INPUTunit, default=.false.)
     call parse_input_variable(real_hybr,"real_hybr",INPUTunit, default=.false.)
 
     !+- LATTICE INPUT -+!

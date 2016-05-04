@@ -70,6 +70,9 @@ contains
     integer                                       :: Nspin,Norb,Nso,Lmats,Lreal,Lk
     integer                                       :: i,ik,iorb,jorb,ispin,jspin,io,jo
     type(effective_bath)                          :: dmft_bath_tmp
+
+
+    integer                                       :: unit_ik
     !
     !Testing part:
     Nspin = size(Smats,1)
@@ -127,8 +130,14 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
-       call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)      
-       call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+       if(mod(ik,100)==0)then
+          unit_ik=ik
+          call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,unit_ik)      
+          call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+       else
+          call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)      
+          call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+       endif
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
        if(ED_MPI_ID==0)call eta(ik,Lk,unit=LOGfile)
@@ -352,7 +361,7 @@ contains
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: evaluate the GF for a single k-point
   !+-----------------------------------------------------------------------------+!
-  subroutine add_to_gloc_normal(zeta,Hk,hk_symm,Gkout)
+  subroutine add_to_gloc_normal(zeta,Hk,hk_symm,Gkout,unit_)
     complex(8),dimension(:,:,:),intent(in)        :: zeta    ![Nspin*Norb][Nspin*Norb][Lfreq]
     complex(8),dimension(:,:),intent(in)          :: Hk      ![Nspin*Norb][Nspin*Norb]
     logical,intent(in)                            :: hk_symm                
@@ -361,6 +370,7 @@ contains
     complex(8),dimension(:,:),allocatable         :: Gmatrix ![Nspin*Norb][Nspin*Norb]
     integer                                       :: Nspin,Norb,Nso,Lfreq
     integer                                       :: i,iorb,jorb,ispin,jspin,io,jo
+    integer,intent(in),optional                   :: unit_
     Nspin = size(Gkout,1)
     Norb  = size(Gkout,3)
     Lfreq = size(zeta,3)
@@ -392,6 +402,21 @@ contains
           enddo
        enddo
     enddo
+
+    if (present(unit_))then
+       write(*,*)"printing kvec:",unit_
+       
+       do i=1,Lfreq
+          write(unit_,'(90(F21.10,1X))')real(Gktmp(1,1,1,1,i)),aimag(Gktmp(1,1,1,1,i)),&
+                                        real(Gktmp(1,1,2,2,i)),aimag(Gktmp(1,1,2,2,i)),&
+                                        real(Gktmp(2,2,1,1,i)),aimag(Gktmp(2,2,1,1,i)),&
+                                        real(Gktmp(2,2,2,2,i)),aimag(Gktmp(2,2,2,2,i)),&
+                                        real(Gktmp(3,3,1,1,i)),aimag(Gktmp(3,3,1,1,i)),&
+                                        real(Gktmp(3,3,2,2,i)),aimag(Gktmp(3,3,2,2,i))
+       enddo
+    endif
+
+
     Gkout = Gktmp
   end subroutine add_to_gloc_normal
 
