@@ -105,7 +105,7 @@ program ed_TEST_REPLICA
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
      if(ED_MPI_ID==0)call rotate_Gloc(Greal)
-     if(ED_MPI_ID==0)call Quantum_operator()
+     if(ED_MPI_ID==1)call Quantum_operator()
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
      !density matrix
      !if(ED_MPI_ID==0)then
@@ -321,9 +321,9 @@ contains
        if(Hk_test)then
           do i=1,Norb
              ndx=2*i-1
-             Hk(ndx,ndx+1) = cmplx(soc,soc/4.d0)
+             !Hk(ndx,ndx+1) = cmplx(soc,soc/4.d0)
              !Hk(ndx,ndx+1) = cmplx(soc,0.d0)
-             !Hk(ndx,ndx+1) = cmplx(0.d0,soc)
+             Hk(ndx,ndx+1) = cmplx(0.d0,soc)
           enddo
        else
           !REALISTIC SOC (upper triangle)

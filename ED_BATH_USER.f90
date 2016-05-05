@@ -78,7 +78,7 @@ contains
   ! 1 for get_spin_orb_component_size_bath
   !+-------------------------------------------------------------------+
   function get_size_bath(Hloc_nn,ispin_) result(bath_size)
-    integer :: bath_size,ndx,ispin,iorb,jspin,jorb,io,jo,off_im_ndx
+    integer :: bath_size,ndx,ispin,iorb,jspin,jorb,io,jo
     integer,optional :: ispin_
     complex(8),allocatable,optional,intent(in) :: Hloc_nn(:,:,:,:)
     select case(bath_type)
@@ -112,7 +112,6 @@ contains
        !
        if(.not.present(Hloc_nn))stop "ERROR: bath_type='replica' but impHloc_nn not provided to get_size_bath"
        ndx=0
-       off_im_ndx=0
        !off-diagonal non-vanishing elements
        do ispin=1,Nspin
           do jspin=1,Nspin
@@ -121,10 +120,10 @@ contains
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
                    if(io.lt.jo)then
-                      if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                      !if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                      if( abs((Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-12)ndx=ndx+1
                       if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)then
-                         ndx=ndx+1
-                         if(io.lt.jo)off_im_ndx=off_im_ndx+1
+                         !ndx=ndx+1
                          if(ed_mode=="d")stop "complex impHloc and ed_mode='d' are not compatible"
                       endif
                    endif
@@ -137,7 +136,7 @@ contains
        !complex diagonal elements checked
        do ispin=1,Nspin
           do iorb=1,Norb
-             if(abs(aimag(Hloc_nn(ispin,ispin,iorb,iorb))).gt.1e-6)ndx=ndx+1
+             if(abs(aimag(Hloc_nn(ispin,ispin,iorb,iorb))).gt.1e-6)stop"impHloc is not Hermitian"
           enddo
        enddo
        select case(ed_mode)
@@ -146,13 +145,9 @@ contains
           !if(ed_type=="d")bath_size = ndx * Nbath + Nspin * Norb * Nbath
           if(ed_type=="d")bath_size = ndx * Nbath + Nbath
           if(ed_type=="c")then
-             !if(bonded_hybr)then
-             !   bath_size = ndx * Nbath + Nspin * Norb * Nbath + ( Nspin * Norb - off_im_ndx ) * Nbath
              if(real_hybr)then
-                !bath_size = ndx * Nbath + Nspin * Norb * Nbath
                 bath_size = ndx * Nbath + Nbath
              else
-                !bath_size = ndx * Nbath + Nspin * Norb * Nbath * 2
                 bath_size = ndx * Nbath + Nbath * 2
              endif
           endif

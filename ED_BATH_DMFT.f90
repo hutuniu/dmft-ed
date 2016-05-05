@@ -389,12 +389,13 @@ contains
                 jo = jorb + (jspin-1)*Norb
                 if(io/=jo)then
                    !Re
-                   if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)then
+                   !if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)then
+                   if( abs((impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)then
                       dmft_bath_%mask(ispin,jspin,iorb,jorb,1)=.true.
                    endif
                    !Im
                    if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)then
-                      dmft_bath_%mask(ispin,jspin,iorb,jorb,2)=.true.
+                      !dmft_bath_%mask(ispin,jspin,iorb,jorb,2)=.true.
                       if(ed_type=="d") stop "complex impHloc and ed_mode='d' are not compatible"
                    endif
                 endif
@@ -1165,10 +1166,11 @@ contains
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
                    if(io.lt.jo)then
-                      if( abs(real(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                      !if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                      if( abs((impHloc(ispin,jspin,iorb,jorb))).gt.1e-12)ndx=ndx+1
                       if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)then
-                         ndx=ndx+1
-                         off_im_ndx=off_im_ndx+1
+                         !ndx=ndx+1
+                         if(ed_mode=="d")stop "complex impHloc and ed_mode='d' are not compatible"
                       endif
                    endif
                 enddo
@@ -1180,7 +1182,7 @@ contains
        !complex diagonal elements checked
        do ispin=1,Nspin
           do iorb=1,Norb
-             if(abs(aimag(impHloc(ispin,ispin,iorb,iorb))).gt.1e-6)ndx=ndx+1
+             if(abs(aimag(impHloc(ispin,ispin,iorb,iorb))).gt.1e-6)stop"impHloc is not Hermitian"
           enddo
        enddo
        select case(ed_mode)
