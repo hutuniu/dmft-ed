@@ -110,7 +110,7 @@ contains
        Smats_aux=zero;Smats_aux=nn2so_reshape(Smats(:,:,:,:,i),Nspin,Norb)
        do io=1,Nso
           do jo=1+io,Nso
-             Smats_aux(jo,io)=conjg(Smats_aux(io,jo))
+             !Smats_aux(jo,io)=conjg(Smats_aux(io,jo))
           enddo
        enddo
        zeta_mats(:,:,i)=(xi*wm(i)+xmu)*eye(Nso) - Smats_aux
@@ -119,7 +119,7 @@ contains
        Sreal_aux=zero;Sreal_aux=nn2so_reshape(Sreal(:,:,:,:,i),Nspin,Norb)
        do io=1,Nso
           do jo=1+io,Nso
-             Sreal_aux(jo,io)=conjg(Sreal_aux(io,jo))
+             !Sreal_aux(jo,io)=conjg(Sreal_aux(io,jo))
           enddo
        enddo
        zeta_real(:,:,i)=(wr(i)+xi*eps+xmu)*eye(Nso) - Sreal_aux
