@@ -104,8 +104,8 @@ program ed_TEST_REPLICA
 #ifdef _MPI
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
-     if(ED_MPI_ID==0)call rotate_Gloc(Greal)
-     if(ED_MPI_ID==1)call Quantum_operator()
+    ! if(ED_MPI_ID==0)call rotate_Gloc(Greal)
+    ! if(ED_MPI_ID==0)call Quantum_operator()
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
      !density matrix
      !if(ED_MPI_ID==0)then
@@ -494,13 +494,13 @@ contains
   T_bulk(2,5) = t3
   T_bulk(2,6) = 0.d0
   !orbital_3 = XY
-  T_bulk(3,0) = Eo
-  T_bulk(3,1) = t1
-  T_bulk(3,2) = t1
-  T_bulk(3,3) = t2
-  T_bulk(3,4) = 0.d0
-  T_bulk(3,5) = 0.d0
-  T_bulk(3,6) = t3
+ ! T_bulk(3,0) = Eo
+ ! T_bulk(3,1) = t1
+ ! T_bulk(3,2) = t1
+ ! T_bulk(3,3) = t2
+ ! T_bulk(3,4) = 0.d0
+ ! T_bulk(3,5) = 0.d0
+ ! T_bulk(3,6) = t3
   !
   ! VAC/STO (not used)
   T_VACSTO=T_bulk
@@ -523,13 +523,13 @@ contains
   T_LAOSTO(2,5) = t3
   T_LAOSTO(2,6) = 0.d0
   !orbital_3 = XY
-  T_LAOSTO(3,0) = 1.035
-  T_LAOSTO(3,1) = t_100_xy
-  T_LAOSTO(3,2) = t_010_xy
-  T_LAOSTO(3,3) = t_001_xy
-  T_LAOSTO(3,4) = 0.d0
-  T_LAOSTO(3,5) = 0.d0
-  T_LAOSTO(3,6) = t3
+ ! T_LAOSTO(3,0) = 1.035
+ ! T_LAOSTO(3,1) = t_100_xy
+ ! T_LAOSTO(3,2) = t_010_xy
+ ! T_LAOSTO(3,3) = t_001_xy
+ ! T_LAOSTO(3,4) = 0.d0
+ ! T_LAOSTO(3,5) = 0.d0
+ ! T_LAOSTO(3,6) = t3
   !
   if(surface) then
      T=T_LAOSTO
