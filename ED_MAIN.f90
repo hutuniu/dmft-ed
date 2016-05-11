@@ -1830,9 +1830,9 @@ contains
        enddo
     enddo
     !
+    unit = free_unit();rewind(unit)
+    open(unit,file="imp_density_matrix.ed",action="write",position="append",status='unknown')
     if(iprint==0) then
-       unit = free_unit()
-       open(unit,file="imp_density_matrix.ed",action="write",position="rewind",status='unknown')
        write(unit,"(A10)")"# Re{rho}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb
           write(unit,"(90(F15.9,1X))") (real(dm_(io,jo)),jo=1,Nspin*Norb)
@@ -1842,7 +1842,6 @@ contains
        do io=1,Nspin*Norb
           write(unit,"(90(F15.9,1X))") (aimag(dm_(io,jo)),jo=1,Nspin*Norb)
        enddo
-       close(unit)
     endif
     if(iprint>=1)then
        Tr=zero;Tr=trace(dm_)
@@ -1858,40 +1857,38 @@ contains
     if(iprint>=2)then
        dm_eig=0.0d0;dm_rot=zero;dm_rot=dm_
        call matrix_diagonalize(dm_rot,dm_eig,'V','U')
-       unit = free_unit()
-       open(unit,file="imp_density_matrix.ed",action="write",position="append",status='unknown')
        write(unit,"(A10)")
        write(unit,"(A10)")"# rho_tilda"
        write(unit,'(10F22.12)') dm_eig
        write(unit,"(A10)")
-       write(unit,"(A10)")"# Re{theta}: [Norb*Norb]*Nspin"
+       write(unit,"(A100)")"# Re{theta}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb
           write(unit,"(90(F15.9,1X))") (real(dm_rot(io,jo)),jo=1,Nspin*Norb)
        enddo
        write(unit,"(A10)")
-       write(unit,"(A10)")"# Im{theta}: [Norb*Norb]*Nspin"
+       write(unit,"(A100)")"# Im{theta}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb
           write(unit,"(90(F15.9,1X))") (aimag(dm_rot(io,jo)),jo=1,Nspin*Norb)
        enddo
-       close(unit)
     endif
+    close(unit)
   end subroutine ed_get_density_matrix
 
 
   subroutine ed_get_quantum_SOC_operators(S_,L_,j_)
     !passed
-    complex(8),dimension(:,:,:),intent(in),optional  ::  S_
-    complex(8),dimension(:,:,:),intent(in),optional  ::  L_
-    complex(8),dimension(:),intent(in),optional      ::  j_
-    integer                                          ::  unit_
-    integer                                          ::  iorb,ispin,jorb,jspin
+    complex(8),allocatable,optional,intent(in)  ::  S_(:,:,:)
+    complex(8),allocatable,optional,intent(in)  ::  L_(:,:,:)
+    complex(8),allocatable,optional,intent(in)  ::  j_(:)
+    integer                                     ::  unit_
+    integer                                     ::  iorb,ispin,jorb,jspin
     if(Norb/=3)stop"SOC_operators implemented for 3 orbitals"
     if(present(S_).and.((size(S_,dim=1)/=3).or.(size(S_,dim=2)/=3).or.(size(S_,dim=3)/=3)))stop"wrong S size (3,3,3)"
     if(present(L_).and.((size(L_,dim=1)/=3).or.(size(L_,dim=2)/=2).or.(size(L_,dim=3)/=2)))stop"wrong L size (3,2,2)"
     if(present(j_).and.(size(j_)/=3))stop"wrong j size (3)"
 
     unit_ = free_unit()
-    open(unit=unit_,file='impL_ed.dat',status='unknown',position='rewind',action='write',form='formatted')
+    open(unit=unit_,file='impL.dat',status='unknown',position='rewind',action='write',form='formatted')
     write(unit_,'(a100)') "#diagonal spin"
     write(unit_,'(a8,30a20)') "Re{Lx}_1","Re{Lx}_2" &
                              ,"Re{Ly}_1","Re{Ly}_2" &

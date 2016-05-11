@@ -99,7 +99,8 @@ MODULE DMFT_ED
        ed_get_dund_lattice            ,&
        ed_get_dse_lattice             ,&
        ed_get_dph_lattice             ,&
-       ed_get_density_matrix              !TODO:works only for ED_TYPE="c", BATH_TYPE="hybrid", ED_MODE="nonsu2"
+       ed_get_density_matrix          ,&
+       ed_get_quantum_SOC_operators
 
 
   USE ED_GLOC,     only:&

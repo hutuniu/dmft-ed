@@ -391,7 +391,7 @@ contains
              enddo
           enddo
           !diagonal entries (only for Sz) and must be real
-          impS(3,iorb,jorb)=cmplx(magz(iorb),0.0d0)
+          impS(3,iorb,iorb)=cmplx(magz(iorb),0.0d0)/2
        enddo
        !#####################################################
        !#                   L(ispin,jspin)                  #

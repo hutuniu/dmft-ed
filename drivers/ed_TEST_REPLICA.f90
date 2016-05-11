@@ -32,7 +32,7 @@ program ed_TEST_REPLICA
   complex(8),allocatable :: delta_conv(:,:,:),delta_conv_avrg(:)
   !density matrix
   real(8),allocatable    :: dm_eig(:)
-  complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:)
+  complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:),Stot(:,:,:),Ltot(:,:,:),jz(:)
   !
   real(8),dimension(2)   :: Eout
 #ifdef _MPI
@@ -104,11 +104,12 @@ program ed_TEST_REPLICA
 #ifdef _MPI
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
-
+     if(ED_MPI_ID==0)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
      if(ED_MPI_ID==0)call rotate_Gloc(Greal)
      if(ED_MPI_ID==0)call Quantum_operator()
+     !if(ED_MPI_ID==0)call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
      if(ED_MPI_ID==0)call ed_get_quantum_SOC_operators()
-     if(ED_MPI_ID==0)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+
 
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
      Bath_=bath
@@ -701,6 +702,7 @@ contains
     !
     !
     !1)rotation
+    G_out=zero
     do i=1,Lreal
        G_out(:,:,i)=matmul(transpose(conjg(impHloc_rot)),matmul(G_in(:,:,i),impHloc_rot))
     enddo
@@ -750,6 +752,7 @@ contains
     !
     !
     !1)rotation
+    G_out=zero
     do i=1,Lreal
        G_out(:,:,i)=matmul(transpose(conjg(theta)),matmul(G_in(:,:,i),theta))
     enddo
@@ -799,6 +802,7 @@ contains
     !
     !
     !1)rotation
+    G_out=zero
     do i=1,Lreal
        G_out(:,:,i)=matmul(transpose(conjg(dm_rot)),matmul(G_in(:,:,i),dm_rot))
     enddo
