@@ -120,11 +120,17 @@ contains
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
                    if(io.lt.jo)then
-                      !if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
-                      if( abs((Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-12)ndx=ndx+1
-                      if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)then
-                         !ndx=ndx+1
-                         if(ed_mode=="d")stop "complex impHloc and ed_mode='d' are not compatible"
+                      if(real_Hrepl)then
+                         if( abs((Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-12)ndx=ndx+1
+                         if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)then
+                            if(ed_mode=="d")stop "complex impHloc and ed_mode='d' are not compatible"
+                         endif
+                      else
+                         if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                         if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)then
+                            ndx=ndx+1
+                            if(ed_mode=="d")stop "complex impHloc and ed_mode='d' are not compatible"
+                         endif
                       endif
                    endif
                 enddo
@@ -1167,7 +1173,7 @@ contains
     type(effective_bath)   :: dmft_bath_
     logical,optional       :: save
     logical                :: save_
-    integer                :: bath_size
+    integer                :: bath_size,shift
     save_=.true.;if(present(save))save_=save
     if(Nspin==1)then
        if(ED_MPI_ID==0)write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
@@ -1183,7 +1189,12 @@ contains
        call get_dmft_bath(dmft_bath_,bath_)
        call deallocate_dmft_bath(dmft_bath_)
     else
-       bath_size = size(bath_) / 2
+       if((ed_type=="d").or.((ed_type=="c").and.(real_hybr)))then
+          shift=Nbath
+       elseif((ed_type=="c").and.(.not.real_hybr))then
+          shift=Nbath*2
+       endif
+       bath_size = ( size(bath_) - shift ) / 2
        bath_(1+bath_size:2*bath_size)=bath_(1:bath_size)
     endif
   end subroutine spin_symmetrize_bath

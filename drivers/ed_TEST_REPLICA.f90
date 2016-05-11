@@ -104,14 +104,13 @@ program ed_TEST_REPLICA
 #ifdef _MPI
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
-    ! if(ED_MPI_ID==0)call rotate_Gloc(Greal)
-    ! if(ED_MPI_ID==0)call Quantum_operator()
+
+     if(ED_MPI_ID==0)call rotate_Gloc(Greal)
+     if(ED_MPI_ID==0)call Quantum_operator()
+     if(ED_MPI_ID==0)call ed_get_quantum_SOC_operators()
+     if(ED_MPI_ID==0)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
-     !density matrix
-     !if(ED_MPI_ID==0)then
-     !   call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-     !endif
-     !Fit the new bath, starting from the old bath + the supplied delta 
      Bath_=bath
      if (ed_mode=="normal") then
         call ed_chi2_fitgf(delta,bath,ispin=1)
@@ -263,10 +262,10 @@ contains
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     do ik=1,Lk
        do i=1,Lmats
-          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+xmu , Hk(:,:,ik) )/Lk
+          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+4.5 , Hk(:,:,ik) )/Lk
        enddo
        do i=1,Lreal
-          Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/Lk
+          Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+4.5,Hk(:,:,ik))/Lk
        enddo
     enddo
     do ispin=1,Nspin
@@ -494,13 +493,13 @@ contains
   T_bulk(2,5) = t3
   T_bulk(2,6) = 0.d0
   !orbital_3 = XY
- ! T_bulk(3,0) = Eo
- ! T_bulk(3,1) = t1
- ! T_bulk(3,2) = t1
- ! T_bulk(3,3) = t2
- ! T_bulk(3,4) = 0.d0
- ! T_bulk(3,5) = 0.d0
- ! T_bulk(3,6) = t3
+  T_bulk(3,0) = Eo
+  T_bulk(3,1) = t1
+  T_bulk(3,2) = t1
+  T_bulk(3,3) = t2
+  T_bulk(3,4) = 0.d0
+  T_bulk(3,5) = 0.d0
+  T_bulk(3,6) = t3
   !
   ! VAC/STO (not used)
   T_VACSTO=T_bulk
@@ -523,13 +522,13 @@ contains
   T_LAOSTO(2,5) = t3
   T_LAOSTO(2,6) = 0.d0
   !orbital_3 = XY
- ! T_LAOSTO(3,0) = 1.035
- ! T_LAOSTO(3,1) = t_100_xy
- ! T_LAOSTO(3,2) = t_010_xy
- ! T_LAOSTO(3,3) = t_001_xy
- ! T_LAOSTO(3,4) = 0.d0
- ! T_LAOSTO(3,5) = 0.d0
- ! T_LAOSTO(3,6) = t3
+  T_LAOSTO(3,0) = 1.035
+  T_LAOSTO(3,1) = t_100_xy
+  T_LAOSTO(3,2) = t_010_xy
+  T_LAOSTO(3,3) = t_001_xy
+  T_LAOSTO(3,4) = 0.d0
+  T_LAOSTO(3,5) = 0.d0
+  T_LAOSTO(3,6) = t3
   !
   if(surface) then
      T=T_LAOSTO
@@ -617,7 +616,7 @@ contains
     g0k=zero
     g0k_tmp=zero
 
-    g0k=iw*eye(Nspin*Norb)+xmu-hk
+    g0k=iw*eye(Nspin*Norb)-hk
     g0k_tmp=g0k
 
     call inv(g0k)
@@ -777,6 +776,55 @@ contains
        open(unit=106,file='sum_w_G0loc_rot_A.dat',status='unknown',action='write',position='rewind')
     else
        open(unit=106,file='sum_w_Gloc_rot_A.dat',status='unknown',action='write',position='rewind')
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    close(106)
+    !
+    !
+    !###############################################################
+    !#                                                             #
+    !#                  ROTATION WITH rot_rho                      #
+    !#                                                             #
+    !###############################################################
+    !
+    !
+    !1)rotation
+    do i=1,Lreal
+       G_out(:,:,i)=matmul(transpose(conjg(dm_rot)),matmul(G_in(:,:,i),dm_rot))
+    enddo
+    !
+    !2)output save
+    if(isetup) then
+       file_rotation="G0loc_rot_R_l"
+    else
+       file_rotation="Giloc_rot_R_l"
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    !3)save the integral
+    if(isetup) then
+       open(unit=106,file='sum_w_G0loc_rot_R.dat',status='unknown',action='write',position='rewind')
+    else
+       open(unit=106,file='sum_w_Gloc_rot_R.dat',status='unknown',action='write',position='rewind')
     endif
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -966,7 +1014,8 @@ contains
     complex(8),allocatable             :: Gso(:,:,:,:,:)
     complex(8),allocatable             :: Stot(:,:,:),Ltot(:,:,:)
     complex(8)                         :: LdotS
-    complex(8)                         :: Sx,Lx,Sy,Ly,Sz,Lz,jz
+    complex(8)                         :: Sx,Lx,Sy,Ly,Sz,Lz
+    complex(8)                         :: J,jz
     integer                            :: ilat,io,jo
     integer                            :: ispin,jspin
     integer                            :: iorb,jorb
@@ -1113,17 +1162,18 @@ contains
     LdotS=LdotS/2.d0
     !
     open(unit=107,file='Jz.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(107,'(30a20)') "Re{Sz}_11","Re{Sz}_22","Re{Sz}_33","Im{Sz}_11","Im{Sz}_22","Im{Sz}_33","Re{Tr[Sz]}","Im{Tr[Sz]}" &
-                                                ,"Re{Lz}_uu","Im{Lz}_uu","Re{Lz}_dd","Im{Lz}_dd","Re{Tr[Lz]}","Im{Tr[Lz]}" &
-                                                ,"Re{jz}","Im{jz}","Re{L.S}","Im{L.S}"
+    write(107,'(30a20)') "#1-Re{Sz}_11","2-Re{Sz}_22","3-Re{Sz}_33","4-Im{Sz}_11","5-Im{Sz}_22","6-Im{Sz}_33","7-Re{Tr[Sz]}","8-Im{Tr[Sz]}" &
+                                                ,"9-Re{Lz}_uu","10-Im{Lz}_uu","11-Re{Lz}_dd","12-Im{Lz}_dd","13-Re{Tr[Lz]}","14-Im{Tr[Lz]}" &
+                                                ,"15-Re{jz}","16-Im{jz}","17-Re{L.S}","18-Im{L.S}","19-Re{J}","20-Im{J}"
     Sx=trace(Stot(1,:,:));Sy=trace(Stot(2,:,:));Sz=trace(Stot(3,:,:))
     Lx=trace(Ltot(1,:,:));Ly=trace(Ltot(2,:,:));Lz=trace(Ltot(3,:,:))
+    J=(Sx+Lx)+(Sy+Ly)+(Sz+Lz)
     jz=Sz+Lz
     write(107,'(30F20.12)') real(Stot(3,1,1)), real(Stot(3,2,2)), real(Stot(3,3,3)) &
                          , aimag(Stot(3,1,1)),aimag(Stot(3,2,2)),aimag(Stot(3,3,3)),real(Sz),aimag(Sz) &
                          ,  real(Ltot(3,1,1)), real(Ltot(3,2,2)) &
                          , aimag(Ltot(3,1,1)),aimag(Ltot(3,2,2)),real(Lz),aimag(Lz) &
-                         ,  real(jz),aimag(jz),real(LdotS),aimag(LdotS)
+                         ,  real(jz),aimag(jz),real(LdotS),aimag(LdotS),real(J),aimag(J)
     write(*,*)  "   Re{Jz}",real(jz),"   Im{Jz}",aimag(jz)
     close(107)
     !

@@ -130,14 +130,14 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
-       if(mod(ik,100)==0)then
-          unit_ik=ik
-          call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,unit_ik)      
-          call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
-       else
+      ! if(mod(ik,100)==pi)then
+      !    unit_ik=ik
+      !    call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,unit_ik)      
+      !    call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+      ! else
           call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)      
           call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
-       endif
+      ! endif
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
        if(ED_MPI_ID==0)call eta(ik,Lk,unit=LOGfile)

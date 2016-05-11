@@ -5,6 +5,7 @@ MODULE ED_OBSERVABLES
   USE SF_CONSTANTS, only:zero,pi,xi
   USE SF_IOTOOLS, only:free_unit,reg,txtfy
   USE SF_ARRAYS, only: arange
+  USE SF_LINALG
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
@@ -225,58 +226,291 @@ contains
     !
     !<<DEBUG
     !IMPURITY DENSITY MATRIX
-    if ((ed_mode=="nonsu2").and.(bath_type=="hybrid").and.(ed_type=="c")) then
-       if(allocated(imp_density_matrix)) deallocate(imp_density_matrix);allocate(imp_density_matrix(Nspin,Nspin,Norb,Norb));
-       imp_density_matrix=zero
-       numstates=state_list%size
-       do izero=1,numstates
-          !
-          isector = es_return_sector(state_list,izero)
-          Ei      = es_return_energy(state_list,izero)
-          idim    = getdim(isector)
+    if(allocated(imp_density_matrix)) deallocate(imp_density_matrix);allocate(imp_density_matrix(Nspin,Nspin,Norb,Norb))
+    imp_density_matrix=zero
+    numstates=state_list%size
+    do izero=1,numstates
+       !
+       isector = es_return_sector(state_list,izero)
+       Ei      = es_return_energy(state_list,izero)
+       idim    = getdim(isector)
+       if(ed_type=='d')then
+          gsvec  => es_return_vector(state_list,izero)
+          norm=sqrt(dot_product(gsvec,gsvec))
+       elseif(ed_type=='c')then
           gscvec  => es_return_cvector(state_list,izero)
-          if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
-          !
-          peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
-          peso = peso/zeta_function
-          !
-          allocate(Hmap(idim))
-          call build_sector(isector,Hmap)
-          !Diagonal densities
-          do ispin=1,Nspin
-             do iorb=1,Norb
-                isite=impIndex(iorb,ispin)
-                do m=1,idim
-                   i=Hmap(m)
-                   call bdecomp(i,ib)
-                   imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) +  conjg(gscvec(m))*gscvec(m)*ib(isite)
-                enddo
+          norm=sqrt(dot_product(gscvec,gscvec))
+       endif
+       if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
+       !
+       peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
+       peso = peso/zeta_function
+       !
+       allocate(Hmap(idim))
+       call build_sector(isector,Hmap)
+       !Diagonal densities
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             isite=impIndex(iorb,ispin)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if(ed_type=='d')imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) +  peso*ib(isite)*gsvec(m)*gsvec(m)
+                if(ed_type=='c')imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) +  peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
              enddo
           enddo
-          !off-diagonal
-          do ispin=1,Nspin
-             do jspin=1,Nspin
-                do iorb=1,Norb
-                   do jorb=1,Norb
-                      jsite=impIndex(iorb,ispin)
-                      isite=impIndex(jorb,jspin)
-                      do m=1,idim
-                         i=Hmap(m)
-                         call bdecomp(i,ib)
-                         if((ib(isite)==1).and.(ib(jsite)==0))then
-                            call c(isite,i,r,sgn1)
-                            call cdg(jsite,r,k,sgn2)
-                            j=binary_search(Hmap,k)
-                            imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) +  sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
-                         endif
-                      enddo
+       enddo
+       !off-diagonal
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   if((ed_mode=="normal").and.(ispin/=jspin))cycle !  ed_mode=="normal" ==>    spin off-dig term not calculated
+                   if((bath_type=="normal").and.(iorb/=jorb))cycle !bath_type=="normal" ==> orbital off-dig term not calculated
+                   isite=impIndex(iorb,ispin)
+                   jsite=impIndex(jorb,jspin)
+                   do m=1,idim
+                      i=Hmap(m)
+                      call bdecomp(i,ib)
+                      if((ib(isite)==1).and.(ib(jsite)==0))then
+                         call c(isite,i,r,sgn1)
+                         call cdg(jsite,r,k,sgn2)
+                         j=binary_search(Hmap,k)
+                         if(ed_type=='d')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) +  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                         if(ed_type=='c')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) +  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                      endif
                    enddo
                 enddo
              enddo
           enddo
-          deallocate(Hmap)
        enddo
-       imp_density_matrix = imp_density_matrix/numstates
+       deallocate(Hmap)
+    enddo
+    imp_density_matrix = imp_density_matrix/numstates
+    !IMPURITY OPERATORS
+    if((Nspin/=1).and.(Norb==3))then
+    if(allocated(impS))       deallocate(impS);   allocate(impS(3,Norb,Norb))
+    if(allocated(impL))       deallocate(impL);   allocate(impL(3,Nspin,Nspin))
+    if(allocated(impj_aplha)) deallocate(impj_aplha);allocate(impj_aplha(3))
+    if(allocated(impLdotS))  deallocate(impLdotS);allocate(impLdotS(Nspin,Nspin,Norb,Norb))
+    impj_aplha=zero
+    numstates=state_list%size
+    do izero=1,numstates
+       !
+       isector = es_return_sector(state_list,izero)
+       Ei      = es_return_energy(state_list,izero)
+       idim    = getdim(isector)
+       if(ed_type=='d')then
+          gsvec  => es_return_vector(state_list,izero)
+          norm=sqrt(dot_product(gsvec,gsvec))
+       elseif(ed_type=='c')then
+          gscvec  => es_return_cvector(state_list,izero)
+          norm=sqrt(dot_product(gscvec,gscvec))
+       endif
+       if(abs(norm-1.d0)>1.d-9)stop " ed_observables:GS is not normalized"
+       !
+       peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
+       peso = peso/zeta_function
+       !
+       allocate(Hmap(idim))
+       call build_sector(isector,Hmap)
+       !#####################################################
+       !#                    S(iorb,jorb)                   #
+       !#####################################################
+       !
+       !Sx =    [ + <c+_up,c_dw> + <c+_dw,c_up> ]_(iorb,jorb)
+       !Sy = xi*[ - <c+_up,c_dw> + <c+_dw,c_up> ]_(iorb,jorb)
+       !Sz =    [ + <c+_up,c_up> - <c+_dw,c_dw> ]_(iorb,jorb)
+       !
+       do iorb=1,Norb
+          !off-diagonal entries
+          do jorb=1,Norb
+             if(ed_mode=="normal")cycle                      !  ed_mode=="normal" ==>    spin off-dig term not calculated
+             if((bath_type=="normal").and.(iorb/=jorb))cycle !bath_type=="normal" ==> orbital off-dig term not calculated
+             isite=impIndex(iorb,1)
+             jsite=impIndex(jorb,2)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if((ib(isite)==1).and.(ib(jsite)==0))then
+                   call c(isite,i,r,sgn1)
+                   call cdg(jsite,r,k,sgn2)
+                   j=binary_search(Hmap,k)
+                   !Sx operator first addend
+                   if(ed_type=='d')impS(1,iorb,jorb) = impS(1,iorb,jorb) +  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impS(1,iorb,jorb) = impS(1,iorb,jorb) +  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                   !Sy operator first addend
+                   if(ed_type=='d')impS(2,iorb,jorb) = impS(2,iorb,jorb) -  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impS(2,iorb,jorb) = impS(2,iorb,jorb) -  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                endif
+             enddo
+             isite=impIndex(iorb,2)
+             jsite=impIndex(jorb,1)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if((ib(isite)==1).and.(ib(jsite)==0))then
+                   call c(isite,i,r,sgn1)
+                   call cdg(jsite,r,k,sgn2)
+                   j=binary_search(Hmap,k)
+                   !Sx operator second addend
+                   if(ed_type=='d')impS(1,iorb,jorb) = impS(1,iorb,jorb) +  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impS(1,iorb,jorb) = impS(1,iorb,jorb) +  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                   !Sy operator second addend
+                   if(ed_type=='d')impS(2,iorb,jorb) = impS(2,iorb,jorb) +  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impS(2,iorb,jorb) = impS(2,iorb,jorb) +  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                endif
+             enddo
+             isite=impIndex(iorb,1)
+             jsite=impIndex(jorb,1)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if((ib(isite)==1).and.(ib(jsite)==0))then
+                   call c(isite,i,r,sgn1)
+                   call cdg(jsite,r,k,sgn2)
+                   j=binary_search(Hmap,k)
+                   !Sz operator first addend
+                   if(ed_type=='d')impS(3,iorb,jorb) = impS(3,iorb,jorb) +  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impS(3,iorb,jorb) = impS(3,iorb,jorb) +  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                endif
+             enddo
+             isite=impIndex(iorb,2)
+             jsite=impIndex(jorb,2)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if((ib(isite)==1).and.(ib(jsite)==0))then
+                   call c(isite,i,r,sgn1)
+                   call cdg(jsite,r,k,sgn2)
+                   j=binary_search(Hmap,k)
+                   !Sz operator first addend
+                   if(ed_type=='d')impS(3,iorb,jorb) = impS(3,iorb,jorb) -  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impS(3,iorb,jorb) = impS(3,iorb,jorb) -  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                endif
+             enddo
+          enddo
+          !diagonal entries (only for Sz) and must be real
+          impS(3,iorb,jorb)=cmplx(magz(iorb),0.0d0)
+       enddo
+       !#####################################################
+       !#                   L(ispin,jspin)                  #
+       !#####################################################
+       ! 1=yz 2=zx 3=xy
+       !Lx = xi*[ + <c+_2,c_3> - <c+_3,c_2> ]_(ispin,jspin)
+       !Ly = xi*[ + <c+_3,c_1> - <c+_1,c_3> ]_(ispin,jspin)
+       !Lz = xi*[ + <c+_1,c_2> - <c+_2,c_1> ]_(ispin,jspin)
+       !
+       do ispin=1,Nspin
+          !off-diagonal entries
+          do jspin=1,Nspin
+             if((ed_mode=="normal").and.(ispin/=jspin))cycle !  ed_mode=="normal" ==>    spin off-dig term not calculated
+             if(bath_type=="normal")cycle                    !bath_type=="normal" ==> orbital off-dig term not calculated
+             !1) Lx operator
+             isite=impIndex(2,ispin)
+             jsite=impIndex(3,jspin)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if((ib(isite)==1).and.(ib(jsite)==0))then
+                   call c(isite,i,r,sgn1)
+                   call cdg(jsite,r,k,sgn2)
+                   j=binary_search(Hmap,k)
+                   !first addend
+                   if(ed_type=='d')impL(1,ispin,jspin) = impL(1,ispin,jspin) +  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impL(1,ispin,jspin) = impL(1,ispin,jspin) +  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                endif
+             enddo
+             isite=impIndex(3,ispin)
+             jsite=impIndex(2,jspin)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if((ib(isite)==1).and.(ib(jsite)==0))then
+                   call c(isite,i,r,sgn1)
+                   call cdg(jsite,r,k,sgn2)
+                   j=binary_search(Hmap,k)
+                   !second addend
+                   if(ed_type=='d')impL(1,ispin,jspin) = impL(1,ispin,jspin) -  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impL(1,ispin,jspin) = impL(1,ispin,jspin) -  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                endif
+             enddo
+             !2) Ly operator
+             isite=impIndex(3,ispin)
+             jsite=impIndex(1,jspin)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if((ib(isite)==1).and.(ib(jsite)==0))then
+                   call c(isite,i,r,sgn1)
+                   call cdg(jsite,r,k,sgn2)
+                   j=binary_search(Hmap,k)
+                   !first addend
+                   if(ed_type=='d')impL(2,ispin,jspin) = impL(2,ispin,jspin) +  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impL(2,ispin,jspin) = impL(2,ispin,jspin) +  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                endif
+             enddo
+             isite=impIndex(1,ispin)
+             jsite=impIndex(3,jspin)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if((ib(isite)==1).and.(ib(jsite)==0))then
+                   call c(isite,i,r,sgn1)
+                   call cdg(jsite,r,k,sgn2)
+                   j=binary_search(Hmap,k)
+                   !second addend
+                   if(ed_type=='d')impL(2,ispin,jspin) = impL(2,ispin,jspin) -  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impL(2,ispin,jspin) = impL(2,ispin,jspin) -  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                endif
+             enddo
+             !3) Lz operator
+             isite=impIndex(1,ispin)
+             jsite=impIndex(2,jspin)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if((ib(isite)==1).and.(ib(jsite)==0))then
+                   call c(isite,i,r,sgn1)
+                   call cdg(jsite,r,k,sgn2)
+                   j=binary_search(Hmap,k)
+                   !first addend
+                   if(ed_type=='d')impL(3,ispin,jspin) = impL(3,ispin,jspin) +  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impL(3,ispin,jspin) = impL(3,ispin,jspin) +  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                endif
+             enddo
+             isite=impIndex(2,ispin)
+             jsite=impIndex(1,jspin)
+             do m=1,idim
+                i=Hmap(m)
+                call bdecomp(i,ib)
+                if((ib(isite)==1).and.(ib(jsite)==0))then
+                   call c(isite,i,r,sgn1)
+                   call cdg(jsite,r,k,sgn2)
+                   j=binary_search(Hmap,k)
+                   !second addend
+                   if(ed_type=='d')impL(2,ispin,jspin) = impL(2,ispin,jspin) -  peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                   if(ed_type=='c')impL(2,ispin,jspin) = impL(2,ispin,jspin) -  peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                endif
+             enddo
+          enddo
+       enddo
+       deallocate(Hmap)
+    enddo
+    impS(1,:,:) =    impS(1,:,:)/numstates
+    impS(2,:,:) = xi*impS(2,:,:)/numstates
+    impS(3,:,:) =    impS(3,:,:)/numstates
+    impL(1,:,:) = xi*impL(1,:,:)/numstates
+    impL(2,:,:) = xi*impL(2,:,:)/numstates
+    impL(3,:,:) = xi*impL(3,:,:)/numstates
+    !
+    !#####################################################
+    !#              ja=trace{La}+trace{Sa}               #
+    !#####################################################
+    !
+    impj_aplha(1)=trace(impS(1,:,:))+trace(impL(1,:,:))
+    impj_aplha(2)=trace(impS(2,:,:))+trace(impL(2,:,:))
+    impj_aplha(3)=trace(impS(3,:,:))+trace(impL(3,:,:))
     endif
     !<<DEBUG
     !

@@ -87,10 +87,15 @@ MODULE ED_VARS_GLOBAL
   real(8)                                     :: ed_Eknot
   real(8)                                     :: ed_Dust,ed_Dund,ed_Dse,ed_Dph
 
-  !Impurity dennsity matrix
+  !Impurity operators
   !PRIVATE (now public but accessible thru routine)
   !=========================================================
   complex(8),allocatable,dimension(:,:,:,:)  :: imp_density_matrix
+  complex(8),allocatable,dimension(:,:,:)    :: impS
+  complex(8),allocatable,dimension(:,:,:)    :: impL
+  complex(8),allocatable,dimension(:)        :: impj_aplha
+  complex(8),allocatable,dimension(:,:,:,:)  :: impLdotS
+  complex(8)                                 :: impJ
 
   !MPI Parallel environment variables
   !PUBLIC
