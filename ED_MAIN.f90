@@ -1882,6 +1882,9 @@ contains
     complex(8),allocatable,optional,intent(out)  ::  j_(:)
     integer                                      ::  unit_
     integer                                      ::  iorb,ispin,jorb,jspin
+    real(8)                                      ::  Lxsq,Lysq,Lzsq,Lsq
+    real(8)                                      ::  Sxsq,Sysq,Szsq,Ssq
+    real(8)                                      ::  jxsq,jysq,jzsq,jsq
     if(Norb/=3)stop"SOC_operators implemented for 3 orbitals"
     if(present(S_).and.((size(S_,dim=1)/=3).or.(size(S_,dim=2)/=3).or.(size(S_,dim=3)/=3)))stop"wrong S size (3,3,3)"
     if(present(L_).and.((size(L_,dim=1)/=3).or.(size(L_,dim=2)/=2).or.(size(L_,dim=3)/=2)))stop"wrong L size (3,2,2)"
@@ -1891,9 +1894,33 @@ contains
     if(present(L_))        L_=impLtot
     if(present(j_))        j_=impj_aplha
     !
+    Sxsq = (trace(impStot(1,:,:)))*conjg(trace(impStot(1,:,:)))
+    Sysq = (trace(impStot(2,:,:)))*conjg(trace(impStot(2,:,:)))
+    Szsq = (trace(impStot(3,:,:)))*conjg(trace(impStot(3,:,:)))
+    Ssq  = Sxsq + Sysq + Szsq
+    !
+    Lxsq = (trace(impLtot(1,:,:)))*conjg(trace(impStot(1,:,:)))
+    Lysq = (trace(impLtot(2,:,:)))*conjg(trace(impLtot(2,:,:)))
+    Lzsq = (trace(impLtot(3,:,:)))*conjg(trace(impLtot(3,:,:)))
+    Lsq  = Lxsq + Lysq + Lzsq
+    !
+    jxsq = (impj_aplha(1))*conjg(impj_aplha(1))
+    jysq = (impj_aplha(2))*conjg(impj_aplha(2))
+    jzsq = (impj_aplha(3))*conjg(impj_aplha(3))
+    jsq  = jxsq + jysq + jzsq
+    !
     unit_ = free_unit()
     open(unit=unit_,file='S_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(unit_,'(30a20)') "#Sx(orb_1)","Sx(orb_2)","Sx(orb_3)","Sy(orb_1)","Sy(orb_2)","Sy(orb_3)","Sz(orb_1)","Sz(orb_2)","Sz(orb_3)"
+    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Sx]}","2-Im{Tr[Sx]}","3-Re{Tr[Sy]}","4-Im{Tr[Sy]}","5-Re{Tr[Sz]}","6-Im{Tr[Sz]}",&
+                                "7-|Sx|^2","8-|Sy|^2","9-|Sz|^2","10-|S|^2"
+    write(unit_,'(30(F20.12,1X))') real(trace(impStot(1,:,:))),aimag(trace(impStot(1,:,:))),&
+                                   real(trace(impStot(2,:,:))),aimag(trace(impStot(2,:,:))),&
+                                   real(trace(impStot(3,:,:))),aimag(trace(impStot(3,:,:))),&
+                                   Sxsq,Sysq,Szsq,Ssq
+
+    write(unit_,*)
+    write(unit_,'(30(a20,1X))') "#Sx(orb_1)","Sx(orb_2)","Sx(orb_3)","Sy(orb_1)","Sy(orb_2)","Sy(orb_3)","Sz(orb_1)","Sz(orb_2)","Sz(orb_3)"
+    write(unit_,*)
     do iorb=1,Norb
        write(unit_,'(30(F20.12,1X))') (real(impStot(1,iorb,jorb)),jorb=1,Norb) &
                                      ,(real(impStot(2,iorb,jorb)),jorb=1,Norb) &
@@ -1909,8 +1936,15 @@ contains
     !
     unit_ = free_unit()
     open(unit=unit_,file='L_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(unit_,'(a100)') "#inter-spin"
-    write(unit_,'(30a20)') "#Lx(spin_1)","Lx(spin_2)","Ly(spin_1)","Ly(spin_2)","Lz(spin_1)","Lz(spin_2)"
+    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Lx]}","2-Im{Tr[Lx]}","3-Re{Tr[Ly]}","4-Im{Tr[ly]}","5-Re{Tr[Lz]}","6-Im{Tr[Lz]}",&
+                               "7-|Lx|^2","8-|Ly|^2","9-|Lz|^2","10-|L|^2"
+    write(unit_,'(30(F20.12,1X))') real(trace(impLtot(1,:,:))),aimag(trace(impLtot(1,:,:))),&
+                                   real(trace(impLtot(2,:,:))),aimag(trace(impLtot(2,:,:))),&
+                                   real(trace(impLtot(3,:,:))),aimag(trace(impLtot(3,:,:))),&
+                                   Lxsq,Lysq,Lzsq,Lsq
+    write(unit_,*)
+    write(unit_,'(30(a20,1X))') "#Lx(spin_1)","Lx(spin_2)","Ly(spin_1)","Ly(spin_2)","Lz(spin_1)","Lz(spin_2)"
+    write(unit_,*)
     do ispin=1,Nspin
        write(unit_,'(30(F20.12,1X))') (real(impLtot(1,ispin,jspin)),jspin=1,Nspin) &
                                      ,(real(impLtot(2,ispin,jspin)),jspin=1,Nspin) &
@@ -1926,16 +1960,19 @@ contains
     !
     unit_ = free_unit()
     open(unit=unit_,file='Jz_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(unit_,'(30a20)') "#1-Re{Tr[Sz]}","2-Im{Tr[Sz]}","3-Re{Tr[Lz]}","4-Im{Tr[Lz]}","5-Re{jx}","6-Im{jx}"&
-                                                                                       ,"7-Re{jy}","8-Im{jy}"&
-                                                                                       ,"9-Re{jz}","10-Im{jz}"&
-                                                                                       ,"11-Re{L.S}","12-Im{L.S}"
-    write(unit_,'(30(F20.12,1X))') real(trace(impStot(3,:,:))),aimag(trace(impStot(3,:,:))) &
-                                  ,real(trace(impLtot(3,:,:))),aimag(trace(impLtot(3,:,:))) &
-                                  ,real(impj_aplha(1)),aimag(impj_aplha(1)) &
-                                  ,real(impj_aplha(2)),aimag(impj_aplha(2)) &
-                                  ,real(impj_aplha(3)),aimag(impj_aplha(3)) &
-                                  ,real(impLdotS),aimag(impLdotS)
+    write(unit_,'(30(a20,1X))') "#1-Re{jx}","2-Im{jx}","3-Re{jy}","4-Im{jy}","5-Re{jz}","6-Im{jz}",&
+                                 "7-|jx|^2","8-|jy|^2","9-|jz|^2","10-|j|^2","11-Re{L.S}","12-Im{L.S}"
+    write(unit_,'(30(F20.12,1X))') real(impj_aplha(1)),aimag(impj_aplha(1)),real(impj_aplha(2)),aimag(impj_aplha(2)),real(impj_aplha(3)),aimag(impj_aplha(3)) &
+                                  ,jxsq,jysq,jzsq,jsq,real(impLdotS),aimag(impLdotS)
+    close(unit_)
+    !
+    unit_ = free_unit()
+    open(unit=unit_,file='operators_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(unit_,'(30(a20,1X))') "#1-Re{Tr[Lz]}","2-|Lz|^2","3-|L|^2","4-Re{Tr[Sz]}","5-|Sz|^2","6-|S|^2",&
+                                 "7-Re{jz}","7-|jz|^2","8-|j|^2","10-Re{L.S}"
+    write(unit_,'(30(F20.12,1X))') real(trace(impLtot(3,:,:))),Lzsq,Lsq,real(trace(impStot(3,:,:))),Szsq,Ssq,&
+                                   real(impj_aplha(3)),jzsq,jsq,real(impLdotS)
+    close(unit_)
   end subroutine ed_get_quantum_SOC_operators
   !<<DEBUG
 

@@ -130,18 +130,18 @@ program ed_TEST_REPLICA
         write(*,'(5(a10,F10.5))') "sumdens",sumdens,"xmu_old",xmu_old,"xmu_new",xmu
      endif
      !
-     if(ED_MPI_SIZE==1)then
+     if(ED_MPI_SIZE.lt.5)then
         call build_hk_path
         call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
         call check_rotations(dm_rot)
         call rotate_Gloc(Greal)
         call ed_get_quantum_SOC_operators()
      else
-        if(ED_MPI_ID==1)call build_hk_path
-        if(ED_MPI_ID==2)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-        if(ED_MPI_ID==3)call check_rotations(dm_rot)
-        if(ED_MPI_ID==4)call rotate_Gloc(Greal)
-        if(ED_MPI_ID==5)call ed_get_quantum_SOC_operators()
+        if(ED_MPI_ID==0)call build_hk_path
+        if(ED_MPI_ID==1)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+        if(ED_MPI_ID==2)call check_rotations(dm_rot)
+        if(ED_MPI_ID==3)call rotate_Gloc(Greal)
+        if(ED_MPI_ID==4)call ed_get_quantum_SOC_operators()
      endif
      !
      do i=1,Lmats
@@ -229,8 +229,8 @@ contains
     where(abs((Ti3dt2g_Hloc))<1.d-9)Ti3dt2g_Hloc=0d0
     Ti3dt2g_Hloc_nn=so2nn_reshape(Ti3dt2g_Hloc)
     !
-    inv_impHloc=Ti3dt2g_Hloc
-    call inv(inv_impHloc)
+    !inv_impHloc=Ti3dt2g_Hloc
+    !call inv(inv_impHloc)
     !
     !scrivo impHloc
     !
@@ -247,17 +247,17 @@ contains
           write(*,'(6F10.4)') (dimag(Ti3dt2g_Hloc(i,j)),j=1,Nso)
        enddo
        write(*,*)
-       write(*,*)
-       write(*,*) " inv[Sum over k H(k)] nella versione A1"
-       write(*,*) "real"
-       do i=1,Nso
-          write(*,'(6F10.4)') (real(inv_impHloc(i,j)),j=1,Nso)
-       enddo
-       write(*,*) "complex"
-       do i=1,Nso
-          write(*,'(6F10.4)') (dimag(inv_impHloc(i,j)),j=1,Nso)
-       enddo
-       write(*,*)
+       !write(*,*)
+       !write(*,*) " inv[Sum over k H(k)] nella versione A1"
+       !write(*,*) "real"
+       !do i=1,Nso
+       !   write(*,'(6F10.4)') (real(inv_impHloc(i,j)),j=1,Nso)
+       !enddo
+       !write(*,*) "complex"
+       !do i=1,Nso
+       !   write(*,'(6F10.4)') (dimag(inv_impHloc(i,j)),j=1,Nso)
+       !enddo
+       !write(*,*)
     endif
     !
     !Build the local GF in the spin-orbital Basis:
