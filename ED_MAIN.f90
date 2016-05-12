@@ -1831,7 +1831,7 @@ contains
     enddo
     !
     unit = free_unit();rewind(unit)
-    open(unit,file="imp_density_matrix.ed",action="write",position="append",status='unknown')
+    open(unit,file="imp_density_matrix.dat",action="write",position="append",status='unknown')
     if(iprint==0) then
        write(unit,"(A10)")"# Re{rho}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb
@@ -1877,87 +1877,65 @@ contains
 
   subroutine ed_get_quantum_SOC_operators(S_,L_,j_)
     !passed
-    complex(8),allocatable,optional,intent(in)  ::  S_(:,:,:)
-    complex(8),allocatable,optional,intent(in)  ::  L_(:,:,:)
-    complex(8),allocatable,optional,intent(in)  ::  j_(:)
-    integer                                     ::  unit_
-    integer                                     ::  iorb,ispin,jorb,jspin
+    complex(8),allocatable,optional,intent(out)  ::  S_(:,:,:)
+    complex(8),allocatable,optional,intent(out)  ::  L_(:,:,:)
+    complex(8),allocatable,optional,intent(out)  ::  j_(:)
+    integer                                      ::  unit_
+    integer                                      ::  iorb,ispin,jorb,jspin
     if(Norb/=3)stop"SOC_operators implemented for 3 orbitals"
     if(present(S_).and.((size(S_,dim=1)/=3).or.(size(S_,dim=2)/=3).or.(size(S_,dim=3)/=3)))stop"wrong S size (3,3,3)"
     if(present(L_).and.((size(L_,dim=1)/=3).or.(size(L_,dim=2)/=2).or.(size(L_,dim=3)/=2)))stop"wrong L size (3,2,2)"
     if(present(j_).and.(size(j_)/=3))stop"wrong j size (3)"
-
+    !
+    if(present(S_))        S_=impStot
+    if(present(L_))        L_=impLtot
+    if(present(j_))        j_=impj_aplha
+    !
     unit_ = free_unit()
-    open(unit=unit_,file='impL.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(unit_,'(a100)') "#diagonal spin"
-    write(unit_,'(a8,30a20)') "Re{Lx}_1","Re{Lx}_2" &
-                             ,"Re{Ly}_1","Re{Ly}_2" &
-                             ,"Re{Lz}_1","Re{Lz}_2" &
-                             ,"Im{Lx}_1","Im{Lx}_2" &
-                             ,"Im{Ly}_1","Im{Ly}_2" &
-                             ,"Im{Lz}_1","Im{Lz}_2"
-    write(unit_,'(30F20.12)') real(impL(1,1,1)), real(impL(1,2,2)) &
-                           ,  real(impL(2,1,1)), real(impL(2,2,2)) &
-                           ,  real(impL(3,1,1)), real(impL(3,2,2)) &
-                           , aimag(impL(1,1,1)),aimag(impL(1,2,2)) &       
-                           , aimag(impL(2,1,1)),aimag(impL(2,2,2)) &
-                           , aimag(impL(3,1,1)),aimag(impL(3,2,2))
+    open(unit=unit_,file='S_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(unit_,'(30a20)') "#Sx(orb_1)","Sx(orb_2)","Sx(orb_3)","Sy(orb_1)","Sy(orb_2)","Sy(orb_3)","Sz(orb_1)","Sz(orb_2)","Sz(orb_3)"
+    do iorb=1,Norb
+       write(unit_,'(30(F20.12,1X))') (real(impStot(1,iorb,jorb)),jorb=1,Norb) &
+                                     ,(real(impStot(2,iorb,jorb)),jorb=1,Norb) &
+                                     ,(real(impStot(3,iorb,jorb)),jorb=1,Norb)
+    enddo
     write(unit_,*)
-    write(unit_,*)
+    do iorb=1,Norb
+       write(unit_,'(30(F20.12,1X))') (aimag(impStot(1,iorb,jorb)),jorb=1,Norb) &
+                                     ,(aimag(impStot(2,iorb,jorb)),jorb=1,Norb) &
+                                     ,(aimag(impStot(3,iorb,jorb)),jorb=1,Norb)
+    enddo
+    close(unit_)
+    !
+    unit_ = free_unit()
+    open(unit=unit_,file='L_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
     write(unit_,'(a100)') "#inter-spin"
     write(unit_,'(30a20)') "#Lx(spin_1)","Lx(spin_2)","Ly(spin_1)","Ly(spin_2)","Lz(spin_1)","Lz(spin_2)"
     do ispin=1,Nspin
-       write(unit_,'(30F20.12)') (real(impL(1,ispin,jspin)),jspin=1,Nspin) &
-                                ,(real(impL(2,ispin,jspin)),jspin=1,Nspin) &
-                                ,(real(impL(3,ispin,jspin)),jspin=1,Nspin)
+       write(unit_,'(30(F20.12,1X))') (real(impLtot(1,ispin,jspin)),jspin=1,Nspin) &
+                                     ,(real(impLtot(2,ispin,jspin)),jspin=1,Nspin) &
+                                     ,(real(impLtot(3,ispin,jspin)),jspin=1,Nspin)
     enddo
     write(unit_,*)
     do ispin=1,Nspin
-       write(unit_,'(30F20.12)') (aimag(impL(1,ispin,jspin)),jspin=1,Nspin) &
-                                ,(aimag(impL(2,ispin,jspin)),jspin=1,Nspin) &
-                                ,(aimag(impL(3,ispin,jspin)),jspin=1,Nspin)
+       write(unit_,'(30(F20.12,1X))') (aimag(impLtot(1,ispin,jspin)),jspin=1,Nspin) &
+                                     ,(aimag(impLtot(2,ispin,jspin)),jspin=1,Nspin) &
+                                     ,(aimag(impLtot(3,ispin,jspin)),jspin=1,Nspin)
     enddo
     close(unit_)
-
+    !
     unit_ = free_unit()
-    open(unit=unit_,file='impS.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(unit_,'(a100)') "#diagonal orbital"
-    write(unit_,'(30a20)') "Re{Sx}_11","Re{Sx}_22","Re{Sx}_33" &
-                        ,"Re{Sy}_11","Re{Sy}_22","Re{Sy}_33" &
-                        ,"Re{Sz}_11","Re{Sz}_22","Re{Sz}_33" &
-                        ,"Im{Sx}_11","Im{Sx}_22","Im{Sx}_33" &
-                        ,"Im{Sy}_11","Im{Sy}_22","Im{Sy}_33" &
-                        ,"Im{Sz}_11","Im{Sz}_22","Im{Sz}_33" &
-                        ,"mag" 
-    write(unit_,'(30F20.12)') real(impS(1,1,1)), real(impS(1,2,2)), real(impS(1,3,3)) &
-                            , real(impS(2,1,1)), real(impS(2,2,2)), real(impS(2,3,3)) &
-                            , real(impS(3,1,1)), real(impS(3,2,2)), real(impS(3,3,3)) &
-                            ,aimag(impS(1,1,1)),aimag(impS(1,2,2)),aimag(impS(1,3,3)) &       
-                            ,aimag(impS(2,1,1)),aimag(impS(2,2,2)),aimag(impS(2,3,3)) &
-                            ,aimag(impS(3,1,1)),aimag(impS(3,2,2)),aimag(impS(3,3,3))
-    write(unit_,*)
-    write(unit_,*)
-    write(unit_,'(a100)') "#inter-orbital"
-    write(unit_,'(30a20)') "#Sx(orb_1)","Sx(orb_2)","Sx(orb_3)","Sy(orb_1)","Sy(orb_2)","Sy(orb_3)","Sz(orb_1)","Sz(orb_2)","Sz(orb_3)"
-    do iorb=1,Norb
-       write(unit_,'(30F20.12)') (real(impS(1,iorb,jorb)),jorb=1,Norb) &
-                              ,(real(impS(2,iorb,jorb)),jorb=1,Norb) &
-                              ,(real(impS(3,iorb,jorb)),jorb=1,Norb)
-    enddo
-    write(unit_,*)
-    do iorb=1,Norb
-       write(unit_,'(30F20.12)') (aimag(impS(1,iorb,jorb)),jorb=1,Norb) &
-                              ,(aimag(impS(2,iorb,jorb)),jorb=1,Norb) &
-                              ,(aimag(impS(3,iorb,jorb)),jorb=1,Norb)
-    enddo
-    close(unit_)
-
-
-
-
-
-
-
+    open(unit=unit_,file='Jz_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(unit_,'(30a20)') "#1-Re{Tr[Sz]}","2-Im{Tr[Sz]}","3-Re{Tr[Lz]}","4-Im{Tr[Lz]}","5-Re{jx}","6-Im{jx}"&
+                                                                                       ,"7-Re{jy}","8-Im{jy}"&
+                                                                                       ,"9-Re{jz}","10-Im{jz}"&
+                                                                                       ,"11-Re{L.S}","12-Im{L.S}"
+    write(unit_,'(30(F20.12,1X))') real(trace(impStot(3,:,:))),aimag(trace(impStot(3,:,:))) &
+                                  ,real(trace(impLtot(3,:,:))),aimag(trace(impLtot(3,:,:))) &
+                                  ,real(impj_aplha(1)),aimag(impj_aplha(1)) &
+                                  ,real(impj_aplha(2)),aimag(impj_aplha(2)) &
+                                  ,real(impj_aplha(3)),aimag(impj_aplha(3)) &
+                                  ,real(impLdotS),aimag(impLdotS)
   end subroutine ed_get_quantum_SOC_operators
   !<<DEBUG
 

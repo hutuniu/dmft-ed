@@ -105,9 +105,9 @@ program ed_TEST_REPLICA
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
      if(ED_MPI_ID==0)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+     if(ED_MPI_ID==0)call check_rotations(dm_rot)
      if(ED_MPI_ID==0)call rotate_Gloc(Greal)
      if(ED_MPI_ID==0)call Quantum_operator()
-     !if(ED_MPI_ID==0)call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
      if(ED_MPI_ID==0)call ed_get_quantum_SOC_operators()
 
 
@@ -263,10 +263,10 @@ contains
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     do ik=1,Lk
        do i=1,Lmats
-          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+4.5 , Hk(:,:,ik) )/Lk
+          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+4.7 , Hk(:,:,ik) )/Lk
        enddo
        do i=1,Lreal
-          Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+4.5,Hk(:,:,ik))/Lk
+          Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+4.7,Hk(:,:,ik))/Lk
        enddo
     enddo
     do ispin=1,Nspin
@@ -303,10 +303,6 @@ contains
     integer                     :: N,ndx
     real(8),dimension(Norb,0:6) :: HoppingMatrix
     !
-    s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
-    s_x(1,2)=cmplx(1.0d0,0.0d0); s_x(2,1)=cmplx(1.0d0,0.0d0)
-    s_y(1,2)=cmplx(0.0d0,-1.0d0);s_y(2,1)=cmplx(0.0d0,1.0d0)
-    s_z(1,1)=cmplx(1.0d0,0.0d0); s_z(2,2)=cmplx(-1.0d0,0.0d0)
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
     !
     call get_hopping(HoppingMatrix)
@@ -327,9 +323,9 @@ contains
           enddo
        else
           !REALISTIC SOC (upper triangle)
-          Hk(1:2,3:4)= +xi * s_z * soc/2.
-          Hk(1:2,5:6)= -xi * s_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-          Hk(3:4,5:6)= +xi * s_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+          Hk(1:2,3:4)= +xi * pauli_z * soc/2.
+          Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+          Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
        endif
        !hermiticity
        do i=1,Nspin*Norb
@@ -356,10 +352,6 @@ contains
     integer                     :: N,ndx
     real(8),dimension(Norb,0:6) :: HoppingMatrix
     !
-    s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
-    s_x(1,2)=cmplx(1.0d0,0.0d0); s_x(2,1)=cmplx(1.0d0,0.0d0)
-    s_y(1,2)=cmplx(0.0d0,-1.0d0);s_y(2,1)=cmplx(0.0d0,1.0d0)
-    s_z(1,1)=cmplx(1.0d0,0.0d0); s_z(2,2)=cmplx(-1.0d0,0.0d0)
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
     !
     if(Norb==3)call get_hopping(HoppingMatrix)
@@ -378,9 +370,9 @@ contains
           enddo
        else
           !REALISTIC SOC (upper triangle)
-          Hk(1:2,3:4)= +xi * s_z * soc/2.
-          Hk(1:2,5:6)= -xi * s_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-          Hk(3:4,5:6)= +xi * s_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+          Hk(1:2,3:4)= +xi * pauli_z * soc/2.
+          Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+          Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
        endif
        !hermiticity
        do i=1,Nspin*Norb
@@ -613,16 +605,14 @@ contains
     integer (kind=4), parameter                   :: lwork=2000
     complex (kind=8), dimension(lwork)            :: work
     real    (kind=8), dimension(lwork)            :: rwork
-
-    g0k=zero
-    g0k_tmp=zero
-
+    !
+    g0k=zero;g0k_tmp=zero
+    !
     g0k=iw*eye(Nspin*Norb)-hk
     g0k_tmp=g0k
-
+    !
     call inv(g0k)
     call inversion_test(g0k,g0k_tmp,1.e-9)
-
   end function inverse_g0k
 
   !---------------------------------------------------------------------
@@ -852,7 +842,7 @@ contains
     complex(8),dimension(6,6),intent(out)   ::   theta_
     complex(8),dimension(6,6),intent(out)   ::   impHloc_rot_
     real(8),dimension(6)                    ::   impHloc_eig
-    theta_=cmplx(0.0d0,0.0d0)
+    theta_=zero
     !J=1/2 jz=-1/2
     theta_(1,1)=-Xi
     theta_(3,1)=-1.0d0
@@ -888,6 +878,65 @@ contains
     call matrix_diagonalize(impHloc_rot_,impHloc_eig,'V','U')
     !
   end subroutine build_rotation
+
+
+  !---------------------------------------------------------------------
+  !PURPOSE: Build the operators that defines J and jz
+  !---------------------------------------------------------------------
+  subroutine check_rotations(rotation)
+    complex(8),dimension(6,6),intent(in)   ::   rotation
+    complex(8),dimension(6,6)              ::   LSmatrix,LSmatrix_rot
+    complex(8),dimension(6,6)              ::   jzmatrix,jzmatrix_rot
+    integer                                ::   io,jo,unit_
+    !
+    LSmatrix=zero;LSmatrix_rot=zero
+    jzmatrix=zero;jzmatrix_rot=zero
+    !
+    LSmatrix(1:2,3:4)= -Xi * pauli_z / 2.
+    LSmatrix(1:2,5:6)= +Xi * pauli_y / 2.
+    LSmatrix(3:4,5:6)= -Xi * pauli_x / 2.
+    do io=1,Nspin*Norb
+       do jo=io+1,Nspin*Norb
+          LSmatrix(jo,io)=conjg(LSmatrix(io,jo))
+       enddo
+    enddo
+    LSmatrix=reshape_Z_to_A1(LSmatrix)
+    !
+    jzmatrix(1:2,1:2)=pauli_z/2
+    jzmatrix(3:4,3:4)=pauli_z/2
+    jzmatrix(5:6,5:6)=pauli_z/2
+    jzmatrix(1,3)=-xi
+    jzmatrix(2,4)=-xi
+    jzmatrix(4,2)=xi
+    jzmatrix(3,1)=xi
+    jzmatrix=reshape_Z_to_A1(jzmatrix)
+    !
+    LSmatrix_rot = matmul(transpose(conjg(rotation)),matmul(LSmatrix,(rotation)))
+    jzmatrix_rot = matmul(transpose(conjg(rotation)),matmul(jzmatrix,(rotation)))
+    !
+    unit_ = free_unit();rewind(unit_)
+    open(unit_,file="jz_LS_rotations.dat",action="write",position="append",status='unknown')
+    write(unit_,'(A100)')"# rotation on LS [Re,Im]"
+    do io=1,Nspin*Norb
+       write(unit_,'(30(F21.12,1X))') (real(LSmatrix_rot(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    write(unit_,*)
+    do io=1,Nspin*Norb
+       write(unit_,'(30(F21.12,1X))') (aimag(LSmatrix_rot(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    write(unit_,*)
+    write(unit_,'(A100)')"# rotation on jz [Re,Im]"
+    write(unit_,*)
+    do io=1,Nspin*Norb
+       write(unit_,'(30(F21.12,1X))') (real(jzmatrix_rot(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    write(unit_,*)
+    do io=1,Nspin*Norb
+       write(unit_,'(30(F21.12,1X))') (aimag(jzmatrix_rot(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    close(unit_)
+    !
+  end subroutine check_rotations
 
 
 

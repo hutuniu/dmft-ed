@@ -91,11 +91,10 @@ MODULE ED_VARS_GLOBAL
   !PRIVATE (now public but accessible thru routine)
   !=========================================================
   complex(8),allocatable,dimension(:,:,:,:)  :: imp_density_matrix
-  complex(8),allocatable,dimension(:,:,:)    :: impS
-  complex(8),allocatable,dimension(:,:,:)    :: impL
+  complex(8),allocatable,dimension(:,:,:)    :: impStot
+  complex(8),allocatable,dimension(:,:,:)    :: impLtot
   complex(8),allocatable,dimension(:)        :: impj_aplha
-  complex(8),allocatable,dimension(:,:,:,:)  :: impLdotS
-  complex(8)                                 :: impJ
+  complex(8)                                 :: impLdotS
 
   !MPI Parallel environment variables
   !PUBLIC
