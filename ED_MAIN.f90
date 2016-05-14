@@ -296,10 +296,11 @@ contains
     call allocate_dmft_bath(dmft_bath)
     if(bath_type=="replica")call init_dmft_bath_mask(dmft_bath)
     call init_dmft_bath(dmft_bath,hwband_)
+    call get_dmft_bath(dmft_bath,bath_)
     !
     !call write_dmft_bath(dmft_bath,LOGfile)
+    !write(*,*) bath_
     !
-    call get_dmft_bath(dmft_bath,bath_)
     !
     if(isetup)then
        select case(ed_mode)
@@ -1800,14 +1801,14 @@ contains
   !DEBUG>>
   subroutine ed_get_density_matrix(dm_,iprint,dm_eig,dm_rot)
     !passed
-    complex(8),allocatable,intent(inout)           :: dm_(:,:)
-    integer,intent(in)                             :: iprint
-    real(8),allocatable,intent(inout),optional     :: dm_eig(:)
-    complex(8),allocatable,intent(inout),optional  :: dm_rot(:,:)
+    complex(8),allocatable,intent(out)           :: dm_(:,:)
+    integer,intent(in)                           :: iprint
+    real(8),allocatable,intent(out),optional     :: dm_eig(:)
+    complex(8),allocatable,intent(out),optional  :: dm_rot(:,:)
     !internal
-    integer                                        :: unit  
-    integer                                        :: iorb,jorb,ispin,jspin,io,jo
-    complex(8)                                     :: Tr
+    integer                                      :: unit  
+    integer                                      :: iorb,jorb,ispin,jspin,io,jo
+    complex(8)                                   :: Tr
     !
     if (((.not.present(dm_eig)).or.(.not.present(dm_rot))).and.(iprint/=0)) then
        write(*,*) "iprint/=0 but matrices not allocated"
@@ -1830,8 +1831,8 @@ contains
        enddo
     enddo
     !
-    unit = free_unit();rewind(unit)
-    open(unit,file="imp_density_matrix.dat",action="write",position="append",status='unknown')
+    unit = free_unit()
+    open(unit,file="imp_density_matrix.dat",action="write",position="rewind",status='unknown')
     if(iprint==0) then
        write(unit,"(A10)")"# Re{rho}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb

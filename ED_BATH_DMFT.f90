@@ -236,12 +236,12 @@ contains
        if((ed_type=="d").or.((ed_type=="c").and.(real_hybr)))then
           do i=1,Nbath
              noise_tot=noise_b(i)
-             dmft_bath_%vr(i)=cmplx(0.1d0+noise_tot,0.0d0)*ed_vsf_ratio
+             dmft_bath_%vr(i)=cmplx(0.1d0+noise_tot,0.0d0)*ed_vsf_ratio*(-1)**(i-1)
           enddo
        elseif((ed_type=="c").and.(.not.real_hybr))then
           do i=1,Nbath
              noise_tot=noise_b(i)
-             dmft_bath_%vr(i)=cmplx(0.1d0+noise_tot,0.01d0+noise_tot**2)*ed_vsf_ratio
+             dmft_bath_%vr(i)=cmplx(0.1d0+noise_tot,0.01d0+noise_tot**2)*ed_vsf_ratio*(-1)**(i-1)
           enddo
        endif
        !
@@ -530,11 +530,11 @@ contains
                 hybr_aux=dmft_bath_%vr(i)
                 do io=1,Nspin*Norb
                    if(unit_==6)then
-                      if(ed_type=="d") then
+                      if((ed_type=="d").or.((ed_type=="c").and.(real_Hrepl))) then
                          if(io==1)write(unit_,"(F10.4,a5,90(F10.4,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
                          if(io/=1)write(unit_,"(a10,a5,90(F10.4,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
                       endif
-                      if(ed_type=="c") then
+                      if((ed_type=="c").and.(.not.real_Hrepl)) then
                          if(io==1) write(unit_,"(2F10.4,a5,90(F10.4,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
                                                                                                               (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
                          if(io/=1) write(unit_,"(2a10,a5,90(F10.4,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
@@ -555,11 +555,11 @@ contains
                 hybr_aux=dmft_bath_%vr(i)
                 do io=1,Nspin*Norb
                    if(unit_==6)then
-                      if(ed_type=="d") then
+                      if((ed_type=="d").or.((ed_type=="c").and.(real_Hrepl))) then
                          if(io==1)write(unit_,"(F10.4,a5,90(F10.4,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
                          if(io/=1)write(unit_,"(a10,a5,90(F10.4,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
                       endif
-                      if(ed_type=="c") then
+                      if((ed_type=="c").and.(.not.real_Hrepl)) then
                          if(io==1) write(unit_,"(2F10.4,a5,90(F10.4,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
                                                                                                               (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
                          if(io/=1) write(unit_,"(2a10,a5,90(F10.4,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
@@ -801,6 +801,9 @@ contains
              do iorb=1,Norb
                 do jorb=iorb,Norb
                    do ibath=1,Nbath
+                      io = iorb + (ispin-1)*Norb
+                      jo = jorb + (jspin-1)*Norb
+                      if(io.gt.jo)cycle
                       element_R=0.0d0;element_I=0.0d0
                       if(dmft_bath_%mask(ispin,ispin,iorb,jorb,1)) then
                          i=i+1
@@ -840,10 +843,13 @@ contains
           i = 0
           !all non-vanishing terms in imploc - all spin
           do ispin=1,Nspin
-             do jspin=ispin,Nspin
+             do jspin=1,Nspin
                 do iorb=1,Norb
-                   do jorb=iorb,Norb
+                   do jorb=1,Norb
                       do ibath=1,Nbath
+                         io = iorb + (ispin-1)*Norb
+                         jo = jorb + (jspin-1)*Norb
+                         if(io.gt.jo)cycle
                          element_R=0.0d0;element_I=0.0d0
                          if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1)) then
                             i=i+1
@@ -1061,8 +1067,11 @@ contains
           !all non-vanishing terms in imploc - all spin
           do ispin=1,Nspin
              do iorb=1,Norb
-                do jorb=iorb,Norb
+                do jorb=1,Norb
                    do ibath=1,Nbath
+                      io = iorb + (ispin-1)*Norb
+                      jo = jorb + (ispin-1)*Norb
+                      if(io.gt.jo)cycle
                       if(dmft_bath_%mask(ispin,ispin,iorb,jorb,1)) then
                          i=i+1
                          bath_(i)=real(dmft_bath_%h(ispin,ispin,iorb,jorb,ibath))
@@ -1094,10 +1103,13 @@ contains
           i = 0
           !all non-vanishing terms in imploc - all spin
           do ispin=1,Nspin
-             do jspin=ispin,Nspin
+             do jspin=1,Nspin
                 do iorb=1,Norb
-                   do jorb=iorb,Norb
+                   do jorb=1,Norb
                       do ibath=1,Nbath
+                      io = iorb + (ispin-1)*Norb
+                      jo = jorb + (jspin-1)*Norb
+                      if(io.gt.jo)cycle
                          if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1)) then
                             i=i+1
                             bath_(i)=real(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath))

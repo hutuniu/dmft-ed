@@ -104,8 +104,17 @@ program ed_TEST_REPLICA
      !
      call ed_solve(bath)
      call ed_get_sigma_matsubara(Smats)
+     !
+     call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+     !call rotate_Gloc(Smats)
+     !call build_Jz_paramagnet(Smats,dm_rot)
+     !
      call ed_get_sigma_real(Sreal)
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
+     !
+     call rotate_Gloc(Greal)
+     call build_Jz_paramagnet(Gmats,dm_rot)
+     !
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
      Bath_=bath
      if (ed_mode=="normal") then
@@ -132,15 +141,15 @@ program ed_TEST_REPLICA
      !
      if(ED_MPI_SIZE.lt.5)then
         call build_hk_path
-        call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-        call check_rotations(dm_rot)
-        call rotate_Gloc(Greal)
+        !call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+        call check_rotations_on_Jz(dm_rot)
+        !call rotate_Gloc(Greal)
         call ed_get_quantum_SOC_operators()
      else
         if(ED_MPI_ID==0)call build_hk_path
-        if(ED_MPI_ID==1)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-        if(ED_MPI_ID==2)call check_rotations(dm_rot)
-        if(ED_MPI_ID==3)call rotate_Gloc(Greal)
+        !if(ED_MPI_ID==1)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+        if(ED_MPI_ID==2)call check_rotations_on_Jz(dm_rot)
+        !if(ED_MPI_ID==3)call rotate_Gloc(Greal)
         if(ED_MPI_ID==4)call ed_get_quantum_SOC_operators()
      endif
      !
@@ -629,6 +638,7 @@ contains
     integer                                       ::   io,jo
     integer                                       ::   ispin,jspin
     integer                                       ::   iorb,jorb
+    integer                                       ::   Lfreq
     real(8)                                       ::   wr(Lreal),dw
     character(len=13)                             ::   file_rotation
     logical                                       ::   isetup
@@ -641,11 +651,12 @@ contains
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     if(allocated( G_in))deallocate( G_in);allocate( G_in(Nspin*Norb,Nspin*Norb,Lreal));G_in=zero
     if(allocated(G_out))deallocate(G_out);allocate(G_out(Nspin*Norb,Nspin*Norb,Lreal));G_out=zero
+    Lfreq=size(Gsowr,dim=5)
     !
     if(isetup) then
-       write(*,*) " A(w) rotation - non interacting system"
+       write(*,*) " A(w) rotation - non interacting system",Lfreq
     else
-       write(*,*) " A(w) rotation - interacting system"
+       write(*,*) " A(w) rotation - interacting system",Lfreq
     endif
     !
     !
@@ -696,7 +707,7 @@ contains
     !
     !1)rotation
     G_out=zero
-    do i=1,Lreal
+    do i=1,Lfreq
        G_out(:,:,i)=matmul(transpose(conjg(impHloc_rot)),matmul(G_in(:,:,i),impHloc_rot))
     enddo
     !
@@ -746,7 +757,7 @@ contains
     !
     !1)rotation
     G_out=zero
-    do i=1,Lreal
+    do i=1,Lfreq
        G_out(:,:,i)=matmul(transpose(conjg(theta)),matmul(G_in(:,:,i),theta))
     enddo
     !
@@ -796,7 +807,7 @@ contains
     !
     !1)rotation
     G_out=zero
-    do i=1,Lreal
+    do i=1,Lfreq
        G_out(:,:,i)=matmul(transpose(conjg(dm_rot)),matmul(G_in(:,:,i),dm_rot))
     enddo
     !
@@ -838,6 +849,11 @@ contains
     !
   end subroutine rotate_Gloc
 
+
+
+!_______________________________________________________________________
+!                    Operators & Operations related to SOC
+!_______________________________________________________________________
   !---------------------------------------------------------------------
   !PURPOSE: Build the rotations
   !---------------------------------------------------------------------
@@ -882,11 +898,10 @@ contains
     !
   end subroutine build_rotation
 
-
   !---------------------------------------------------------------------
   !PURPOSE: Build the operators that defines J and jz
   !---------------------------------------------------------------------
-  subroutine check_rotations(rotation)
+  subroutine check_rotations_on_Jz(rotation)
     complex(8),dimension(6,6),intent(in)   ::   rotation
     complex(8),dimension(6,6)              ::   LSmatrix,LSmatrix_rot
     complex(8),dimension(6,6)              ::   jzmatrix,jzmatrix_rot
@@ -939,7 +954,41 @@ contains
     enddo
     close(unit_)
     !
-  end subroutine check_rotations
+  end subroutine check_rotations_on_Jz
+
+  !---------------------------------------------------------------------
+  !PURPOSE: Mix the self-energies so as to generate a paramagnet
+  !---------------------------------------------------------------------
+  subroutine build_Jz_paramagnet(Smats_nn,rotation)
+    complex(8),dimension(Nspin*Norb,Nspin*Norb ),intent(in)         :: rotation
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats),intent(inout) :: Smats_nn
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)                     :: Smats_so,Smats_tilde
+    complex(8)                                                      :: dum
+    integer                                                         :: imats,io,jo
+    !
+    write(LOGfile,*)" Paramagnet build"
+    ! => S => S~ =Q+[S]Q => operation on S~ => S =Q[S~]Q+
+    !
+    do imats=1,Lmats
+       !
+       Smats_so = zero;Smats_tilde=zero
+       Smats_so = nn2so_reshape(Smats_nn(:,:,:,:,i))
+       Smats_tilde =    matmul(rotation,matmul(Smats_so,transpose(conjg(rotation))))
+       !
+       dum = ( Smats_tilde(1,1) + Smats_tilde(2,2) ) / 2.d0
+       Smats_tilde(1,1) = dum
+       Smats_tilde(2,2) = dum
+       forall (io=1:Nso,jo=1:Nso,io/=jo)Smats_tilde(io,jo)=zero
+       !
+       Smats_so = zero
+       Smats_so = matmul(transpose(conjg(rotation)),matmul(Smats_tilde,rotation))
+       !
+       Smats_nn(:,:,:,:,i)=zero
+       Smats_nn(:,:,:,:,i)= so2nn_reshape(Smats_so)
+       !
+    enddo
+    !
+  end subroutine build_Jz_paramagnet
 
 
 
