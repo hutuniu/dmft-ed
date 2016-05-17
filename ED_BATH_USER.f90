@@ -59,6 +59,7 @@ MODULE ED_BATH_USER
   !explicit symmetries:
   public :: break_symmetry_bath              
   public :: spin_symmetrize_bath             
+  public :: SOC_symmetrize_bath             
   public :: ph_symmetrize_bath               
   public :: ph_trans_bath                    
   public :: enforce_normal_bath              
@@ -1173,31 +1174,91 @@ contains
     type(effective_bath)   :: dmft_bath_
     logical,optional       :: save
     logical                :: save_
-    integer                :: bath_size,shift
+    integer                :: bath_size,shift,ibath
+    complex(8),dimension(Norb):: dum
     save_=.true.;if(present(save))save_=save
     if(Nspin==1)then
        if(ED_MPI_ID==0)write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
        return
     endif
+    !
+    call allocate_dmft_bath(dmft_bath_)
+    if (bath_type=="replica")call init_dmft_bath_mask(dmft_bath_)
+    call set_dmft_bath(bath_,dmft_bath_)
+    !
     if (bath_type/="replica") then
-       call allocate_dmft_bath(dmft_bath_)
-       call set_dmft_bath(bath_,dmft_bath_)
        dmft_bath_%e(Nspin,:,:)=dmft_bath_%e(1,:,:)
        dmft_bath_%v(Nspin,:,:)=dmft_bath_%v(1,:,:)
        if(ed_mode=="superc")dmft_bath_%d(Nspin,:,:)=dmft_bath_%d(1,:,:)
-       if(save_)call save_dmft_bath(dmft_bath_)
-       call get_dmft_bath(dmft_bath_,bath_)
-       call deallocate_dmft_bath(dmft_bath_)
     else
-       if((ed_type=="d").or.((ed_type=="c").and.(real_hybr)))then
-          shift=Nbath
-       elseif((ed_type=="c").and.(.not.real_hybr))then
-          shift=Nbath*2
-       endif
-       bath_size = ( size(bath_) - shift ) / 2
-       bath_(1+bath_size:2*bath_size)=bath_(1:bath_size)
+       stop"spin symmetrize not implemented for replica"
     endif
+    if(save_)call save_dmft_bath(dmft_bath_)
+    call get_dmft_bath(dmft_bath_,bath_)
+    call deallocate_dmft_bath(dmft_bath_)
   end subroutine spin_symmetrize_bath
+
+  subroutine SOC_symmetrize_bath(bath_,save,rot_)
+    real(8),dimension(:),intent(inout)          :: bath_
+    logical,optional                            :: save
+    complex(8),allocatable,intent(in)           :: rot_(:,:)
+    type(effective_bath)                        :: dmft_bath_
+    logical                                     :: save_
+    integer                                     :: ispin,jspin,iorb,jorb,ibath,io,jo
+    complex(8)                                  :: Hrepl(Nspin*Norb,Nspin*Norb,Nbath)
+    complex(8)                                  :: Hrepl_tilda(Nspin*Norb,Nspin*Norb,Nbath)
+    !
+    write(LOGfile,"(A)")"SOC_symmetrize_bath"
+    save_=.true.;if(present(save))save_=save
+    if(bath_type/="replica")then
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"SOC_symmetrize_bath: not in replica bath mode, no SOC"
+       return
+    endif
+    if(Nspin==1)then
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"SOC_symmetrize_bath: Nspin=1 nothing to symmetrize"
+       return
+    endif
+    !
+    call allocate_dmft_bath(dmft_bath_)
+    call init_dmft_bath_mask(dmft_bath_)
+    call set_dmft_bath(bath_,dmft_bath_)
+    do ibath=1,Nbath
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   Hrepl(io,jo,ibath)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    do ibath=1,Nbath
+       Hrepl_tilda(:,:,ibath)=matmul(transpose(conjg(rot_)),matmul(Hrepl(:,:,ibath),rot_))
+       Hrepl(:,:,ibath)=zero
+    enddo
+    !
+    do ibath=1,Nbath
+       Hrepl_tilda(1,1,ibath)=(Hrepl_tilda(1,1,ibath)+Hrepl_tilda(2,2,ibath))/2.d0
+       Hrepl_tilda(2,2,ibath)=(Hrepl_tilda(1,1,ibath)+Hrepl_tilda(2,2,ibath))/2.d0
+       Hrepl_tilda(3,3,ibath)=(Hrepl_tilda(3,3,ibath)+Hrepl_tilda(4,4,ibath)+Hrepl_tilda(5,5,ibath)+Hrepl_tilda(6,6,ibath))/2.d0
+       Hrepl_tilda(4,4,ibath)=(Hrepl_tilda(3,3,ibath)+Hrepl_tilda(4,4,ibath)+Hrepl_tilda(5,5,ibath)+Hrepl_tilda(6,6,ibath))/2.d0
+       Hrepl_tilda(5,5,ibath)=(Hrepl_tilda(3,3,ibath)+Hrepl_tilda(4,4,ibath)+Hrepl_tilda(5,5,ibath)+Hrepl_tilda(6,6,ibath))/2.d0
+       Hrepl_tilda(6,6,ibath)=(Hrepl_tilda(3,3,ibath)+Hrepl_tilda(4,4,ibath)+Hrepl_tilda(5,5,ibath)+Hrepl_tilda(6,6,ibath))/2.d0
+       do io=1,Nspin*Norb
+          do jo=1,Nspin*Norb
+             if(io/=jo)Hrepl_tilda(:,:,ibath)=zero
+          enddo
+       enddo
+    enddo
+    !
+    do ibath=1,Nbath
+       Hrepl(:,:,ibath)=matmul(rot_,matmul(Hrepl_tilda(:,:,ibath),transpose(conjg(rot_))))
+    enddo
+  end subroutine SOC_symmetrize_bath
 
   subroutine ph_symmetrize_bath(bath_,save)
     real(8),dimension(:)   :: bath_

@@ -16,6 +16,7 @@ program ed_TEST_REPLICA
   complex(8),allocatable :: Delta(:,:,:,:,:)
   complex(8),allocatable :: Smats(:,:,:,:,:),Sreal(:,:,:,:,:)
   complex(8),allocatable :: Gmats(:,:,:,:,:),Greal(:,:,:,:,:)
+  complex(8),allocatable :: f_old(:,:,:,:,:),f_new(:,:,:,:,:)
   !hamiltonian input:
   complex(8),allocatable :: Hk(:,:,:)
   complex(8),allocatable :: Ti3dt2g_Hloc(:,:),Ti3dt2g_Hloc_nn(:,:,:,:)
@@ -24,14 +25,14 @@ program ed_TEST_REPLICA
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
   real(8)                :: soc,ivb,wmixing,sumdens,xmu_old
-  logical                :: surface,Hk_test,rotateG0loc,converged_n
+  logical                :: surface,Hk_test,rotateG0loc,converged_n,paramag
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   !convergence functions:
   complex(8),allocatable :: delta_conv(:,:,:),delta_conv_avrg(:)
   !density matrix:
   real(8),allocatable    :: dm_eig(:)
-  complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:)
+  complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:),dm_rot_fix(:,:)
   !SOC expectations:
   complex(8),allocatable :: Stot(:,:,:),Ltot(:,:,:),jz(:)
   !
@@ -53,6 +54,7 @@ program ed_TEST_REPLICA
   call parse_input_variable(ivb,    "IVB",finput,       default=0.0d0)
   call parse_input_variable(surface,"SURFACE",finput,   default=.false.)
   call parse_input_variable(Hk_test,"HK_TEST",finput,   default=.true.)
+  call parse_input_variable(paramag,"PARAMAG",finput,   default=.false.)
   call parse_input_variable(rotateG0loc,"ROTATEG0loc",finput, default=.false.)
   !
   call ed_read_input(trim(finput))
@@ -65,6 +67,10 @@ program ed_TEST_REPLICA
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats));Gmats=zero
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal));Sreal=zero
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal));Greal=zero
+  !
+  allocate(f_old(Nspin,Nspin,Norb,Norb,Lmats));f_old=zero
+  allocate(f_new(Nspin,Nspin,Norb,Norb,Lmats));f_new=zero
+  !
   !Allocate convergence functions:
   allocate(delta_conv(Nso,Nso,Lmats));delta_conv=zero
   allocate(delta_conv_avrg(Lmats));delta_conv_avrg=zero
@@ -72,6 +78,9 @@ program ed_TEST_REPLICA
   allocate(density_matrix(Nspin*Norb,Nspin*Norb));density_matrix=zero
   allocate(dm_eig(Nspin*Norb));dm_eig=zero
   allocate(dm_rot(Nspin*Norb,Nspin*Norb));dm_rot=zero
+  !
+  allocate(dm_rot_fix(Nspin*Norb,Nspin*Norb));dm_rot_fix=zero
+  !
   !Allocate SOC expectations:
   allocate(Stot(3,Norb,Norb));Stot=zero
   allocate(Ltot(3,Nspin,Nspin));Ltot=zero
@@ -104,17 +113,12 @@ program ed_TEST_REPLICA
      !
      call ed_solve(bath)
      call ed_get_sigma_matsubara(Smats)
-     !
-     call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-     !call rotate_Gloc(Smats)
-     !call build_Jz_paramagnet(Smats,dm_rot)
-     !
      call ed_get_sigma_real(Sreal)
+     if(paramag) then
+        call build_rotation(dm_rot,dm_rot_fix)
+        call  build_Jz_paramagnet(Smats,rotation_=dm_rot,iprint=.true.)
+     endif
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
-     !
-     call rotate_Gloc(Greal)
-     call build_Jz_paramagnet(Gmats,dm_rot)
-     !
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
      Bath_=bath
      if (ed_mode=="normal") then
@@ -122,9 +126,13 @@ program ed_TEST_REPLICA
         call spin_symmetrize_bath(bath,save=.false.)
      else
         call ed_chi2_fitgf(delta,bath)
+        if(paramag) then
+           !call build_rotation(dm_rot,dm_rot_fix)
+           !call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+           !call SOC_symmetrize_bath(bath,.false.,dm_rot)
+        endif
      endif
-     if(iloop>1) Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
-     Bath_=Bath
+     Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
 #ifdef _MPI
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
@@ -141,15 +149,15 @@ program ed_TEST_REPLICA
      !
      if(ED_MPI_SIZE.lt.5)then
         call build_hk_path
-        !call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+        call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
         call check_rotations_on_Jz(dm_rot)
-        !call rotate_Gloc(Greal)
+        call rotate_Gloc(Greal)
         call ed_get_quantum_SOC_operators()
      else
         if(ED_MPI_ID==0)call build_hk_path
         !if(ED_MPI_ID==1)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
         if(ED_MPI_ID==2)call check_rotations_on_Jz(dm_rot)
-        !if(ED_MPI_ID==3)call rotate_Gloc(Greal)
+        if(ED_MPI_ID==3)call rotate_Gloc(Greal)
         if(ED_MPI_ID==4)call ed_get_quantum_SOC_operators()
      endif
      !
@@ -858,9 +866,9 @@ contains
   !PURPOSE: Build the rotations
   !---------------------------------------------------------------------
   subroutine build_rotation(theta_,impHloc_rot_)
-    complex(8),dimension(6,6),intent(out)   ::   theta_
-    complex(8),dimension(6,6),intent(out)   ::   impHloc_rot_
-    real(8),dimension(6)                    ::   impHloc_eig
+    complex(8),dimension(6,6),intent(out)            ::   theta_
+    complex(8),dimension(6,6),intent(out)            ::   impHloc_rot_
+    real(8),dimension(6)                             ::   impHloc_eig
     theta_=zero
     !J=1/2 jz=-1/2
     theta_(1,1)=-Xi
@@ -959,35 +967,83 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: Mix the self-energies so as to generate a paramagnet
   !---------------------------------------------------------------------
-  subroutine build_Jz_paramagnet(Smats_nn,rotation)
-    complex(8),dimension(Nspin*Norb,Nspin*Norb ),intent(in)         :: rotation
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,Lmats),intent(inout) :: Smats_nn
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)                     :: Smats_so,Smats_tilde
-    complex(8)                                                      :: dum
-    integer                                                         :: imats,io,jo
+  subroutine build_Jz_paramagnet(f_nn,rotation_,iprint)
+    complex(8),allocatable,intent(inout)            :: f_nn(:,:,:,:,:)
+    complex(8),allocatable,intent(in),optional      :: rotation_(:,:)
+    complex(8),allocatable                          :: rotation(:,:)
+    logical,intent(in)                              :: iprint
+    complex(8),allocatable                          :: f_so(:,:,:),f_tilde(:,:,:)
+    complex(8)                                      :: dum(2)
+    real(8),allocatable                             :: Seig(:)
+    integer                                         :: ifreq,Lfreq,io,jo,Ndim
+    integer                                         :: iorb,jorb,ispin,jspin
     !
-    write(LOGfile,*)" Paramagnet build"
-    ! => S => S~ =Q+[S]Q => operation on S~ => S =Q[S~]Q+
+    write(LOGfile,*)"  Paramagnet build"
+    Lfreq=size(f_nn,dim=5)
+    Ndim=Nspin*Norb
+    allocate(f_so(Ndim,Ndim,Lfreq));f_so=zero
+    allocate(f_tilde(Ndim,Ndim,Lfreq));f_tilde=zero
+    allocate(rotation(Ndim,Ndim));rotation=zero
+    allocate(Seig(Ndim));Seig=0.d0
     !
-    do imats=1,Lmats
-       !
-       Smats_so = zero;Smats_tilde=zero
-       Smats_so = nn2so_reshape(Smats_nn(:,:,:,:,i))
-       Smats_tilde =    matmul(rotation,matmul(Smats_so,transpose(conjg(rotation))))
-       !
-       dum = ( Smats_tilde(1,1) + Smats_tilde(2,2) ) / 2.d0
-       Smats_tilde(1,1) = dum
-       Smats_tilde(2,2) = dum
-       forall (io=1:Nso,jo=1:Nso,io/=jo)Smats_tilde(io,jo)=zero
-       !
-       Smats_so = zero
-       Smats_so = matmul(transpose(conjg(rotation)),matmul(Smats_tilde,rotation))
-       !
-       Smats_nn(:,:,:,:,i)=zero
-       Smats_nn(:,:,:,:,i)= so2nn_reshape(Smats_so)
-       !
+    if(present(rotation_))then
+       rotation=rotation_
+    else
+       rotation = nn2so_reshape(f_nn(:,:,:,:,1))
+       call matrix_diagonalize(rotation,Seig,'V','U')
+    endif
+
+    !
+    if(iprint)then
+       open(unit=37,file="Sigma_in.canc",action="write",position="rewind",status="unknown")
+       do ifreq=1,Lfreq
+          write(37,'(30(F21.10,1X))')aimag(f_nn(1,1,1,1,ifreq)),aimag(f_nn(1,1,2,2,ifreq)),aimag(f_nn(1,1,3,3,ifreq)),&
+                                     aimag(f_nn(2,2,1,1,ifreq)),aimag(f_nn(2,2,2,2,ifreq)),aimag(f_nn(2,2,3,3,ifreq))
+          !write(37,'(30(F21.10,1X))')real(f_nn(1,1,1,1,ifreq)),real(f_nn(1,1,2,2,ifreq)),real(f_nn(1,1,3,3,ifreq)),&
+          !                           real(f_nn(2,2,1,1,ifreq)),real(f_nn(2,2,2,2,ifreq)),real(f_nn(2,2,3,3,ifreq))
+       enddo
+       close(37)
+    endif
+    !
+    do ifreq=1,Lfreq
+       f_so(:,:,ifreq) = nn2so_reshape(f_nn(:,:,:,:,ifreq))
+    enddo
+    do ifreq=1,Lfreq
+       f_tilde(:,:,ifreq) = matmul(transpose(conjg(rotation)),matmul(f_so(:,:,ifreq),rotation))
     enddo
     !
+    do ifreq=1,Lfreq
+       dum(1) = ( f_tilde(1,1,ifreq) + f_tilde(2,2,ifreq) ) / 2.d0
+       dum(2) = ( f_tilde(3,3,ifreq) + f_tilde(4,4,ifreq) + f_tilde(5,5,ifreq) + f_tilde(6,6,ifreq) ) / 4.d0
+       f_tilde(:,:,ifreq)=zero
+       do io=1,2
+          f_tilde(io,io,ifreq) = dum(1)
+       enddo
+       do io=3,6
+          f_tilde(io,io,ifreq) = dum(2)
+       enddo
+    enddo
+    !
+    do ifreq=1,Lfreq
+       f_so(:,:,ifreq) = matmul(rotation,matmul(f_tilde(:,:,ifreq),transpose(conjg(rotation))))
+       !f_so(:,:,ifreq) = f_tilde(:,:,ifreq)
+    enddo
+    do ifreq=1,Lfreq
+       f_nn(:,:,:,:,ifreq) = so2nn_reshape(f_so(:,:,ifreq))
+    enddo
+    !
+    if(iprint)then
+       open(unit=38,file="Sigma_out.canc",action="write",position="rewind",status="unknown")
+       do ifreq=1,Lfreq
+          write(38,'(30(F21.10,1X))')aimag(f_nn(1,1,1,1,ifreq)),aimag(f_nn(1,1,2,2,ifreq)),aimag(f_nn(1,1,3,3,ifreq)),&
+                                     aimag(f_nn(2,2,1,1,ifreq)),aimag(f_nn(2,2,2,2,ifreq)),aimag(f_nn(2,2,3,3,ifreq))
+          !write(38,'(30(F21.10,1X))')real(f_nn(1,1,1,1,ifreq)),real(f_nn(1,1,2,2,ifreq)),real(f_nn(1,1,3,3,ifreq)),&
+          !                           real(f_nn(2,2,1,1,ifreq)),real(f_nn(2,2,2,2,ifreq)),real(f_nn(2,2,3,3,ifreq))
+       enddo
+       close(38)
+    endif
+    !
+    deallocate(f_so,f_tilde,Seig,rotation)
   end subroutine build_Jz_paramagnet
 
 

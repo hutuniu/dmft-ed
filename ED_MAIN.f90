@@ -1799,18 +1799,18 @@ contains
   end function ed_get_dph_lattice
 
   !DEBUG>>
-  subroutine ed_get_density_matrix(dm_,iprint,dm_eig,dm_rot)
+  subroutine ed_get_density_matrix(dm_,iprint,dm_eig_,dm_rot_)
     !passed
     complex(8),allocatable,intent(out)           :: dm_(:,:)
     integer,intent(in)                           :: iprint
-    real(8),allocatable,intent(out),optional     :: dm_eig(:)
-    complex(8),allocatable,intent(out),optional  :: dm_rot(:,:)
+    real(8),allocatable,intent(out),optional     :: dm_eig_(:)
+    complex(8),allocatable,intent(out),optional  :: dm_rot_(:,:)
     !internal
     integer                                      :: unit  
     integer                                      :: iorb,jorb,ispin,jspin,io,jo
     complex(8)                                   :: Tr
     !
-    if (((.not.present(dm_eig)).or.(.not.present(dm_rot))).and.(iprint/=0)) then
+    if (((.not.present(dm_eig_)).or.(.not.present(dm_rot_))).and.(iprint/=0)) then
        write(*,*) "iprint/=0 but matrices not allocated"
        stop
     elseif (.not.allocated(imp_density_matrix)) then
@@ -1818,7 +1818,14 @@ contains
        stop
     endif
     !
-    dm_ = zero
+    if(present(dm_eig_))then
+       if(allocated(dm_eig_))deallocate(dm_eig_);allocate(dm_eig_(Nspin*Norb));dm_eig_ = 0.0d0
+    endif
+    if(present(dm_rot_))then
+       if(allocated(dm_rot_))deallocate(dm_rot_);allocate(dm_rot_(Nspin*Norb,Nspin*Norb));dm_rot_ = zero
+    endif
+    if(allocated(dm_))deallocate(dm_);allocate(dm_(Nspin*Norb,Nspin*Norb));dm_ = zero
+    !
     do ispin=1,Nspin
        do jspin=1,Nspin
           do iorb=1,Norb
@@ -1833,7 +1840,7 @@ contains
     !
     unit = free_unit()
     open(unit,file="imp_density_matrix.dat",action="write",position="rewind",status='unknown')
-    if(iprint==0) then
+    if(iprint>=0) then
        write(unit,"(A10)")"# Re{rho}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb
           write(unit,"(90(F15.9,1X))") (real(dm_(io,jo)),jo=1,Nspin*Norb)
@@ -1847,29 +1854,29 @@ contains
     if(iprint>=1)then
        Tr=zero;Tr=trace(dm_)
        write(*,'(A25,6F15.7)') 'test #1: Tr[rho]:    ',real(Tr),aimag(Tr)
-       dm_rot=zero;dm_rot=matmul(dm_,dm_)
-       Tr=zero;Tr=trace(dm_rot)
+       dm_rot_=zero;dm_rot_=matmul(dm_,dm_)
+       Tr=zero;Tr=trace(dm_rot_)
        write(*,'(A25,6F15.7)') 'test #2: Tr[rho^2]:  ',real(Tr),aimag(Tr)
-       dm_eig=0.0d0;dm_rot=zero;dm_rot=dm_
-       call matrix_diagonalize(dm_rot,dm_eig,'V','U')
-       Tr=zero;Tr=sum(dm_eig)
+       dm_eig_=0.0d0;dm_rot_=zero;dm_rot_=dm_
+       call matrix_diagonalize(dm_rot_,dm_eig_,'V','U')
+       Tr=zero;Tr=sum(dm_eig_)
        write(*,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
     endif
     if(iprint>=2)then
-       dm_eig=0.0d0;dm_rot=zero;dm_rot=dm_
-       call matrix_diagonalize(dm_rot,dm_eig,'V','U')
+       dm_eig_=0.0d0;dm_rot_=zero;dm_rot_=dm_
+       call matrix_diagonalize(dm_rot_,dm_eig_,'V','U')
        write(unit,"(A10)")
        write(unit,"(A10)")"# rho_tilda"
-       write(unit,'(10F22.12)') dm_eig
+       write(unit,'(10F22.12)') dm_eig_
        write(unit,"(A10)")
        write(unit,"(A100)")"# Re{theta}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb
-          write(unit,"(90(F15.9,1X))") (real(dm_rot(io,jo)),jo=1,Nspin*Norb)
+          write(unit,"(90(F15.9,1X))") (real(dm_rot_(io,jo)),jo=1,Nspin*Norb)
        enddo
        write(unit,"(A10)")
        write(unit,"(A100)")"# Im{theta}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb
-          write(unit,"(90(F15.9,1X))") (aimag(dm_rot(io,jo)),jo=1,Nspin*Norb)
+          write(unit,"(90(F15.9,1X))") (aimag(dm_rot_(io,jo)),jo=1,Nspin*Norb)
        enddo
     endif
     close(unit)
