@@ -114,11 +114,16 @@ program ed_TEST_REPLICA
      call ed_solve(bath)
      call ed_get_sigma_matsubara(Smats)
      call ed_get_sigma_real(Sreal)
-     if(paramag) then
-        call build_rotation(dm_rot,dm_rot_fix)
-        call  build_Jz_paramagnet(Smats,rotation_=dm_rot,iprint=.true.)
-     endif
+     !if(paramag) then
+     !   call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+        !call build_rotation(dm_rot,dm_rot_fix)
+     !   call  build_Jz_paramagnet(Smats,rotation_=dm_rot,iprint=.true.)
+     !endif
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
+     if(paramag) then
+        call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+        call  build_Jz_paramagnet(Gmats,rotation_=dm_rot,iprint=.true.)
+     endif
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
      Bath_=bath
      if (ed_mode=="normal") then

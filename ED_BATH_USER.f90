@@ -161,12 +161,24 @@ contains
        case ("superc")
           !
        case ("nonsu2")
-          if(ed_type=="d")bath_size = ndx * Nbath + Nbath
-          if(ed_type=="c")then
-             if(real_hybr)then
-                bath_size = ndx * Nbath + Nbath
-             else
-                bath_size = ndx * Nbath + Nbath * 2
+          if(ed_para)then
+           !  if((ed_type=="d").or.(real_Hrepl.and.(ed_type=="c")))then!tutto reale
+                bath_size = 2 * Nbath
+                if(real_hybr)      bath_size = bath_size + Nbath 
+                if(.not.real_hybr) bath_size = bath_size + Nbath * 2
+           !  elseif((.not.real_Hrepl).and.(ed_type=="c"))then
+           !     bath_size = 4 * Nbath
+           !     if(real_hybr)      bath_size = bath_size + Nbath 
+           !     if(.not.real_hybr) bath_size = bath_size + Nbath * 2
+           !  endif
+          else
+             if(ed_type=="d")bath_size = ndx * Nbath + Nbath
+             if(ed_type=="c")then
+                if(real_hybr)then
+                   bath_size = ndx * Nbath + Nbath
+                else
+                   bath_size = ndx * Nbath + Nbath * 2
+                endif
              endif
           endif
        end select

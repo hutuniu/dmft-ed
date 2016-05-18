@@ -527,18 +527,35 @@ function delta_replica(a) result(Delta)
         !
      enddo
      !
-     do ibath=1,Nbath
-        do ispin=1,Nspin
-           do jspin=1,Nspin
-              do iorb=1,Norb
-                 do jorb=1,Norb
-                    Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
-                      conjg(dmft_bath_tmp%vr(ibath))*invH_knn(ispin,jspin,iorb,jorb,ibath)*dmft_bath_tmp%vr(ibath)
+     if(ed_para)then
+        do ibath=1,Nbath
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 do iorb=1,Norb
+                    do jorb=1,Norb
+                       Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
+                         conjg(dmft_bath_tmp%vr(ibath))*conjg(dmft_bath_tmp%rot(jspin,ispin,jorb,iorb,2))*dmft_bath_tmp%rot(ispin,jspin,iorb,jorb,1) * &
+                         invH_knn(ispin,jspin,iorb,jorb,ibath) * &
+                         dmft_bath_tmp%vr(ibath)*conjg(dmft_bath_tmp%rot(jspin,ispin,jorb,iorb,1))*dmft_bath_tmp%rot(ispin,jspin,iorb,jorb,1)
+                    enddo
                  enddo
               enddo
-           enddo
-         enddo
-     enddo
+            enddo
+        enddo
+     else
+        do ibath=1,Nbath
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 do iorb=1,Norb
+                    do jorb=1,Norb
+                       Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
+                         conjg(dmft_bath_tmp%vr(ibath))*invH_knn(ispin,jspin,iorb,jorb,ibath)*dmft_bath_tmp%vr(ibath)
+                    enddo
+                 enddo
+              enddo
+            enddo
+        enddo
+     endif
   enddo
   !
   call deallocate_dmft_bath(dmft_bath_tmp)

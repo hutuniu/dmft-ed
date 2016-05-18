@@ -298,9 +298,11 @@ contains
     call init_dmft_bath(dmft_bath,hwband_)
     call get_dmft_bath(dmft_bath,bath_)
     !
+    !DEBUG>
     !call write_dmft_bath(dmft_bath,LOGfile)
-    !write(*,*) bath_
-    !
+    write(*,*) bath_
+    !stop
+    !>DEBUG
     !
     if(isetup)then
        select case(ed_mode)

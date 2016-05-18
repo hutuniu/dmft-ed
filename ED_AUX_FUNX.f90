@@ -66,6 +66,8 @@ MODULE ED_AUX_FUNX
   public :: so2nn_reshape
   public :: nnn2lso_reshape
   public :: nn2so_reshape
+  public :: so2os_reshape
+  public :: os2so_reshape
   public :: extract_Hloc
   public :: stride_index
   public :: get_independent_sites  
@@ -552,6 +554,59 @@ contains
        enddo
     enddo
   end function c_nn2nso
+
+
+  function so2os_reshape(fg,Nspin,Norb) result(g)
+    integer                                     :: Nspin,Norb
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: fg
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: g
+    integer                                     :: i,j,iorb,jorb,ispin,jspin
+    integer                                     :: io1,jo1,io2,jo2
+       g = zero
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !O-index
+                   io1 = iorb + (ispin-1)*Norb
+                   jo1 = jorb + (jspin-1)*Norb
+                   !I-index
+                   io2 = ispin + (iorb-1)*Nspin
+                   jo2 = jspin + (jorb-1)*Nspin
+                   !switch
+                   g(io1,jo1)  = fg(io2,jo2)
+                   !
+                enddo
+             enddo
+          enddo
+       enddo
+  end function so2os_reshape
+
+  function os2so_reshape(fg,Nspin,Norb) result(g)
+    integer                                     :: Nspin,Norb
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: fg
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: g
+    integer                                     :: i,j,iorb,jorb,ispin,jspin
+    integer                                     :: io1,jo1,io2,jo2
+       g = zero
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !O-index
+                   io1 = ispin + (iorb-1)*Nspin
+                   jo1 = jspin + (jorb-1)*Nspin
+                   !I-index
+                   io2 = iorb + (ispin-1)*Norb
+                   jo2 = jorb + (jspin-1)*Norb
+                   !switch
+                   g(io1,jo1)  = fg(io2,jo2)
+                   !
+                enddo
+             enddo
+          enddo
+       enddo
+  end function os2so_reshape
 
 
 
