@@ -431,9 +431,9 @@ contains
                          do iorb=1,Norb
                             do jorb=1,Norb
                                Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
-                               conjg(dmft_bath_%vr(ibath))*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,2))*dmft_bath_%rot(ispin,jspin,iorb,jorb,1) * &
-                               invH_knn(ispin,jspin,iorb,jorb,ibath) * &
-                               dmft_bath_%vr(ibath)*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,1))*dmft_bath_%rot(ispin,jspin,iorb,jorb,2)
+                               !conjg(dmft_bath_%vr(ibath))*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,2))*dmft_bath_%rot(ispin,jspin,iorb,jorb,1) * &
+                               conjg(dmft_bath_%vr(ibath)) * invH_knn(ispin,jspin,iorb,jorb,ibath) * dmft_bath_%vr(ibath)!&
+                               !dmft_bath_%vr(ibath)*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,1))*dmft_bath_%rot(ispin,jspin,iorb,jorb,2)
                             enddo
                          enddo
                       enddo
@@ -888,9 +888,9 @@ contains
                          do iorb=1,Norb
                             do jorb=1,Norb
                                Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
-                               conjg(dmft_bath_%vr(ibath))*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,2))*dmft_bath_%rot(ispin,jspin,iorb,jorb,1) * &
-                               invH_knn(ispin,jspin,iorb,jorb,ibath) * &
-                               dmft_bath_%vr(ibath)*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,1))*dmft_bath_%rot(ispin,jspin,iorb,jorb,2)
+                               !conjg(dmft_bath_%vr(ibath))*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,2))*dmft_bath_%rot(ispin,jspin,iorb,jorb,1) * &
+                               conjg(dmft_bath_%vr(ibath)) * invH_knn(ispin,jspin,iorb,jorb,ibath) * dmft_bath_%vr(ibath)!&
+                               !dmft_bath_%vr(ibath)*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,1))*dmft_bath_%rot(ispin,jspin,iorb,jorb,2)
                             enddo
                          enddo
                       enddo

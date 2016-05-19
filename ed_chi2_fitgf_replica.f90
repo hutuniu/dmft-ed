@@ -534,9 +534,9 @@ function delta_replica(a) result(Delta)
                  do iorb=1,Norb
                     do jorb=1,Norb
                        Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
-                         conjg(dmft_bath_tmp%vr(ibath))*conjg(dmft_bath_tmp%rot(jspin,ispin,jorb,iorb,2))*dmft_bath_tmp%rot(ispin,jspin,iorb,jorb,1) * &
-                         invH_knn(ispin,jspin,iorb,jorb,ibath) * &
-                         dmft_bath_tmp%vr(ibath)*conjg(dmft_bath_tmp%rot(jspin,ispin,jorb,iorb,1))*dmft_bath_tmp%rot(ispin,jspin,iorb,jorb,1)
+                         !conjg(dmft_bath_tmp%vr(ibath))*conjg(dmft_bath_tmp%rot(jspin,ispin,jorb,iorb,2))*dmft_bath_tmp%rot(ispin,jspin,iorb,jorb,1) * &
+                         conjg(dmft_bath_tmp%vr(ibath)) * invH_knn(ispin,jspin,iorb,jorb,ibath) * dmft_bath_tmp%vr(ibath)!&
+                         !dmft_bath_tmp%vr(ibath)*conjg(dmft_bath_tmp%rot(jspin,ispin,jorb,iorb,1))*dmft_bath_tmp%rot(ispin,jspin,iorb,jorb,1)
                     enddo
                  enddo
               enddo

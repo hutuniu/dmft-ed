@@ -76,7 +76,7 @@ contains
        case(2)
           if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
        case default
-          stop "chi2_fitgf_generic_normal error: cg_method > 2"
+          stop "chi2_fitgf_generic_normal error: cg_method > 2" 
        end select
     endif
     !
