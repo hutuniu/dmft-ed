@@ -199,7 +199,7 @@ program ed_nano
         call ed_get_gij_lattice(Hij,[1d0],Gijmats,Gijreal,Smats,Sreal,iprint=0)
      endif
      deallocate(Gijmats,Smats)
-     ! compute bare non-local susceptibility
+     ! compute bare static non-local susceptibility
      call ed_get_chi0ij(Gijreal)
      deallocate(Gijreal)
      stop
@@ -797,6 +797,7 @@ contains
 
     ! determine Nleads & allocate lead matrix
     if(mpiID==0)then
+       lfile = file_length("lead.in")
        unit = free_unit()
        open(unit,file='lead.in',status='old')
        read(unit,*)Nlead
@@ -804,7 +805,7 @@ contains
        allocate(lead_mats(Nlead,Nspin,Lmats))
        lead_real(:,:,:)=zero
        ! lead file setup lead by kind, half-bandwitdh (D) and chemical potential (mu)
-       do l=1,Nlead
+       do l=1,lfile-1 ! because Nlead was read separately above
           read(unit,*) ilead, ispin, D, mu, ikind
           ilead=ilead+1
           ispin=ispin+1
@@ -831,7 +832,7 @@ contains
           elseif(ikind==2)then
              ! broad-band limit
              write(*,*) "broad-band limit (analytic)" 
-             lead_real(ilead,ispin,:)=dcmplx(0d0,1d0) ! not very elegant...
+             lead_real(ilead,ispin,:)=dcmplx(0d0,-1d0) ! not very elegant...
           elseif(ikind==3)then
              ! semicircular DOS (k-sum) 
              write(*,*) "semicircular DOS (k-sum)"
@@ -1000,9 +1001,8 @@ contains
 
 
   !----------------------------------------------------------------------------------------!
-  ! purpose: evaluate the non-local bare spin susceptibility
-  ! given the non-local Green's function, the local (auxiliary) self-energy S_i = (S_iup-S_ido)/2 
-  ! and the fermi distribution on the real axis. 
+  ! purpose: evaluate the non-local bare static spin susceptibility
+  ! given the non-local Green's function and the fermi distribution on the real axis. 
   ! chi0_ij = 1/pi Im \int_{-infty}^{infty} G_ij(w) G_ji(w) f(w) dw
   !----------------------------------------------------------------------------------------!
   subroutine ed_get_chi0ij(Gret)
@@ -1026,13 +1026,13 @@ contains
     allocate(wr(Lreal))
     wr = linspace(wini,wfin,Lreal)
     !
-    write(*,*) "computing bare non-local susceptibility"
+    write(*,*) "computing bare static non-local susceptibility"
     !
     ! sanity checks
     if(Nspin/=1)stop "ed_get_chi0ij error: Nspin /= 1"
     if(Norb>1)stop "ed_get_chi0ij error: Norb > 1 (mutli-orbital case no timplmented yet)"
     !
-    ! compute bare non-local susceptibility
+    ! compute bare static non-local susceptibility
     do ilat=1,Nlat
        do jlat=1,Nlat
           ! perform integral over frequency
@@ -1046,7 +1046,7 @@ contains
        enddo
     enddo
     !
-    ! write bare non-local susceptibility on disk
+    ! write bare static non-local susceptibility on disk
     unit = free_unit()
     open(unit,file="jeff_ij.ed")
     do ilat=1,Nlat
