@@ -1886,24 +1886,24 @@ contains
   end subroutine ed_get_density_matrix
 
 
-  subroutine ed_get_quantum_SOC_operators(S_,L_,j_)
+  subroutine ed_get_quantum_SOC_operators(Simp,Limp,jimp)
     !passed
-    complex(8),allocatable,optional,intent(out)  ::  S_(:,:,:)
-    complex(8),allocatable,optional,intent(out)  ::  L_(:,:,:)
-    complex(8),allocatable,optional,intent(out)  ::  j_(:)
+    complex(8),allocatable,optional,intent(out)  ::  Simp(:,:,:)
+    complex(8),allocatable,optional,intent(out)  ::  Limp(:,:,:)
+    complex(8),allocatable,optional,intent(out)  ::  jimp(:)
     integer                                      ::  unit_
     integer                                      ::  iorb,ispin,jorb,jspin
     real(8)                                      ::  Lxsq,Lysq,Lzsq,Lsq
     real(8)                                      ::  Sxsq,Sysq,Szsq,Ssq
     real(8)                                      ::  jxsq,jysq,jzsq,jsq
     if(Norb/=3)stop"SOC_operators implemented for 3 orbitals"
-    if(present(S_).and.((size(S_,dim=1)/=3).or.(size(S_,dim=2)/=3).or.(size(S_,dim=3)/=3)))stop"wrong S size (3,3,3)"
-    if(present(L_).and.((size(L_,dim=1)/=3).or.(size(L_,dim=2)/=2).or.(size(L_,dim=3)/=2)))stop"wrong L size (3,2,2)"
-    if(present(j_).and.(size(j_)/=3))stop"wrong j size (3)"
+    if(present(Simp).and.((size(Simp,dim=1)/=3).or.(size(Simp,dim=2)/=3).or.(size(Simp,dim=3)/=3)))stop"wrong S size (3,3,3)"
+    if(present(Limp).and.((size(Limp,dim=1)/=3).or.(size(Limp,dim=2)/=2).or.(size(Limp,dim=3)/=2)))stop"wrong L size (3,2,2)"
+    if(present(jimp).and.(size(jimp)/=3))stop"wrong j size (3)"
     !
-    if(present(S_))        S_=impStot
-    if(present(L_))        L_=impLtot
-    if(present(j_))        j_=impj_aplha
+    if(present(Simp))        Simp=impStot
+    if(present(Limp))        Limp=impLtot
+    if(present(jimp))        jimp=impj_aplha
     !
     Sxsq = (trace(impStot(1,:,:)))*conjg(trace(impStot(1,:,:)))
     Sysq = (trace(impStot(2,:,:)))*conjg(trace(impStot(2,:,:)))
@@ -1921,7 +1921,7 @@ contains
     jsq  = jxsq + jysq + jzsq
     !
     unit_ = free_unit()
-    open(unit=unit_,file='S_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    open(unit=unit_,file='Simpimp.dat',status='unknown',position='rewind',action='write',form='formatted')
     write(unit_,'(30(a20,1X))')"#1-Re{Tr[Sx]}","2-Im{Tr[Sx]}","3-Re{Tr[Sy]}","4-Im{Tr[Sy]}","5-Re{Tr[Sz]}","6-Im{Tr[Sz]}",&
                                 "7-|Sx|^2","8-|Sy|^2","9-|Sz|^2","10-|S|^2"
     write(unit_,'(30(F20.12,1X))') real(trace(impStot(1,:,:))),aimag(trace(impStot(1,:,:))),&
@@ -1946,7 +1946,7 @@ contains
     close(unit_)
     !
     unit_ = free_unit()
-    open(unit=unit_,file='L_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    open(unit=unit_,file='Limpimp.dat',status='unknown',position='rewind',action='write',form='formatted')
     write(unit_,'(30(a20,1X))')"#1-Re{Tr[Lx]}","2-Im{Tr[Lx]}","3-Re{Tr[Ly]}","4-Im{Tr[ly]}","5-Re{Tr[Lz]}","6-Im{Tr[Lz]}",&
                                "7-|Lx|^2","8-|Ly|^2","9-|Lz|^2","10-|L|^2"
     write(unit_,'(30(F20.12,1X))') real(trace(impLtot(1,:,:))),aimag(trace(impLtot(1,:,:))),&

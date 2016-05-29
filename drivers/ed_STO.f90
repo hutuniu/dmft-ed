@@ -54,7 +54,7 @@ program ed_TEST_REPLICA
   call parse_input_variable(ivb,    "IVB",finput,       default=0.0d0)
   call parse_input_variable(surface,"SURFACE",finput,   default=.false.)
   call parse_input_variable(Hk_test,"HK_TEST",finput,   default=.true.)
-  call parse_input_variable(paramag,"PARAMAG",finput,   default=.false.)
+  call parse_input_variable(paramag,    "PARAMAG",finput,   default=.false.)
   call parse_input_variable(rotateG0loc,"ROTATEG0loc",finput, default=.false.)
   !
   call ed_read_input(trim(finput))
@@ -114,16 +114,7 @@ program ed_TEST_REPLICA
      call ed_solve(bath)
      call ed_get_sigma_matsubara(Smats)
      call ed_get_sigma_real(Sreal)
-     !if(paramag) then
-     !   call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-        !call build_rotation(dm_rot,dm_rot_fix)
-     !   call  build_Jz_paramagnet(Smats,rotation_=dm_rot,iprint=.true.)
-     !endif
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
-     if(paramag) then
-        call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-        call  build_Jz_paramagnet(Gmats,rotation_=dm_rot,iprint=.true.)
-     endif
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
      Bath_=bath
      if (ed_mode=="normal") then
@@ -131,11 +122,6 @@ program ed_TEST_REPLICA
         call spin_symmetrize_bath(bath,save=.false.)
      else
         call ed_chi2_fitgf(delta,bath)
-        if(paramag) then
-           !call build_rotation(dm_rot,dm_rot_fix)
-           !call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-           !call SOC_symmetrize_bath(bath,.false.,dm_rot)
-        endif
      endif
      Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
 #ifdef _MPI
@@ -157,13 +143,15 @@ program ed_TEST_REPLICA
         call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
         call check_rotations_on_Jz(dm_rot)
         call rotate_Gloc(Greal)
-        call ed_get_quantum_SOC_operators()
+        call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
+        !if(abs(jz(3))>=-0.51.and.abs(jz(3))<=-0.49)stop " STOP FOUND jz=-0.5"
+        !if(abs(jz(3))>=+0.49.and.abs(jz(3))<=+0.51)stop " STOP FOUND jz=+0.5"
      else
         if(ED_MPI_ID==0)call build_hk_path
-        !if(ED_MPI_ID==1)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+        if(ED_MPI_ID==1)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
         if(ED_MPI_ID==2)call check_rotations_on_Jz(dm_rot)
         if(ED_MPI_ID==3)call rotate_Gloc(Greal)
-        if(ED_MPI_ID==4)call ed_get_quantum_SOC_operators()
+        if(ED_MPI_ID==4)call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
      endif
      !
      do i=1,Lmats
@@ -177,7 +165,7 @@ program ed_TEST_REPLICA
      if(ED_MPI_ID==0) converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0) converged = check_convergence_global(delta_conv_avrg,dmft_error,nsuccess,nloop)
      !if(ED_MPI_ID==0) converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
-     !if(ED_MPI_ID==0)converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
+     !if(ED_MPI_ID==0) converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
      converged = converged .and. converged_n
 #ifdef _MPI
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
@@ -189,7 +177,12 @@ program ed_TEST_REPLICA
 #endif
 contains
 
-
+!
+! OLD TO BE REMOVED
+!
+! call build_Jz_paramagnet
+! call SOC_symmetrize_bath
+!
 
 !_______________________________________________________________________
 !                      NON-INTERACTING HAMILTONIAN
@@ -269,17 +262,6 @@ contains
           write(*,'(6F10.4)') (dimag(Ti3dt2g_Hloc(i,j)),j=1,Nso)
        enddo
        write(*,*)
-       !write(*,*)
-       !write(*,*) " inv[Sum over k H(k)] nella versione A1"
-       !write(*,*) "real"
-       !do i=1,Nso
-       !   write(*,'(6F10.4)') (real(inv_impHloc(i,j)),j=1,Nso)
-       !enddo
-       !write(*,*) "complex"
-       !do i=1,Nso
-       !   write(*,'(6F10.4)') (dimag(inv_impHloc(i,j)),j=1,Nso)
-       !enddo
-       !write(*,*)
     endif
     !
     !Build the local GF in the spin-orbital Basis:
@@ -339,18 +321,19 @@ contains
     enddo
     !
     if(SOC/=zero)then
-       if(Hk_test)then
+       if((Hk_test).and.(Norb/=3))then
           do i=1,Norb
              ndx=2*i-1
-             !Hk(ndx,ndx+1) = cmplx(soc,soc/4.d0)
-             !Hk(ndx,ndx+1) = cmplx(soc,0.d0)
              Hk(ndx,ndx+1) = cmplx(0.d0,soc)
           enddo
        else
           !REALISTIC SOC (upper triangle)
-          Hk(1:2,3:4)= +xi * pauli_z * soc/2.
-          Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-          Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+       !   Hk(1:2,3:4)= +xi * pauli_z * soc/2.
+       !   Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+       !   Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+          Hk(1:2,3:4)= abs(+xi * pauli_z * soc/2.)
+          Hk(1:2,5:6)= abs(-xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
+          Hk(3:4,5:6)= abs(+xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
        endif
        !hermiticity
        do i=1,Nspin*Norb
@@ -388,16 +371,19 @@ contains
     enddo
     !
     if(SOC/=zero)then
-       if(Hk_test)then
+       if((Hk_test).and.(Norb/=3))then
           do i=1,Norb
              ndx=2*i-1
-             Hk(ndx,ndx+1) = cmplx(soc,soc/3.d0)
+             Hk(ndx,ndx+1) = cmplx(0.d0,soc)
           enddo
        else
           !REALISTIC SOC (upper triangle)
-          Hk(1:2,3:4)= +xi * pauli_z * soc/2.
-          Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-          Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+       !   Hk(1:2,3:4)= +xi * pauli_z * soc/2.
+       !   Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+       !   Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+          Hk(1:2,3:4)= abs(+xi * pauli_z * soc/2.)
+          Hk(1:2,5:6)= abs(-xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
+          Hk(3:4,5:6)= abs(+xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
        endif
        !hermiticity
        do i=1,Nspin*Norb
@@ -647,7 +633,7 @@ contains
     implicit none
     complex(8),allocatable,intent(in)             ::   Gsowr(:,:,:,:,:)
     complex(8),allocatable                        ::   G_in(:,:,:),G_out(:,:,:)
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)   ::   theta,impHloc_rot
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)   ::   theta_C,theta_R,impHloc_rot
     integer                                       ::   io,jo
     integer                                       ::   ispin,jspin
     integer                                       ::   iorb,jorb
@@ -659,7 +645,7 @@ contains
     if(.not.allocated(Bath))isetup=.true.
     if(allocated(Bath))     isetup=.false.
     !
-    call build_rotation(theta,impHloc_rot)
+    call build_rotation(theta_C,theta_R,impHloc_rot)
     !
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     if(allocated( G_in))deallocate( G_in);allocate( G_in(Nspin*Norb,Nspin*Norb,Lreal));G_in=zero
@@ -763,7 +749,7 @@ contains
     !
     !###############################################################
     !#                                                             #
-    !#                    ROTATION WITH theta                      #
+    !#                    ROTATION WITH theta_C                      #
     !#                                                             #
     !###############################################################
     !
@@ -771,7 +757,7 @@ contains
     !1)rotation
     G_out=zero
     do i=1,Lfreq
-       G_out(:,:,i)=matmul(transpose(conjg(theta)),matmul(G_in(:,:,i),theta))
+       G_out(:,:,i)=matmul(transpose(conjg(theta_C)),matmul(G_in(:,:,i),theta_C))
     enddo
     !
     !2)output save
@@ -787,6 +773,7 @@ contains
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
                 call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+
              enddo
           enddo
        enddo
@@ -796,6 +783,57 @@ contains
        open(unit=106,file='sum_w_G0loc_rot_A.dat',status='unknown',action='write',position='rewind')
     else
        open(unit=106,file='sum_w_Gloc_rot_A.dat',status='unknown',action='write',position='rewind')
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    close(106)
+    !
+    !
+    !###############################################################
+    !#                                                             #
+    !#                    ROTATION WITH theta_R                      #
+    !#                                                             #
+    !###############################################################
+    !
+    !
+    !1)rotation
+    G_out=zero
+    do i=1,Lfreq
+       G_out(:,:,i)=matmul(transpose(conjg(theta_R)),matmul(G_in(:,:,i),theta_R))
+    enddo
+    !
+    !2)output save
+    if(isetup) then
+       file_rotation="G0loc_rot_B_l"
+    else
+       file_rotation="Giloc_rot_B_l"
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+
+             enddo
+          enddo
+       enddo
+    enddo
+    !3)save the integral
+    if(isetup) then
+       open(unit=106,file='sum_w_G0loc_rot_B.dat',status='unknown',action='write',position='rewind')
+    else
+       open(unit=106,file='sum_w_Gloc_rot_B.dat',status='unknown',action='write',position='rewind')
     endif
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -870,40 +908,52 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: Build the rotations
   !---------------------------------------------------------------------
-  subroutine build_rotation(theta_,impHloc_rot_)
-    complex(8),dimension(6,6),intent(out)            ::   theta_
+  subroutine build_rotation(theta_C_,theta_R_,impHloc_rot_)
+    complex(8),dimension(6,6),intent(out)            ::   theta_C_,theta_R_
     complex(8),dimension(6,6),intent(out)            ::   impHloc_rot_
-    real(8),dimension(6)                             ::   impHloc_eig
-    theta_=zero
+    real(8),dimension(6)                             ::   impHloc_eig,theta_R_eig
+    theta_C_=zero
     !J=1/2 jz=-1/2
-    theta_(1,1)=-Xi
-    theta_(3,1)=-1.0d0
-    theta_(6,1)=+Xi
-    theta_(:,1)=theta_(:,1)/sqrt(3.)
+    theta_C_(1,1)=-Xi
+    theta_C_(3,1)=-1.0d0
+    theta_C_(6,1)=+Xi
+    theta_C_(:,1)=theta_C_(:,1)/sqrt(3.)
     !J=1/2 jz=+1/2
-    theta_(2,2)=-Xi
-    theta_(4,2)=+1.0d0
-    theta_(5,2)=-Xi
-    theta_(:,2)=theta_(:,2)/sqrt(3.)
+    theta_C_(2,2)=-Xi
+    theta_C_(4,2)=+1.0d0
+    theta_C_(5,2)=-Xi
+    theta_C_(:,2)=theta_C_(:,2)/sqrt(3.)
     !J=3/2 jz=-3/2
-    theta_(2,3)=-Xi
-    theta_(4,3)=+1.0d0
-    theta_(5,3)=+2.0d0*Xi
-    theta_(:,3)=theta_(:,3)/sqrt(6.)
+    theta_C_(2,3)=-Xi
+    theta_C_(4,3)=+1.0d0
+    theta_C_(5,3)=+2.0d0*Xi
+    theta_C_(:,3)=theta_C_(:,3)/sqrt(6.)
     !J=3/2 jz=-1/2
-    theta_(1,4)=+Xi
-    theta_(3,4)=-1.0d0
-    theta_(:,4)=theta_(:,4)/sqrt(2.)
+    theta_C_(1,4)=+Xi
+    theta_C_(3,4)=-1.0d0
+    theta_C_(:,4)=theta_C_(:,4)/sqrt(2.)
     !J=3/2 jz=+1/2
-    theta_(2,5)=-Xi 
-    theta_(4,5)=-1.0d0
-    theta_(:,5)=theta_(:,5)/sqrt(2.)
+    theta_C_(2,5)=-Xi 
+    theta_C_(4,5)=-1.0d0
+    theta_C_(:,5)=theta_C_(:,5)/sqrt(2.)
     !J=3/2 jz=+3/2
-    theta_(1,6)=+Xi
-    theta_(3,6)=+1.0d0
-    theta_(6,6)=+2.0d0*Xi
-    theta_(:,6)=theta_(:,6)/sqrt(6.)
-    theta_=Z2so_reshape(theta_)
+    theta_C_(1,6)=+Xi
+    theta_C_(3,6)=+1.0d0
+    theta_C_(6,6)=+2.0d0*Xi
+    theta_C_(:,6)=theta_C_(:,6)/sqrt(6.)
+    theta_C_=Z2so_reshape(theta_C_)
+    !
+    theta_R_=zero
+    theta_R_(1:2,3:4)= abs(+xi * pauli_z)
+    theta_R_(1:2,5:6)= abs(-xi * pauli_y)
+    theta_R_(3:4,5:6)= abs(+xi * pauli_x)
+    do i=1,Nspin*Norb
+       do j=1,Nspin*Norb
+          theta_R_(j,i)=conjg(theta_R_(i,j))
+       enddo
+    enddo
+    theta_R_ = Z2so_reshape(theta_R_)
+    call matrix_diagonalize(theta_R_,theta_R_eig,'V','U')
     !
     impHloc_rot_=zero
     impHloc_rot_=Ti3dt2g_Hloc

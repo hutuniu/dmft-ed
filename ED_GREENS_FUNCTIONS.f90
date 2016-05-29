@@ -20,6 +20,7 @@ MODULE ED_GREENS_FUNCTIONS
   USE ED_SETUP
   USE ED_HAMILTONIAN
   USE ED_MATVEC
+  USE ED_AUX_FUNX
   !
   implicit none
   private 
@@ -396,7 +397,7 @@ contains
     impF0mats(ispin,ispin,:,:,:) = f0and_bath_mats(ispin,ispin,dcmplx(0d0,wm(:)),dmft_bath)
     !
     impG0real(ispin,ispin,:,:,:) = g0and_bath_real(ispin,ispin,dcmplx(wr(:),eps),dmft_bath)
-    impF0real(ispin,ispin,:,:,:) = f0and_bath_real(ispin,ispin,dcmplx(wr(:),eps),dmft_bath)
+    impF0real(ispin,ispin,:,:,:) = f0and_bath_real(ispin,ispin,dcmplx(wr(:),eps),dmft_bath) 
     !!
   end subroutine get_sigma_superc
 
@@ -419,7 +420,7 @@ contains
     impG0mats = zero
     impG0real = zero
     !
-    !Get G0^-1
+    !Get G0^-1 
     invG0mats(:,:,:,:,:)=invg0_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
     invG0real(:,:,:,:,:)=invg0_bath_real(dcmplx(wr(:),eps),dmft_bath)
     impDeltamats(:,:,:,:,:)=delta_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
@@ -1193,11 +1194,6 @@ contains
     wr     = linspace(wini,wfin,Lreal)
     tau(0:)= linspace(0.d0,beta,Ltau+1)
   end subroutine allocate_grids
-
-
-
-
-
 
 
 end MODULE ED_GREENS_FUNCTIONS

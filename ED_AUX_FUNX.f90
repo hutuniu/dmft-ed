@@ -54,7 +54,11 @@ MODULE ED_AUX_FUNX
      module procedure extract_Hloc_2
   end interface extract_Hloc
 
-
+  interface SOC_jz_symmetrize
+     module procedure SOC_jz_symmetrize_1
+     module procedure SOC_jz_symmetrize_2
+     module procedure SOC_jz_symmetrize_3
+  end interface SOC_jz_symmetrize
 
   public :: set_Hloc
   public :: get_Hloc  
@@ -73,6 +77,8 @@ MODULE ED_AUX_FUNX
   public :: get_independent_sites  
   !OBSOLETE (to be removed)
   public :: search_chemical_potential
+  public :: SOC_compute_component
+  public :: SOC_jz_symmetrize
 
 contains
 
@@ -904,6 +910,177 @@ contains
   !   close(10)
   ! end subroutine search_mu
 
+  function SOC_compute_component(s1,s2,a,b) result(bool)
+    logical    ::   bool
+    integer    ::   a,b,s1,s2
+    !
+    bool=.false.
+    !
+    !diagonal
+    if((s1==1).and.(s2==1).and.(a==1).and.(b==1))bool=.true.
+    if((s1==1).and.(s2==1).and.(a==2).and.(b==2))bool=.true.
+    if((s1==1).and.(s2==1).and.(a==3).and.(b==3))bool=.true.
+    if((s1==2).and.(s2==2).and.(a==2).and.(b==2))bool=.true.
+    !off-diag - upper [to be copied]
+    if((s1==1).and.(s2==2).and.(a==3).and.(b==2))bool=.true.  !(1,2,3,2)-->(2,2,1,2)
+    if((s1==1).and.(s2==1).and.(a==1).and.(b==2))bool=.true.  !(1,1,1,2)-->(1,2,2,3)
+    !off-diag - lower [to be copied]
+    if((s1==1).and.(s2==1).and.(a==2).and.(b==1))bool=.true.  !(1,1,2,1)-->(2,1,3,2)
+    if((s1==2).and.(s2==2).and.(a==2).and.(b==1))bool=.true.  !(2,2,2,1)-->(2,1,2,3)
+    !all off-diag [to be copied]
+    if((s1==1).and.(s2==2).and.(a==1).and.(b==3))bool=.true.  !(1,2,1,3)-->(2,1,3,1)
+    if((s1==1).and.(s2==2).and.(a==3).and.(b==1))bool=.true.  !(1,2,3,1)-->(2,1,1,3)
+    !test
+    if((s1==2).and.(s2==1).and.(a==3).and.(b==1))bool=.true.  !(1,2,1,3)-->(2,1,3,1)
+    !
+  end function SOC_compute_component
+
+  subroutine SOC_jz_symmetrize_1(funct,dmft_bath_)
+    !passed
+    complex(8),allocatable,intent(inout)         ::  funct(:,:,:,:,:)
+    type(effective_bath),intent(in)              ::  dmft_bath_
+    complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:,:)
+    complex(8),allocatable                       ::  a_funct(:),b_funct(:),c_funct(:),d_funct(:)
+    integer                                      ::  ispin,jspin,iorb,jorb,io,jo
+    integer                                      ::  ifreq,Lfreq
+    logical                                      ::  compute_component
+    if(size(funct,dim=1)/=Nspin)stop "wrong size 1 in SOC symmetrize input f"
+    if(size(funct,dim=2)/=Nspin)stop "wrong size 2 in SOC symmetrize input f"
+    if(size(funct,dim=3)/=Norb) stop "wrong size 3 in SOC symmetrize input f"
+    if(size(funct,dim=4)/=Norb) stop "wrong size 4 in SOC symmetrize input f"
+    Lfreq=size(funct,dim=5)
+    allocate(symmetrized_funct(Nspin,Nspin,Norb,Norb,Lfreq));symmetrized_funct=zero
+    allocate(a_funct(Lfreq));a_funct=zero
+    allocate(b_funct(Lfreq));b_funct=zero
+    allocate(c_funct(Lfreq));c_funct=zero
+    allocate(d_funct(Lfreq));d_funct=zero
+    compute_component=.false.
+    !
+    !diagonal
+    do ispin=1,Nspin
+       do iorb=1,Norb
+         a_funct = a_funct + funct(ispin,ispin,iorb,iorb,:)
+       enddo
+    enddo
+    a_funct = a_funct / ( Nspin * Norb )
+    !
+    !upper triang
+    b_funct = ( funct(1,1,1,2,:) + funct(1,2,1,3,:) + funct(1,2,2,3,:) )/3.d0 + ( funct(1,2,3,1,:) + funct(1,2,3,2,:) + funct(2,2,1,2,:) )/3.d0
+    !lower triang
+    c_funct = ( funct(1,1,2,1,:) + funct(2,1,3,1,:) + funct(2,1,3,2,:) )/3.d0 + ( funct(2,1,1,3,:) + funct(2,1,2,3,:) + funct(2,2,2,1,:) )/3.d0
+    !avrg
+    d_funct = ( c_funct + d_funct ) / 2.d0
+    !
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                if(io==jo)then
+                   symmetrized_funct(ispin,jspin,iorb,jorb,:) = a_funct
+                else
+                   if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath_%mask(ispin,jspin,iorb,jorb,1)) symmetrized_funct(ispin,jspin,iorb,jorb,:) = d_funct
+                endif
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    funct = zero
+    funct = symmetrized_funct
+    !
+    deallocate(symmetrized_funct)
+  end subroutine SOC_jz_symmetrize_1
+
+  subroutine SOC_jz_symmetrize_2(funct)
+    !passed
+    complex(8),allocatable,intent(inout)         ::  funct(:,:,:,:)
+    complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:)
+    integer                                      ::  ispin,jspin,iorb,jorb
+    logical                                      ::  compute_component
+    if(size(funct,dim=1)/=Nspin)stop "wrong size 1 in SOC symmetrize input f"
+    if(size(funct,dim=2)/=Nspin)stop "wrong size 2 in SOC symmetrize input f"
+    if(size(funct,dim=3)/=Norb) stop "wrong size 3 in SOC symmetrize input f"
+    if(size(funct,dim=4)/=Norb) stop "wrong size 4 in SOC symmetrize input f"
+    allocate(symmetrized_funct(Nspin,Nspin,Norb,Norb));symmetrized_funct=zero
+    compute_component=.false.
+    !
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                compute_component = SOC_compute_component(ispin,jspin,iorb,jorb)
+                if(compute_component)symmetrized_funct(ispin,jspin,iorb,jorb) = funct(ispin,jspin,iorb,jorb)
+             enddo
+          enddo
+       enddo
+    enddo
+       !
+       do iorb=1,Norb
+          if(iorb==2)cycle
+          symmetrized_funct(2,2,Norb-iorb+1,Norb-iorb+1) = symmetrized_funct(1,1,iorb,iorb)
+       enddo
+       !
+       symmetrized_funct(2,2,1,2) = symmetrized_funct(1,2,3,2)
+       symmetrized_funct(1,2,2,3) = symmetrized_funct(1,1,1,2)
+       !
+       symmetrized_funct(2,1,3,2) = symmetrized_funct(1,1,2,1)
+       symmetrized_funct(2,1,2,3) = symmetrized_funct(2,2,2,1)
+       !
+       !symmetrized_funct(2,1,3,1) = symmetrized_funct(1,2,1,3)
+       symmetrized_funct(2,1,1,3) = symmetrized_funct(1,2,3,1)
+       !
+    funct = zero
+    funct = symmetrized_funct
+    deallocate(symmetrized_funct)
+  end subroutine SOC_jz_symmetrize_2
+
+  subroutine SOC_jz_symmetrize_3(funct)
+    !passed
+    complex(8),allocatable,intent(inout)         ::  funct(:,:)
+    complex(8),allocatable                       ::  funct_nn(:,:,:,:)
+    complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:)
+    integer                                      ::  ispin,jspin,iorb,jorb
+    logical                                      ::  compute_component
+    if(size(funct,dim=1)/=Nspin*Norb)stop "wrong size 1 in SOC symmetrize input f"
+    if(size(funct,dim=2)/=Nspin*Norb)stop "wrong size 2 in SOC symmetrize input f"
+    allocate(funct_nn(Nspin,Nspin,Norb,Norb));funct_nn=zero
+    allocate(symmetrized_funct(Nspin,Nspin,Norb,Norb));symmetrized_funct=zero
+    funct_nn = so2nn_reshape(funct,Nspin,Norb)
+    compute_component=.false.
+    !
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                compute_component = SOC_compute_component(ispin,jspin,iorb,jorb)
+                if(compute_component)symmetrized_funct(ispin,jspin,iorb,jorb) = funct_nn(ispin,jspin,iorb,jorb)
+             enddo
+          enddo
+       enddo
+    enddo
+       !
+       do iorb=1,Norb
+          if(iorb==2)cycle
+          symmetrized_funct(2,2,Norb-iorb+1,Norb-iorb+1) = symmetrized_funct(1,1,iorb,iorb)
+       enddo
+       !
+       symmetrized_funct(2,2,1,2) = symmetrized_funct(1,2,3,2)
+       symmetrized_funct(1,2,2,3) = symmetrized_funct(1,1,1,2)
+       !
+       symmetrized_funct(2,1,3,2) = symmetrized_funct(1,1,2,1)
+       symmetrized_funct(2,1,2,3) = symmetrized_funct(2,2,2,1)
+       !
+       !symmetrized_funct(2,1,3,1) = symmetrized_funct(1,2,1,3)
+       symmetrized_funct(2,1,1,3) = symmetrized_funct(1,2,3,1)
+       
+    funct    = zero
+    funct_nn = zero
+    funct_nn = symmetrized_funct
+    funct = nn2so_reshape(funct_nn,Nspin,Norb)
+    deallocate(symmetrized_funct,funct_nn)
+  end subroutine SOC_jz_symmetrize_3
 
 
 END MODULE ED_AUX_FUNX

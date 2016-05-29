@@ -2,9 +2,10 @@
 !PURPOSE  : Evaluate Green's functions using Lanczos algorithm
 !+------------------------------------------------------------------+
 subroutine build_gf_nonsu2()
-  integer :: izero,iorb,jorb,ispin,jspin,i,io,jo
+  integer :: izero,iorb,jorb,ispin,jspin,i,io,jo,ifreq
   integer :: isect0,numstates
   real(8) :: norm0
+  logical :: compute_component
   if(.not.allocated(impGmats))stop "build_gf_nonsu2: Gmats not allocated"
   if(.not.allocated(impGreal))stop "build_gf_nonsu2: Greal not allocated"
   impGmats=zero
@@ -320,6 +321,11 @@ subroutine build_gf_nonsu2()
            enddo
         enddo
      enddo
+     if(ed_para)then
+        write(LOGfile,*)"  Symmetrizing impG"
+        call SOC_jz_symmetrize(impGmats,dmft_bath)
+        call SOC_jz_symmetrize(impGreal,dmft_bath)
+     endif
      !
   end select
 

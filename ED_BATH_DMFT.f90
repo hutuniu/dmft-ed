@@ -240,12 +240,12 @@ contains
        if((ed_type=="d").or.((ed_type=="c").and.(real_hybr)))then
           do i=1,Nbath
              noise_tot=noise_b(i)
-             dmft_bath_%vr(i)=cmplx(1.d0+noise_tot,0.0d0)*ed_vsf_ratio*(-1)**(i-1)
+             dmft_bath_%vr(i)=cmplx(0.1d0+noise_tot,0.0d0)*ed_vsf_ratio*(-1)**(i-1)
           enddo
        elseif((ed_type=="c").and.(.not.real_hybr))then
           do i=1,Nbath
              noise_tot=noise_b(i)
-             dmft_bath_%vr(i)=cmplx(1.d0+noise_tot,0.01d0+noise_tot**2)*ed_vsf_ratio*(-1)**(i-1)
+             dmft_bath_%vr(i)=cmplx(0.1d0+noise_tot,0.01d0+noise_tot**2)*ed_vsf_ratio*(-1)**(i-1)
           enddo
        endif
        !
@@ -910,7 +910,7 @@ contains
              do ibath=1,Nbath
                 i=i+1
                 element_R=0.0d0;element_I=0.0d0
-                element_R=-abs(bath_(i)) !diagonal
+                element_R=(bath_(i)) !diagonal
                 do ispin=1,Nspin
                    do iorb=1,Norb
                       dmft_bath_%h(ispin,ispin,iorb,iorb,ibath)=cmplx(element_R,element_I)
@@ -918,7 +918,7 @@ contains
                 enddo
                 i=i+1
                 element_R=0.0d0;element_I=0.0d0
-                element_R=abs(bath_(i)) !SOC
+                element_R=(bath_(i)) !SOC
                 !LSmatrix(1:2,3:4)= -Xi * element_R * pauli_z / 2.
                 !LSmatrix(1:2,5:6)= +Xi * element_R * pauli_y / 2.
                 !LSmatrix(3:4,5:6)= -Xi * element_R * pauli_x / 2.
@@ -949,7 +949,7 @@ contains
                          do jorb=1,Norb
                             io = iorb + (ispin-1)*Norb
                             jo = jorb + (jspin-1)*Norb
-                            dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)-LSmatrix(io,jo)
+                            dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)+LSmatrix(io,jo)
                          enddo
                       enddo
                    enddo
@@ -990,10 +990,10 @@ contains
           do ibath=1,Nbath
              element_R=0.0d0;element_I=0.0d0
              i=i+1
-             element_R=(bath_(i))
+             element_R=bath_(i)
              if((ed_type=="c").and.(.not.real_hybr))then
                 i=i+1
-                element_I=bath_(i)
+                element_I=(bath_(i))
              endif
              dmft_bath_%vr(ibath)=cmplx(element_R,element_I)
           enddo
@@ -1221,7 +1221,7 @@ contains
              do ibath=1,Nbath
                 !all diagonal per bath all equal
                 i=i+1
-                bath_(i)=-abs(real(dmft_bath_%h(1,1,1,1,ibath)))
+                bath_(i)=(real(dmft_bath_%h(1,1,1,1,ibath)))
                 !search for off-diagonal per bath all equal
                 do ispin=1,Nspin
                    do jspin=1,Nspin
@@ -1237,7 +1237,7 @@ contains
                 enddo
                 123 continue
                 i=i+1
-                bath_(i)=abs(real(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)))
+                bath_(i)=(real(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)))
              enddo
           else
              !all non-vanishing terms in imploc - all spin
