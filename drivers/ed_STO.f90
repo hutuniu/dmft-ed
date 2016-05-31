@@ -16,7 +16,6 @@ program ed_TEST_REPLICA
   complex(8),allocatable :: Delta(:,:,:,:,:)
   complex(8),allocatable :: Smats(:,:,:,:,:),Sreal(:,:,:,:,:)
   complex(8),allocatable :: Gmats(:,:,:,:,:),Greal(:,:,:,:,:)
-  complex(8),allocatable :: f_old(:,:,:,:,:),f_new(:,:,:,:,:)
   !hamiltonian input:
   complex(8),allocatable :: Hk(:,:,:)
   complex(8),allocatable :: Ti3dt2g_Hloc(:,:),Ti3dt2g_Hloc_nn(:,:,:,:)
@@ -32,7 +31,7 @@ program ed_TEST_REPLICA
   complex(8),allocatable :: delta_conv(:,:,:),delta_conv_avrg(:)
   !density matrix:
   real(8),allocatable    :: dm_eig(:)
-  complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:),dm_rot_fix(:,:)
+  complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:)
   !SOC expectations:
   complex(8),allocatable :: Stot(:,:,:),Ltot(:,:,:),jz(:)
   !
@@ -67,10 +66,6 @@ program ed_TEST_REPLICA
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats));Gmats=zero
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal));Sreal=zero
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal));Greal=zero
-  !
-  allocate(f_old(Nspin,Nspin,Norb,Norb,Lmats));f_old=zero
-  allocate(f_new(Nspin,Nspin,Norb,Norb,Lmats));f_new=zero
-  !
   !Allocate convergence functions:
   allocate(delta_conv(Nso,Nso,Lmats));delta_conv=zero
   allocate(delta_conv_avrg(Lmats));delta_conv_avrg=zero
@@ -78,8 +73,6 @@ program ed_TEST_REPLICA
   allocate(density_matrix(Nspin*Norb,Nspin*Norb));density_matrix=zero
   allocate(dm_eig(Nspin*Norb));dm_eig=zero
   allocate(dm_rot(Nspin*Norb,Nspin*Norb));dm_rot=zero
-  !
-  allocate(dm_rot_fix(Nspin*Norb,Nspin*Norb));dm_rot_fix=zero
   !
   !Allocate SOC expectations:
   allocate(Stot(3,Norb,Norb));Stot=zero
@@ -270,10 +263,10 @@ contains
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     do ik=1,Lk
        do i=1,Lmats
-          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+4.7 , Hk(:,:,ik) )/Lk
+          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i) , Hk(:,:,ik) )/Lk
        enddo
        do i=1,Lreal
-          Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+4.7,Hk(:,:,ik))/Lk
+          Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps),Hk(:,:,ik))/Lk
        enddo
     enddo
     do ispin=1,Nspin
@@ -317,7 +310,11 @@ contains
     Hk=zero
     do i=1,Norb
        ndx=2*i-1
-       Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
+       if(Hk_test)then
+          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:),0.1d0)
+       else
+          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
+       endif
     enddo
     !
     if(SOC/=zero)then
@@ -367,7 +364,11 @@ contains
     Hk=zero
     do i=1,Norb
        ndx=2*i-1
-       Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
+       if(Hk_test)then
+          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:),0.1d0)
+       else
+          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
+       endif
     enddo
     !
     if(SOC/=zero)then
@@ -414,15 +415,16 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: 2x2 band structures
   !---------------------------------------------------------------------
-  function diagonal_orbital_dispersion(kx,ky,kz,t) result(hk)
-    real(8)                           :: kx,ky,kz
+  function diagonal_orbital_dispersion(kx,ky,kz,t,t0) result(hk)
+    real(8),intent(in),optional       :: t0
+    real(8),intent(in)                :: kx,ky,kz
     real(8),intent(in),dimension(0:6) :: t
     complex(8),dimension(2,2)         :: hk
     !perovskite dispersion
     hk = zero
     if (surface) then
        if(Hk_test)then
-          hk(1,1) = -2.*(cos(kx)+cos(ky))-1.d0
+          hk(1,1) = -2.*t0*(cos(kx)+cos(ky))-1.d0
           hk(2,2) = hk(1,1)
        else
           hk(1,1) = t(0)                      & !onsite
@@ -436,7 +438,7 @@ contains
        endif
     else
        if(Hk_test)then
-          hk(1,1) = -2.*(cos(kx)+cos(ky)+cos(kz))
+          hk(1,1) = -2.*t0*(cos(kx)+cos(ky)+cos(kz))
           hk(2,2) = hk(1,1)
        else
           hk(1,1) = t(0)                      & !onsite
@@ -944,9 +946,9 @@ contains
     theta_C_=Z2so_reshape(theta_C_)
     !
     theta_R_=zero
-    theta_R_(1:2,3:4)= abs(+xi * pauli_z)
-    theta_R_(1:2,5:6)= abs(-xi * pauli_y)
-    theta_R_(3:4,5:6)= abs(+xi * pauli_x)
+    theta_R_(1:2,3:4)= -abs(+xi * pauli_z)
+    theta_R_(1:2,5:6)= -abs(-xi * pauli_y)
+    theta_R_(3:4,5:6)= -abs(+xi * pauli_x)
     do i=1,Nspin*Norb
        do j=1,Nspin*Norb
           theta_R_(j,i)=conjg(theta_R_(i,j))
@@ -1018,88 +1020,6 @@ contains
     close(unit_)
     !
   end subroutine check_rotations_on_Jz
-
-  !---------------------------------------------------------------------
-  !PURPOSE: Mix the self-energies so as to generate a paramagnet
-  !---------------------------------------------------------------------
-  subroutine build_Jz_paramagnet(f_nn,rotation_,iprint)
-    complex(8),allocatable,intent(inout)            :: f_nn(:,:,:,:,:)
-    complex(8),allocatable,intent(in),optional      :: rotation_(:,:)
-    complex(8),allocatable                          :: rotation(:,:)
-    logical,intent(in)                              :: iprint
-    complex(8),allocatable                          :: f_so(:,:,:),f_tilde(:,:,:)
-    complex(8)                                      :: dum(2)
-    real(8),allocatable                             :: Seig(:)
-    integer                                         :: ifreq,Lfreq,io,jo,Ndim
-    integer                                         :: iorb,jorb,ispin,jspin
-    !
-    write(LOGfile,*)"  Paramagnet build"
-    Lfreq=size(f_nn,dim=5)
-    Ndim=Nspin*Norb
-    allocate(f_so(Ndim,Ndim,Lfreq));f_so=zero
-    allocate(f_tilde(Ndim,Ndim,Lfreq));f_tilde=zero
-    allocate(rotation(Ndim,Ndim));rotation=zero
-    allocate(Seig(Ndim));Seig=0.d0
-    !
-    if(present(rotation_))then
-       rotation=rotation_
-    else
-       rotation = nn2so_reshape(f_nn(:,:,:,:,1))
-       call matrix_diagonalize(rotation,Seig,'V','U')
-    endif
-
-    !
-    if(iprint)then
-       open(unit=37,file="Sigma_in.canc",action="write",position="rewind",status="unknown")
-       do ifreq=1,Lfreq
-          write(37,'(30(F21.10,1X))')aimag(f_nn(1,1,1,1,ifreq)),aimag(f_nn(1,1,2,2,ifreq)),aimag(f_nn(1,1,3,3,ifreq)),&
-                                     aimag(f_nn(2,2,1,1,ifreq)),aimag(f_nn(2,2,2,2,ifreq)),aimag(f_nn(2,2,3,3,ifreq))
-          !write(37,'(30(F21.10,1X))')real(f_nn(1,1,1,1,ifreq)),real(f_nn(1,1,2,2,ifreq)),real(f_nn(1,1,3,3,ifreq)),&
-          !                           real(f_nn(2,2,1,1,ifreq)),real(f_nn(2,2,2,2,ifreq)),real(f_nn(2,2,3,3,ifreq))
-       enddo
-       close(37)
-    endif
-    !
-    do ifreq=1,Lfreq
-       f_so(:,:,ifreq) = nn2so_reshape(f_nn(:,:,:,:,ifreq))
-    enddo
-    do ifreq=1,Lfreq
-       f_tilde(:,:,ifreq) = matmul(transpose(conjg(rotation)),matmul(f_so(:,:,ifreq),rotation))
-    enddo
-    !
-    do ifreq=1,Lfreq
-       dum(1) = ( f_tilde(1,1,ifreq) + f_tilde(2,2,ifreq) ) / 2.d0
-       dum(2) = ( f_tilde(3,3,ifreq) + f_tilde(4,4,ifreq) + f_tilde(5,5,ifreq) + f_tilde(6,6,ifreq) ) / 4.d0
-       f_tilde(:,:,ifreq)=zero
-       do io=1,2
-          f_tilde(io,io,ifreq) = dum(1)
-       enddo
-       do io=3,6
-          f_tilde(io,io,ifreq) = dum(2)
-       enddo
-    enddo
-    !
-    do ifreq=1,Lfreq
-       f_so(:,:,ifreq) = matmul(rotation,matmul(f_tilde(:,:,ifreq),transpose(conjg(rotation))))
-       !f_so(:,:,ifreq) = f_tilde(:,:,ifreq)
-    enddo
-    do ifreq=1,Lfreq
-       f_nn(:,:,:,:,ifreq) = so2nn_reshape(f_so(:,:,ifreq))
-    enddo
-    !
-    if(iprint)then
-       open(unit=38,file="Sigma_out.canc",action="write",position="rewind",status="unknown")
-       do ifreq=1,Lfreq
-          write(38,'(30(F21.10,1X))')aimag(f_nn(1,1,1,1,ifreq)),aimag(f_nn(1,1,2,2,ifreq)),aimag(f_nn(1,1,3,3,ifreq)),&
-                                     aimag(f_nn(2,2,1,1,ifreq)),aimag(f_nn(2,2,2,2,ifreq)),aimag(f_nn(2,2,3,3,ifreq))
-          !write(38,'(30(F21.10,1X))')real(f_nn(1,1,1,1,ifreq)),real(f_nn(1,1,2,2,ifreq)),real(f_nn(1,1,3,3,ifreq)),&
-          !                           real(f_nn(2,2,1,1,ifreq)),real(f_nn(2,2,2,2,ifreq)),real(f_nn(2,2,3,3,ifreq))
-       enddo
-       close(38)
-    endif
-    !
-    deallocate(f_so,f_tilde,Seig,rotation)
-  end subroutine build_Jz_paramagnet
 
 
 
