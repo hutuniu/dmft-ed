@@ -24,7 +24,7 @@ program ed_TEST_REPLICA
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
   real(8)                :: soc,ivb,wmixing,sumdens,xmu_old
-  logical                :: surface,Hk_test,rotateG0loc,converged_n,paramag
+  logical                :: surface,Hk_test,rotateG0loc,converged_n,paramag,shift_flag
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   !convergence functions:
@@ -34,6 +34,8 @@ program ed_TEST_REPLICA
   complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:)
   !SOC expectations:
   complex(8),allocatable :: Stot(:,:,:),Ltot(:,:,:),jz(:)
+  !rotated chempot shift:
+  real(8)                :: bottom,top,shift
   !
 #ifdef _MPI
   call MPI_INIT(ED_MPI_ERR)
@@ -59,6 +61,7 @@ program ed_TEST_REPLICA
   call ed_read_input(trim(finput))
   !
   Nso=Nspin*Norb
+  shift_flag=.true.
   !
   !Allocate dmft functions:
   allocate(delta(Nspin,Nspin,Norb,Norb,Lmats));delta=zero
@@ -135,31 +138,39 @@ program ed_TEST_REPLICA
         call build_hk_path
         call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
         call check_rotations_on_Jz(dm_rot)
-        call rotate_Gloc(Greal)
+        call rotate_Gloc(Greal,bottom,top)
         call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
-        !if(abs(jz(3))>=-0.51.and.abs(jz(3))<=-0.49)stop " STOP FOUND jz=-0.5"
-        !if(abs(jz(3))>=+0.49.and.abs(jz(3))<=+0.51)stop " STOP FOUND jz=+0.5"
      else
         if(ED_MPI_ID==0)call build_hk_path
         if(ED_MPI_ID==1)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
         if(ED_MPI_ID==2)call check_rotations_on_Jz(dm_rot)
-        if(ED_MPI_ID==3)call rotate_Gloc(Greal)
+        if(ED_MPI_ID==3)call rotate_Gloc(Greal,bottom,top)
         if(ED_MPI_ID==4)call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
      endif
      !
-     do i=1,Lmats
-        delta_conv(:,:,i)=nn2so_reshape(delta(:,:,:,:,i))
-        forall (io=1:Nso,jo=1:Nso,io==jo)delta_conv_avrg(i)=delta_conv_avrg(i)+delta_conv(io,jo,i)
-        delta_conv_avrg(i)=delta_conv_avrg(i)/Nso
-     enddo
-     !
      !convergence and loop ending:
      !
+     do i=1,Lmats
+        delta_conv(:,:,i)=nn2so_reshape(delta(:,:,:,:,i))
+        delta_conv_avrg(i)=sum(delta_conv(:,:,i))
+     enddo
      if(ED_MPI_ID==0) converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
-     !if(ED_MPI_ID==0) converged = check_convergence_global(delta_conv_avrg,dmft_error,nsuccess,nloop)
-     !if(ED_MPI_ID==0) converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
-     !if(ED_MPI_ID==0) converged = check_convergence_global(delta_conv(:,:,:),dmft_error,nsuccess,nloop)
      converged = converged .and. converged_n
+     !
+     !final mu shift:
+     !
+     if(converged)then
+        write(*,*)"top",top,"bottom",bottom
+        shift      = bottom + ( top - bottom ) / 2.d0
+        xmu_old    = xmu
+        if(shift>=0.1)then
+           xmu        = xmu_old + shift
+           nread      = 0.0d0
+           converged  = .false.
+        endif
+        write(*,'(5(a10,F10.5))') "shift",shift,"xmu_old",xmu_old,"xmu_new",xmu
+     endif
+
 #ifdef _MPI
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
@@ -631,16 +642,17 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: rotations on G0loc/Gloc
   !---------------------------------------------------------------------
-  subroutine rotate_Gloc(Gsowr)
+  subroutine rotate_Gloc(Gsowr,bottom_,top_)
     implicit none
     complex(8),allocatable,intent(in)             ::   Gsowr(:,:,:,:,:)
+    real(8),intent(out),optional                  ::   bottom_,top_
     complex(8),allocatable                        ::   G_in(:,:,:),G_out(:,:,:)
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   ::   theta_C,theta_R,impHloc_rot
     integer                                       ::   io,jo
     integer                                       ::   ispin,jspin
     integer                                       ::   iorb,jorb
     integer                                       ::   Lfreq
-    real(8)                                       ::   wr(Lreal),dw
+    real(8)                                       ::   wr(Lreal),dw,bttm,tp
     character(len=13)                             ::   file_rotation
     logical                                       ::   isetup
     !
@@ -775,7 +787,6 @@ contains
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
                 call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
-
              enddo
           enddo
        enddo
@@ -812,6 +823,20 @@ contains
     do i=1,Lfreq
        G_out(:,:,i)=matmul(transpose(conjg(theta_R)),matmul(G_in(:,:,i),theta_R))
     enddo
+    do i=1,Lfreq
+       if(abs(aimag(G_out(1,1,i))).gt.0.8)then
+          bottom_=wr(i)
+          go to 1234
+       endif
+    enddo
+    1234 continue
+    do i=1,Lfreq
+       if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.0.8)then
+          top_=wr(Lfreq-i+1)
+          go to 1235
+       endif
+    enddo
+    1235 continue
     !
     !2)output save
     if(isetup) then
@@ -826,7 +851,6 @@ contains
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
                 call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
-
              enddo
           enddo
        enddo
