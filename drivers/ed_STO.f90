@@ -24,7 +24,7 @@ program ed_TEST_REPLICA
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
   real(8)                :: soc,ivb,wmixing,sumdens,xmu_old
-  logical                :: surface,Hk_test,rotateG0loc,converged_n,paramag,shift_flag
+  logical                :: surface,Hk_test,rotateG0loc,converged_n,paramag
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   !convergence functions:
@@ -61,7 +61,6 @@ program ed_TEST_REPLICA
   call ed_read_input(trim(finput))
   !
   Nso=Nspin*Norb
-  shift_flag=.true.
   !
   !Allocate dmft functions:
   allocate(delta(Nspin,Nspin,Norb,Norb,Lmats));delta=zero
@@ -163,7 +162,7 @@ program ed_TEST_REPLICA
         write(*,*)"top",top,"bottom",bottom
         shift      = bottom + ( top - bottom ) / 2.d0
         xmu_old    = xmu
-        if(shift>=0.1)then
+        if(abs(shift)>=0.05)then
            xmu        = xmu_old + shift
            nread      = 0.0d0
            converged  = .false.
@@ -824,14 +823,14 @@ contains
        G_out(:,:,i)=matmul(transpose(conjg(theta_R)),matmul(G_in(:,:,i),theta_R))
     enddo
     do i=1,Lfreq
-       if(abs(aimag(G_out(1,1,i))).gt.0.8)then
+       if(abs(aimag(G_out(1,1,i))).gt.1.0d0)then
           bottom_=wr(i)
           go to 1234
        endif
     enddo
     1234 continue
     do i=1,Lfreq
-       if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.0.8)then
+       if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.1.0d0)then
           top_=wr(Lfreq-i+1)
           go to 1235
        endif
