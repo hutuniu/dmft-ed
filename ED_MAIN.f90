@@ -189,6 +189,8 @@ module ED_MAIN
   public :: ed_init_solver_lattice
   public :: ed_solve
   public :: ed_solve_lattice
+  public :: ed_rebuild_sigma
+  public :: ed_rebuild_sigma_lattice
   !
   public :: ed_get_sigma_matsubara
   public :: ed_get_self_matsubara
@@ -260,6 +262,8 @@ module ED_MAIN
 
 contains
 
+
+
   !+-----------------------------------------------------------------------------+!
   ! PURPOSE: allocate and initialize one or multiple baths -+!
   !+-----------------------------------------------------------------------------+!
@@ -328,6 +332,9 @@ contains
 
 
 
+
+
+
   !+------------------------------------------------------------------+
   !PURPOSE: solve the impurity problems for a single or many independent
   ! lattice site using ED. 
@@ -343,17 +350,82 @@ contains
        if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
        call save_dmft_bath(dmft_bath,used=.true.)
     endif
-    !
     !SOLVE THE QUANTUM IMPURITY PROBLEM:
     call diagonalize_impurity         !find target states by digonalization of Hamiltonian
     call buildgf_impurity             !build the one-particle impurity Green's functions
     if(chiflag)call buildchi_impurity !build the local susceptibilities (spin [todo charge])
     call observables_impurity         !obtain impurity observables as thermal averages.  
     call local_energy_impurity        !obtain the local energy of the effective impurity problem.
-    !
     call deallocate_dmft_bath(dmft_bath)   
     call es_delete_espace(state_list) 
   end subroutine ed_solve
+  !
+  subroutine ed_rebuild_sigma(bath_)
+    real(8),dimension(:),intent(in) :: bath_
+    logical                         :: check
+    check = check_bath_dimension(bath_)
+    if(.not.check)stop "init_ed_solver: wrong bath dimensions"
+    call allocate_dmft_bath(dmft_bath)
+    call set_dmft_bath(bath_,dmft_bath)
+    if(ED_MPI_ID==0)then
+       if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
+       call save_dmft_bath(dmft_bath,used=.true.)
+    endif
+    call rebuildgf_impurity             !build the one-particle impurity Green's functions
+    select case(ed_mode)
+    case default
+       call print_sigma_normal
+    case ("superc")
+    case ("nonsu2")
+    end select
+    call deallocate_dmft_bath(dmft_bath)   
+  end subroutine ed_rebuild_sigma
+  !
+  subroutine ed_rebuild_gimp(bath_)
+    real(8),dimension(:),intent(in) :: bath_
+    logical                         :: check
+    check = check_bath_dimension(bath_)
+    if(.not.check)stop "init_ed_solver: wrong bath dimensions"
+    call allocate_dmft_bath(dmft_bath)
+    call set_dmft_bath(bath_,dmft_bath)
+    if(ED_MPI_ID==0)then
+       if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
+       call save_dmft_bath(dmft_bath,used=.true.)
+    endif
+    call rebuildgf_impurity             !build the one-particle impurity Green's functions
+    select case(ed_mode)
+    case default
+       call print_impg_normal
+    case ("superc")
+    case ("nonsu2")
+    end select
+    call deallocate_dmft_bath(dmft_bath)   
+  end subroutine ed_rebuild_gimp
+  !
+  subroutine ed_rebuild_g0imp(bath_)
+    real(8),dimension(:),intent(in) :: bath_
+    logical                         :: check
+    check = check_bath_dimension(bath_)
+    if(.not.check)stop "init_ed_solver: wrong bath dimensions"
+    call allocate_dmft_bath(dmft_bath)
+    call set_dmft_bath(bath_,dmft_bath)
+    if(ED_MPI_ID==0)then
+       if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
+       call save_dmft_bath(dmft_bath,used=.true.)
+    endif
+    call rebuildgf_impurity             !build the one-particle impurity Green's functions
+    select case(ed_mode)
+    case default
+       call print_impg0_normal
+    case ("superc")
+    case ("nonsu2")
+    end select
+    call deallocate_dmft_bath(dmft_bath)   
+  end subroutine ed_rebuild_g0imp
+
+
+
+
 
   subroutine ed_solve_lattice(bath,Hloc,iprint,Uloc_ii,Ust_ii,Jh_ii)
     !inputs
@@ -455,8 +527,8 @@ contains
     if(mpiID==0)call start_timer
     if(mpiID/=0)LOGfile = 800+mpiID
     do ilat=1+mpiID,Nsites,mpiSIZE
-       !write(tmp_suffix,'(I4.4)') ilat
-       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))!trim(tmp_suffix)
+       if(mpiID==0)write(LOGfile,*)"Solving site:"//reg(txtfy(ilat,Npad=4))
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
        !
        !If required set the local value of U per each site
        if(present(Uloc_ii))Uloc(1:Norb) = Uloc_ii(ilat,1:Norb)
@@ -466,7 +538,7 @@ contains
        !Set the local part of the Hamiltonian.
        call set_Hloc(Hloc(ilat,:,:,:,:))
        ! 
-       !Solve the impurity problem for the ilat-th site\
+       !Solve the impurity problem for the ilat-th site
        neigen_sector(:)   = neigen_sectorii(ilat,:)
        lanc_nstates_total = neigen_totalii(ilat)
        call ed_solve(bath(ilat,:))
@@ -593,6 +665,151 @@ contains
     endif
     ed_file_suffix=""
   end subroutine ed_solve_lattice
+
+  subroutine ed_rebuild_sigma_lattice(bath,Hloc,iprint)
+    real(8)          :: bath(:,:) ![Nlat][Nb]
+    complex(8)       :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    integer          :: iprint
+    !MPI  auxiliary vars
+    complex(8)       :: Smats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)       :: Sreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
+    complex(8)       :: SAmats_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
+    complex(8)       :: SAreal_tmp(size(bath,1),Nspin,Nspin,Norb,Norb,Lreal)
+    ! 
+    integer          :: ilat,iorb,jorb,ispin,jspin,i
+    integer          :: Nsites
+    logical          :: check_dim
+    character(len=5) :: tmp_suffix
+    !
+    ! Check dimensions !
+    Nsites=size(bath,1)
+    !
+    !Allocate the self-energies global to the module
+    !Once can retrieve these functinos from suitable routines later on
+    if(allocated(Smatsii))deallocate(Smatsii)
+    if(allocated(Srealii))deallocate(Srealii)
+    if(allocated(SAmatsii))deallocate(SAmatsii)
+    if(allocated(SArealii))deallocate(SArealii)
+    allocate(Smatsii(Nsites,Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(Srealii(Nsites,Nspin,Nspin,Norb,Norb,Lreal))
+    allocate(SAmatsii(Nsites,Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(SArealii(Nsites,Nspin,Nspin,Norb,Norb,Lreal))
+    !
+    !Check the dimensions of the bath are ok:
+    if(ED_MPI_ID==0)then
+       write(LOGfile,*)"Rebuilding Sigma: have you moved .used bath files to .restart ones?! "
+       call sleep(3)
+    end if
+    do ilat=1+mpiID,Nsites,mpiSIZE
+       check_dim = check_bath_dimension(bath(ilat,:))
+       if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
+    end do
+    Smatsii  = zero ; Smats_tmp  = zero
+    Srealii  = zero ; Sreal_tmp  = zero
+    SAmatsii = zero ; SAmats_tmp = zero
+    SArealii = zero ; SAreal_tmp = zero
+    !
+    if(mpiID==0)call start_timer
+    if(mpiID/=0)LOGfile = 800+mpiID
+    do ilat=1+mpiID,Nsites,mpiSIZE
+       if(mpiID==0)write(LOGfile,*)"Solving site:"//reg(txtfy(ilat,Npad=4))
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
+       !
+       !Set the local part of the Hamiltonian.
+       call set_Hloc(Hloc(ilat,:,:,:,:))
+       ! 
+       !Rebuild for the ilat-th site
+       call ed_rebuild_sigma(bath(ilat,:))
+       Smats_tmp(ilat,:,:,:,:,:)  = impSmats(:,:,:,:,:)
+       Sreal_tmp(ilat,:,:,:,:,:)  = impSreal(:,:,:,:,:)
+       SAmats_tmp(ilat,:,:,:,:,:) = impSAmats(:,:,:,:,:)
+       SAreal_tmp(ilat,:,:,:,:,:) = impSAreal(:,:,:,:,:)
+    enddo
+    if(mpiID==0)call stop_timer
+#ifdef _MPI_INEQ
+    call MPI_ALLREDUCE(Smats_tmp,Smatsii,Nsites*Nspin*Nspin*Norb*Norb*Lmats,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+    call MPI_ALLREDUCE(Sreal_tmp,Srealii,Nsites*Nspin*Nspin*Norb*Norb*Lreal,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+    call MPI_ALLREDUCE(SAmats_tmp,SAmatsii,Nsites*Nspin*Nspin*Norb*Norb*Lmats,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+    call MPI_ALLREDUCE(SAreal_tmp,SArealii,Nsites*Nspin*Nspin*Norb*Norb*Lreal,MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#else
+    Smatsii  =  Smats_tmp
+    Srealii  =  Sreal_tmp
+    SAmatsii = SAmats_tmp
+    SArealii = SAreal_tmp
+#endif
+    if(mpiID==0)then
+       if(allocated(wm))deallocate(wm)
+       if(allocated(wr))deallocate(wr)
+       allocate(wm(Lmats))
+       allocate(wr(Lreal))
+       wm = pi/beta*(2*arange(1,Lmats)-1)
+       wr = linspace(wini,wfin,Lreal)
+       select case(iprint)
+       case (0)
+          write(LOGfile,*)"Sigma not written on file."
+       case(1)                  !print only diagonal elements
+          write(LOGfile,*)"write spin-orbital diagonal elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,ispin,iorb,iorb,:),wm)
+                suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                call store_data("LSigma"//reg(suffix),Srealii(:,ispin,ispin,iorb,iorb,:),wr)
+                if(ed_mode=="superc")then
+                   suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   call store_data("LSelf"//reg(suffix),SAmatsii(:,ispin,ispin,iorb,iorb,:),wm)
+                   suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                   call store_data("LSelf"//reg(suffix),SArealii(:,ispin,ispin,iorb,iorb,:),wr)
+                endif
+             enddo
+          enddo
+       case(2)                  !print spin-diagonal, all orbitals 
+          write(LOGfile,*)"write spin diagonal and all orbitals elements:"
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                   call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,ispin,iorb,jorb,:),wm)
+                   suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                   call store_data("LSigma"//reg(suffix),Srealii(:,ispin,ispin,iorb,jorb,:),wr)
+                   if(ed_mode=="superc")then
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+                      call store_data("LSelf"//reg(suffix),SAmatsii(:,ispin,ispin,iorb,jorb,:),wm)
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+                      call store_data("LSelf"//reg(suffix),SArealii(:,ispin,ispin,iorb,jorb,:),wr)
+                   endif
+                enddo
+             enddo
+          enddo
+       case default                  !print all off-diagonals
+          write(LOGfile,*)"write all elements:"
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                      call store_data("LSigma"//reg(suffix),Smatsii(:,ispin,jspin,iorb,jorb,:),wm)
+                      suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
+                      call store_data("LSigma"//reg(suffix),Srealii(:,ispin,jspin,iorb,jorb,:),wr)
+                      if(ed_mode=="superc")then
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed"
+                         call store_data("LSelf"//reg(suffix),Smatsii(:,ispin,jspin,iorb,jorb,:),wm)
+                         suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed"
+                         call store_data("LSelf"//reg(suffix),Srealii(:,ispin,jspin,iorb,jorb,:),wr)
+                      endif
+                   enddo
+                enddo
+             enddo
+          enddo
+       end select
+    endif
+    ed_file_suffix=""
+  end subroutine ed_rebuild_sigma_lattice
+
+
+
+
+
 
 
 

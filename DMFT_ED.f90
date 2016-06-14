@@ -53,6 +53,8 @@ MODULE DMFT_ED
   USE ED_MAIN,      only: &
        ed_init_solver         ,&
        ed_solve               ,&
+       ed_rebuild_sigma       ,&
+       ed_rebuild_sigma_lattice,&
        ed_get_sigma_matsubara ,&
        ed_get_self_matsubara  ,&
        ed_get_sigma_real      ,&
