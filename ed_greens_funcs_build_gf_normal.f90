@@ -4,6 +4,12 @@
 subroutine build_gf_normal()
   integer :: iorb,jorb,ispin,i
   !
+  if(.not.allocated(wm))allocate(wm(Lmats))
+  if(.not.allocated(wr))allocate(wr(Lreal))
+  wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+  wr     = linspace(wini,wfin,Lreal)
+  !
+  !
   do ispin=1,Nspin
      do iorb=1,Norb
         if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
@@ -44,6 +50,8 @@ subroutine build_gf_normal()
      enddo
   endif
   !
+  if(allocated(wm))deallocate(wm)
+  if(allocated(wr))deallocate(wr)
 end subroutine build_gf_normal
 
 

@@ -5,6 +5,12 @@ subroutine build_gf_superc()
   integer    :: iorb,jorb,ispin,i,isign
   complex(8) :: barGmats(Norb,Lmats),barGreal(Norb,Lreal)
   !
+  !
+  if(.not.allocated(wm))allocate(wm(Lmats))
+  if(.not.allocated(wr))allocate(wr(Lreal))
+  wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+  wr     = linspace(wini,wfin,Lreal)
+  !
   if(.not.allocated(auxGmats))allocate(auxGmats(3,Lmats))
   if(.not.allocated(auxGreal))allocate(auxGreal(3,Lreal))
   if(.not.allocated(auxGpoles))allocate(auxGpoles(2,3,lanc_nGFiter))
@@ -65,6 +71,8 @@ subroutine build_gf_superc()
      enddo
   endif
   deallocate(auxGmats,auxGreal)
+  if(allocated(wm))deallocate(wm)
+  if(allocated(wr))deallocate(wr)
 end subroutine build_gf_superc
 
 
