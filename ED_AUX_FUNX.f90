@@ -980,7 +980,7 @@ contains
                 if(io==jo)then
                    symmetrized_funct(ispin,jspin,iorb,jorb,:) = a_funct
                 else
-                   if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath_%mask(ispin,jspin,iorb,jorb,1)) symmetrized_funct(ispin,jspin,iorb,jorb,:) = d_funct
+                   if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath_%mask(ispin,jspin,iorb,jorb,2)) symmetrized_funct(ispin,jspin,iorb,jorb,:) = d_funct
                 endif
              enddo
           enddo

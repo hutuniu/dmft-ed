@@ -24,7 +24,7 @@ program ed_TEST_REPLICA
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
   real(8)                :: soc,ivb,wmixing,sumdens,xmu_old
-  logical                :: surface,Hk_test,rotateG0loc,converged_n,paramag
+  logical                :: surface,Hk_test,rotateG0loc,converged_n,paramag,shift_flag
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   !convergence functions:
@@ -129,22 +129,21 @@ program ed_TEST_REPLICA
      if(nread/=0.d0)then
         xmu_old=xmu
         sumdens=sum(ed_get_dens())
-        call search_chemical_potential(xmu,sumdens,converged_n)
-        write(*,'(5(a10,F10.5))') "sumdens",sumdens,"xmu_old",xmu_old,"xmu_new",xmu
+        if(abs(nread-sumdens)>=nerr)then
+           converged_n=.false.
+           call search_chemical_potential(xmu,sumdens,converged_n)
+        else
+           converged_n=.true.
+        endif
+        if(ED_MPI_ID==0)write(*,'(5(a10,F10.5))') "sumdens",sumdens,"xmu_old",xmu_old,"xmu_new",xmu
      endif
      !
-     if(ED_MPI_SIZE.lt.5)then
+     if(ED_MPI_ID==0)then
         call build_hk_path
         call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
         call check_rotations_on_Jz(dm_rot)
         call rotate_Gloc(Greal,bottom,top)
         call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
-     else
-        if(ED_MPI_ID==0)call build_hk_path
-        if(ED_MPI_ID==1)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-        if(ED_MPI_ID==2)call check_rotations_on_Jz(dm_rot)
-        if(ED_MPI_ID==3)call rotate_Gloc(Greal,bottom,top)
-        if(ED_MPI_ID==4)call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
      endif
      !
      !convergence and loop ending:
@@ -158,8 +157,9 @@ program ed_TEST_REPLICA
      !
      !final mu shift:
      !
-     if(converged)then
-        write(*,*)"top",top,"bottom",bottom
+     shift_flag=.false.
+     if(converged.and.shift_flag)then
+        if(ED_MPI_ID==0)write(*,*)"top",top,"bottom",bottom
         shift      = bottom + ( top - bottom ) / 2.d0
         xmu_old    = xmu
         if(abs(shift)>=0.05)then
@@ -167,7 +167,7 @@ program ed_TEST_REPLICA
            nread      = 0.0d0
            converged  = .false.
         endif
-        write(*,'(5(a10,F10.5))') "shift",shift,"xmu_old",xmu_old,"xmu_new",xmu
+        if(ED_MPI_ID==0)write(*,'(5(a10,F10.5))') "shift",shift,"xmu_old",xmu_old,"xmu_new",xmu
      endif
 
 #ifdef _MPI
@@ -666,9 +666,9 @@ contains
     Lfreq=size(Gsowr,dim=5)
     !
     if(isetup) then
-       write(*,*) " A(w) rotation - non interacting system",Lfreq
+       if(ED_MPI_ID==0)write(*,*) " A(w) rotation - non interacting system",Lfreq
     else
-       write(*,*) " A(w) rotation - interacting system",Lfreq
+       if(ED_MPI_ID==0)write(*,*) " A(w) rotation - interacting system",Lfreq
     endif
     !
     !

@@ -94,9 +94,9 @@ subroutine chi2_fitgf_replica(fg,bath_)
      Wdelta=Xdelta
   end select
   !
-  write(LOGfile,*)"  fitted functions",totNso
+  if(ED_MPI_ID==0)write(LOGfile,*)"  fitted functions",totNso
   do i=1,totNso
-     write(LOGfile,*)"  s,s',a,b",getIspin(i),getJspin(i),getIorb(i),getJorb(i)
+     if(ED_MPI_ID==0)write(LOGfile,*)"  s,s',a,b",getIspin(i),getJspin(i),getIorb(i),getJorb(i)
      Gdelta(i,1:Ldelta) = fg(getIspin(i),getJspin(i),getIorb(i),getJorb(i),1:Ldelta)
   enddo
   !
