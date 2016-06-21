@@ -133,7 +133,7 @@ subroutine chi2_fitgf_replica(fg,bath_)
      !
   end select
   !
-  write(LOGfile,"(A,ES18.9,A,I5,A)")&
+  if(ED_MPI_ID==0)write(LOGfile,"(A,ES18.9,A,I5,A)")&
        "chi^2|iter"//reg(ed_file_suffix)//'= ',chi," | ",iter,&
        "  <--  All Orbs, All Spins"
   !

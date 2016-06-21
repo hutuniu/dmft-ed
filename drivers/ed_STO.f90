@@ -129,12 +129,12 @@ program ed_TEST_REPLICA
      if(nread/=0.d0)then
         xmu_old=xmu
         sumdens=sum(ed_get_dens())
-        if(abs(nread-sumdens)>=nerr)then
-           converged_n=.false.
+    !    if(abs(nread-sumdens)>=nerr)then
+    !       converged_n=.false.
            call search_chemical_potential(xmu,sumdens,converged_n)
-        else
-           converged_n=.true.
-        endif
+    !    else
+    !       converged_n=.true.
+    !    endif
         if(ED_MPI_ID==0)write(*,'(5(a10,F10.5))') "sumdens",sumdens,"xmu_old",xmu_old,"xmu_new",xmu
      endif
      !
