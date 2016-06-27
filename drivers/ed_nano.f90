@@ -448,12 +448,12 @@ contains
     if(size(Smats,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
     if(size(Smats,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
     if(size(Smats,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
-    if(size(Smats,5)/=Norb) stop "save_sigma: error in dim 4. Norb"
+    if(size(Smats,5)/=Norb) stop "save_sigma: error in dim 5. Norb"
 
     if(size(Sreal,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
     if(size(Sreal,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
     if(size(Sreal,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
-    if(size(Sreal,5)/=Norb) stop "save_sigma: error in dim 4. Norb"
+    if(size(Sreal,5)/=Norb) stop "save_sigma: error in dim 5. Norb"
 
     allocate(wm(Lmats))
     allocate(wr(Lreal))
@@ -493,12 +493,12 @@ contains
     if(size(Smats,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
     if(size(Smats,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
     if(size(Smats,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
-    if(size(Smats,5)/=Norb) stop "save_sigma: error in dim 4. Norb"
+    if(size(Smats,5)/=Norb) stop "save_sigma: error in dim 5. Norb"
 
     if(size(Sreal,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
     if(size(Sreal,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
     if(size(Sreal,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
-    if(size(Sreal,5)/=Norb) stop "save_sigma: error in dim 4. Norb"
+    if(size(Sreal,5)/=Norb) stop "save_sigma: error in dim 5. Norb"
 
     allocate(wm(Lmats))
     allocate(wr(Lreal))
@@ -673,6 +673,8 @@ contains
     complex(8),dimension(:,:),allocatable :: GR,HR,GA,HL,Re,Le,Te ![Nlat*Norb]**2
     complex(8),dimension(:,:),allocatable :: transe               ![Nspin][Lreal]
     !
+    real(8),dimension(:),allocatable      :: jcurrs               ![Nspin]
+    !
     integer,dimension(:),allocatable      :: rmask,lmask          ![Nlat]
     !
     real(8),dimension(:),allocatable      :: wr
@@ -694,6 +696,7 @@ contains
     allocate(Re(Nlo,Nlo));Re=zero
     allocate(Le(Nlo,Nlo));Le=zero
     allocate(Te(Nlo,Nlo));Te=zero
+
 
 
     ! set masks
@@ -759,7 +762,30 @@ contains
        call store_data("Te"//trim(suffix),transe(ispin,:),wr)
     enddo
 
-    deallocate(GR,HR,GA,HL,rmask,lmask,Re,Le,Te) 
+
+    ! allocate spin-resolved current (transmission coefficient integrated)
+    allocate(jcurrs(Nspin));jcurrs=0.d0
+
+    ! evaluate spin-resolved current: 
+    ! actually this formula is wrong, because in the zero-bias limit the current should be zero 
+    ! what matters is the integral over the eenrgy window included 
+    ! between the chemical potentials of the L/R leads: i.e., the formula should be 
+    ! J = \int_{-\infty}^{\infty} de T(e)*(f_L(e)-f_R(e))
+    do ispin=1,Nspin
+       do i=1,Lreal
+          jcurrs(ispin) = jcurrs(ispin) + transe(ispin,i)*fermi(wr(i),beta)
+       enddo
+    enddo
+    !unit = free_unit()
+    !open(unit,file="Jcurrs.ed")
+    !do ispin=1,Nspin
+    !   write(unit,'(i3,1f16.9)')ispin,Jcurrs(ispin)
+    !enddo
+    !close(unit)
+
+
+
+    deallocate(GR,HR,GA,HL,rmask,lmask,Re,Le,Te,jcurrs) 
 
   end subroutine ed_get_conductance
 
