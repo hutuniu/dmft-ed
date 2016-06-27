@@ -5,6 +5,12 @@ subroutine build_gf_nonsu2()
   integer :: izero,iorb,jorb,ispin,jspin,i
   integer :: isect0,numstates
   real(8) :: norm0
+  !
+  if(.not.allocated(wm))allocate(wm(Lmats))
+  if(.not.allocated(wr))allocate(wr(Lreal))
+  wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+  wr     = linspace(wini,wfin,Lreal)
+  !
   if(.not.allocated(impGmats))stop "build_gf_nonsu2: Gmats not allocated"
   if(.not.allocated(impGreal))stop "build_gf_nonsu2: Greal not allocated"
   impGmats=zero
@@ -25,41 +31,41 @@ subroutine build_gf_nonsu2()
 
   !Here we evaluate the same orbital, different spin GF: G_{aa}^{ss'}(z)
   !if(bath_type=='normal')then
-     do ispin=1,Nspin
-        do jspin=1,Nspin
-           do iorb=1,Norb
-              do jorb=1,Norb
-                 if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
-                    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
-                    select case(ed_type)
-                    case default
-                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
-                    case ('c')
-                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
-                    end select
-                 endif
-              enddo
+  do ispin=1,Nspin
+     do jspin=1,Nspin
+        do iorb=1,Norb
+           do jorb=1,Norb
+              if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+                 if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                 select case(ed_type)
+                 case default
+                    call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
+                 case ('c')
+                    call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
+                 end select
+              endif
            enddo
         enddo
      enddo
-     !Here we put the symmetry manipulation
-     do ispin=1,Nspin
-        do jspin=1,Nspin
-           do iorb=1,Norb
-              do jorb=1,Norb
-                 if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
-                    !
-                    impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
+  enddo
+  !Here we put the symmetry manipulation
+  do ispin=1,Nspin
+     do jspin=1,Nspin
+        do iorb=1,Norb
+           do jorb=1,Norb
+              if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+                 !
+                 impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
                       - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
-                    !
-                    impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+                 !
+                 impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
                       - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
-                    !
-                 endif
-              enddo
+                 !
+              endif
            enddo
         enddo
      enddo
+  enddo
   !endif
 
 
@@ -90,10 +96,10 @@ subroutine build_gf_nonsu2()
                  if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                         - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                         - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -127,10 +133,10 @@ subroutine build_gf_nonsu2()
                  if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                         - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                         - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -138,7 +144,8 @@ subroutine build_gf_nonsu2()
         enddo
      enddo
   endif
-
+  if(allocated(wm))deallocate(wm)
+  if(allocated(wr))deallocate(wr)
 end subroutine build_gf_nonsu2
 
 

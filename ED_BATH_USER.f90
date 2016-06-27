@@ -50,12 +50,40 @@ MODULE ED_BATH_USER
   public :: save_bath
   public :: check_size_bath                  
   public :: check_bath_dimension
+
+
   !explicit symmetries:
+  interface break_symmetry_bath
+     module procedure break_symmetry_bath_site
+     module procedure break_symmetry_bath_lattice
+  end interface break_symmetry_bath
   public :: break_symmetry_bath              
-  public :: spin_symmetrize_bath             
-  public :: ph_symmetrize_bath               
-  public :: ph_trans_bath                    
-  public :: enforce_normal_bath              
+
+
+  interface spin_symmetrize_bath
+     module procedure spin_symmetrize_bath_site
+     module procedure spin_symmetrize_bath_lattice
+  end interface spin_symmetrize_bath
+  public :: spin_symmetrize_bath
+
+
+  interface ph_symmetrize_bath
+     module procedure ph_symmetrize_bath_site
+     module procedure ph_symmetrize_bath_lattice
+  end interface ph_symmetrize_bath
+  public :: ph_symmetrize_bath
+
+  interface ph_trans_bath
+     module procedure ph_trans_bath_site
+     module procedure ph_trans_bath_lattice
+  end interface ph_trans_bath
+  public :: ph_trans_bath
+
+  interface enforce_normal_bath
+     module procedure enforce_normal_bath_site
+     module procedure enforce_normal_bath_lattice
+  end interface enforce_normal_bath
+  public :: enforce_normal_bath
 
 
 contains
@@ -1080,7 +1108,7 @@ contains
   !    matrix
   ! - given a dmft bath pull/push the nonsu2 components
   !+-------------------------------------------------------------------+
-  subroutine break_symmetry_bath(bath_,field,sign,save)
+  subroutine break_symmetry_bath_site(bath_,field,sign,save)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
     real(8)                :: field
@@ -1095,9 +1123,26 @@ contains
     if(save_)call save_dmft_bath(dmft_bath_)
     call get_dmft_bath(dmft_bath_,bath_)
     call deallocate_dmft_bath(dmft_bath_)
-  end subroutine break_symmetry_bath
+  end subroutine break_symmetry_bath_site
+  subroutine break_symmetry_bath_lattice(bath_,field,sign,save)
+    real(8),dimension(:,:) :: bath_
+    real(8)                :: field
+    real(8)                :: sign
+    logical,optional       :: save
+    logical                :: save_
+    integer                :: Nsites,ilat
+    save_=.true.;if(present(save))save_=save
+    Nsites=size(bath_,1)
+    do ilat=1,Nsites
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
+       call break_symmetry_bath_site(bath_(ilat,:),field,sign,save_)
+    enddo
+    ed_file_suffix=""
+  end subroutine break_symmetry_bath_lattice
 
-  subroutine spin_symmetrize_bath(bath_,save)
+  !---------------------------------------------------------!
+
+  subroutine spin_symmetrize_bath_site(bath_,save)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
     logical,optional       :: save
@@ -1115,9 +1160,24 @@ contains
     if(save_)call save_dmft_bath(dmft_bath_)
     call get_dmft_bath(dmft_bath_,bath_)
     call deallocate_dmft_bath(dmft_bath_)
-  end subroutine spin_symmetrize_bath
+  end subroutine spin_symmetrize_bath_site
+  subroutine spin_symmetrize_bath_lattice(bath_,save)
+    real(8),dimension(:,:) :: bath_
+    logical,optional       :: save
+    logical                :: save_
+    integer                :: Nsites,ilat
+    save_=.true.;if(present(save))save_=save
+    Nsites=size(bath_,1)
+    do ilat=1,Nsites
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
+       call spin_symmetrize_bath_site(bath_(ilat,:),save_)
+    enddo
+    ed_file_suffix=""
+  end subroutine spin_symmetrize_bath_lattice
 
-  subroutine ph_symmetrize_bath(bath_,save)
+  !---------------------------------------------------------!
+
+  subroutine ph_symmetrize_bath_site(bath_,save)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
     integer                :: i
@@ -1144,9 +1204,24 @@ contains
     if(save_)call save_dmft_bath(dmft_bath_)
     call get_dmft_bath(dmft_bath_,bath_)
     call deallocate_dmft_bath(dmft_bath_)
-  end subroutine ph_symmetrize_bath
+  end subroutine ph_symmetrize_bath_site
+  subroutine ph_symmetrize_bath_lattice(bath_,save)
+    real(8),dimension(:,:) :: bath_
+    logical,optional       :: save
+    logical                :: save_
+    integer                :: Nsites,ilat
+    save_=.true.;if(present(save))save_=save
+    Nsites=size(bath_,1)
+    do ilat=1,Nsites
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
+       call ph_symmetrize_bath_site(bath_(ilat,:),save_)
+    enddo
+    ed_file_suffix=""
+  end subroutine ph_symmetrize_bath_lattice
 
-  subroutine ph_trans_bath(bath_,save)
+  !---------------------------------------------------------!
+
+  subroutine ph_trans_bath_site(bath_,save)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
     type(effective_bath)   :: tmp_dmft_bath
@@ -1182,9 +1257,24 @@ contains
     if(save_)call save_dmft_bath(dmft_bath_)
     call get_dmft_bath(dmft_bath_,bath_)
     call deallocate_dmft_bath(dmft_bath_)
-  end subroutine ph_trans_bath
+  end subroutine ph_trans_bath_site
+  subroutine ph_trans_bath_lattice(bath_,save)
+    real(8),dimension(:,:) :: bath_
+    logical,optional       :: save
+    logical                :: save_
+    integer                :: Nsites,ilat
+    save_=.true.;if(present(save))save_=save
+    Nsites=size(bath_,1)
+    do ilat=1,Nsites
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
+       call ph_trans_bath_site(bath_(ilat,:),save_)
+    enddo
+    ed_file_suffix=""
+  end subroutine ph_trans_bath_lattice
 
-  subroutine enforce_normal_bath(bath_,save)
+  !---------------------------------------------------------!
+
+  subroutine enforce_normal_bath_site(bath_,save)
     real(8),dimension(:)   :: bath_
     type(effective_bath)   :: dmft_bath_
     logical,optional       :: save
@@ -1196,7 +1286,21 @@ contains
     if(save_)call save_dmft_bath(dmft_bath_)
     call get_dmft_bath(dmft_bath_,bath_)
     call deallocate_dmft_bath(dmft_bath_)
-  end subroutine enforce_normal_bath
+  end subroutine enforce_normal_bath_site
+  subroutine enforce_normal_bath_lattice(bath_,save)
+    real(8),dimension(:,:) :: bath_
+    logical,optional       :: save
+    logical                :: save_
+    integer                :: Nsites,ilat
+    save_=.true.;if(present(save))save_=save
+    Nsites=size(bath_,1)
+    do ilat=1,Nsites
+       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
+       call enforce_normal_bath_site(bath_(ilat,:),save_)
+    enddo
+    ed_file_suffix=""
+  end subroutine enforce_normal_bath_lattice
+
 
 
 

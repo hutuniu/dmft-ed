@@ -6,7 +6,7 @@ program ed_ah
   implicit none
   integer                                       :: iloop,Nb,Lk,Nx
   logical                                       :: converged
-  real(8)                                       :: wband,ts,wmixing
+  real(8)                                       :: wband,ts,wmixing,Eout(2)
   !Bath:
   real(8),allocatable                           :: Bath(:),BathOld(:)
   !The local hybridization function:
@@ -31,7 +31,7 @@ program ed_ah
   allocate(Gmats(2,Nspin,Nspin,Norb,Norb,Lmats),Greal(2,Nspin,Nspin,Norb,Norb,Lreal))
   allocate(Smats(2,Nspin,Nspin,Norb,Norb,Lmats),Sreal(2,Nspin,Nspin,Norb,Norb,Lreal))
 
-  
+
   !setup solver
   Nb=get_bath_size()
   allocate(bath(Nb))
@@ -86,15 +86,20 @@ program ed_ah
 
   !call get_sc_internal_energy(Lmats)
 
-  call ed_kinetic_energy(Hk,wt,Smats(1,:,:,:,:,:),Smats(2,:,:,:,:,:))
+  Eout(1) = get_ekin_2()
+  open(10,file="kinetic_new.ed")
+  write(10,*)Eout(1)
+  close(10)
 
+  Eout = ed_kinetic_energy(Hk,wt,Smats(1,:,:,:,:,:),Smats(2,:,:,:,:,:))
+  print*,"final=",Eout
   !call MPI_FINALIZE(mpiERR)
 
 
 contains
 
 
-  
+
   !-------------------------------------------------------------------------------------------
   !PURPOSE:  Hk model for the 2d square lattice
   !-------------------------------------------------------------------------------------------
@@ -107,6 +112,170 @@ contains
     ky=kpoint(2)
     Hk = -one*2d0*ts*(cos(kx)+cos(ky))
   end function hk_model
+
+
+
+
+
+  function get_ekin result(Ekin)
+    integer    :: i,ik
+    real(8)    :: Ekin,nk,vk,Dssum,matssum,dens,chisum,Chij
+    complex(8) :: zeta,g11kw,g0kw
+    real(8)    :: Sigma_infty,S_infty,det,det_infty,csi,Ei,free
+    real(8)    :: wm(Lmats),nk0
+    wm  = pi/beta*(2*arange(1,Lmats)-1)
+    !Get asymptotic self-energies
+    Sigma_infty =   dreal(Smats(1,1,1,1,1,Lmats))
+    S_infty     =   dreal(Smats(2,1,1,1,1,Lmats))
+    !
+    Ekin=0d0
+    do ik=1,Lk
+       csi   = dreal(Hk(1,1,ik))-(xmu-Sigma_infty)
+       Ei    = dsqrt(csi**2 + S_infty**2)
+       free  = 0.5d0*(1d0 - csi/Ei)*dtanh(0.5d0*beta*Ei)
+       matssum=0d0
+       do i=1,Lmats
+          zeta      = xi*wm(i)+xmu-Smats(1,1,1,1,1,i)
+          det       = abs(zeta-dreal(Hk(1,1,ik)))**2 + dreal(Smats(2,1,1,1,1,i))**2
+          g11kw     = conjg(zeta - dreal(Hk(1,1,ik)))/det
+          !
+          det_infty = wm(i)**2 + (dreal(Hk(1,1,ik))-(xmu-Sigma_infty))**2 + S_infty**2
+          g0kw      = (-xi*wm(i) - (dreal(Hk(1,1,ik))-(xmu-Sigma_infty)))/det_infty
+          !
+          matssum   =  matssum +  dreal(g11kw)-dreal(g0kw)
+       enddo
+       nk    = 4d0/beta*matssum + 2d0*free
+       Ekin  = Ekin   + wt(ik)*nk*dreal(Hk(1,1,ik))
+    enddo
+    print*,"get_ekin Ekin=",Ekin
+    print*,"get_ekin Ekin=",free
+  end function get_ekin
+
+
+
+  function get_ekin_2 result(Ekin)
+
+    real(8)                                 :: Ekin,Ekin2
+    real(8),dimension(Lmats)                :: wm
+    real(8),dimension(:,:),allocatable      :: Sigma_HF,Self_HF
+    complex(8),dimension(:,:,:),allocatable :: Sigma,Self
+    complex(8),dimension(:,:),allocatable   :: Gknambu
+    complex(8),dimension(:,:),allocatable   :: Gkw11,G0kw11
+    complex(8),dimension(:,:),allocatable   :: Evec
+    real(8),dimension(:),allocatable        :: Eval,Coef
+    real(8),dimension(:),allocatable        :: Nk_hf
+    real(8),dimension(:,:),allocatable      :: Hktmp
+    integer                                 :: Nso
+    integer                                 :: i,ik
+    real(8)                                 :: nk,matssum,dens,efree,efree2
+    complex(8)                              :: zeta,gkw,g0kw
+    real(8)                                 :: Sigma_infty,S_infty,det,det_infty,csi,Ei,free
+    integer                                 :: iorb,ispin,is
+    integer                                 :: jorb,jspin,js
+
+    wm  = pi/beta*(2*arange(1,Lmats)-1)
+    !Get asymptotic self-energies
+    Nso = Nspin*Norb
+    allocate(Sigma_hf(Nso,Nso))
+    allocate(Self_hf(Nso,Nso))
+    allocate(Sigma(Nso,Nso,Lmats))
+    allocate(Self(Nso,Nso,Lmats))
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                is = iorb + (ispin-1)*Norb  !spin-orbit stride
+                js = jorb + (jspin-1)*Norb  !spin-orbit stride
+                Sigma_hf(is,js) = dreal(Smats(1,ispin,jspin,iorb,jorb,Lmats))
+                Self_hf(is,js)  = dreal(Smats(2,ispin,jspin,iorb,jorb,Lmats))
+                Sigma(is,js,:) = Smats(1,ispin,jspin,iorb,jorb,:)
+                Self(is,js,:)  = Smats(2,ispin,jspin,iorb,jorb,:)
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    allocate(Hktmp(2*Nso,2*Nso))
+    allocate(Evec(2*Nso,2*Nso))
+    allocate(Eval(2*Nso))
+    allocate(Coef(2*Nso))
+    allocate(Nk_hf(2*Nso))
+
+    !<TO BE REMOVED
+    !Get asymptotic self-energies
+    Sigma_infty =   dreal(Smats(1,1,1,1,1,Lmats))
+    S_infty     =   dreal(Smats(2,1,1,1,1,Lmats))
+    Efree=0d0
+    do ik=1,Lk
+       csi   = dreal(Hk(1,1,ik))-(xmu-Sigma_infty)
+       Ei    = dsqrt(csi**2 + S_infty**2)
+       free  = 0.5d0*(1d0 - csi/Ei)*dtanh(0.5d0*beta*Ei)
+       write(100,*)ik,free
+       Efree = Efree + wt(ik)*2d0*free*dreal(Hk(1,1,ik))
+    enddo
+    print*,"Old style Efree:",Efree
+
+
+    efree=0d0
+    do ik=1,Lk
+       Hktmp(1:Nso,1:Nso)                 =  Hk(:,:,ik)
+       Hktmp(Nso+1:Nso+Nso,Nso+1:Nso+Nso) = -Hk(:,:,ik)
+       !
+       Evec(1:Nso,1:Nso)                 =  Hk(:,:,ik) + Sigma_hf
+       Evec(1:Nso,Nso+1:2*Nso)           =             + Self_hf
+       Evec(Nso+1:2*Nso,1:Nso)           =             + Self_hf
+       Evec(Nso+1:2*Nso,Nso+1:2*Nso)     = -Hk(:,:,ik) - Sigma_hf
+       call eigh(Evec,Eval)
+       do is=1,2*Nso
+          Coef = Evec(:,is)*conjg(Evec(:,is))
+          nk_hf(is) = dot_product(Coef,fermi(Eval,beta))
+          efree = efree + wt(ik)*nk_hf(is)*Hktmp(is,is)
+       enddo
+       efree2 = efree2 + wt(ik)*trace(matmul(diag(nk_hf),Hktmp))
+    enddo
+    print*,"New gen. Efree 1:",Efree
+    print*,"New gen. Efree 2:",Efree2
+
+
+    allocate(Gknambu(2*Nso,2*Nso))
+    allocate(Gkw11(Nso,Nso))
+    allocate(G0kw11(Nso,Nso))
+    Ekin=0d0
+    do ik=1,Lk
+       matssum=0d0
+       do i=1,Lmats
+          Gknambu=zero
+          Gknambu(1:Nso,1:Nso)             = (xi*wm(i) + xmu)*eye(Nso)  - Sigma(:,:,i)        - Hk(:,:,ik)
+          Gknambu(1:Nso,Nso+1:2*Nso)       =                            - Self(:,:,i)
+          Gknambu(Nso+1:2*Nso,1:Nso)       =                            - Self(:,:,i)
+          Gknambu(Nso+1:2*Nso,Nso+1:2*Nso) = (xi*wm(i) - xmu)*eye(Nso)  + conjg(Sigma(:,:,i)) + Hk(:,:,ik)
+          call inv(Gknambu)
+          Gkw11  = Gknambu(1:Nso,1:Nso)
+          !
+          Gknambu=zero
+          Gknambu(1:Nso,1:Nso)             = (xi*wm(i) + xmu)*eye(Nso)  - Sigma_hf  - Hk(:,:,ik)
+          Gknambu(1:Nso,Nso+1:2*Nso)       =                            - Self_hf
+          Gknambu(Nso+1:2*Nso,1:Nso)       =                            - Self_hf
+          Gknambu(Nso+1:2*Nso,Nso+1:2*Nso) = (xi*wm(i) - xmu)*eye(Nso)  + Sigma_hf  + Hk(:,:,ik)
+          call inv(Gknambu)
+          G0kw11 = Gknambu(1:Nso,1:Nso)
+          matssum   =  matssum +  dreal(gkw11(1,1))-dreal(g0kw11(1,1))
+          Ekin2 = Ekin2 + wt(ik)*trace(matmul(Hk(:,:,ik),gkw11-g0kw11))
+       enddo
+       Ekin = Ekin + wt(ik)*4d0/beta*matssum*dreal(Hk(1,1,ik))
+    enddo
+    Ekin2=Ekin2*4/beta
+    print*,"Ekin_tmp sum      =",Ekin
+    print*,"Ekin_tmp + Efree  =",Ekin+Efree
+    print*,"Ekin_tmp trace    =",Ekin2
+    print*,"Ekin_tmp + Efree  =",Ekin2+Efree2
+
+    Ekin=Ekin+Efree
+    !Ekin=get_ekin()
+  end function get_ekin_2
+
+
+
 
 
 
@@ -203,6 +372,7 @@ contains
   !      enddo
   !   enddo
   !   call splot("ocDOS.last",wr,cDOS(1,:),cDOS(2,:))
+
   !   deallocate(cDOS)
   !   !Changing the loop order does not affect the calculation.
   !   allocate(oc(Nw),ocw(Lreal))
@@ -338,7 +508,7 @@ contains
   !   return 
   ! end subroutine get_sc_internal_energy
 
-  
+
   ! elemental function istep(x) result(out)
   !   real(8),intent(in) :: x
   !   real(8)            :: out
