@@ -643,6 +643,7 @@ subroutine add_to_lanczos_gf_superc(vnorm2,Ei,nlanc,alanc,blanc,isign,ichan)
   integer                                    :: i,j,ierr
   complex(8)                                 :: iw
   !
+  Egs = state_list%emin       !get the gs energy
   !
   if((finiteT).and.(beta*(Ei-Egs).lt.200))then
      pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function

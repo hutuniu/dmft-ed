@@ -145,7 +145,6 @@ contains
     !check finiteT
     finiteT=.true.              !assume doing finite T per default
     if(lanc_nstates_total==1)then     !is you only want to keep 1 state
-       !lanc_nstates_sector=6            !set the required eigen per sector to 1 see later for neigen_sector
        finiteT=.false.          !set to do zero temperature calculations
        if(ED_MPI_ID==0)write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
     endif
@@ -163,11 +162,19 @@ contains
        endif
     endif
 
-    if(finiteT)then
-       if(ED_MPI_ID==0)write(LOGfile,"(A)")"Lanczos FINITE temperature calculation:"
-    else
-       if(ED_MPI_ID==0)write(LOGfile,"(A)")"Lanczos ZERO temperature calculation:"
+
+    if(ED_MPI_ID==0)then
+       if(finiteT)then
+          write(LOGfile,"(A)")"Lanczos FINITE temperature calculation:"
+          write(LOGfile,"(A,I)")"Nstates x Sector = ", lanc_nstates_sector
+          write(LOGfile,"(A,I)")"Nstates   Total  = ", lanc_nstates_total
+          call sleep(1)
+       else
+          write(LOGfile,"(A)")"Lanczos ZERO temperature calculation:"
+          call sleep(1)
+       endif
     endif
+
 
     !#############################################################################################
     !CHECKS:
@@ -251,6 +258,8 @@ contains
           getdim(isector)=dim
        enddo
     enddo
+    !
+    !
     inquire(file="state_list"//reg(ed_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
        write(LOGfile,"(A)")"Restarting from a state_list file:"
@@ -272,9 +281,10 @@ contains
        enddo
     else
        do isector=1,Nsectors
-          neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
+          neigen_sector(isector) = min(getdim(isector),lanc_nstates_sector)   !init every sector to required eigenstates
        enddo
     endif
+    !
     twin_mask=.true.
     if(ed_twin)then
        do isector=1,Nsectors
@@ -378,7 +388,7 @@ contains
        enddo
     else
        do isector=1,Nsectors
-          neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
+          neigen_sector(isector) = min(getdim(isector),lanc_nstates_sector)   !init every sector to required eigenstates
        enddo
     endif
     twin_mask=.true.
@@ -487,7 +497,7 @@ contains
        enddo
     else
        do isector=1,Nsectors
-          neigen_sector(isector) = min(dim,lanc_nstates_sector)   !init every sector to required eigenstates
+          neigen_sector(isector) = min(getdim(isector),lanc_nstates_sector)   !init every sector to required eigenstates
        enddo
     endif
     twin_mask=.true.

@@ -11,7 +11,7 @@ PLAT=intel
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-FPP_INEQ=MPI_INEQ
+#FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
 #FPP_ED=MPI
@@ -26,7 +26,7 @@ LIBDIR=/opt
 ##$ --> HUBBARD MODELS:
 #EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
-#EXE=ed_ahm_square
+EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
 #EXE=ed_hm_2b_cubic
 #EXE=ed_hm_bethe_afm
@@ -44,7 +44,7 @@ LIBDIR=/opt
 ##$ --> B-H-Z MODELS
 #EXE=ed_bhz_2d
 #EXE=ed_bhz_3d
-EXE=ed_bhz_2d_edge
+#EXE=ed_bhz_2d_edge
 #EXE=ed_bhz_afm_2d
 #EXE=ed_bhz_afm_3d
 
