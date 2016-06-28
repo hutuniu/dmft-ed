@@ -4,24 +4,19 @@
 !###################################################################
 program lancED
   USE DMFT_ED
-  USE PARSE_INPUT
-  USE CONSTANTS
-  USE ARRAYS
-  USE FUNCTIONS
-  USE TOOLS
-  USE IOTOOLS
-  USE ERROR
-  USE INTEGRATE
+  USE SCIFOR
+  USE DMFT_TOOLS
+  USE MPI
   implicit none
-  integer :: iloop,Nb(2),Ne,ie
-  logical :: converged
+  integer                :: iloop,Nb,Ne,ie
+  logical                :: converged
   real(8),allocatable    :: wm(:),wr(:)
   real(8)                :: wband,ts,de
   !Bath:
-  real(8),allocatable    :: Bath(:,:)
+  real(8),allocatable    :: Bath(:)
   !The local hybridization function:
   complex(8),allocatable :: Delta(:,:,:)
-  real(8),allocatable :: epsik(:),wt(:)
+  real(8),allocatable    :: epsik(:),wt(:)
 
   call MPI_INIT(ED_MPI_ERR)
   call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
@@ -46,14 +41,13 @@ program lancED
   do ie=1,Ne
      wt(ie)=dens_2dsquare(epsik(ie),ts)
   enddo
-  wt=wt/trapz(de,wt)
   if(ED_MPI_ID==0)call splot("DOS2d.ed",epsik,wt)
   wt = wt*de
 
   !setup solver
   Nb=get_bath_size()
-  allocate(bath(Nb(1),Nb(2)))
-  call init_ed_solver(bath)
+  allocate(bath(Nb))
+  call ed_init_solver(bath)
 
   !DMFT loop
   iloop=0;converged=.false.
@@ -62,16 +56,17 @@ program lancED
      if(ED_MPI_ID==0)call start_loop(iloop,nloop,"DMFT-loop")
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
-     call ed_solver(bath) 
+     call ed_solve(bath) 
 
      !Get the Weiss field/Delta function to be fitted (user defined)
      call get_delta
 
      !Perform the SELF-CONSISTENCY by fitting the new bath
-     call chi2_fitgf(delta,bath,ispin=1)
+     call ed_chi2_fitgf(delta,bath,ispin=1)
 
      !Check convergence (if required change chemical potential)
      if(ED_MPI_ID==0)converged = check_convergence(delta(1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
+
      !if(nread/=0.d0)call search_mu(nimp(1),converged)
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
      if(ED_MPI_ID==0)call end_loop

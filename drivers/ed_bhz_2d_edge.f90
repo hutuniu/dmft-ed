@@ -134,9 +134,7 @@ program ed_bhz_2d_edge
            Zmats(i,i)  = 1.d0/( 1.d0 + abs( dimag(Zfoo(ilat,iorb,iorb))/(pi/beta) ))
         enddo
      enddo
-     ! if(mpiID==0)call build_eigenbands()
-     print*,"This post-process DOES NOT WORK!Debug it!";call sleep(2)
-
+     if(mpiID==0)call build_eigenbands()
      stop
   endif
 

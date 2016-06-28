@@ -375,6 +375,7 @@ contains
     select case(ed_mode)
     case default
        call print_sigma_normal
+       call print_impg_normal
     case ("superc")
     case ("nonsu2")
     end select

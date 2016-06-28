@@ -45,7 +45,7 @@ program ed_ah
   write(*,*) "Using Nk_total="//txtfy(Lk)
   kxgrid = kgrid(Nx)
   kygrid = kgrid(Nx)
-  Hk(1,1,:)     = build_hk_model(hk_model,kxgrid,kygrid,[0d0])
+  Hk(1,1,:) = TB_build_model(hk_model,kxgrid,kygrid,[0d0])
   Wt     = 1d0/Lk
   Hloc   = zero
   call write_hk_w90("Hk2d.dat",1,1,0,1,Hk,kxgrid,kygrid,[0d0])
@@ -217,6 +217,7 @@ contains
 
 
     efree=0d0
+    efree2=0d0
     do ik=1,Lk
        Hktmp(1:Nso,1:Nso)                 =  Hk(:,:,ik)
        Hktmp(Nso+1:Nso+Nso,Nso+1:Nso+Nso) = -Hk(:,:,ik)
@@ -241,6 +242,7 @@ contains
     allocate(Gkw11(Nso,Nso))
     allocate(G0kw11(Nso,Nso))
     Ekin=0d0
+    Ekin2=0d0
     do ik=1,Lk
        matssum=0d0
        do i=1,Lmats

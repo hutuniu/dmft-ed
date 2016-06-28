@@ -49,7 +49,7 @@ contains
   !
   subroutine open_units(string)
     character(len=*) :: string
-    unit=free_unit(1)
+    unit=free_units(1)
     open(unit(1),file="impGpoles_weights"//string//reg(ed_file_suffix)//".ed")
   end subroutine open_units
   !
