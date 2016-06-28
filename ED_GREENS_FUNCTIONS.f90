@@ -327,10 +327,8 @@ contains
        do isign=1,2
           do i=1,lanc_nGFiter
              read(unit(1),*)(GFpoles(ispin,ispin,iorb,jorb,isign,i),GFweights(ispin,ispin,iorb,jorb,isign,i),ispin=1,Nspin)
-             write(999,*)(GFpoles(ispin,ispin,iorb,jorb,isign,i),GFweights(ispin,ispin,iorb,jorb,isign,i),ispin=1,Nspin)
           enddo
        enddo
-       write(999,*)""
        call close_units
     enddo
     !
