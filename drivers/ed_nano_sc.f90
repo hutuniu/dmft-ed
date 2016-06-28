@@ -221,7 +221,7 @@ program ed_nano_sc
   do ineq=1,Nineq
      ilat = ineq2lat(ineq)
      ! break SU(2) symmetry for magnetic solutions
-     if(Nspin>1) stop "warinig: Nspin>1 for superconducting calculation: call Goldrake!"
+     if(Nspin>1) stop "warning: Nspin>1 for superconducting calculation: call Goldrake!"
      if(Nspin>1) call break_symmetry_bath(Bath_ineq(ineq,:),sb_field,dble(sb_field_sign(ineq)))
      Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
   enddo
@@ -262,44 +262,43 @@ program ed_nano_sc
         call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
 !     endif
      do ineq=1,Nineq
-        write(6,*)'debug: ineq=',ineq
-        flush(6)
+        !write(6,*)'debug: ineq=',ineq
+        !flush(6)
         ilat = ineq2lat(ineq)
         Gmats_ineq(:,ineq,:,:,:,:,:) = Gmats(:,ilat,:,:,:,:,:)
      enddo
-     write(6,*)'debug: about to enter ed_get_weiss'
-     flush(6)
+     !write(6,*)'debug: about to enter ed_get_weiss'
+     !flush(6)
      ! compute the Weiss field
      call ed_get_weiss_lattice(Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=1)
-     write(6,*)'debug: done with ed_get_weiss_lattice'
-     write(*,*)sum(abs(Weiss_ineq(1,1,1,1,1,1,:)))
-     flush(6)
-     stop
+     !write(6,*)'debug: done with ed_get_weiss_lattice'
+     !write(*,*)sum(abs(Weiss_ineq(1,1,1,1,1,1,:)))
+     !flush(6)
 
      ! fit baths and mix result with old baths
      do ispin=1,Nspin
         call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin)
      enddo
-     write(6,*)'debug: done with ed_chi_fitgf'
-     flush(6)
+     !write(6,*)'debug: done with ed_chi_fitgf'
+     !flush(6)
      if(phsym)then
-     write(6,*)'debug: phsym is true!'
-     flush(6)
+     !write(6,*)'debug: phsym is true!'
+     !flush(6)
         do ineq=1,Nineq
            call ph_symmetrize_bath(bath_ineq(ineq,:),save=.true.)
         enddo
      endif
      Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
-     write(6,*)'debug: checking convergence'
-     flush(6)
+     !write(6,*)'debug: checking convergence'
+     !flush(6)
      if(mpiID==0)then
         converged = check_convergence(Weiss_ineq(1,1,1,1,1,1,:),dmft_error,nsuccess,nloop)
         ! alternative convergency criteria
         !converged = check_convergence_local(docc_ineq,dmft_error,nsuccess,nloop)
         if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
      endif
-     write(6,*)'debug: done with convergence stuff'
-     flush(6)
+     !write(6,*)'debug: done with convergence stuff'
+     !flush(6)
 #ifdef _MPI_INEQ
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
      call MPI_BCAST(xmu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
