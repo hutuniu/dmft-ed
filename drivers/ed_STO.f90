@@ -127,14 +127,11 @@ program ed_TEST_REPLICA
      !
      converged_n=.true.
      if(nread/=0.d0)then
+        converged_n=.false.
         xmu_old=xmu
         sumdens=sum(ed_get_dens())
-    !    if(abs(nread-sumdens)>=nerr)then
-    !       converged_n=.false.
-           call search_chemical_potential(xmu,sumdens,converged_n)
-    !    else
-    !       converged_n=.true.
-    !    endif
+        !call search_chemical_potential(xmu,sumdens,converged_n)
+        if(iloop>=2)call search_chempot(xmu,sumdens,converged_n,Bath)
         if(ED_MPI_ID==0)write(*,'(5(a10,F10.5))') "sumdens",sumdens,"xmu_old",xmu_old,"xmu_new",xmu
      endif
      !
@@ -369,6 +366,7 @@ contains
     !
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
     !
+    HoppingMatrix=0.0d0
     if(Norb==3)call get_hopping(HoppingMatrix)
     !
     Hk=zero

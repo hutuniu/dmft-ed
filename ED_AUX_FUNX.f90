@@ -77,6 +77,7 @@ MODULE ED_AUX_FUNX
   public :: get_independent_sites  
   !OBSOLETE (to be removed)
   public :: search_chemical_potential
+  public :: search_chempot
   public :: SOC_compute_component
   public :: SOC_jz_symmetrize
 
@@ -680,7 +681,7 @@ contains
           end do
        end if
     end do
-    write(*,*) Nlat
+    write(LOGfile,*) Nlat
     !
     Nindep=i_ind
     ! (remember: each site is connected with Nsymm sites (+ 1 = identity)) !
@@ -700,8 +701,8 @@ contains
     if(mpiID==0) close(unit)
     !+-  build maps -+!
     !
-    write(*,*) "NINDEP",Nindep
-    write(*,*) indep_list
+    write(LOGfile,*) "NINDEP",Nindep
+    write(LOGfile,*) indep_list
     do i_ind=1,Nindep
        map_lat2ind(indep_list(i_ind))=i_ind
        do isymm=1,Nsymm
@@ -867,6 +868,113 @@ contains
 
 
 
+
+
+  subroutine search_chempot(xmu_tmp,dens_tmp,converged,bath_) 
+    real(8),intent(in)    ::   dens_tmp
+    real(8),intent(inout) ::   xmu_tmp
+    logical,intent(inout) ::   converged
+    real(8),allocatable,optional,intent(inout) :: bath_(:)
+    !internal
+    real(8)               ::   diffdens,delta_xmu,xmu_shift
+    real(8)               ::   denslarge,denssmall
+    real(8),save          ::   diffdens_old
+    real(8),save          ::   xmularge
+    real(8),save          ::   xmusmall
+    integer,save          ::   ilarge
+    integer,save          ::   ismall
+    integer,save          ::   inotbound
+    integer,save          ::   iattempt=1,iattemptm=1
+    integer               ::   unit,i_
+    logical,save          ::   bandmix=.true.
+    !
+    if(ED_MPI_ID==0)then
+       !
+       diffdens=dens_tmp-nread
+       delta_xmu=0.5d0
+       if((iattempt==1).and.(abs(diffdens).lt.delta_xmu))delta_xmu=delta_xmu**2
+       !
+       if ((dabs(diffdens)).le.nerr) then
+          converged=.TRUE.
+          write(LOGfile,*)
+          write(LOGfile,*) "   --------------------------------------------"
+          write(LOGfile,'(A30,I4)')    "   Density ok in attempt: ",iattempt
+          write(LOGfile,'(A30,F10.6)') "   tolerance: ",nerr
+          write(LOGfile,'(A30,F10.6)') "   density: ",dens_tmp
+          write(LOGfile,'(A30,F10.6)') "   target desity: ",nread
+          write(LOGfile,'(A30,F10.6)') "   xmu: ",xmu_tmp
+          write(LOGfile,"(A30,L2)")    "   Converged:  ",converged
+          write(LOGfile,*) "   --------------------------------------------"
+          write(LOGfile,*)
+          unit=free_unit()
+          open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+          write(unit,*)xmu_tmp,dens_tmp,diffdens
+          close(unit)
+       else
+          converged=.FALSE.
+          write(LOGfile,*)
+          write(LOGfile,*) "   --------------------------------------------"
+          write(LOGfile,'(A30,I7)')    "   Adjusting xmu #",iattempt
+          write(LOGfile,'(A30,F10.6)') "   Delta xmu: ",delta_xmu
+          write(LOGfile,'(A10,F10.6,A7,F10.6)') "    n:",dens_tmp,"!= n:",nread
+          !vedo se la densità è troppa o troppo poca
+          if (diffdens.gt.0.d0) then  
+             ilarge=1
+             xmularge=xmu_tmp
+             denslarge=dens_tmp
+          elseif (diffdens.lt.0.d0) then
+             ismall=1
+             xmusmall=xmu_tmp
+             denssmall=dens_tmp
+          endif
+          if (ilarge*ismall.eq.0) then
+             !non ho ancora trovato un xmu per cui diffdens cambia segno
+             inotbound=inotbound+1
+             xmu_shift = delta_xmu * diffdens
+             xmu_tmp = xmu_tmp - xmu_shift
+             write(LOGfile,*) "   Try xmu =",xmu_tmp
+             write(LOGfile,*) "   --------------------------------------------"
+             write(LOGfile,*)
+             if (mod(inotbound,10).eq.0) then
+                delta_xmu = delta_xmu*2.0d0
+             endif
+          elseif((iattempt.gt.0).and.(abs(diffdens).gt.abs(diffdens_old)).and.(.not.bandmix))then !<= qui voglio che cali soltanto
+             write(LOGfile,*)"   band mixing, increasing mu to increase density"
+             if(present(bath_))then
+                do i_=1,size(bath_)-Nbath
+                   bath_(i_)=bath_(i_)/10.0d0
+                enddo
+             endif
+             xmu_shift = delta_xmu * diffdens
+             xmu_tmp = xmu_tmp + xmu_shift
+             write(LOGfile,*) "   Try xmu =",xmu_tmp
+             write(LOGfile,*) "   --------------------------------------------"
+             write(LOGfile,*)
+             bandmix=.true.
+          else
+             !ho trovato un xmu per cui diffdens cambia segno
+             write(LOGfile,*)"   xmu is bound",xmularge,"<",xmusmall
+             xmu_shift =  sign(1.0d0,diffdens)*abs((xmusmall-xmularge)/2.)
+             xmu_tmp = xmu_tmp - xmu_shift
+             write(LOGfile,*) "   Try xmu =",xmu_tmp
+             write(LOGfile,*) "   --------------------------------------------"
+             write(LOGfile,*)
+          endif
+          unit=free_unit()
+          open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+          write(unit,*)xmu_tmp,dens_tmp,diffdens,iattempt
+          close(unit)
+       endif
+       iattempt=iattempt+1
+       diffdens_old=diffdens
+       !
+    endif
+#ifdef _MPI
+    call MPI_BCAST(xmu,1,MPI_Double_Precision,0,MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
+  end subroutine search_chempot
+
+
   ! subroutine search_mu(ntmp,convergence)
   !   logical,intent(inout) :: convergence
   !   real(8)               :: ntmp
@@ -899,9 +1007,9 @@ contains
   !   endif
   !   xmu=xmu+real(nindex,8)*ndelta
   !   if(abs(ntmp-nread)>nerr)convergence=.false.
-  !   write(*,"(A,f15.12,A,f15.12,A,f15.12,A,f15.12)")" n=",ntmp," /",nread,&
+  !   write(LOGfile,"(A,f15.12,A,f15.12,A,f15.12,A,f15.12)")" n=",ntmp," /",nread,&
   !        "| shift=",nindex*ndelta,"| xmu=",xmu
-  !   write(*,"(A,f15.12)")"dn=",abs(ntmp-nread)
+  !   write(LOGfile,"(A,f15.12)")"dn=",abs(ntmp-nread)
   !   print*,""
   !   print*,"Convergence:",convergence
   !   print*,""

@@ -219,20 +219,19 @@ contains
                       do jorb=1,Norb
                          re=0.0d0;im=0.0d0
                          noise_tot=noise_b(i)+noise_s(ispin)*noise_s(jspin)+noise_o(iorb)*noise_o(jorb)
-                         if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1))re=0.1d0+noise_tot
-                         if(dmft_bath_%mask(ispin,jspin,iorb,jorb,2))im=0.01d0+noise_tot**2
+                         if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1))re=1.d0+noise_tot
+                         if(dmft_bath_%mask(ispin,jspin,iorb,jorb,2))im=0.5d0+noise_tot**2
                          io = iorb + (ispin-1)*Norb                           
                          jo = jorb + (jspin-1)*Norb
                          if(io==jo)then
                             dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(re,im)
                          else
-                            dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(re,im)
+                            dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(-re/2.d0,im)
                          endif
                       enddo
                    enddo
                 enddo
              enddo
-            !dmft_bath_%h(:,:,:,:,i)=abs(impHloc)
           enddo
        endif
        !HYBR. INITIALIZATION
@@ -240,12 +239,12 @@ contains
        if((ed_type=="d").or.((ed_type=="c").and.(real_hybr)))then
           do i=1,Nbath
              noise_tot=noise_b(i)
-             dmft_bath_%vr(i)=cmplx(0.1d0+noise_tot,0.0d0)*ed_vsf_ratio*(-1)**(i-1)
+             dmft_bath_%vr(i)=cmplx(1.d0+noise_tot,0.0d0)*ed_vsf_ratio*(-1)**(i-1)
           enddo
        elseif((ed_type=="c").and.(.not.real_hybr))then
           do i=1,Nbath
              noise_tot=noise_b(i)
-             dmft_bath_%vr(i)=cmplx(0.1d0+noise_tot,0.01d0+noise_tot**2)*ed_vsf_ratio*(-1)**(i-1)
+             dmft_bath_%vr(i)=cmplx(1.d0+noise_tot,0.1d0+noise_tot**2)*ed_vsf_ratio*(-1)**(i-1)
           enddo
        endif
        !
