@@ -54,12 +54,6 @@ MODULE ED_AUX_FUNX
      module procedure extract_Hloc_2
   end interface extract_Hloc
 
-  interface SOC_jz_symmetrize
-     module procedure SOC_jz_symmetrize_1
-     module procedure SOC_jz_symmetrize_2
-     module procedure SOC_jz_symmetrize_3
-  end interface SOC_jz_symmetrize
-
   public :: set_Hloc
   public :: get_Hloc  
   public :: print_Hloc
@@ -78,8 +72,8 @@ MODULE ED_AUX_FUNX
   !OBSOLETE (to be removed)
   public :: search_chemical_potential
   public :: search_chempot
-  public :: SOC_compute_component
   public :: SOC_jz_symmetrize
+  !public :: SOC_compute_component
 
 contains
 
@@ -870,10 +864,10 @@ contains
 
 
 
-  subroutine search_chempot(xmu_tmp,dens_tmp,converged,bath_) 
+  subroutine search_chempot(xmu_tmp,dens_tmp,converged_,bath_) 
     real(8),intent(in)    ::   dens_tmp
     real(8),intent(inout) ::   xmu_tmp
-    logical,intent(inout) ::   converged
+    logical,intent(inout) ::   converged_
     real(8),allocatable,optional,intent(inout) :: bath_(:)
     !internal
     real(8)               ::   diffdens,delta_xmu,xmu_shift
@@ -891,19 +885,19 @@ contains
     if(ED_MPI_ID==0)then
        !
        diffdens=dens_tmp-nread
-       delta_xmu=0.5d0
-       if((iattempt==1).and.(abs(diffdens).lt.delta_xmu))delta_xmu=delta_xmu**2
+       delta_xmu=1.0d0
+       !if(abs(diffdens).lt.2.d0*nerr)delta_xmu=0.5d0
        !
        if ((dabs(diffdens)).le.nerr) then
-          converged=.TRUE.
+          converged_=.TRUE.
           write(LOGfile,*)
           write(LOGfile,*) "   --------------------------------------------"
-          write(LOGfile,'(A30,I4)')    "   Density ok in attempt: ",iattempt
+          write(LOGfile,'(A30,I3)')    "   Density ok in attempt: ",iattempt
           write(LOGfile,'(A30,F10.6)') "   tolerance: ",nerr
           write(LOGfile,'(A30,F10.6)') "   density: ",dens_tmp
           write(LOGfile,'(A30,F10.6)') "   target desity: ",nread
           write(LOGfile,'(A30,F10.6)') "   xmu: ",xmu_tmp
-          write(LOGfile,"(A30,L2)")    "   Converged:  ",converged
+          write(LOGfile,"(A30,L3)")    "   Converged(n): ",converged_
           write(LOGfile,*) "   --------------------------------------------"
           write(LOGfile,*)
           unit=free_unit()
@@ -911,7 +905,7 @@ contains
           write(unit,*)xmu_tmp,dens_tmp,diffdens
           close(unit)
        else
-          converged=.FALSE.
+          converged_=.FALSE.
           write(LOGfile,*)
           write(LOGfile,*) "   --------------------------------------------"
           write(LOGfile,'(A30,I7)')    "   Adjusting xmu #",iattempt
@@ -953,7 +947,7 @@ contains
              bandmix=.true.
           else
              !ho trovato un xmu per cui diffdens cambia segno
-             write(LOGfile,*)"   xmu is bound",xmularge,"<",xmusmall
+             write(LOGfile,*)"   xmu is bound",xmularge,"-",xmusmall
              xmu_shift =  sign(1.0d0,diffdens)*abs((xmusmall-xmularge)/2.)
              xmu_tmp = xmu_tmp - xmu_shift
              write(LOGfile,*) "   Try xmu =",xmu_tmp
@@ -1018,32 +1012,32 @@ contains
   !   close(10)
   ! end subroutine search_mu
 
-  function SOC_compute_component(s1,s2,a,b) result(bool)
-    logical    ::   bool
-    integer    ::   a,b,s1,s2
-    !
-    bool=.false.
-    !
-    !diagonal
-    if((s1==1).and.(s2==1).and.(a==1).and.(b==1))bool=.true.
-    if((s1==1).and.(s2==1).and.(a==2).and.(b==2))bool=.true.
-    if((s1==1).and.(s2==1).and.(a==3).and.(b==3))bool=.true.
-    if((s1==2).and.(s2==2).and.(a==2).and.(b==2))bool=.true.
-    !off-diag - upper [to be copied]
-    if((s1==1).and.(s2==2).and.(a==3).and.(b==2))bool=.true.  !(1,2,3,2)-->(2,2,1,2)
-    if((s1==1).and.(s2==1).and.(a==1).and.(b==2))bool=.true.  !(1,1,1,2)-->(1,2,2,3)
-    !off-diag - lower [to be copied]
-    if((s1==1).and.(s2==1).and.(a==2).and.(b==1))bool=.true.  !(1,1,2,1)-->(2,1,3,2)
-    if((s1==2).and.(s2==2).and.(a==2).and.(b==1))bool=.true.  !(2,2,2,1)-->(2,1,2,3)
-    !all off-diag [to be copied]
-    if((s1==1).and.(s2==2).and.(a==1).and.(b==3))bool=.true.  !(1,2,1,3)-->(2,1,3,1)
-    if((s1==1).and.(s2==2).and.(a==3).and.(b==1))bool=.true.  !(1,2,3,1)-->(2,1,1,3)
-    !test
-    if((s1==2).and.(s2==1).and.(a==3).and.(b==1))bool=.true.  !(1,2,1,3)-->(2,1,3,1)
-    !
-  end function SOC_compute_component
+  !function SOC_compute_component(s1,s2,a,b) result(bool)
+  !  logical    ::   bool
+  !  integer    ::   a,b,s1,s2
+  !  !
+  !  bool=.false.
+  !  !
+  !  !diagonal
+  !  if((s1==1).and.(s2==1).and.(a==1).and.(b==1))bool=.true.
+  !  if((s1==1).and.(s2==1).and.(a==2).and.(b==2))bool=.true.
+  !  if((s1==1).and.(s2==1).and.(a==3).and.(b==3))bool=.true.
+  !  if((s1==2).and.(s2==2).and.(a==2).and.(b==2))bool=.true.
+  !  !off-diag - upper [to be copied]
+  !  if((s1==1).and.(s2==2).and.(a==3).and.(b==2))bool=.true.  !(1,2,3,2)-->(2,2,1,2)
+  !  if((s1==1).and.(s2==1).and.(a==1).and.(b==2))bool=.true.  !(1,1,1,2)-->(1,2,2,3)
+  !  !off-diag - lower [to be copied]
+  !  if((s1==1).and.(s2==1).and.(a==2).and.(b==1))bool=.true.  !(1,1,2,1)-->(2,1,3,2)
+  !  if((s1==2).and.(s2==2).and.(a==2).and.(b==1))bool=.true.  !(2,2,2,1)-->(2,1,2,3)
+  !  !all off-diag [to be copied]
+  !  if((s1==1).and.(s2==2).and.(a==1).and.(b==3))bool=.true.  !(1,2,1,3)-->(2,1,3,1)
+  !  if((s1==1).and.(s2==2).and.(a==3).and.(b==1))bool=.true.  !(1,2,3,1)-->(2,1,1,3)
+  !  !test
+  !  if((s1==2).and.(s2==1).and.(a==3).and.(b==1))bool=.true.  !(1,2,1,3)-->(2,1,3,1)
+  !  !
+  !end function SOC_compute_component
 
-  subroutine SOC_jz_symmetrize_1(funct,dmft_bath_)
+  subroutine SOC_jz_symmetrize(funct,dmft_bath_)
     !passed
     complex(8),allocatable,intent(inout)         ::  funct(:,:,:,:,:)
     type(effective_bath),intent(in)              ::  dmft_bath_
@@ -1099,96 +1093,7 @@ contains
     funct = symmetrized_funct
     !
     deallocate(symmetrized_funct)
-  end subroutine SOC_jz_symmetrize_1
-
-  subroutine SOC_jz_symmetrize_2(funct)
-    !passed
-    complex(8),allocatable,intent(inout)         ::  funct(:,:,:,:)
-    complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:)
-    integer                                      ::  ispin,jspin,iorb,jorb
-    logical                                      ::  compute_component
-    if(size(funct,dim=1)/=Nspin)stop "wrong size 1 in SOC symmetrize input f"
-    if(size(funct,dim=2)/=Nspin)stop "wrong size 2 in SOC symmetrize input f"
-    if(size(funct,dim=3)/=Norb) stop "wrong size 3 in SOC symmetrize input f"
-    if(size(funct,dim=4)/=Norb) stop "wrong size 4 in SOC symmetrize input f"
-    allocate(symmetrized_funct(Nspin,Nspin,Norb,Norb));symmetrized_funct=zero
-    compute_component=.false.
-    !
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                compute_component = SOC_compute_component(ispin,jspin,iorb,jorb)
-                if(compute_component)symmetrized_funct(ispin,jspin,iorb,jorb) = funct(ispin,jspin,iorb,jorb)
-             enddo
-          enddo
-       enddo
-    enddo
-       !
-       do iorb=1,Norb
-          if(iorb==2)cycle
-          symmetrized_funct(2,2,Norb-iorb+1,Norb-iorb+1) = symmetrized_funct(1,1,iorb,iorb)
-       enddo
-       !
-       symmetrized_funct(2,2,1,2) = symmetrized_funct(1,2,3,2)
-       symmetrized_funct(1,2,2,3) = symmetrized_funct(1,1,1,2)
-       !
-       symmetrized_funct(2,1,3,2) = symmetrized_funct(1,1,2,1)
-       symmetrized_funct(2,1,2,3) = symmetrized_funct(2,2,2,1)
-       !
-       !symmetrized_funct(2,1,3,1) = symmetrized_funct(1,2,1,3)
-       symmetrized_funct(2,1,1,3) = symmetrized_funct(1,2,3,1)
-       !
-    funct = zero
-    funct = symmetrized_funct
-    deallocate(symmetrized_funct)
-  end subroutine SOC_jz_symmetrize_2
-
-  subroutine SOC_jz_symmetrize_3(funct)
-    !passed
-    complex(8),allocatable,intent(inout)         ::  funct(:,:)
-    complex(8),allocatable                       ::  funct_nn(:,:,:,:)
-    complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:)
-    integer                                      ::  ispin,jspin,iorb,jorb
-    logical                                      ::  compute_component
-    if(size(funct,dim=1)/=Nspin*Norb)stop "wrong size 1 in SOC symmetrize input f"
-    if(size(funct,dim=2)/=Nspin*Norb)stop "wrong size 2 in SOC symmetrize input f"
-    allocate(funct_nn(Nspin,Nspin,Norb,Norb));funct_nn=zero
-    allocate(symmetrized_funct(Nspin,Nspin,Norb,Norb));symmetrized_funct=zero
-    funct_nn = so2nn_reshape(funct,Nspin,Norb)
-    compute_component=.false.
-    !
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                compute_component = SOC_compute_component(ispin,jspin,iorb,jorb)
-                if(compute_component)symmetrized_funct(ispin,jspin,iorb,jorb) = funct_nn(ispin,jspin,iorb,jorb)
-             enddo
-          enddo
-       enddo
-    enddo
-       !
-       do iorb=1,Norb
-          if(iorb==2)cycle
-          symmetrized_funct(2,2,Norb-iorb+1,Norb-iorb+1) = symmetrized_funct(1,1,iorb,iorb)
-       enddo
-       !
-       symmetrized_funct(2,2,1,2) = symmetrized_funct(1,2,3,2)
-       symmetrized_funct(1,2,2,3) = symmetrized_funct(1,1,1,2)
-       !
-       symmetrized_funct(2,1,3,2) = symmetrized_funct(1,1,2,1)
-       symmetrized_funct(2,1,2,3) = symmetrized_funct(2,2,2,1)
-       !
-       !symmetrized_funct(2,1,3,1) = symmetrized_funct(1,2,1,3)
-       symmetrized_funct(2,1,1,3) = symmetrized_funct(1,2,3,1)
-       
-    funct    = zero
-    funct_nn = zero
-    funct_nn = symmetrized_funct
-    funct = nn2so_reshape(funct_nn,Nspin,Norb)
-    deallocate(symmetrized_funct,funct_nn)
-  end subroutine SOC_jz_symmetrize_3
+  end subroutine SOC_jz_symmetrize
 
 
 END MODULE ED_AUX_FUNX

@@ -24,7 +24,7 @@ program ed_TEST_REPLICA
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
   real(8)                :: soc,ivb,wmixing,sumdens,xmu_old
-  logical                :: surface,Hk_test,rotateG0loc,converged_n,paramag,shift_flag
+  logical                :: surface,Hk_test,rotateG0loc,converged_n,paramag
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   !convergence functions:
@@ -41,7 +41,7 @@ program ed_TEST_REPLICA
   call MPI_INIT(ED_MPI_ERR)
   call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
   call MPI_COMM_SIZE(MPI_COMM_WORLD,ED_MPI_SIZE,ED_MPI_ERR)
-  write(*,"(A,I4,A,I4,A)")'Processor ',ED_MPI_ID,' of ',ED_MPI_SIZE,' is alive'
+  write(LOGfile,"(A,I4,A,I4,A)")'Processor ',ED_MPI_ID,' of ',ED_MPI_SIZE,' is alive'
   call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
   !
@@ -104,7 +104,7 @@ program ed_TEST_REPLICA
      iloop=iloop+1
      if(ED_MPI_ID==0)call start_loop(iloop,nloop,"DMFT-loop")
      !
-     !main loop:
+     !MAIN LOOP:
      !
      call ed_solve(bath)
      call ed_get_sigma_matsubara(Smats)
@@ -118,58 +118,67 @@ program ed_TEST_REPLICA
      else
         call ed_chi2_fitgf(delta,bath)
      endif
+     if(ED_MPI_ID==0)write(LOGfile,'(a10,F10.5)') " wmixing",wmixing
      Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
-#ifdef _MPI
-     call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
      !
      !operations:
+     !
+     if(ED_MPI_ID==0)then
+        call build_hk_path
+        call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+        call check_rotations_on_Jz(dm_rot)
+        call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
+     endif
+     call rotate_Gloc(Greal,"B",bottom,top)
+     !
+     !chemical potential find:
      !
      converged_n=.true.
      if(nread/=0.d0)then
         converged_n=.false.
         xmu_old=xmu
         sumdens=sum(ed_get_dens())
-        !call search_chemical_potential(xmu,sumdens,converged_n)
-        if(iloop>=2)call search_chempot(xmu,sumdens,converged_n,Bath)
-        if(ED_MPI_ID==0)write(*,'(5(a10,F10.5))') "sumdens",sumdens,"xmu_old",xmu_old,"xmu_new",xmu
+        call search_chempot(xmu,sumdens,converged_n,Bath)
+        write(*,'(5(a10,F10.5))') "sumdens",sumdens,"xmu_old",xmu_old,"xmu_new",xmu
      endif
      !
-     if(ED_MPI_ID==0)then
-        call build_hk_path
-        call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-        call check_rotations_on_Jz(dm_rot)
-        call rotate_Gloc(Greal,bottom,top)
-        call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
-     endif
-     !
-     !convergence and loop ending:
+     !convergence:
      !
      do i=1,Lmats
         delta_conv(:,:,i)=nn2so_reshape(delta(:,:,:,:,i))
         delta_conv_avrg(i)=sum(delta_conv(:,:,i))
      enddo
-     if(ED_MPI_ID==0) converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
-     converged = converged .and. converged_n
+     if(ED_MPI_ID==0) then
+        converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
+        write(LOGfile,'(2(a15,L3))') "converged",converged,"converged(n)",converged_n
+        converged = converged .and. converged_n
+        write(LOGfile,'(2(a25,L3))') "total converged",converged
+     endif
+#ifdef _MPI
+     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
+     call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
      !
      !final mu shift:
      !
-     shift_flag=.false.
-     if(converged.and.shift_flag)then
-        if(ED_MPI_ID==0)write(*,*)"top",top,"bottom",bottom
+     if((iloop>=2).and.paramag)then
+        if(ED_MPI_ID==0)write(LOGfile,*)"top",top,"bottom",bottom
         shift      = bottom + ( top - bottom ) / 2.d0
         xmu_old    = xmu
-        if(abs(shift)>=0.05)then
+        if(abs(shift)>=0.02)then
            xmu        = xmu_old + shift
            nread      = 0.0d0
            converged  = .false.
         endif
-        if(ED_MPI_ID==0)write(*,'(5(a10,F10.5))') "shift",shift,"xmu_old",xmu_old,"xmu_new",xmu
+        if(ED_MPI_ID==0)write(LOGfile,'(5(a10,F10.5))') "shift",shift,"xmu_old",xmu_old,"xmu_new",xmu
+        unit=free_unit()
+        open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+        write(unit,*)xmu,sumdens,sumdens-nerr,"shift"
+        close(unit)
      endif
-
-#ifdef _MPI
-     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
+     !
+     !
+     !
      if(ED_MPI_ID==0)call end_loop
   enddo
 #ifdef _MPI
@@ -216,8 +225,8 @@ contains
     else
        Lk=Nk**3
     endif
-    if(ED_MPI_ID==0)write(*,*)"# of k-points     :",Lk
-    if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
+    if(ED_MPI_ID==0)write(LOGfile,*)"# of k-points     :",Lk
+    if(ED_MPI_ID==0)write(LOGfile,*)"# of SO-bands     :",Nso
     if(allocated(Hk))deallocate(Hk)
     allocate(Hk(Nso,Nso,Lk));allocate(wtk(Lk));allocate(kxgrid(Nk),kygrid(Nk),kzgrid(Nk))
     wtk = 1.0d0/Lk
@@ -251,17 +260,17 @@ contains
     !
     if(ED_MPI_ID==0) then
        call write_Hloc(Ti3dt2g_Hloc)
-       write(*,*)
-       write(*,*) "Sum over k of H(k) nella versione A1"
-       write(*,*) "real"
+       write(LOGfile,*)
+       write(LOGfile,*) "Sum over k of H(k) nella versione A1"
+       write(LOGfile,*) "real"
        do i=1,Nso
-          write(*,'(6F10.4)') (real(Ti3dt2g_Hloc(i,j)),j=1,Nso)
+          write(LOGfile,'(6F10.4)') (real(Ti3dt2g_Hloc(i,j)),j=1,Nso)
        enddo
-       write(*,*) "complex"
+       write(LOGfile,*) "complex"
        do i=1,Nso
-          write(*,'(6F10.4)') (dimag(Ti3dt2g_Hloc(i,j)),j=1,Nso)
+          write(LOGfile,'(6F10.4)') (dimag(Ti3dt2g_Hloc(i,j)),j=1,Nso)
        enddo
-       write(*,*)
+       write(LOGfile,*)
     endif
     !
     !Build the local GF in the spin-orbital Basis:
@@ -294,7 +303,7 @@ contains
        do i=1,Lreal
           G_in(:,:,:,:,i)=so2nn_reshape(Greal(:,:,i))
        enddo
-       call rotate_Gloc(G_in)
+       call rotate_Gloc(G_in,"B")
     endif
   end subroutine build_hk
 
@@ -639,9 +648,10 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: rotations on G0loc/Gloc
   !---------------------------------------------------------------------
-  subroutine rotate_Gloc(Gsowr,bottom_,top_)
+  subroutine rotate_Gloc(Gsowr,type_rot,bottom_,top_)
     implicit none
     complex(8),allocatable,intent(in)             ::   Gsowr(:,:,:,:,:)
+    character(len=1),intent(in),optional          ::   type_rot
     real(8),intent(out),optional                  ::   bottom_,top_
     complex(8),allocatable                        ::   G_in(:,:,:),G_out(:,:,:)
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   ::   theta_C,theta_R,impHloc_rot
@@ -664,9 +674,9 @@ contains
     Lfreq=size(Gsowr,dim=5)
     !
     if(isetup) then
-       if(ED_MPI_ID==0)write(*,*) " A(w) rotation - non interacting system",Lfreq
+       if(ED_MPI_ID==0)write(LOGfile,*) "  A(w) rotation - non interacting system",Lfreq
     else
-       if(ED_MPI_ID==0)write(*,*) " A(w) rotation - interacting system",Lfreq
+       if(ED_MPI_ID==0)write(LOGfile,*) "  A(w) rotation - interacting system",Lfreq
     endif
     !
     !
@@ -714,6 +724,8 @@ contains
     !#                                                             #
     !###############################################################
     !
+    if(present(type_rot).and.(type_rot=="H"))then
+       if(ED_MPI_ID==0)write(LOGfile,*) "  Gloc rotation with impHloc"
     !
     !1)rotation
     G_out=zero
@@ -756,14 +768,18 @@ contains
        enddo
     enddo
     close(106)
+
+    endif
     !
     !
     !###############################################################
     !#                                                             #
-    !#                    ROTATION WITH theta_C                      #
+    !#                    ROTATION WITH theta_C                    #
     !#                                                             #
     !###############################################################
     !
+    if(present(type_rot).and.(type_rot=="A"))then
+       if(ED_MPI_ID==0)write(LOGfile,*) "  Gloc rotation with LS(C) Martins"
     !
     !1)rotation
     G_out=zero
@@ -806,14 +822,18 @@ contains
        enddo
     enddo
     close(106)
+
+    endif
     !
     !
     !###############################################################
     !#                                                             #
-    !#                    ROTATION WITH theta_R                      #
+    !#                    ROTATION WITH theta_R                    #
     !#                                                             #
     !###############################################################
     !
+    if(present(type_rot).and.(type_rot=="B"))then
+       if(ED_MPI_ID==0)write(LOGfile,*) "  Gloc rotation with LS(R)"
     !
     !1)rotation
     G_out=zero
@@ -870,6 +890,8 @@ contains
        enddo
     enddo
     close(106)
+
+    endif
     !
     !
     !###############################################################
@@ -1208,8 +1230,8 @@ contains
     !
     !##############################################################
     !
-    write(*,*) "Computing total Spin operator per orbital"
-    write(*,*) "Lmats used:",Lmats
+    write(LOGfile,*) "Computing total Spin operator per orbital"
+    write(LOGfile,*) "Lmats used:",Lmats
     allocate(Stot(3,Norb,Norb));Stot=zero
     !
     do iorb=1,Norb
@@ -1265,8 +1287,8 @@ contains
     !
     !##############################################################
     !
-    write(*,*) "Computing total Orbital operator per spin"
-    write(*,*) "Lmats used:",Lmats
+    write(LOGfile,*) "Computing total Orbital operator per spin"
+    write(LOGfile,*) "Lmats used:",Lmats
     allocate(Ltot(3,Nspin,Nspin));Ltot=zero
     !
     do ispin=1,Nspin
@@ -1317,8 +1339,8 @@ contains
     !
     !##############################################################
     !
-    write(*,*) "Computing total L dot S operator per site"
-    write(*,*) "Lmats used:",Lmats
+    write(LOGfile,*) "Computing total L dot S operator per site"
+    write(LOGfile,*) "Lmats used:",Lmats
     LdotS=zero
     !
     LdotS=sum(       +xi*Gso(1,1,1,2,:) &
@@ -1349,7 +1371,7 @@ contains
                          ,  real(Ltot(3,1,1)), real(Ltot(3,2,2)) &
                          , aimag(Ltot(3,1,1)),aimag(Ltot(3,2,2)),real(Lz),aimag(Lz) &
                          ,  real(jz),aimag(jz),real(LdotS),aimag(LdotS),real(J),aimag(J)
-    write(*,*)  "   Re{Jz}",real(jz),"   Im{Jz}",aimag(jz)
+    write(LOGfile,*)  "   Re{Jz}",real(jz),"   Im{Jz}",aimag(jz)
     close(107)
     !
     deallocate(Ltot,Stot)
@@ -1373,11 +1395,11 @@ contains
     integer (kind=2)               ::   dime
 
     if (size(A).ne.size(B)) then
-       write(*,*) "Matrices not equal cannot perform inversion test"
+       write(LOGfile,*) "Matrices not equal cannot perform inversion test"
        stop
     endif
     dime=maxval(shape(A))
-    if (abs(float(dime)-real(sum(matmul(A,B)))).gt.tol) write(*,'(A30)') "inversion test fail"
+    if (abs(float(dime)-real(sum(matmul(A,B)))).gt.tol) write(LOGfile,'(A30)') "inversion test fail"
   end subroutine inversion_test
 
 

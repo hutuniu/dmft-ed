@@ -16,10 +16,9 @@ MODULE ED_BATH_USER
   end interface get_bath_size
 
   interface get_size_bath
-     module procedure get_size_bath!_normal_hybrid
-     !module procedure get_size_bath_replica
+     module procedure get_size_bath
   end interface get_size_bath
-  !
+
   interface check_bath_dimension
      module procedure check_size_bath
   end interface check_bath_dimension
@@ -149,10 +148,10 @@ contains
        select case(ed_mode)
        case default
           !
-          !if(ed_type=="d")bath_size = ndx * Nbath + Nspin * Norb * Nbath
           if(ed_type=="d")bath_size = ndx * Nbath + Nbath
           if(ed_type=="c")then
              if(real_hybr)then
+                !bath_size = ndx * Nbath + 1 !Nbath
                 bath_size = ndx * Nbath + Nbath
              else
                 bath_size = ndx * Nbath + Nbath * 2
@@ -162,15 +161,9 @@ contains
           !
        case ("nonsu2")
           if(ed_para)then
-           !  if((ed_type=="d").or.(real_Hrepl.and.(ed_type=="c")))then!tutto reale
                 bath_size = 2 * Nbath
                 if(real_hybr)      bath_size = bath_size + Nbath 
                 if(.not.real_hybr) bath_size = bath_size + Nbath * 2
-           !  elseif((.not.real_Hrepl).and.(ed_type=="c"))then
-           !     bath_size = 4 * Nbath
-           !     if(real_hybr)      bath_size = bath_size + Nbath 
-           !     if(.not.real_hybr) bath_size = bath_size + Nbath * 2
-           !  endif
           else
              if(ed_type=="d")bath_size = ndx * Nbath + Nbath
              if(ed_type=="c")then

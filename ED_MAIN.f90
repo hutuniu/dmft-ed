@@ -265,16 +265,16 @@ contains
   ! PURPOSE: allocate and initialize one or multiple baths -+!
   !+-----------------------------------------------------------------------------+!
   subroutine ed_init_solver(bath_,himp_,hwband,Hunit)
-    real(8),dimension(:),intent(inout)   :: bath_
-    real(8),optional,intent(in)          :: hwband
-    complex(8),allocatable,optional,intent(in)     :: himp_(:,:,:,:)
-    real(8)                              :: hwband_
-    complex(8)                           :: himp(Nspin,Nspin,Norb,Norb)
-    character(len=*),optional,intent(in) :: Hunit
-    character(len=64)                    :: Hunit_
-    logical                              :: check 
-    logical,save                         :: isetup=.true.
-    integer :: i
+    real(8),dimension(:),intent(inout)           :: bath_
+    real(8),optional,intent(in)                  :: hwband
+    complex(8),allocatable,optional,intent(in)   :: himp_(:,:,:,:)
+    real(8)                                      :: hwband_
+    complex(8)                                   :: himp(Nspin,Nspin,Norb,Norb)
+    character(len=*),optional,intent(in)         :: Hunit
+    character(len=64)                            :: Hunit_
+    logical                                      :: check 
+    logical,save                                 :: isetup=.true.
+    integer                                      :: i
 
     hwband_=2.d0;if(present(hwband))hwband_=hwband
     Hunit_='inputHLOC.in';if(present(Hunit))Hunit_=Hunit
@@ -289,7 +289,7 @@ contains
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"
     bath_ = 0.d0
 
-    !qui alloco le gf, impHloc=0 e provo a leggerla da file , setto le dimensioni dei blocchi
+    !allocation of Gfs, impHloc=0 (plus trial to read from file), block dimension setting
     if(isetup)call init_ed_structure(Hunit_)
     call set_hloc(himp)
 
@@ -372,7 +372,7 @@ contains
     call observables_impurity         !obtain impurity observables as thermal averages.  
     call buildgf_impurity             !build the one-particle impurity Green's functions
     if(chiflag)call buildchi_impurity !build the local susceptibilities (spin [todo charge])
-    !call observables_impurity         !obtain impurity observables as thermal averages.  
+    !call observables_impurity        !obtain impurity observables as thermal averages.  
     call local_energy_impurity        !obtain the local energy of the effective impurity problem.
     !
     call deallocate_dmft_bath(dmft_bath)   
