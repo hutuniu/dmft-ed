@@ -153,23 +153,23 @@ contains
     select case(bath_type)
     case default
        !Get energies:
-       dmft_bath_%e(:,:,1)    =-hwband_
-       dmft_bath_%e(:,:,Nbath)= hwband_
+       dmft_bath_%e(:,:,1)    =-hwband_ + noise_b(1)
+       dmft_bath_%e(:,:,Nbath)= hwband_ + noise_b(Nbath)
        Nh=Nbath/2
-       if(mod(Nbath,2)==0)then
+       if(mod(Nbath,2)==0.and.Nbath>=4)then
           de=hwband_/max(Nh-1,1)
-          dmft_bath_%e(:,:,Nh)  = -1.d-4
-          dmft_bath_%e(:,:,Nh+1)=  1.d-4
+          dmft_bath_%e(:,:,Nh)  = -1.d-3 + noise_b(Nh)
+          dmft_bath_%e(:,:,Nh+1)=  1.d-3 + noise_b(Nh+1)
           do i=2,Nh-1
-             dmft_bath_%e(:,:,i)   =-hwband_ + (i-1)*de 
-             dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de
+             dmft_bath_%e(:,:,i)   =-hwband_ + (i-1)*de  + noise_b(i)
+             dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de + noise_b(Nbath-i+1)
           enddo
-       else
+       elseif(mod(Nbath,2)/=0.and.Nbath>=3)then
           de=hwband_/Nh
-          dmft_bath_%e(:,:,Nh+1)= 0.d0
+          dmft_bath_%e(:,:,Nh+1)= 0.0d0 + noise_b(Nh+1)
           do i=2,Nh
-             dmft_bath_%e(:,:,i)        =-hwband_ + (i-1)*de
-             dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de
+             dmft_bath_%e(:,:,i)        =-hwband_ + (i-1)*de + noise_b(i)
+             dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de + noise_b(Nbath-i+1)
           enddo
        endif
        !Get spin-keep yhbridizations
@@ -921,7 +921,7 @@ contains
                 enddo
                 i=i+1
                 element_R=0.0d0;element_I=0.0d0
-                element_R=bath_(i)!off-diagonal lambda_k
+                element_R=abs(bath_(i))!off-diagonal lambda_k
                 !LSmatrix(1:2,3:4)= -Xi * element_R * pauli_z / 2.
                 !LSmatrix(1:2,5:6)= +Xi * element_R * pauli_y / 2.
                 !LSmatrix(3:4,5:6)= -Xi * element_R * pauli_x / 2.
@@ -953,7 +953,8 @@ contains
                          do jorb=1,Norb
                             io = iorb + (ispin-1)*Norb
                             jo = jorb + (jspin-1)*Norb
-                            dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)+LSmatrix(io,jo)
+                            if(real_Hrepl)dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)-abs(LSmatrix(io,jo))
+                            if(.not.real_Hrepl)dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)+LSmatrix(io,jo)
                          enddo
                       enddo
                    enddo
@@ -1243,7 +1244,8 @@ contains
                 enddo
                 123 continue
                 i=i+1
-                bath_(i)=real(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath))
+                if(real_Hrepl)bath_(i)=abs(real(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)))
+                if(.not.real_Hrepl)bath_(i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
              enddo
           else
              !all non-vanishing terms in imploc - all spin

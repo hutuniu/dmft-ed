@@ -1453,9 +1453,9 @@ contains
     !
     select case(iprint)
     case (0)
-       write(LOGfile,*)"Gloc not written to file."
+       if(ED_MPI_ID==0)write(LOGfile,*)"Gloc not written to file."
     case(1)                  !print only diagonal elements
-       write(LOGfile,*)"write spin-orbital diagonal elements:"
+       if(ED_MPI_ID==0)write(LOGfile,*)"write spin-orbital diagonal elements:"
        do ispin=1,Nspin
           do iorb=1,Norb
              suffix=reg(fname)//"_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)//"_iw.ed"
@@ -1465,7 +1465,7 @@ contains
           enddo
        enddo
     case(2)                  !print spin-diagonal, all orbitals 
-       write(LOGfile,*)"write spin diagonal and all orbitals elements:"
+       if(ED_MPI_ID==0)write(LOGfile,*)"write spin diagonal and all orbitals elements:"
        do ispin=1,Nspin
           do iorb=1,Norb
              do jorb=1,Norb
@@ -1477,7 +1477,7 @@ contains
           enddo
        enddo
     case default                  !print all off-diagonals
-       write(LOGfile,*)"write all elements:"
+       if(ED_MPI_ID==0)write(LOGfile,*)"write all elements:"
        do ispin=1,Nspin
           do jspin=1,Nspin
              do iorb=1,Norb

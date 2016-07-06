@@ -24,7 +24,7 @@ program ed_TEST_REPLICA
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
   real(8)                :: soc,ivb,wmixing,sumdens,xmu_old
-  logical                :: surface,Hk_test,rotateG0loc,converged_n,paramag
+  logical                :: surface,Hk_test,rotateG0loc,converged_n,upprshft
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   !convergence functions:
@@ -35,7 +35,8 @@ program ed_TEST_REPLICA
   !SOC expectations:
   complex(8),allocatable :: Stot(:,:,:),Ltot(:,:,:),jz(:)
   !rotated chempot shift:
-  real(8)                :: bottom,top,shift
+  real(8)                :: bottom,top,shift,dw
+  real(8),allocatable    :: w(:)
   !
 #ifdef _MPI
   call MPI_INIT(ED_MPI_ERR)
@@ -55,7 +56,7 @@ program ed_TEST_REPLICA
   call parse_input_variable(ivb,    "IVB",finput,       default=0.0d0)
   call parse_input_variable(surface,"SURFACE",finput,   default=.false.)
   call parse_input_variable(Hk_test,"HK_TEST",finput,   default=.true.)
-  call parse_input_variable(paramag,    "PARAMAG",finput,   default=.false.)
+  call parse_input_variable(upprshft,    "upprshft",finput,   default=.false.)
   call parse_input_variable(rotateG0loc,"ROTATEG0loc",finput, default=.false.)
   !
   call ed_read_input(trim(finput))
@@ -123,13 +124,15 @@ program ed_TEST_REPLICA
      !
      !operations:
      !
-     if(ED_MPI_ID==0)then
-        call build_hk_path
-        call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-        call check_rotations_on_Jz(dm_rot)
-        call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
+     if(bath_type=="replica")then
+        if(ED_MPI_ID==0)then
+           call build_hk_path
+           call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+           call check_rotations_on_Jz(dm_rot)
+           call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
+        endif
+        call rotate_Gloc(Greal,"B",bottom,top)
      endif
-     call rotate_Gloc(Greal,"B",bottom,top)
      !
      !chemical potential find:
      !
@@ -139,7 +142,7 @@ program ed_TEST_REPLICA
         xmu_old=xmu
         sumdens=sum(ed_get_dens())
         call search_chempot(xmu,sumdens,converged_n,Bath)
-        write(*,'(5(a10,F10.5))') "sumdens",sumdens,"xmu_old",xmu_old,"xmu_new",xmu
+        if(ED_MPI_ID==0)write(*,'(5(a10,F10.5))') "sumdens",sumdens,"xmu_old",xmu_old,"xmu_new",xmu
      endif
      !
      !convergence:
@@ -161,7 +164,25 @@ program ed_TEST_REPLICA
      !
      !final mu shift:
      !
-     if((iloop>=2).and.paramag)then
+     if((iloop>=4).and.upprshft)then
+        if(bath_type/="replica")then
+           if(allocated(w))deallocate(w);allocate(w(Lreal));w=0.0d0
+           w = linspace(wini,wfin,Lreal,mesh=dw)
+           do i=1,Lreal
+              if(abs(aimag(Greal(1,1,1,1,i))).gt.1.0d0)then
+                 bottom=w(i)
+                 go to 4321
+              endif
+           enddo
+           4321 continue
+           do i=1,Lreal
+              if(abs(aimag(Greal(1,1,1,1,Lreal-i+1))).gt.1.0d0)then
+                 top=w(Lreal-i+1)
+                 go to 4322
+              endif
+           enddo
+           4322 continue
+         endif
         if(ED_MPI_ID==0)write(LOGfile,*)"top",top,"bottom",bottom
         shift      = bottom + ( top - bottom ) / 2.d0
         xmu_old    = xmu
@@ -189,7 +210,7 @@ contains
 !
 ! OLD TO BE REMOVED
 !
-! call build_Jz_paramagnet
+! call build_Jz_upprshftnet
 ! call SOC_symmetrize_bath
 !
 
@@ -313,23 +334,31 @@ contains
   function hk_Ti3dt2g(kvec,N) result(hk)
     real(8),dimension(:)        :: kvec
     complex(8),dimension(N,N)   :: hk
-    complex(8),dimension(2,2)   :: s_x,s_y,s_z
+    complex(8),dimension(2,2)   :: s_x,s_y,s_z,Hk_temp
     complex(8),dimension(2,2)   :: t_inter
     real(8)                     :: kx,ky,kz
     integer                     :: N,ndx
-    real(8),dimension(Norb,0:6) :: HoppingMatrix
+    real(8),allocatable         :: HoppingMatrix(:,:)
+    real(8),dimension(0:6)      :: orbitalHopping
     !
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
     !
+    allocate(HoppingMatrix(Norb,0:6));HoppingMatrix=0.0d0
     call get_hopping(HoppingMatrix)
     !
     Hk=zero
     do i=1,Norb
+       orbitalHopping=0.0d0;orbitalHopping=HoppingMatrix(i,:)
        ndx=2*i-1
        if(Hk_test)then
-          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:),0.1d0)
+          if(Nspin==2)then
+             Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,0.1d0)
+          else
+             Hk_temp = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,0.1d0)
+             Hk(i,i) = Hk_temp(1,1) 
+          endif
        else
-          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
+          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,1.0d0)
        endif
     enddo
     !
@@ -341,12 +370,15 @@ contains
           enddo
        else
           !REALISTIC SOC (upper triangle)
-       !   Hk(1:2,3:4)= +xi * pauli_z * soc/2.
-       !   Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-       !   Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
-          Hk(1:2,3:4)= abs(+xi * pauli_z * soc/2.)
-          Hk(1:2,5:6)= abs(-xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
-          Hk(3:4,5:6)= abs(+xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
+          if(real_Hrepl)then
+             Hk(1:2,3:4)= abs(+xi * pauli_z * soc/2.)
+             Hk(1:2,5:6)= abs(-xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
+             Hk(3:4,5:6)= abs(+xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
+          else
+             Hk(1:2,3:4)= +xi * pauli_z * soc/2.
+             Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+             Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+          endif
        endif
        !hermiticity
        do i=1,Nspin*Norb
@@ -357,7 +389,7 @@ contains
     endif
     !
     !A1 shape: [Norb*Norb]*Nspin
-    Hk = Z2so_reshape(Hk)
+    if(Nspin==2)Hk = Z2so_reshape(Hk)
     !
   end function hk_Ti3dt2g
 
@@ -367,24 +399,31 @@ contains
   function hk_Ti3dt2g_Hartree(kvec,N) result(hk)
     real(8),dimension(:)        :: kvec
     complex(8),dimension(N,N)   :: hk
-    complex(8),dimension(2,2)   :: s_x,s_y,s_z
+    complex(8),dimension(2,2)   :: s_x,s_y,s_z,Hk_temp
     complex(8),dimension(2,2)   :: t_inter
     real(8)                     :: kx,ky,kz
     integer                     :: N,ndx
-    real(8),dimension(Norb,0:6) :: HoppingMatrix
+    real(8),allocatable         :: HoppingMatrix(:,:)
+    real(8),dimension(0:6)      :: orbitalHopping
     !
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
     !
-    HoppingMatrix=0.0d0
-    if(Norb==3)call get_hopping(HoppingMatrix)
+    allocate(HoppingMatrix(Norb,0:6));HoppingMatrix=0.0d0
+    call get_hopping(HoppingMatrix)
     !
     Hk=zero
     do i=1,Norb
+       orbitalHopping=0.0d0;orbitalHopping=HoppingMatrix(i,:)
        ndx=2*i-1
        if(Hk_test)then
-          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:),0.1d0)
+          if(Nspin==2)then
+             Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,0.1d0)
+          else
+             Hk_temp = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,0.1d0)
+             Hk(i,i) = Hk_temp(1,1) 
+          endif
        else
-          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
+          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,1.0d0)
        endif
     enddo
     !
@@ -396,12 +435,15 @@ contains
           enddo
        else
           !REALISTIC SOC (upper triangle)
-       !   Hk(1:2,3:4)= +xi * pauli_z * soc/2.
-       !   Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-       !   Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
-          Hk(1:2,3:4)= abs(+xi * pauli_z * soc/2.)
-          Hk(1:2,5:6)= abs(-xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
-          Hk(3:4,5:6)= abs(+xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
+          if(real_Hrepl)then
+             Hk(1:2,3:4)= abs(+xi * pauli_z * soc/2.)
+             Hk(1:2,5:6)= abs(-xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
+             Hk(3:4,5:6)= abs(+xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
+          else
+             Hk(1:2,3:4)= +xi * pauli_z * soc/2.
+             Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+             Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+          endif
        endif
        !hermiticity
        do i=1,Nspin*Norb
@@ -425,7 +467,7 @@ contains
     enddo
     !
     !A1 shape: [Norb*Norb]*Nspin
-    Hk = Z2so_reshape(Hk)
+    if(Nspin==2)Hk = Z2so_reshape(Hk)
     !
   end function hk_Ti3dt2g_Hartree
 
@@ -433,7 +475,7 @@ contains
   !PURPOSE: 2x2 band structures
   !---------------------------------------------------------------------
   function diagonal_orbital_dispersion(kx,ky,kz,t,t0) result(hk)
-    real(8),intent(in),optional       :: t0
+    real(8),intent(in)                :: t0!scaling factor for bandwidth
     real(8),intent(in)                :: kx,ky,kz
     real(8),intent(in),dimension(0:6) :: t
     complex(8),dimension(2,2)         :: hk
@@ -441,30 +483,38 @@ contains
     hk = zero
     if (surface) then
        if(Hk_test)then
-          hk(1,1) = -2.*t0*(cos(kx)+cos(ky))-1.d0
+          hk(1,1) = t(0)-2.*t0*(cos(kx)+cos(ky)-1.d0)
           hk(2,2) = hk(1,1)
        else
-          hk(1,1) = t(0)                      & !onsite
-                    -2.*t(1)*cos(kx)          & !t_100
-                    -2.*t(2)*cos(ky)          & !t_010
-                    -1.*t(3)                  & !t_001
-                    -2.*t(4)*cos(ky)          & !t_011
-                    -2.*t(5)*cos(kx)          & !t_101
-                    -4.*t(6)*cos(kx)*cos(ky)    !t_110
+          hk(1,1) = t(0)+(                       & !onsite
+                    -2.*t(1)*cos(kx)             & !t_100
+                    -2.*t(2)*cos(ky)             & !t_010
+                    -1.*t(3)                     & !t_001
+                    -2.*t(4)*cos(ky)             & !t_011
+                    -2.*t(5)*cos(kx)             & !t_101
+                    -4.*t(6)*cos(kx)*cos(ky))*t0   !t_110
           hk(2,2) = hk(1,1)
        endif
     else
        if(Hk_test)then
-          hk(1,1) = -2.*t0*(cos(kx)+cos(ky)+cos(kz))
-          hk(2,2) = hk(1,1)
+          if(bath_type=="replica")then
+             hk(1,1) = t(0)-2.*t0*(cos(kx)+cos(ky)+cos(kz))
+             hk(2,2) = hk(1,1)
+          else
+             hk(1,1) = t(0)+(                    & !onsite
+                       -2.*t(1)*cos(kx)          & !t_100
+                       -2.*t(2)*cos(ky)          & !t_010
+                       -2.*t(3)*cos(kz))*t0        !t_001
+             hk(2,2) = hk(1,1)
+          endif
        else
-          hk(1,1) = t(0)                      & !onsite
-                    -2.*t(1)*cos(kx)          & !t_100
-                    -2.*t(2)*cos(ky)          & !t_010
-                    -2.*t(3)*cos(kz)          & !t_001
-                    -4.*t(4)*cos(ky)*cos(kz)  & !t_011
-                    -4.*t(5)*cos(kx)*cos(kz)  & !t_101
-                    -4.*t(6)*cos(kx)*cos(ky)    !t_110
+          hk(1,1) = t(0)+(                       & !onsite
+                    -2.*t(1)*cos(kx)             & !t_100
+                    -2.*t(2)*cos(ky)             & !t_010
+                    -2.*t(3)*cos(kz)             & !t_001
+                    -4.*t(4)*cos(ky)*cos(kz)     & !t_011
+                    -4.*t(5)*cos(kx)*cos(kz)     & !t_101
+                    -4.*t(6)*cos(kx)*cos(ky))*t0   !t_110
           hk(2,2) = hk(1,1)
        endif
     endif
@@ -474,12 +524,12 @@ contains
   !PURPOSE: Build the hopping integrals in k-space for realistic bandstructure
   !---------------------------------------------------------------------
   subroutine get_hopping(T)
-  real(8),dimension(Norb,0:6),intent(out)   ::  T
-  real(8),dimension(Norb,0:6)               ::  T_bulk,T_VACSTO,T_LAOSTO
-  real(8)                                   ::  Eo,t1,t2,t3
-  real(8)                                   ::  t_010_yz,t_001_yz
-  real(8)                                   ::  t_100_zx,t_001_zx
-  real(8)                                   ::  t_100_xy,t_010_xy,t_001_xy
+  real(8),dimension(Norb,0:6),intent(out)      ::  T
+  real(8),dimension(3,0:6)                     ::  T_bulk,T_VACSTO,T_LAOSTO
+  real(8)                                      ::  Eo,t1,t2,t3
+  real(8)                                      ::  t_010_yz,t_001_yz
+  real(8)                                      ::  t_100_zx,t_001_zx
+  real(8)                                      ::  t_100_xy,t_010_xy,t_001_xy
 
   !pristine lattice
   Eo = 3.31
@@ -554,9 +604,17 @@ contains
   T_LAOSTO(3,6) = t3
   !
   if(surface) then
-     T=T_LAOSTO
+     T=T_LAOSTO(1:Norb,:)
   else
-     T=T_bulk
+     if(.not.Hk_test)then
+        T=0.0d0
+        T=T_bulk(1:Norb,:)
+     elseif(bath_type/="replica".and.Hk_test)then
+        T=1.0d0
+        T(1,0) = +0.30d0
+        T(2,0) = -0.14d0
+        T(3,0) = -0.14d0
+     endif
   endif
   !
   end subroutine get_hopping
@@ -787,6 +845,24 @@ contains
        G_out(:,:,i)=matmul(transpose(conjg(theta_C)),matmul(G_in(:,:,i),theta_C))
     enddo
     !
+    !top-bottom find of the upper band
+    if(present(top_).and.present(bottom_))then
+       do i=1,Lfreq
+          if(abs(aimag(G_out(1,1,i))).gt.1.0d0)then
+             bottom_=wr(i)
+             go to 1234
+          endif
+       enddo
+       1234 continue
+       do i=1,Lfreq
+          if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.1.0d0)then
+             top_=wr(Lfreq-i+1)
+             go to 1235
+          endif
+       enddo
+       1235 continue
+    endif
+    !
     !2)output save
     if(isetup) then
        file_rotation="G0loc_rot_A_l"
@@ -840,20 +916,24 @@ contains
     do i=1,Lfreq
        G_out(:,:,i)=matmul(transpose(conjg(theta_R)),matmul(G_in(:,:,i),theta_R))
     enddo
-    do i=1,Lfreq
-       if(abs(aimag(G_out(1,1,i))).gt.1.0d0)then
-          bottom_=wr(i)
-          go to 1234
-       endif
-    enddo
-    1234 continue
-    do i=1,Lfreq
-       if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.1.0d0)then
-          top_=wr(Lfreq-i+1)
-          go to 1235
-       endif
-    enddo
-    1235 continue
+    !
+    !top-bottom find of the upper band
+    if(present(top_).and.present(bottom_))then
+       do i=1,Lfreq
+          if(abs(aimag(G_out(1,1,i))).gt.1.0d0)then
+             bottom_=wr(i)
+             go to 1236
+          endif
+       enddo
+       1236 continue
+       do i=1,Lfreq
+          if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.1.0d0)then
+             top_=wr(Lfreq-i+1)
+             go to 1237
+          endif
+       enddo
+       1237 continue
+    endif
     !
     !2)output save
     if(isetup) then
