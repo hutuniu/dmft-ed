@@ -882,35 +882,39 @@ contains
     integer               ::   unit,i_
     logical,save          ::   bandmix=.true.
     !
-    if(ED_MPI_ID==0)then
+    !if(ED_MPI_ID==0)then
        !
        diffdens=dens_tmp-nread
-       delta_xmu=1.0d0
+       delta_xmu=0.5d0
        !if(abs(diffdens).lt.2.d0*nerr)delta_xmu=0.5d0
        !
        if ((dabs(diffdens)).le.nerr) then
           converged_=.TRUE.
-          write(LOGfile,*)
-          write(LOGfile,*) "   --------------------------------------------"
-          write(LOGfile,'(A30,I3)')    "   Density ok in attempt: ",iattempt
-          write(LOGfile,'(A30,F10.6)') "   tolerance: ",nerr
-          write(LOGfile,'(A30,F10.6)') "   density: ",dens_tmp
-          write(LOGfile,'(A30,F10.6)') "   target desity: ",nread
-          write(LOGfile,'(A30,F10.6)') "   xmu: ",xmu_tmp
-          write(LOGfile,"(A30,L3)")    "   Converged(n): ",converged_
-          write(LOGfile,*) "   --------------------------------------------"
-          write(LOGfile,*)
-          unit=free_unit()
-          open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-          write(unit,*)xmu_tmp,dens_tmp,diffdens
-          close(unit)
+          inotbound=0
+          if(ED_MPI_ID==0)then
+             write(LOGfile,*)
+             write(LOGfile,*) "   --------------------------------------------"
+             write(LOGfile,'(A30,I3)')    "   Density ok in attempt: ",iattempt
+             write(LOGfile,'(A30,F10.6)') "   tolerance: ",nerr
+             write(LOGfile,'(A30,F10.6)') "   density: ",dens_tmp
+             write(LOGfile,'(A30,F10.6)') "   target desity: ",nread
+             write(LOGfile,'(A30,F10.6)') "   xmu: ",xmu_tmp
+             write(LOGfile,"(A30,L3)")    "   Converged(n): ",converged_
+             write(LOGfile,*) "   --------------------------------------------"
+             write(LOGfile,*)
+             unit=free_unit()
+             open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+             write(unit,*)xmu_tmp,dens_tmp,diffdens
+             close(unit)
+          endif
        else
           converged_=.FALSE.
-          write(LOGfile,*)
-          write(LOGfile,*) "   --------------------------------------------"
-          write(LOGfile,'(A30,I7)')    "   Adjusting xmu #",iattempt
-          write(LOGfile,'(A30,F10.6)') "   Delta xmu: ",delta_xmu
-          write(LOGfile,'(A10,F10.6,A7,F10.6)') "    n:",dens_tmp,"!= n:",nread
+          if(ED_MPI_ID==0)then
+             write(LOGfile,*)
+             write(LOGfile,*) "   --------------------------------------------"
+             write(LOGfile,'(A30,2I5)')    "   Adjusting xmu #",iattempt,inotbound
+             write(LOGfile,'(A10,F10.6,A7,F10.6)') "    n:",dens_tmp,"!= n:",nread
+          endif
           !vedo se la densità è troppa o troppo poca
           if (diffdens.gt.0.d0) then  
              ilarge=1
@@ -924,48 +928,42 @@ contains
           if (ilarge*ismall.eq.0) then
              !non ho ancora trovato un xmu per cui diffdens cambia segno
              inotbound=inotbound+1
+             if (inotbound>=4) delta_xmu = delta_xmu*2.0d0
+             if (inotbound>=8) delta_xmu = delta_xmu*3.0d0
+             if (inotbound>=12)delta_xmu = delta_xmu*4.0d0
              xmu_shift = delta_xmu * diffdens
              xmu_tmp = xmu_tmp - xmu_shift
-             write(LOGfile,*) "   Try xmu =",xmu_tmp
-             write(LOGfile,*) "   --------------------------------------------"
-             write(LOGfile,*)
-             if (mod(inotbound,10).eq.0) then
-                delta_xmu = delta_xmu*2.0d0
+             if(ED_MPI_ID==0)then
+                write(LOGfile,*) "   Delta xmu: ",delta_xmu
+                write(LOGfile,*) "   Try xmu: ",xmu_tmp
+                write(LOGfile,*) "   --------------------------------------------"
+                write(LOGfile,*)
              endif
-          elseif((iattempt.gt.0).and.(abs(diffdens).gt.abs(diffdens_old)).and.(.not.bandmix))then !<= qui voglio che cali soltanto
-             write(LOGfile,*)"   band mixing, increasing mu to increase density"
-             if(present(bath_))then
-                do i_=1,size(bath_)-Nbath
-                   bath_(i_)=bath_(i_)/10.0d0
-                enddo
-             endif
-             xmu_shift = delta_xmu * diffdens
-             xmu_tmp = xmu_tmp + xmu_shift
-             write(LOGfile,*) "   Try xmu =",xmu_tmp
-             write(LOGfile,*) "   --------------------------------------------"
-             write(LOGfile,*)
-             bandmix=.true.
           else
              !ho trovato un xmu per cui diffdens cambia segno
-             write(LOGfile,*)"   xmu is bound",xmularge,"-",xmusmall
-             xmu_shift =  sign(1.0d0,diffdens)*abs((xmusmall-xmularge)/2.)
-             xmu_tmp = xmu_tmp - xmu_shift
-             write(LOGfile,*) "   Try xmu =",xmu_tmp
-             write(LOGfile,*) "   --------------------------------------------"
-             write(LOGfile,*)
+             if(ED_MPI_ID==0)then
+                write(LOGfile,*)"   xmu is bound",xmularge,"-",xmusmall
+                xmu_shift =  sign(1.0d0,diffdens)*abs((xmusmall-xmularge)/2.)
+                xmu_tmp = xmu_tmp - xmu_shift
+                write(LOGfile,*) "   Try xmu =",xmu_tmp
+                write(LOGfile,*) "   --------------------------------------------"
+                write(LOGfile,*)
+             endif
           endif
-          unit=free_unit()
-          open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-          write(unit,*)xmu_tmp,dens_tmp,diffdens,iattempt
-          close(unit)
+          if(ED_MPI_ID==0)then
+             unit=free_unit()
+             open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+             write(unit,*)xmu_tmp,dens_tmp,diffdens,iattempt
+             close(unit)
+          endif
        endif
        iattempt=iattempt+1
        diffdens_old=diffdens
        !
-    endif
-#ifdef _MPI
-    call MPI_BCAST(xmu,1,MPI_Double_Precision,0,MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
+    !endif
+!#ifdef _MPI
+!    call MPI_BCAST(xmu,1,MPI_Double_Precision,0,MPI_COMM_WORLD,ED_MPI_ERR)
+!#endif
   end subroutine search_chempot
 
 

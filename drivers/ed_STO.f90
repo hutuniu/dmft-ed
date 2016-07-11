@@ -35,7 +35,7 @@ program ed_TEST_REPLICA
   !SOC expectations:
   complex(8),allocatable :: Stot(:,:,:),Ltot(:,:,:),jz(:)
   !rotated chempot shift:
-  real(8)                :: bottom,top,shift,dw
+  real(8)                :: bottom,top,shift,dw,nread_old
   real(8),allocatable    :: w(:)
   !
 #ifdef _MPI
@@ -131,19 +131,20 @@ program ed_TEST_REPLICA
            call check_rotations_on_Jz(dm_rot)
            call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
         endif
-        call rotate_Gloc(Greal,"B",bottom,top)
+        call rotate_Gloc(Greal,"B",bottom,top,0.8d0)
      endif
      !
      !chemical potential find:
      !
      converged_n=.true.
+     xmu_old=xmu
+     sumdens=sum(ed_get_dens())
      if(nread/=0.d0)then
         converged_n=.false.
-        xmu_old=xmu
-        sumdens=sum(ed_get_dens())
-        call search_chempot(xmu,sumdens,converged_n,Bath)
-        if(ED_MPI_ID==0)write(*,'(5(a10,F10.5))') "sumdens",sumdens,"xmu_old",xmu_old,"xmu_new",xmu
+        if(iloop>=3)call search_chempot(xmu,sumdens,converged_n,Bath)
      endif
+     if(ED_MPI_ID==0)write(*,'(3(a10,F10.5))') "sumdens",sumdens,"diffdens",abs(nread-sumdens),"nread",nread
+     if(ED_MPI_ID==0)write(*,'(2(a10,F10.5))') "xmu_old",xmu_old,"xmu_new",xmu
      !
      !convergence:
      !
@@ -164,19 +165,19 @@ program ed_TEST_REPLICA
      !
      !final mu shift:
      !
-     if((iloop>=4).and.upprshft)then
+     if(converged_n.and.upprshft)then
         if(bath_type/="replica")then
            if(allocated(w))deallocate(w);allocate(w(Lreal));w=0.0d0
            w = linspace(wini,wfin,Lreal,mesh=dw)
            do i=1,Lreal
-              if(abs(aimag(Greal(1,1,1,1,i))).gt.1.0d0)then
+              if(abs(aimag(Greal(1,1,1,1,i))).gt.0.8d0)then
                  bottom=w(i)
                  go to 4321
               endif
            enddo
            4321 continue
            do i=1,Lreal
-              if(abs(aimag(Greal(1,1,1,1,Lreal-i+1))).gt.1.0d0)then
+              if(abs(aimag(Greal(1,1,1,1,Lreal-i+1))).gt.0.8d0)then
                  top=w(Lreal-i+1)
                  go to 4322
               endif
@@ -186,16 +187,18 @@ program ed_TEST_REPLICA
         if(ED_MPI_ID==0)write(LOGfile,*)"top",top,"bottom",bottom
         shift      = bottom + ( top - bottom ) / 2.d0
         xmu_old    = xmu
-        if(abs(shift)>=0.02)then
-           xmu        = xmu_old + shift
-           nread      = 0.0d0
+        if(abs(shift)>=0.01)then
+           xmu        = xmu_old + shift * 0.90d0!questo rallenta un pò che se no si mixano le bande
            converged  = .false.
+           !nread  = 0.0d0!con questo una volta che comincio a shiftare rigidamente la densità non la controllo piu
         endif
-        if(ED_MPI_ID==0)write(LOGfile,'(5(a10,F10.5))') "shift",shift,"xmu_old",xmu_old,"xmu_new",xmu
-        unit=free_unit()
-        open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-        write(unit,*)xmu,sumdens,sumdens-nerr,"shift"
-        close(unit)
+        if(ED_MPI_ID==0)then
+           write(LOGfile,'(5(a10,F10.5))') "shift",shift,"xmu_old",xmu_old,"xmu_new",xmu
+           unit=free_unit()
+           open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+           write(unit,*)xmu,sumdens,sumdens-nerr,"shift"
+           close(unit)
+        endif
      endif
      !
      !
@@ -706,23 +709,25 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: rotations on G0loc/Gloc
   !---------------------------------------------------------------------
-  subroutine rotate_Gloc(Gsowr,type_rot,bottom_,top_)
+  subroutine rotate_Gloc(Gsowr,type_rot,bottom_,top_,lvl_)
     implicit none
     complex(8),allocatable,intent(in)             ::   Gsowr(:,:,:,:,:)
     character(len=1),intent(in),optional          ::   type_rot
     real(8),intent(out),optional                  ::   bottom_,top_
+    real(8),intent(in),optional                   ::   lvl_
     complex(8),allocatable                        ::   G_in(:,:,:),G_out(:,:,:)
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   ::   theta_C,theta_R,impHloc_rot
     integer                                       ::   io,jo
     integer                                       ::   ispin,jspin
     integer                                       ::   iorb,jorb
     integer                                       ::   Lfreq
-    real(8)                                       ::   wr(Lreal),dw,bttm,tp
+    real(8)                                       ::   wr(Lreal),dw,bttm,tp,lvl
     character(len=13)                             ::   file_rotation
     logical                                       ::   isetup
     !
     if(.not.allocated(Bath))isetup=.true.
     if(allocated(Bath))     isetup=.false.
+    lvl=1.0d0;if(present(lvl_))lvl=lvl_
     !
     call build_rotation(theta_C,theta_R,impHloc_rot)
     !
@@ -848,14 +853,14 @@ contains
     !top-bottom find of the upper band
     if(present(top_).and.present(bottom_))then
        do i=1,Lfreq
-          if(abs(aimag(G_out(1,1,i))).gt.1.0d0)then
+          if(abs(aimag(G_out(1,1,i))).gt.lvl)then
              bottom_=wr(i)
              go to 1234
           endif
        enddo
        1234 continue
        do i=1,Lfreq
-          if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.1.0d0)then
+          if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.lvl)then
              top_=wr(Lfreq-i+1)
              go to 1235
           endif
@@ -920,14 +925,14 @@ contains
     !top-bottom find of the upper band
     if(present(top_).and.present(bottom_))then
        do i=1,Lfreq
-          if(abs(aimag(G_out(1,1,i))).gt.1.0d0)then
+          if(abs(aimag(G_out(1,1,i))).gt.lvl)then
              bottom_=wr(i)
              go to 1236
           endif
        enddo
        1236 continue
        do i=1,Lfreq
-          if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.1.0d0)then
+          if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.lvl)then
              top_=wr(Lfreq-i+1)
              go to 1237
           endif
