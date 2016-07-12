@@ -1,19 +1,50 @@
 !+------------------------------------------------------------------+
-!PURPOSE  : Evaluate Spin Susceptibility using Lanczos algorithm
+!PURPOSE  : Evaluate Charge-Charge Susceptibility <n_a(tau)n_b(0)>
 !+------------------------------------------------------------------+
 subroutine build_chi_dens()
-  integer :: iorb
+  integer :: iorb,jorb
   write(LOGfile,"(A)")"Get impurity dens Chi:"
   do iorb=1,Norb
-     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_dens_l"//reg(txtfy(iorb))
+     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_dens_diag_l"//reg(txtfy(iorb))
      select case(ed_type)
      case default
-        call lanc_ed_build_densChi_d(iorb)
+        call lanc_ed_build_densChi_diag_d(iorb)
      case ('c')
-        call lanc_ed_build_densChi_c(iorb)
+        call lanc_ed_build_densChi_diag_c(iorb)
      end select
   enddo
+  !
+  !
   if(Norb>1)then
+     do iorb=1,Norb
+        do jorb=iorb+1,Norb
+           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_dens_offdiag_l"//reg(txtfy(iorb))//reg(txtfy(jorb))
+           select case(ed_type)
+           case default
+              call lanc_ed_build_densChi_offdiag_d(iorb,jorb)
+           case ('c')
+              stop "ed_greens_funcs_build_chi_dens: lanc_ed_build_densChi_offdiac_C is not implemented. Sorry."
+           end select
+        end do
+     end do
+     do iorb=1,Norb
+        do jorb=iorb+1,Norb
+           denschi_w(iorb,jorb,:) = 0.5d0*( denschi_w(iorb,jorb,:) - (one+xi)*denschi_w(iorb,iorb,:) - (one+xi)*denschi_w(jorb,jorb,:))
+        enddo
+     enddo
+     !
+     do iorb=1,Norb
+        do jorb=1,Norb
+           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_dens_offdiag_l"//reg(txtfy(iorb))//reg(txtfy(jorb))
+           select case(ed_type)
+           case default
+              call lanc_ed_build_densChi_mix_d(iorb,jorb)
+           case ('c')
+              stop "ed_greens_funcs_build_chi_dens: lanc_ed_build_densChi_mix_C is not implemented. Sorry."
+           end select
+        end do
+     end do
+     !
      if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_dens_tot"
      select case(ed_type)
      case default
@@ -22,75 +53,30 @@ subroutine build_chi_dens()
         call lanc_ed_build_densChi_tot_c()     
      end select
   endif
+  !
   denschi_tau = Denschi_tau/zeta_function
   denschi_w   = denschi_w/zeta_function
   denschi_iv  = denschi_iv/zeta_function
+  !
 end subroutine build_chi_dens
 
 
 
-!+------------------------------------------------------------------+
-!PURPOSE  : Evaluate Spin Susceptibility using Lanczos algorithm
-!+------------------------------------------------------------------+
-subroutine build_chi_dens_mb()
-  integer :: iorb,jorb,ispin
-  write(LOGfile,"(A)")"Get impurity dens Chi:"
-  do iorb=1,Norb
-     select case(ed_type)
-     case default
-        call lanc_ed_build_densChi_d(iorb)
-     case ('c')
-        call lanc_ed_build_densChi_c(iorb)
-     end select
-  enddo
-
-  do iorb=1,Norb
-     do jorb=iorb+1,Norb
-        call lanc_ed_build_densChi_mix_d(iorb,jorb)
-     end do
-  end do
-  
-  do iorb=1,Norb
-     do jorb=iorb+1,Norb
-        denschi_w(iorb,jorb,:) = 0.5d0*(denschi_w(iorb,jorb,:) &
-             -(one+xi)*denschi_w(iorb,iorb,:) - (one+xi)*denschi_w(jorb,jorb,:))
-     enddo
-  enddo
 
 
-  do iorb=1,Norb
-     do jorb=1,Norb
-!        do ispin=1,Nspin
-        ispin=1
-        call lanc_ed_build_Chi_mix_d(iorb,jorb,ispin)
-!        end do
-     end do
-  end do
-
-
-  select case(ed_type)
-  case default
-     call lanc_ed_build_densChi_tot_d()
-  case ('c')
-     call lanc_ed_build_densChi_tot_c()
-  end select
-  denschi_tau = Denschi_tau/zeta_function
-  denschi_w   = denschi_w/zeta_function
-  denschi_iv  = denschi_iv/zeta_function
-end subroutine build_chi_dens_mb
 
 
 
 
 
 !+------------------------------------------------------------------+
-!PURPOSE  : Evaluate the Spin susceptibility \Chi_spin for a 
-! single orbital: \chi = <S_a(\tau)S_a(0)>
+!PURPOSE  : Evaluate the Charge-Charge susceptibility \Chi_dens for  
+! the orbital diagonal case: \chi_dens_aa = <N_a(\tau)N_a(0)>
 !+------------------------------------------------------------------+
-subroutine lanc_ed_build_densChi_d(iorb)
-  integer                          :: iorb,isite,isect0,izero
+subroutine lanc_ed_build_densChi_diag_d(iorb)
+  integer                          :: iorb,isite,isector,izero
   integer                          :: numstates
-  integer                          :: nlanc,idim0
+  integer                          :: nlanc,idim
   integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
@@ -108,17 +94,17 @@ subroutine lanc_ed_build_densChi_d(iorb)
   !
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     isect0     =  es_return_sector(state_list,izero)
+     isector     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim0  = getdim(isect0)
-     allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
-     call build_sector(isect0,HImap)
+     idim  = getdim(isector)
+     allocate(HImap(idim),vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isector),getndw(isector),idim
+     call build_sector(isector,HImap)
      vvinit=0.d0
-     do m=1,idim0                     !loop over |gs> components m
+     do m=1,idim                     !loop over |gs> components m
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
@@ -128,45 +114,25 @@ subroutine lanc_ed_build_densChi_d(iorb)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_d(isect0)
+     call ed_buildH_d(isector)
      call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
      cnorm2=one*norm0
      isign=1
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,iorb)
      isign=-1
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,iorb)
-
-
-     ! vvinit=0.d0
-     ! do m=1,idim0                     !loop over |gs> components m
-     !    i=HImap(m)
-     !    call bdecomp(i,ib)
-     !    sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
-     !    vvinit(m) = sgn*state_vec(m)   !build the cdg_up|gs> state
-     ! enddo
-     ! deallocate(HImap)
-     ! norm0=dot_product(vvinit,vvinit)
-     ! vvinit=vvinit/sqrt(norm0)
-     ! alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     ! call ed_buildH_d(isect0)
-     ! call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
-     ! cnorm2=one*norm0
-     ! isign=1
-     ! call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,iorb)     
-     ! isign=-1
-     ! call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,iorb)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_ed_build_densChi_d
+end subroutine lanc_ed_build_densChi_diag_d
 
-subroutine lanc_ed_build_densChi_c(iorb)
-  integer                          :: iorb,isite,isect0,izero
+subroutine lanc_ed_build_densChi_diag_c(iorb)
+  integer                          :: iorb,isite,isector,izero
   integer                          :: numstates
-  integer                          :: nlanc,idim0
+  integer                          :: nlanc,idim
   integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
@@ -184,18 +150,18 @@ subroutine lanc_ed_build_densChi_c(iorb)
   !
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     isect0     =  es_return_sector(state_list,izero)
-     idim0      =  getdim(isect0)
+     isector     =  es_return_sector(state_list,izero)
+     idim      =  getdim(isector)
      state_e    =  es_return_energy(state_list,izero)
      state_cvec => es_return_cvector(state_list,izero)
-     norm0=sqrt(dot_product(state_vec,state_vec))
+     norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim0  = getdim(isect0)
-     allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
-     call build_sector(isect0,HImap)
+     idim  = getdim(isector)
+     allocate(HImap(idim),vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isector),getndw(isector),idim
+     call build_sector(isector,HImap)
      vvinit=0.d0
-     do m=1,idim0                     !loop over |gs> components m
+     do m=1,idim                     !loop over |gs> components m
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
@@ -205,7 +171,7 @@ subroutine lanc_ed_build_densChi_c(iorb)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_c(isect0)
+     call ed_buildH_c(isector)
      call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_cc)
      cnorm2=one*norm0
      isign=1
@@ -218,15 +184,18 @@ subroutine lanc_ed_build_densChi_c(iorb)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_ed_build_densChi_c
+end subroutine lanc_ed_build_densChi_diag_c
 
 
 
-
-subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
-  integer                          :: iorb,jorb,isite,isect0,izero,isign
+!+------------------------------------------------------------------+
+!PURPOSE  : Evaluate the Charge-Charge susceptibility \Chi_dens for
+! the orbital off-diagonal case: \chi_dens_ab = <N_a(\tau)N_b(0)>
+!+------------------------------------------------------------------+
+subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
+  integer                          :: iorb,jorb,isite,isector,izero,isign
   integer                          :: numstates
-  integer                          :: nlanc,idim0
+  integer                          :: nlanc,idim
   integer                          :: iup0,idw0
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
@@ -246,23 +215,19 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
      ! properties of the ground states
-     isect0     =  es_return_sector(state_list,izero)
+     isector     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim0  = getdim(isect0)
-     ! apply N_{iorb} + N_{jorb}
-
-
-
-     allocate(HImap(idim0),vvinit(idim0),cvinit(idim0))
-     call build_sector(isect0,HImap)
-
+     idim  = getdim(isector)
+     allocate(HImap(idim),vvinit(idim),cvinit(idim))
+     call build_sector(isector,HImap)
+     !
      !build the (N_iorb+N_jorb)|gs> state
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_{iorb} + N_{jorb}:'
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_iorb + N_jorb:'
      vvinit=0.d0
-     do m=1,idim0                     !loop over |gs> components m
+     do m=1,idim                     !loop over |gs> components m
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
@@ -275,18 +240,19 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_d(isect0)
+     call ed_buildH_d(isector)
      call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
      cnorm2=one*norm0
-     isign=1
+     !particle and holes excitations all at once
+     isign=1                    !<---
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
-     isign=-1
+     isign=-1                   !<---
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
-
-     !build the (N_iorb-xi*N_jorb)|gs> state
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N_iorb + xi*N_jorb:'
+     !
+     !build the (N_iorb - xi*N_jorb)|gs> state
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
      cvinit=zero
-     do m=1,idim0                     !loop over |gs> components m
+     do m=1,idim
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
@@ -299,16 +265,16 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
      norm0=dot_product(cvinit,cvinit)
      cvinit=cvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_d(isect0)
+     call ed_buildH_d(isector)
      call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dc)
      cnorm2=xi*norm0
      isign=1
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
-
-     !apply N_{iorb} + xi*N_{jorb}
+     !
+     !build the (N_iorb + xi*N_jorb)|gs> state
      if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
      cvinit=zero
-     do m=1,idim0                     !loop over |gs> components m
+     do m=1,idim
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
@@ -321,35 +287,33 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
      norm0=dot_product(cvinit,cvinit)
      cvinit=cvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_d(isect0)
+     call ed_buildH_d(isector)
      call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dc)
      cnorm2=xi*norm0
      isign=-1
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
-
-
      deallocate(vvinit)
      deallocate(HImap)
-
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_ed_build_densChi_mix_d
+end subroutine lanc_ed_build_densChi_offdiag_d
+
 
 
 
 
 
 !+------------------------------------------------------------------+
-!PURPOSE  : Evaluate the total Spin susceptibility \Chi_spin for a 
-! single orbital: \chi = \sum_a <S_a(\tau)S_a(0)>
+!PURPOSE  : Evaluate the TOTAL Charge-Charge susceptibility \Chi_dens  
+! \chi_dens_tot = <N(\tau)N(0)>, N=sum_a N_a
 !+------------------------------------------------------------------+
 subroutine lanc_ed_build_densChi_tot_d()
-  integer                          :: iorb,isite,isect0,izero
+  integer                          :: iorb,isite,isector,izero
   integer                          :: numstates
-  integer                          :: nlanc,idim0
+  integer                          :: nlanc,idim
   integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
@@ -367,17 +331,17 @@ subroutine lanc_ed_build_densChi_tot_d()
   !
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     isect0     =  es_return_sector(state_list,izero)
+     isector     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim0  = getdim(isect0)
-     allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
-     call build_sector(isect0,HImap)
+     idim  = getdim(isector)
+     allocate(HImap(idim),vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isector),getndw(isector),idim
+     call build_sector(isector,HImap)
      vvinit=0.d0
-     do m=1,idim0  
+     do m=1,idim  
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = sum(dble(ib(1:Norb)))+sum(dble(ib(Ns+1:Ns+Norb)))
@@ -387,13 +351,13 @@ subroutine lanc_ed_build_densChi_tot_d()
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_d(isect0)
+     call ed_buildH_d(isector)
      call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
      cnorm2=one*norm0
      isign=1
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,Norb+1,Norb+1)
+     call add_to_lanczos_densChi_tot(cnorm2,state_e,nitermax,alfa_,beta_,isign)
      isign=-1
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,Norb+1,Norb+1)     
+     call add_to_lanczos_densChi_tot(cnorm2,state_e,nitermax,alfa_,beta_,isign)     
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
@@ -403,9 +367,9 @@ subroutine lanc_ed_build_densChi_tot_d()
 end subroutine lanc_ed_build_densChi_tot_d
 
 subroutine lanc_ed_build_densChi_tot_c()
-  integer                          :: iorb,isite,isect0,izero
+  integer                          :: iorb,isite,isector,izero
   integer                          :: numstates
-  integer                          :: nlanc,idim0
+  integer                          :: nlanc,idim
   integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
@@ -423,18 +387,18 @@ subroutine lanc_ed_build_densChi_tot_c()
   !
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     isect0     =  es_return_sector(state_list,izero)
-     idim0      =  getdim(isect0)
+     isector     =  es_return_sector(state_list,izero)
+     idim      =  getdim(isector)
      state_e    =  es_return_energy(state_list,izero)
      state_cvec => es_return_cvector(state_list,izero)
-     norm0=sqrt(dot_product(state_vec,state_vec))
+     norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim0  = getdim(isect0)
-     allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isect0),getndw(isect0),idim0
-     call build_sector(isect0,HImap)
+     idim  = getdim(isector)
+     allocate(HImap(idim),vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isector),getndw(isector),idim
+     call build_sector(isector,HImap)
      vvinit=0.d0
-     do m=1,idim0                     !loop over |gs> components m
+     do m=1,idim                     !loop over |gs> components m
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = sum(dble(ib(1:Norb)))+sum(dble(ib(Ns+1:Ns+Norb)))
@@ -444,13 +408,13 @@ subroutine lanc_ed_build_densChi_tot_c()
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_c(isect0)
+     call ed_buildH_c(isector)
      call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_cc)
      cnorm2=one*norm0
      isign=1
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,Norb+1,Norb+1)
+     call add_to_lanczos_densChi_tot(cnorm2,state_e,nitermax,alfa_,beta_,isign)
      isign=-1
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,Norb+1,Norb+1)
+     call add_to_lanczos_densChi_tot(cnorm2,state_e,nitermax,alfa_,beta_,isign)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
@@ -461,20 +425,35 @@ end subroutine lanc_ed_build_densChi_tot_c
 
 
 
-subroutine lanc_ed_build_Chi_mix_d(iorb,jorb,ispin)
-  real(8),allocatable              :: vvinit(:),vvinit_(:),tmp_vect
-  real(8),allocatable              :: alfa_(:),beta_(:)  
-  integer                          :: iorb,jorb,ispin,isite,isector,istate
-  integer                          :: idim,jsector,jsector_
-  integer                          :: jdim,jdim_
+
+
+
+
+
+
+
+
+
+
+
+
+!+------------------------------------------------------------------+
+!PURPOSE  : Evaluate the inter-orbital charge susceptibility \Chi_mix 
+! \chi_mix = <C^+_a(\tau)N_a(0)>
+!+------------------------------------------------------------------+
+subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
+  integer                          :: iorb,jorb,ispin
+  real(8),allocatable              :: vvinit(:),vvinit_tmp(:)
+  real(8),allocatable              :: alfa_(:),beta_(:)
+  integer                          :: isite,jsite,istate
+  integer                          :: isector,jsector,ksector
+  integer                          :: idim,jdim,kdim
+  integer,allocatable,dimension(:) :: HImap,HJmap,HKmap
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r,numstates
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
   integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap,HJmap_,HJmap_tmp
-
-  write(*,*) 'LANC_CHI_MIX',iorb,jorb
 
   !
   Nitermax=lanc_nGFiter
@@ -492,226 +471,103 @@ subroutine lanc_ed_build_Chi_mix_d(iorb,jorb,ispin)
      idim  = getdim(isector)
      allocate(HImap(idim))
      call build_sector(isector,HImap)
-
-     !+- Apply c^dg_jorb c_iorb -+!
-     ispin=1
-     isite=impIndex(iorb,ispin)
-     jsector = getCsector(ispin,isector)     
-     if(jsector/=0)then
-        jdim  = getdim(jsector)
-        !if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
-        vvinit=0.d0
-        do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==1)then
-              call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
-           end if
-        enddo
-     endif
-     !     
-     jsector_ = getCDGsector(ispin,jsector)
-     if(jsector_/=0) then       
-        jdim_  = getdim(jsector_)
-        !if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
-        allocate(HJmap_(jdim_),vvinit_(jdim_))
-        call build_sector(jsector_,HJmap_)
-        vvinit_=0.d0
-        do m=1,jdim
-           i=HJmap(m)
-           call bdecomp(i,ib)
-           isite=impIndex(jorb,ispin)
-           if(ib(isite)==0)then
-              call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap_,r)
-              vvinit_(j) = sgn*vvinit(m)
-           endif
-        enddo
-     end if
-
-     !<DEBUG
-     ! deallocate(vvinit); allocate(vvinit(idim))
-     ! vvinit=0.d0
-     ! do m=1,idim                     !loop over |gs> components m
-     !    i=HImap(m)
-     !    call bdecomp(i,ib)
-     !    sgn = dble(ib(iorb))
-     !    vvinit(m) = sgn*state_vec(m)   !build the cdg_up|gs> state
-     ! enddo     
-     ! do m=1,idim
-     !    write(776,*) m,vvinit_(m),vvinit(m)
-     ! end do
-     !DEBUG>
-
      !
-     deallocate(HJmap,vvinit,HJmap_)
+     !+- Apply Sum_ispin c^dg_{jorb,ispin} c_{iorb,ispin} -+!
+     do ispin=1,Nspin
+        isite=impIndex(iorb,ispin)
+        jsector = getCsector(ispin,isector)
+        if(jsector/=0)then
+           jdim  = getdim(jsector)
+           allocate(HJmap(jdim),vvinit_tmp(jdim))
+           call build_sector(jsector,HJmap)
+           vvinit_tmp=0d0
+           do m=1,idim
+              i=HImap(m)
+              call bdecomp(i,ib)
+              if(ib(isite)==1)then
+                 call c(isite,i,r,sgn)
+                 j=binary_search(HJmap,r)
+                 vvinit_tmp(j) = sgn*state_vec(m)
+              end if
+           enddo
+        endif
+        jsite = impIndex(jorb,ispin)
+        ksector = getCDGsector(ispin,jsector)
+        if(ksector/=0) then       
+           kdim  = getdim(ksector)
+           allocate(HKmap(kdim),vvinit(kdim)) !<==== ACTHUNG! 
+           call build_sector(ksector,HKmap)
+           vvinit=0d0              !<==== ACTHUNG! 
+           do m=1,jdim
+              i=HJmap(m)
+              call bdecomp(i,ib)
+              if(ib(jsite)==0)then
+                 call cdg(jsite,i,r,sgn)
+                 j=binary_search(HKmap,r)
+                 vvinit(j) = sgn*vvinit_tmp(m)
+              endif
+           enddo
+        end if
+        deallocate(HJmap,HKmap,vvinit_tmp)
+        !
+        norm2=dot_product(vvinit,vvinit)
+        vvinit=vvinit/sqrt(norm2)
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        call ed_buildH_d(ksector)
+        call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
+        cnorm2=one*norm2
+        call add_to_lanczos_densChi_mix(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb)
+        deallocate(vvinit)
+     enddo
      !
-     ispin=2
-     isite=impIndex(iorb,ispin)
-     jsector = getCsector(ispin,isector)     
-     if(jsector/=0)then
-        jdim  = getdim(jsector)
-        !if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
-        vvinit=0.d0
-        do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==1)then
-              call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
-           end if
-        enddo
-     endif
-     !     
-     jsector_ = getCDGsector(ispin,jsector)
-     if(jsector_/=0) then       
-        jdim_  = getdim(jsector_)
-        !if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
-        allocate(HJmap_(jdim_))
-        call build_sector(jsector_,HJmap_)
-        !vvinit_=0.d0
-        do m=1,jdim
-           i=HJmap(m)
-           call bdecomp(i,ib)
-           isite=impIndex(jorb,ispin)
-           if(ib(isite)==0)then
-              call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap_,r)
-              vvinit_(j) = vvinit_(j) + sgn*vvinit(m)
-           endif
-        enddo
-     end if
-
-
-     norm2=dot_product(vvinit_,vvinit_)
-     vvinit_=vvinit_/sqrt(norm2)
-     alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
-     call ed_buildH_d(jsector_)
-     call lanczos_plain_tridiag_d(vvinit_,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
-     cnorm2=one*norm2
-     call add_to_lanczos_mixChi(cnorm2,state_e,nlanc,alfa_,beta_,+1,iorb,jorb)
-
-
-     deallocate(HJmap,HJmap_)
-     deallocate(vvinit,vvinit_)
-
-
-
-     !+- Apply c^dg_iorb c_jorb -+!
-     ispin=1
-     isite=impIndex(jorb,ispin)
-     jsector = getCsector(ispin,isector)
-     if(jsector/=0)then
-        jdim  = getdim(jsector)
-        !if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
-        vvinit=0.d0
-        do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==1)then
-              call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
-           endif
-        enddo
-     endif
      !
-     isite=impIndex(iorb,ispin)
-     jsector_ = getCDGsector(ispin,jsector)
-     if(jsector_/=0) then       
-        jdim_  = getdim(jsector_)
-        !if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
-        allocate(HJmap_(jdim_),vvinit_(jdim_))
-        call build_sector(jsector_,HJmap_)
-        vvinit_=0.d0
-        do m=1,jdim
-           i=HJmap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==0)then
-              call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap_,r)
-              vvinit_(j) = sgn*vvinit(m)
-           endif
-        enddo
-     end if
-     !
-     deallocate(Hjmap,Hjmap_,vvinit)
-     !
-     ispin=2
-     isite=impIndex(jorb,ispin)
-     jsector = getCsector(ispin,isector)
-     if(jsector/=0)then
-        jdim  = getdim(jsector)
-        !if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
-        vvinit=0.d0
-        do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==1)then
-              call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
-              vvinit(j) = sgn*state_vec(m)
-           endif
-        enddo
-     endif
-     !
-     isite=impIndex(iorb,ispin)
-     jsector_ = getCDGsector(ispin,jsector)
-     if(jsector_/=0) then       
-        jdim_  = getdim(jsector_)
-        !if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
-        allocate(HJmap_(jdim_))
-        call build_sector(jsector_,HJmap_)
-        !vvinit_=0.d0
-        do m=1,jdim
-           i=HJmap(m)
-           call bdecomp(i,ib)
-           if(ib(isite)==0)then
-              call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap_,r)
-              vvinit_(j) = vvinit_(j) +  sgn*vvinit(m)
-           endif
-        enddo
-     end if
-
-
-     !<DEBUG
-     ! deallocate(vvinit); allocate(vvinit(idim))
-     ! vvinit=0.d0
-     ! do m=1,idim                     !loop over |gs> components m
-     !    i=HImap(m)
-     !    call bdecomp(i,ib)
-     !    sgn = dble(ib(iorb+Ns))+dble(ib(iorb))
-     !    vvinit(m) = sgn*state_vec(m)   !build the cdg_up|gs> state
-     ! enddo     
-     ! do m=1,idim
-     !    write(777,*) m,vvinit_(m),vvinit(m)
-     ! end do
-     ! stop
-     !DEBUG>
-
-
-
-     norm2=dot_product(vvinit_,vvinit_)
-     vvinit_=vvinit_/sqrt(norm2)
-     alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
-     call ed_buildH_d(jsector_)
-     call lanczos_plain_tridiag_d(vvinit_,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
-     cnorm2=one*norm2
-     call add_to_lanczos_mixChi(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb)
-     deallocate(vvinit,vvinit_)
-     deallocate(HJmap,HJmap_)     
+     !+- Apply Sum_ispin c^dg_{iorb,ispin} c_{jorb,ispin} -+!
+     do ispin=1,Nspin
+        jsite=impIndex(jorb,ispin)
+        jsector = getCsector(ispin,isector)
+        if(jsector/=0)then
+           jdim  = getdim(jsector)
+           allocate(HJmap(jdim),vvinit_tmp(jdim))
+           call build_sector(jsector,HJmap)
+           vvinit_tmp=0d0
+           do m=1,idim
+              i=HImap(m)
+              call bdecomp(i,ib)
+              if(ib(jsite)==1)then
+                 call c(jsite,i,r,sgn)
+                 j=binary_search(HJmap,r)
+                 vvinit_tmp(j) = sgn*state_vec(m)
+              endif
+           enddo
+        endif
+        isite = impIndex(iorb,ispin)
+        ksector = getCDGsector(ispin,jsector)
+        if(ksector/=0) then       
+           kdim  = getdim(ksector)
+           allocate(HKmap(kdim),vvinit(kdim))
+           call build_sector(ksector,HKmap)
+           vvinit=0d0
+           do m=1,jdim
+              i=HJmap(m)
+              call bdecomp(i,ib)
+              if(ib(isite)==0)then
+                 call cdg(isite,i,r,sgn)
+                 j=binary_search(HKmap,r)
+                 vvinit(j) = sgn*vvinit_tmp(m)
+              endif
+           enddo
+        end if
+        deallocate(HJmap,HKmap,vvinit_tmp)
+        !
+        norm2=dot_product(vvinit,vvinit)
+        vvinit=vvinit/sqrt(norm2)
+        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
+        call ed_buildH_d(ksector)
+        call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
+        cnorm2=one*norm2
+        call add_to_lanczos_densChi_mix(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb)
+        deallocate(vvinit)
+     enddo
      !
      nullify(state_vec)
      deallocate(HImap)
@@ -719,7 +575,10 @@ subroutine lanc_ed_build_Chi_mix_d(iorb,jorb,ispin)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
   deallocate(alfa_,beta_)
-end subroutine lanc_ed_build_Chi_mix_d
+end subroutine lanc_ed_build_densChi_mix_d
+
+
+
 
 
 
@@ -732,11 +591,11 @@ end subroutine lanc_ed_build_Chi_mix_d
 !PURPOSE  : 
 !+------------------------------------------------------------------+
 subroutine add_to_lanczos_densChi(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb)
-  complex(8) :: pesoF,pesoAB,pesoBZ,peso,vnorm2  
+  integer                                    :: iorb,jorb,isign
+  complex(8)                                 :: pesoF,pesoAB,pesoBZ,peso,vnorm2  
   real(8)                                    :: Ei,Ej,Egs,de
-  integer                                    :: nlanc,isign
+  integer                                    :: nlanc
   real(8),dimension(nlanc)                   :: alanc,blanc 
-  integer                                    :: iorb,jorb
   real(8),dimension(size(alanc),size(alanc)) :: Z
   real(8),dimension(size(alanc))             :: diag,subdiag
   integer                                    :: i,j,ierr
@@ -753,79 +612,91 @@ subroutine add_to_lanczos_densChi(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb)
   subdiag(2:Nlanc) = blanc(2:Nlanc)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
   !
-  do j=1,nlanc
-     Ej     = diag(j)
-     dE     = Ej-Ei
-     pesoAB = Z(1,j)*Z(1,j)
-     peso   = pesoF*pesoAB*pesoBZ
-
-     !Only real freq calculations
-     if(iorb.le.Norb.and.jorb.le.Norb) then
-        do i=1,Lreal
-           !denschi_w(iorb,jorb,i)=denschi_w(iorb,jorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
-           denschi_w(iorb,jorb,i)=denschi_w(iorb,jorb,i) + isign*peso/(dcmplx(wr(i),eps)-isign*dE)           
+  select case(isign)
+  case (1)
+     do j=1,nlanc
+        Ej     = diag(j)
+        dE     = Ej-Ei
+        pesoAB = Z(1,j)*Z(1,j)
+        peso   = pesoF*pesoAB*pesoBZ
+        if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+           densChi_iv(iorb,jorb,0)=densChi_iv(iorb,jorb,0) - peso*beta
+        else
+           densChi_iv(iorb,jorb,0)=densChi_iv(iorb,jorb,0) + peso*(exp(-beta*dE)-1d0)/dE 
+        endif
+        do i=1,Lmats
+           densChi_iv(iorb,jorb,i)=densChi_iv(iorb,jorb,i) + peso*(exp(-beta*dE)-1d0)/(dcmplx(0d0,vm(i)) - dE)
         enddo
-     else
+        do i=0,Ltau
+           densChi_tau(iorb,jorb,i)=densChi_tau(iorb,jorb,i) + peso*exp(-tau(i)*de)
+        enddo
         do i=1,Lreal
-           denschi_tot_w(i)=denschi_tot_w(i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
-           !denschi_tot_w(i)=denschi_tot_w(i) + isign*peso/(dcmplx(wr(i),eps)-isign*dE)
-        end do
-     end if
+           densChi_w(iorb,jorb,i)=densChi_w(iorb,jorb,i) + peso*(exp(-beta*dE)-1.d0)/(dcmplx(wr(i),eps) - dE)
+        enddo
+     enddo
+  case (-1)
+     do j=1,nlanc
+        Ej     = diag(j)
+        dE     = Ej-Ei
+        pesoAB = Z(1,j)*Z(1,j)
+        peso   = pesoF*pesoAB*pesoBZ
+        if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+           densChi_iv(iorb,jorb,0)=densChi_iv(iorb,jorb,0) + peso*beta
+        else
+           densChi_iv(iorb,jorb,0)=densChi_iv(iorb,jorb,0) + peso*(1d0-exp(-beta*dE))/dE 
+        endif
+        do i=1,Lmats
+           densChi_iv(iorb,jorb,i)=densChi_iv(iorb,jorb,i) + peso*(1d0-exp(-beta*dE))/(dcmplx(0d0,vm(i)) + dE)
+        enddo
+        do i=0,Ltau
+           densChi_tau(iorb,jorb,i)=densChi_tau(iorb,jorb,i) + peso*exp(-(beta-tau(i))*dE)
+        enddo
+        do i=1,Lreal
+           densChi_w(iorb,jorb,i)=densChi_w(iorb,jorb,i) + peso*(1d0-exp(-beta*dE))/(dcmplx(wr(i),eps) + dE)
+        enddo
+     enddo
+  case default
+     stop "add_to_lanczos_densChi: isign not in {-1,1}"
+  end select
 
-
-
-     !Matsubara:
-     !treat separately the first bosonic Matsubara freq.
-     !    if(iorb.le.Norb.and.jorb.le.Norb) then
-     !       if(beta*dE < 1)then
-     !          denschi_iv(iorb,jorb,0)=denschi_iv(iorb,jorb,0) + peso*2*beta
-     !       else
-     !          denschi_iv(iorb,jorb,0)=denschi_iv(iorb,jorb,0) + peso*2*(1d0-exp(-beta*dE))/dE !there is a factor 2 we do not know
-     !       endif
-     !       do i=1,Lmats
-     !          denschi_iv(iorb,jorb,i)=denschi_iv(iorb,jorb,i) + peso*2*dE/(vm(i)**2+dE**2)
-     !       enddo
-     !       !Imag. time:
-     !       do i=0,Ltau
-     !          denschi_tau(iorb,jorb,i)=denschi_tau(iorb,jorb,i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
-     !       enddo
-     !       !Real freq.: misses a factor 2
-     !       do i=1,Lreal
-     !          !denschi_w(iorb,jorb,i)=denschi_w(iorb,jorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
-     !          !denschi_w(iorb,jorb,i)=denschi_w(iorb,jorb,i) + peso*2.d0*dE/(dcmplx(wr(i),eps)**2.d0-dE**2.d0)           
-     !          denschi_w(iorb,jorb,i)=denschi_w(iorb,jorb,i) + isign*peso/(dcmplx(wr(i),eps)-isign*dE)           
-     !       enddo
-     !    else
-     !       if(beta*dE < 1)then
-     !          denschi_tot_iv(0)=denschi_tot_iv(0) + peso*2*beta
-     !       else
-     !          denschi_tot_iv(0)=denschi_tot_iv(0) + peso*2*(1d0-exp(-beta*dE))/dE !there is a factor 2 we do not know
-     !       endif
-     !       do i=1,Lmats
-     !          denschi_tot_iv(i)=denschi_tot_iv(i) + peso*2*dE/(vm(i)**2+dE**2)
-     !       enddo
-     !       !Imag. time:
-     !       do i=0,Ltau
-     !          denschi_tot_tau(i)=denschi_tot_tau(i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
-     !       enddo
-     !       !Real freq.: misses a factor 2
-     !       do i=1,Lreal
-     !          denschi_tot_w(i)=denschi_tot_w(i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
-     !       enddo
-     !    end if
-  enddo
-
+  ! do j=1,nlanc
+  !    Ej     = diag(j)
+  !    dE     = Ej-Ei
+  !    pesoAB = Z(1,j)*Z(1,j)
+  !    peso   = pesoF*pesoAB*pesoBZ
+  !    !Matsubara:
+  !    !treat separately the first bosonic Matsubara freq.
+  !    if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+  !       densChi_iv(iorb,jorb,0)=densChi_iv(iorb,jorb,0) + peso*2*beta
+  !    else
+  !       densChi_iv(iorb,jorb,0)=densChi_iv(iorb,jorb,0) + peso*2*(1d0-exp(-beta*dE))/dE !there is a factor 2 we do not know
+  !    endif
+  !    do i=1,Lmats
+  !       densChi_iv(iorb,jorb,i)=densChi_iv(iorb,jorb,i) + peso*2*dE/(vm(i)**2+dE**2)
+  !    enddo
+  !    !Imag. time:
+  !    do i=0,Ltau
+  !       densChi_tau(iorb,jorb,i)=densChi_tau(iorb,jorb,i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
+  !    enddo
+  !    !Real freq.: misses a factor 2
+  !    ![ (exp(-beta*DeltaE)-1)/(w+xi*eta - DeltaE) + (1-exp(-beta*DeltaE))/(w+xi*eta + DeltaE) ]
+  !    ! The second term is missing: does it contribute only to w<0? I guess so...
+  !    do i=1,Lreal
+  !       densChi_w(iorb,jorb,i)=densChi_w(iorb,jorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
+  !       !densChi_w(iorb,jorb,i)=densChi_w(iorb,jorb,i) + peso*(1.d0-exp(-beta*de))/(dcmplx(wr(i),eps)+de)
+  !    enddo
+  ! enddo
 end subroutine add_to_lanczos_densChi
 
 
 
 
-subroutine add_to_lanczos_mixChi(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb)
-  complex(8) :: pesoF,pesoAB,pesoBZ,peso,vnorm2  
+subroutine add_to_lanczos_densChi_mix(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb)
+  integer                                    :: iorb,jorb,isign
+  complex(8)                                 :: pesoF,pesoAB,pesoBZ,peso,vnorm2  
   real(8)                                    :: Ei,Ej,Egs,de
-  integer                                    :: nlanc,isign
+  integer                                    :: nlanc
   real(8),dimension(nlanc)                   :: alanc,blanc 
-  integer                                    :: iorb,jorb
   real(8),dimension(size(alanc),size(alanc)) :: Z
   real(8),dimension(size(alanc))             :: diag,subdiag
   integer                                    :: i,j,ierr
@@ -842,27 +713,199 @@ subroutine add_to_lanczos_mixChi(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb)
   subdiag(2:Nlanc) = blanc(2:Nlanc)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
   !
-  do j=1,nlanc
-     Ej     = diag(j)
-     dE     = Ej-Ei
-     pesoAB = Z(1,j)*Z(1,j)
-     peso   = pesoF*pesoAB*pesoBZ
-     do i=1,Lreal
-        !denschi_w(iorb,jorb,i)=denschi_w(iorb,jorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
-        denschi_mix_w(iorb,jorb,i)=denschi_mix_w(iorb,jorb,i) + isign*peso/(dcmplx(wr(i),eps)-isign*dE)           
+  select case(isign)
+  case (1)
+     do j=1,nlanc
+        Ej     = diag(j)
+        dE     = Ej-Ei
+        pesoAB = Z(1,j)*Z(1,j)
+        peso   = pesoF*pesoAB*pesoBZ
+        if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+           densChi_mix_iv(iorb,jorb,0)=densChi_mix_iv(iorb,jorb,0) - peso*beta
+        else
+           densChi_mix_iv(iorb,jorb,0)=densChi_mix_iv(iorb,jorb,0) + peso*(exp(-beta*dE)-1d0)/dE 
+        endif
+        do i=1,Lmats
+           densChi_mix_iv(iorb,jorb,i)=densChi_mix_iv(iorb,jorb,i) + peso*(exp(-beta*dE)-1d0)/(dcmplx(0d0,vm(i)) - dE)
+        enddo
+        do i=0,Ltau
+           densChi_mix_tau(iorb,jorb,i)=densChi_mix_tau(iorb,jorb,i) + peso*exp(-tau(i)*de)
+        enddo
+        do i=1,Lreal
+           densChi_mix_w(iorb,jorb,i)=densChi_mix_w(iorb,jorb,i) + peso*(exp(-beta*dE)-1.d0)/(dcmplx(wr(i),eps) - dE)
+        enddo
      enddo
-     if(iorb.ne.jorb) then
-        write(777,*) j,dE
-     else
-        write(776,*) j,dE
-     end if
-  enddo
-  if(iorb.ne.jorb) then
-     write(777,*) 
-  else
-     write(776,*) 
-  end if
+  case (-1)
+     do j=1,nlanc
+        Ej     = diag(j)
+        dE     = Ej-Ei
+        pesoAB = Z(1,j)*Z(1,j)
+        peso   = pesoF*pesoAB*pesoBZ
+        if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+           densChi_mix_iv(iorb,jorb,0)=densChi_mix_iv(iorb,jorb,0) + peso*beta
+        else
+           densChi_mix_iv(iorb,jorb,0)=densChi_mix_iv(iorb,jorb,0) + peso*(1d0-exp(-beta*dE))/dE 
+        endif
+        do i=1,Lmats
+           densChi_mix_iv(iorb,jorb,i)=densChi_mix_iv(iorb,jorb,i) + peso*(1d0-exp(-beta*dE))/(dcmplx(0d0,vm(i)) + dE)
+        enddo
+        do i=0,Ltau
+           densChi_mix_tau(iorb,jorb,i)=densChi_mix_tau(iorb,jorb,i) + peso*exp(-(beta-tau(i))*dE)
+        enddo
+        do i=1,Lreal
+           densChi_mix_w(iorb,jorb,i)=densChi_mix_w(iorb,jorb,i) + peso*(1d0-exp(-beta*dE))/(dcmplx(wr(i),eps) + dE)
+        enddo
+     enddo
+  case default
+     stop "add_to_lanczos_densChi_mix: isign not in {-1,1}"
+  end select
 
 
-end subroutine add_to_lanczos_mixChi
+
+  ! do j=1,nlanc
+  !    Ej     = diag(j)
+  !    dE     = Ej-Ei
+  !    pesoAB = Z(1,j)*Z(1,j)
+  !    peso   = pesoF*pesoAB*pesoBZ
+  !    !Matsubara:
+  !    !treat separately the first bosonic Matsubara freq.
+  !    if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+  !       densChi_mix_iv(iorb,jorb,0)=densChi_mix_iv(iorb,jorb,0) + peso*2*beta
+  !    else
+  !       densChi_mix_iv(iorb,jorb,0)=densChi_mix_iv(iorb,jorb,0) + peso*2*(1d0-exp(-beta*dE))/dE !there is a factor 2 we do not know
+  !    endif
+  !    do i=1,Lmats
+  !       densChi_mix_iv(iorb,jorb,i)=densChi_mix_iv(iorb,jorb,i) + peso*2*dE/(vm(i)**2+dE**2)
+  !    enddo
+  !    !Imag. time:
+  !    do i=0,Ltau
+  !       densChi_mix_tau(iorb,jorb,i)=densChi_mix_tau(iorb,jorb,i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
+  !    enddo
+  !    !Real freq.: misses a factor 2
+  !    ![ (exp(-beta*DeltaE)-1)/(w+xi*eta - DeltaE) + (1-exp(-beta*DeltaE))/(w+xi*eta + DeltaE) ]
+  !    ! The second term is missing: does it contribute only to w<0? I guess so...
+  !    do i=1,Lreal
+  !       densChi_mix_w(iorb,jorb,i)=densChi_mix_w(iorb,jorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
+  !       !densChi_mix_w(iorb,jorb,i)=densChi_mix_w(iorb,jorb,i) + peso*(1.d0-exp(-beta*de))/(dcmplx(wr(i),eps)+de)
+  !    enddo
+  !    !>DEBUG: GIACOMO 1st IMPLEMENTATION
+  !    !    do i=1,Lreal
+  !    !       !denschi_w(iorb,jorb,i)=denschi_w(iorb,jorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
+  !    !       denschi_mix_w(iorb,jorb,i)=denschi_mix_w(iorb,jorb,i) + isign*peso/(dcmplx(wr(i),eps)-isign*dE)           
+  !    !    enddo
+  !    !    if(iorb.ne.jorb) then
+  !    !       write(777,*) j,dE
+  !    !    else
+  !    !       write(776,*) j,dE
+  !    !    end if
+  !    !<DEBUG: GIACOMO 1st IMPLEMENTATION
+  ! enddo
+  ! !>DEBUG: GIACOMO 1st IMPLEMENTATION
+  ! ! if(iorb.ne.jorb) then
+  ! !    write(777,*) 
+  ! ! else
+  ! !    write(776,*) 
+  ! ! end if
+  ! !<DEBUG: GIACOMO 1st IMPLEMENTATION
+end subroutine add_to_lanczos_densChi_mix
+
+
+
+subroutine add_to_lanczos_densChi_tot(vnorm2,Ei,nlanc,alanc,blanc,isign)
+  complex(8)                                 :: pesoF,pesoAB,pesoBZ,peso,vnorm2  
+  real(8)                                    :: Ei,Ej,Egs,de
+  integer                                    :: nlanc,isign
+  real(8),dimension(nlanc)                   :: alanc,blanc 
+  real(8),dimension(size(alanc),size(alanc)) :: Z
+  real(8),dimension(size(alanc))             :: diag,subdiag
+  integer                                    :: i,j,ierr
+  complex(8)                                 :: iw,chisp
+  !
+  Egs    = state_list%emin
+  pesoF  = vnorm2/zeta_function 
+  pesoBZ = 1d0
+  if(finiteT)pesoBZ = exp(-beta*(Ei-Egs))
+  !
+  diag=0.d0 ; subdiag=0.d0 ; Z=0.d0
+  forall(i=1:Nlanc)Z(i,i)=1.d0
+  diag(1:Nlanc)    = alanc(1:Nlanc)
+  subdiag(2:Nlanc) = blanc(2:Nlanc)
+  call tql2(Nlanc,diag,subdiag,Z,ierr)
+  !
+  select case(isign)
+  case (1)
+     do j=1,nlanc
+        Ej     = diag(j)
+        dE     = Ej-Ei
+        pesoAB = Z(1,j)*Z(1,j)
+        peso   = pesoF*pesoAB*pesoBZ
+        if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+           densChi_tot_iv(0)=densChi_tot_iv(0) - peso*beta
+        else
+           densChi_tot_iv(0)=densChi_tot_iv(0) + peso*(exp(-beta*dE)-1d0)/dE 
+        endif
+        do i=1,Lmats
+           densChi_tot_iv(i)=densChi_tot_iv(i) + peso*(exp(-beta*dE)-1d0)/(dcmplx(0d0,vm(i)) - dE)
+        enddo
+        do i=0,Ltau
+           densChi_tot_tau(i)=densChi_tot_tau(i) + peso*exp(-tau(i)*de)
+        enddo
+        do i=1,Lreal
+           densChi_tot_w(i)=densChi_tot_w(i) + peso*(exp(-beta*dE)-1.d0)/(dcmplx(wr(i),eps) - dE)
+        enddo
+     enddo
+  case (-1)
+     do j=1,nlanc
+        Ej     = diag(j)
+        dE     = Ej-Ei
+        pesoAB = Z(1,j)*Z(1,j)
+        peso   = pesoF*pesoAB*pesoBZ
+        if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+           densChi_tot_iv(0)=densChi_tot_iv(0) + peso*beta
+        else
+           densChi_tot_iv(0)=densChi_tot_iv(0) + peso*(1d0-exp(-beta*dE))/dE 
+        endif
+        do i=1,Lmats
+           densChi_tot_iv(i)=densChi_tot_iv(i) + peso*(1d0-exp(-beta*dE))/(dcmplx(0d0,vm(i)) + dE)
+        enddo
+        do i=0,Ltau
+           densChi_tot_tau(i)=densChi_tot_tau(i) + peso*exp(-(beta-tau(i))*dE)
+        enddo
+        do i=1,Lreal
+           densChi_tot_w(i)=densChi_tot_w(i) + peso*(1d0-exp(-beta*dE))/(dcmplx(wr(i),eps) + dE)
+        enddo
+     enddo
+  case default
+     stop "add_to_lanczos_densChi_tot: isign not in {-1,1}"
+  end select
+
+
+  ! do j=1,nlanc
+  !    Ej     = diag(j)
+  !    dE     = Ej-Ei
+  !    pesoAB = Z(1,j)*Z(1,j)
+  !    peso   = pesoF*pesoAB*pesoBZ
+  !    !Matsubara:
+  !    !treat separately the first bosonic Matsubara freq.
+  !    if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+  !       densChi_tot_iv(0)=densChi_tot_iv(0) + peso*2*beta
+  !    else
+  !       densChi_tot_iv(0)=densChi_tot_iv(0) + peso*2*(1d0-exp(-beta*dE))/dE !there is a factor 2 we do not know
+  !    endif
+  !    do i=1,Lmats
+  !       densChi_tot_iv(i)=densChi_tot_iv(i) + peso*2*dE/(vm(i)**2+dE**2)
+  !    enddo
+  !    !Imag. time:
+  !    do i=0,Ltau
+  !       densChi_tot_tau(i)=densChi_tot_tau(i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
+  !    enddo
+  !    !Real freq.: misses a factor 2
+  !    ![ (exp(-beta*DeltaE)-1)/(w+xi*eta - DeltaE) + (1-exp(-beta*DeltaE))/(w+xi*eta + DeltaE) ]
+  !    ! The second term is missing: does it contribute only to w<0? I guess so...
+  !    do i=1,Lreal
+  !       densChi_tot_w(i)=densChi_tot_w(i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
+  !       !densChi_tot_w(i)=densChi_tot_w(i) + peso*(1.d0-exp(-beta*de))/(dcmplx(wr(i),eps)+de)
+  !    enddo
+  ! enddo
+end subroutine add_to_lanczos_densChi_tot
 
