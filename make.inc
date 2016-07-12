@@ -11,7 +11,7 @@ PLAT=gnu
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-#FPP_INEQ=MPI_INEQ
+FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
 FPP_ED=
@@ -27,7 +27,7 @@ LIBDIR=$(HOME)/opt
 ##$ --> HUBBARD MODELS:
 #EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
-EXE=ed_ahm_square
+#EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
 #EXE=ed_hm_2b_cubic
 #EXE=ed_hm_bethe_afm
@@ -55,7 +55,7 @@ EXE=ed_ahm_square
 #EXE=ed_ahm_stripe
 #EXE=ed_ahm_finite_stripe
 #EXE=ed_nano
-EXE=ed_nano_sc
+#EXE=ed_nano_sc
 #EXE=hartree_nano
 #EXE=ed_cdwhm_bethe
 

@@ -403,7 +403,7 @@ contains
           is = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
           js = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb
           Hij(is,js,1)=dcmplx(ret,imt) 
-          Hij(js,is,1)=dcmplx(ret,imt) ! symmetrize hoppping
+          Hij(js,is,1)=dcmplx(ret,imt) ! symmetrize hopping
        enddo
     enddo
     close(unit)

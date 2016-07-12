@@ -166,8 +166,8 @@ contains
     if(ED_MPI_ID==0)then
        if(finiteT)then
           write(LOGfile,"(A)")"Lanczos FINITE temperature calculation:"
-          write(LOGfile,"(A,I)")"Nstates x Sector = ", lanc_nstates_sector
-          write(LOGfile,"(A,I)")"Nstates   Total  = ", lanc_nstates_total
+          write(LOGfile,"(A,I3)")"Nstates x Sector = ", lanc_nstates_sector
+          write(LOGfile,"(A,I3)")"Nstates   Total  = ", lanc_nstates_total
           call sleep(1)
        else
           write(LOGfile,"(A)")"Lanczos ZERO temperature calculation:"

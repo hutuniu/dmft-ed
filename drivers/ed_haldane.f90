@@ -312,12 +312,12 @@ contains
   function inverse_g0k(zeta,hk) result(gk)
     integer                     :: i
     complex(8),dimension(2,2)   :: hk
-    complex(8),dimension(2)     :: zeta
+    complex(8)                  :: zeta
     complex(8),dimension(2,2)   :: gk
     Complex(8)                  :: delta,ppi,vmix
     gk=zero
-    delta = zeta(1) - hk(1,1)
-    ppi   = zeta(2) - hk(2,2)
+    delta = zeta - hk(1,1)
+    ppi   = zeta - hk(2,2)
     vmix  = -hk(1,2)
     gk(1,1) = one/(delta - abs(vmix)**2/ppi)
     gk(2,2) = one/(ppi - abs(vmix)**2/delta)
