@@ -287,7 +287,7 @@ subroutine add_to_lanczos_spinChi(vnorm,Ei,nlanc,alanc,blanc,iorb)
      if(beta*dE < 1)then
         spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*2*beta
      else
-        spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*2*(1d0-exp(-beta*dE))/dE !there is a factor 2 we do not know
+        spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*2*(1d0-exp(-beta*dE))/dE 
      endif
      do i=1,Lmats
         spinChi_iv(iorb,i)=spinChi_iv(iorb,i) + peso*2*dE/(vm(i)**2+dE**2)
@@ -297,6 +297,8 @@ subroutine add_to_lanczos_spinChi(vnorm,Ei,nlanc,alanc,blanc,iorb)
         spinChi_tau(iorb,i)=spinChi_tau(iorb,i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
      enddo
      !Real freq.: misses a factor 2
+     ![ (exp(-beta*DeltaE)-1)/(w+xi*eta - DeltaE) + (1-exp(-beta*DeltaE))/(w+xi*eta + DeltaE) ]
+     ! The second term is missing: does it contribute only to w<0? I guess so...
      do i=1,Lreal
         spinChi_w(iorb,i)=spinChi_w(iorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
      enddo
