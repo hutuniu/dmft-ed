@@ -33,12 +33,15 @@ end subroutine build_chi_spin
 !+------------------------------------------------------------------+
 !PURPOSE  : Evaluate the Spin susceptibility \Chi_spin for a 
 ! single orbital: \chi = <S_a(\tau)S_a(0)>
+! note: as S_a is hermitian particle and holes contributions (isign=1,-1)
+! are identical so work out only one lanczos tridiag. work out the 
+! reduction for both values of isign in the same call.
 !+------------------------------------------------------------------+
 subroutine lanc_ed_build_spinChi_d(iorb)
-  integer                          :: iorb,isite,isect0,izero
+  integer                          :: iorb,isite,isector,izero
   integer                          :: numstates
-  integer                          :: nlanc,idim0
-  integer                          :: iup0,idw0
+  integer                          :: nlanc,idim
+  integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
@@ -54,17 +57,17 @@ subroutine lanc_ed_build_spinChi_d(iorb)
   !
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     isect0     =  es_return_sector(state_list,izero)
+     isector     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim0  = getdim(isect0)
-     allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
-     call build_sector(isect0,HImap)
+     idim  = getdim(isector)
+     allocate(HImap(idim),vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isector),getndw(isector),idim
+     call build_sector(isector,HImap)
      vvinit=0.d0
-     do m=1,idim0                     !loop over |gs> components m
+     do m=1,idim                     !loop over |gs> components m
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = dble(ib(iorb))-dble(ib(iorb+Ns))
@@ -74,9 +77,14 @@ subroutine lanc_ed_build_spinChi_d(iorb)
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_d(isect0)
+     call ed_buildH_d(isector)
      call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
-     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,iorb)
+     !particles
+     isign=1
+     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
+     !holes
+     isign=-1
+     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
@@ -86,10 +94,10 @@ subroutine lanc_ed_build_spinChi_d(iorb)
 end subroutine lanc_ed_build_spinChi_d
 
 subroutine lanc_ed_build_spinChi_c(iorb)
-  integer                          :: iorb,isite,isect0,izero
+  integer                          :: iorb,isite,isector,izero
   integer                          :: numstates
-  integer                          :: nlanc,idim0
-  integer                          :: iup0,idw0
+  integer                          :: nlanc,idim
+  integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
@@ -105,18 +113,18 @@ subroutine lanc_ed_build_spinChi_c(iorb)
   !
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     isect0     =  es_return_sector(state_list,izero)
-     idim0      =  getdim(isect0)
+     isector     =  es_return_sector(state_list,izero)
+     idim      =  getdim(isector)
      state_e    =  es_return_energy(state_list,izero)
      state_cvec => es_return_cvector(state_list,izero)
-     norm0=sqrt(dot_product(state_vec,state_vec))
+     norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim0  = getdim(isect0)
-     allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
-     call build_sector(isect0,HImap)
+     idim  = getdim(isector)
+     allocate(HImap(idim),vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isector),getndw(isector),idim
+     call build_sector(isector,HImap)
      vvinit=0.d0
-     do m=1,idim0                     !loop over |gs> components m
+     do m=1,idim                     !loop over |gs> components m
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = dble(ib(iorb))-dble(ib(iorb+Ns))
@@ -126,9 +134,14 @@ subroutine lanc_ed_build_spinChi_c(iorb)
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_c(isect0)
+     call ed_buildH_c(isector)
      call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_cc)
-     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,iorb)
+     !particles
+     isign=1
+     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
+     !holes
+     isign=-1
+     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
@@ -144,13 +157,16 @@ end subroutine lanc_ed_build_spinChi_c
 
 !+------------------------------------------------------------------+
 !PURPOSE  : Evaluate the total Spin susceptibility \Chi_spin for a 
-! single orbital: \chi = \sum_a <S_a(\tau)S_a(0)>
+! single orbital: \chi =  <[\sum_a S_a(\tau)][\sum_a S_a(0)]>
+! note: as S_a is hermitian particle and holes contributions (isign=1,-1)
+! are identical so work out only one lanczos tridiag. work out the 
+! reduction for both values of isign in the same call.
 !+------------------------------------------------------------------+
 subroutine lanc_ed_build_spinChi_tot_d()
-  integer                          :: iorb,isite,isect0,izero
+  integer                          :: iorb,isite,isector,izero
   integer                          :: numstates
-  integer                          :: nlanc,idim0
-  integer                          :: iup0,idw0
+  integer                          :: nlanc,idim
+  integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
@@ -166,17 +182,17 @@ subroutine lanc_ed_build_spinChi_tot_d()
   !
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     isect0     =  es_return_sector(state_list,izero)
+     isector     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim0  = getdim(isect0)
-     allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
-     call build_sector(isect0,HImap)
+     idim  = getdim(isector)
+     allocate(HImap(idim),vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isector),getndw(isector),idim
+     call build_sector(isector,HImap)
      vvinit=0.d0
-     do m=1,idim0  
+     do m=1,idim  
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = sum(dble(ib(1:Norb)))-sum(dble(ib(Ns+1:Ns+Norb)))
@@ -186,9 +202,14 @@ subroutine lanc_ed_build_spinChi_tot_d()
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_d(isect0)
+     call ed_buildH_d(isector)
      call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
-     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,Norb+1)
+     !particles
+     isign=1
+     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,Norb+1)
+     !holes
+     isign=-1
+     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,Norb+1)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
@@ -198,10 +219,10 @@ subroutine lanc_ed_build_spinChi_tot_d()
 end subroutine lanc_ed_build_spinChi_tot_d
 
 subroutine lanc_ed_build_spinChi_tot_c()
-  integer                          :: iorb,isite,isect0,izero
+  integer                          :: iorb,isite,isector,izero
   integer                          :: numstates
-  integer                          :: nlanc,idim0
-  integer                          :: iup0,idw0
+  integer                          :: nlanc,idim
+  integer                          :: iup0,idw0,isign
   integer                          :: ib(Nlevels)
   integer                          :: m,i,j,r
   real(8)                          :: norm0,sgn
@@ -217,18 +238,18 @@ subroutine lanc_ed_build_spinChi_tot_c()
   !
   if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
   do izero=1,numstates
-     isect0     =  es_return_sector(state_list,izero)
-     idim0      =  getdim(isect0)
+     isector     =  es_return_sector(state_list,izero)
+     idim       =  getdim(isector)
      state_e    =  es_return_energy(state_list,izero)
      state_cvec => es_return_cvector(state_list,izero)
-     norm0=sqrt(dot_product(state_vec,state_vec))
+     norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim0  = getdim(isect0)
-     allocate(HImap(idim0),vvinit(idim0))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isect0),getndw(isect0),idim0
-     call build_sector(isect0,HImap)
+     idim  = getdim(isector)
+     allocate(HImap(idim),vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isector),getndw(isector),idim
+     call build_sector(isector,HImap)
      vvinit=0.d0
-     do m=1,idim0                     !loop over |gs> components m
+     do m=1,idim                     !loop over |gs> components m
         i=HImap(m)
         call bdecomp(i,ib)
         sgn = sum(dble(ib(1:Norb)))-sum(dble(ib(Ns+1:Ns+Norb)))
@@ -238,9 +259,14 @@ subroutine lanc_ed_build_spinChi_tot_c()
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
-     call ed_buildH_c(isect0)
+     call ed_buildH_c(isector)
      call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_cc)
-     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,Norb+1)
+     !particles
+     isign=1
+     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,Norb+1)
+     !holes
+     isign=-1
+     call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,Norb+1)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
@@ -253,10 +279,11 @@ end subroutine lanc_ed_build_spinChi_tot_c
 
 
 
+
 !+------------------------------------------------------------------+
 !PURPOSE  : 
 !+------------------------------------------------------------------+
-subroutine add_to_lanczos_spinChi(vnorm,Ei,nlanc,alanc,blanc,iorb)
+subroutine add_to_lanczos_spinChi(vnorm,Ei,nlanc,alanc,blanc,isign,iorb)
   real(8)                                    :: vnorm,Ei,Ej,Egs,pesoF,pesoAB,pesoBZ,de,peso
   integer                                    :: nlanc
   real(8),dimension(nlanc)                   :: alanc,blanc 
@@ -277,30 +304,78 @@ subroutine add_to_lanczos_spinChi(vnorm,Ei,nlanc,alanc,blanc,iorb)
   subdiag(2:Nlanc) = blanc(2:Nlanc)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
   !
-  do j=1,nlanc
-     Ej     = diag(j)
-     dE     = Ej-Ei
-     pesoAB = Z(1,j)*Z(1,j)
-     peso   = pesoF*pesoAB*pesoBZ
-     !Matsubara:
-     !treat separately the first bosonic Matsubara freq.
-     if(beta*dE < 1)then
-        spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*2*beta
-     else
-        spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*2*(1d0-exp(-beta*dE))/dE 
-     endif
-     do i=1,Lmats
-        spinChi_iv(iorb,i)=spinChi_iv(iorb,i) + peso*2*dE/(vm(i)**2+dE**2)
+  select case(isign)
+  case (1)
+     do j=1,nlanc
+        Ej     = diag(j)
+        dE     = Ej-Ei
+        pesoAB = Z(1,j)*Z(1,j)
+        peso   = pesoF*pesoAB*pesoBZ
+        if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+           spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*beta
+        else
+           spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*(1d0-exp(-beta*dE))/dE 
+        endif
+        do i=1,Lmats
+           spinChi_iv(iorb,i)=spinChi_iv(iorb,i) + peso*(exp(-beta*dE)-1d0)/(dcmplx(0d0,vm(i)) - dE)
+        enddo
+        do i=0,Ltau
+           spinChi_tau(iorb,i)=spinChi_tau(iorb,i) + peso*exp(-tau(i)*de)
+        enddo
+        do i=1,Lreal
+           spinChi_w(iorb,i)=spinChi_w(iorb,i) + peso*(exp(-beta*dE)-1.d0)/(dcmplx(wr(i),eps) - dE)
+        enddo
      enddo
-     !Imag. time:
-     do i=0,Ltau
-        spinChi_tau(iorb,i)=spinChi_tau(iorb,i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
+  case (-1)
+     do j=1,nlanc
+        Ej     = diag(j)
+        dE     = Ej-Ei
+        pesoAB = Z(1,j)*Z(1,j)
+        peso   = pesoF*pesoAB*pesoBZ
+        if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+           spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*beta
+        else
+           spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*(1d0-exp(-beta*dE))/dE 
+        endif
+        do i=1,Lmats
+           spinChi_iv(iorb,i)=spinChi_iv(iorb,i) + peso*(1d0-exp(-beta*dE))/(dcmplx(0d0,vm(i)) + dE)
+        enddo
+        do i=0,Ltau
+           spinChi_tau(iorb,i)=spinChi_tau(iorb,i) + peso*exp(-(beta-tau(i))*dE)
+        enddo
+        do i=1,Lreal
+           spinChi_w(iorb,i)=spinChi_w(iorb,i) + peso*(1d0-exp(-beta*dE))/(dcmplx(wr(i),eps) + dE)
+        enddo
      enddo
-     !Real freq.: misses a factor 2
-     ![ (exp(-beta*DeltaE)-1)/(w+xi*eta - DeltaE) + (1-exp(-beta*DeltaE))/(w+xi*eta + DeltaE) ]
-     ! The second term is missing: does it contribute only to w<0? I guess so...
-     do i=1,Lreal
-        spinChi_w(iorb,i)=spinChi_w(iorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
-     enddo
-  enddo
+  case default
+     stop "add_to_lanczos_spinChi: isign not in {-1,1}"
+  end select
+
+
+  ! do j=1,nlanc
+  !    Ej     = diag(j)
+  !    dE     = Ej-Ei
+  !    pesoAB = Z(1,j)*Z(1,j)
+  !    peso   = pesoF*pesoAB*pesoBZ
+  ! !Matsubara: treat separately the first bosonic Matsubara freq.
+  ! if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
+  !    spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*2*beta
+  ! else
+  !    spinChi_iv(iorb,0)=spinChi_iv(iorb,0) + peso*2*(1d0-exp(-beta*dE))/dE 
+  ! endif
+  ! do i=1,Lmats
+  !    spinChi_iv(iorb,i)=spinChi_iv(iorb,i) + peso*2*dE/(vm(i)**2+dE**2)
+  ! enddo
+  ! !Imag. time:
+  ! do i=0,Ltau
+  !    spinChi_tau(iorb,i)=spinChi_tau(iorb,i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
+  ! enddo
+  ! !Real freq.: misses a factor 2
+  ! ![ (exp(-beta*DeltaE)-1)/(w+xi*eta - DeltaE) + (1-exp(-beta*DeltaE))/(w+xi*eta + DeltaE) ]
+  ! ! The second term is missing: does it contribute only to w<0? I guess so...
+  ! do i=1,Lreal
+  !    spinChi_w(iorb,i)=spinChi_w(iorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
+  !    !spinChi_w(iorb,i)=spinChi_w(iorb,i) + peso*(1.d0-exp(-beta*de))/(dcmplx(wr(i),eps)+de)
+  ! enddo
+  ! enddo
 end subroutine add_to_lanczos_spinChi
