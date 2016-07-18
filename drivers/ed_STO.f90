@@ -23,6 +23,7 @@ program ed_TEST_REPLICA
   real(8),allocatable    :: kxgrid(:),kygrid(:),kzgrid(:)
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
+  integer                :: conv_n_loop=1,shift_n_loop=1
   real(8)                :: soc,ivb,wmixing,sumdens,xmu_old
   logical                :: surface,Hk_test,rotateG0loc,converged_n,upprshft
   character(len=16)      :: finput
@@ -119,6 +120,9 @@ program ed_TEST_REPLICA
      else
         call ed_chi2_fitgf(delta,bath)
      endif
+     !
+     if(shift_n_loop==3)wmixing=1.0d0
+     !
      if(ED_MPI_ID==0)write(LOGfile,'(a10,F10.5)') " wmixing",wmixing
      Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      !
@@ -131,7 +135,7 @@ program ed_TEST_REPLICA
            call check_rotations_on_Jz(dm_rot)
            call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
         endif
-        call rotate_Gloc(Greal,"B",bottom,top,0.8d0)
+        call rotate_Gloc(Greal,"B",bottom,top,pi*0.8d0)
      endif
      !
      !chemical potential find:
@@ -145,6 +149,11 @@ program ed_TEST_REPLICA
      endif
      if(ED_MPI_ID==0)write(*,'(3(a10,F10.5))') "sumdens",sumdens,"diffdens",abs(nread-sumdens),"nread",nread
      if(ED_MPI_ID==0)write(*,'(2(a10,F10.5))') "xmu_old",xmu_old,"xmu_new",xmu
+     if(converged_n)then
+        conv_n_loop=conv_n_loop+1
+     else
+        conv_n_loop=1
+     endif
      !
      !convergence:
      !
@@ -152,20 +161,22 @@ program ed_TEST_REPLICA
         delta_conv(:,:,i)=nn2so_reshape(delta(:,:,:,:,i))
         delta_conv_avrg(i)=sum(delta_conv(:,:,i))
      enddo
+     !final mu shift:
+     !
      if(ED_MPI_ID==0) then
         converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
         write(LOGfile,'(2(a15,L3))') "converged",converged,"converged(n)",converged_n
         converged = converged .and. converged_n
-        write(LOGfile,'(2(a25,L3))') "total converged",converged
+        write(LOGfile,'(a25,L3,a25,I3)') "total converged",converged,"conv_n_loop",conv_n_loop
      endif
 #ifdef _MPI
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
      !
-     !final mu shift:
-     !
      if(converged_n.and.upprshft)then
+     !if(conv_n_loop>=3.and.upprshft)then
+        shift_n_loop=shift_n_loop+1
         if(bath_type/="replica")then
            if(allocated(w))deallocate(w);allocate(w(Lreal));w=0.0d0
            w = linspace(wini,wfin,Lreal,mesh=dw)
@@ -187,10 +198,10 @@ program ed_TEST_REPLICA
         if(ED_MPI_ID==0)write(LOGfile,*)"top",top,"bottom",bottom
         shift      = bottom + ( top - bottom ) / 2.d0
         xmu_old    = xmu
-        if(abs(shift)>=0.01)then
-           xmu        = xmu_old + shift * 0.90d0!questo rallenta un pò che se no si mixano le bande
+        if(abs(shift)>=0.005)then
+           xmu        = xmu_old + shift
            converged  = .false.
-           !nread  = 0.0d0!con questo una volta che comincio a shiftare rigidamente la densità non la controllo piu
+           nread  = 0.0d0!con questo una volta che comincio a shiftare rigidamente la densità non la controllo piu
         endif
         if(ED_MPI_ID==0)then
            write(LOGfile,'(5(a10,F10.5))') "shift",shift,"xmu_old",xmu_old,"xmu_new",xmu
@@ -842,7 +853,7 @@ contains
     !###############################################################
     !
     if(present(type_rot).and.(type_rot=="A"))then
-       if(ED_MPI_ID==0)write(LOGfile,*) "  Gloc rotation with LS(C) Martins"
+       if(ED_MPI_ID==0)write(LOGfile,*) "  Gloc rotation with LS(C) Martins",lvl
     !
     !1)rotation
     G_out=zero
@@ -914,7 +925,7 @@ contains
     !###############################################################
     !
     if(present(type_rot).and.(type_rot=="B"))then
-       if(ED_MPI_ID==0)write(LOGfile,*) "  Gloc rotation with LS(R)"
+       if(ED_MPI_ID==0)write(LOGfile,*) "  Gloc rotation with LS(R)",lvl
     !
     !1)rotation
     G_out=zero
