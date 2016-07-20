@@ -23,11 +23,15 @@ program ed_TEST_REPLICA
   real(8),allocatable    :: kxgrid(:),kygrid(:),kzgrid(:)
   !variables for the model:
   integer                :: Nk,Nkpath,i,j,iorb,jorb,io,jo,ispin,jspin
-  integer                :: conv_n_loop=1,shift_n_loop=1
   real(8)                :: soc,ivb,wmixing,sumdens,xmu_old
-  logical                :: surface,Hk_test,rotateG0loc,converged_n,upprshft
+  logical                :: surface,Hk_test,rotateG0loc
   character(len=16)      :: finput
   character(len=32)      :: hkfile
+  !custom variables:
+  integer                :: conv_n_loop=1,shift_n_loop=1,cg_weight_n_loop=1
+  integer                :: cg_weight_static
+  real(8)                :: wmixing_static,Alvl
+  logical                :: converged_n,upprshft
   !convergence functions:
   complex(8),allocatable :: delta_conv(:,:,:),delta_conv_avrg(:)
   !density matrix:
@@ -83,6 +87,9 @@ program ed_TEST_REPLICA
   allocate(Ltot(3,Nspin,Nspin));Ltot=zero
   allocate(jz(3));jz=zero
   !
+  wmixing_static=wmixing
+  cg_weight_static=cg_weight
+  !
   !Buil the non interacting Hamiltonian:
   call build_hk(trim(hkfile))
   call build_hk_path
@@ -121,21 +128,33 @@ program ed_TEST_REPLICA
         call ed_chi2_fitgf(delta,bath)
      endif
      !
-     if(shift_n_loop==3)wmixing=1.0d0
+     !mixing:
      !
-     if(ED_MPI_ID==0)write(LOGfile,'(a10,F10.5)') " wmixing",wmixing
+     !cg_weight=cg_weight_static
+     wmixing=wmixing_static
+   !  if(iloop==1)wmixing=0.0d0
+     if(ED_MPI_ID==0)write(LOGfile,'(a10,F10.5,a10,i3)') " wmixing",wmixing,"cg_weight",cg_weight
      Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      !
      !operations:
      !
      if(bath_type=="replica")then
+        if(iloop==1)then
+           Alvl=0.2d0
+        else
+           Alvl=0.8d0
+        endif
         if(ED_MPI_ID==0)then
            call build_hk_path
            call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
            call check_rotations_on_Jz(dm_rot)
            call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
         endif
-        call rotate_Gloc(Greal,"B",bottom,top,pi*0.8d0)
+        if(real_Hrepl)then
+           call rotate_Gloc(Greal,"B",bottom,top,pi*Alvl)
+        else
+           call rotate_Gloc(Greal,"A",bottom,top,pi*Alvl)
+        endif
      endif
      !
      !chemical potential find:
@@ -143,12 +162,12 @@ program ed_TEST_REPLICA
      converged_n=.true.
      xmu_old=xmu
      sumdens=sum(ed_get_dens())
+     if(ED_MPI_ID==0)write(*,'(3(a10,F10.5))') "sumdens",sumdens,"diffdens",abs(nread-sumdens),"nread",nread
      if(nread/=0.d0)then
         converged_n=.false.
         if(iloop>=3)call search_chempot(xmu,sumdens,converged_n,Bath)
+        if(ED_MPI_ID==0)write(*,'(2(a10,F10.5))') "xmu_old",xmu_old,"xmu_new",xmu
      endif
-     if(ED_MPI_ID==0)write(*,'(3(a10,F10.5))') "sumdens",sumdens,"diffdens",abs(nread-sumdens),"nread",nread
-     if(ED_MPI_ID==0)write(*,'(2(a10,F10.5))') "xmu_old",xmu_old,"xmu_new",xmu
      if(converged_n)then
         conv_n_loop=conv_n_loop+1
      else
@@ -167,7 +186,10 @@ program ed_TEST_REPLICA
         converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
         write(LOGfile,'(2(a15,L3))') "converged",converged,"converged(n)",converged_n
         converged = converged .and. converged_n
-        write(LOGfile,'(a25,L3,a25,I3)') "total converged",converged,"conv_n_loop",conv_n_loop
+        write(LOGfile,'(a25,L3)') "total converged",converged
+        write(LOGfile,'(a25,I3)') "iloop",iloop
+        write(LOGfile,'(a25,I3)') "conv_n_loop",conv_n_loop
+        write(LOGfile,'(a25,I3)') "shift_n_loop",shift_n_loop
      endif
 #ifdef _MPI
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
@@ -175,7 +197,6 @@ program ed_TEST_REPLICA
 #endif
      !
      if(converged_n.and.upprshft)then
-     !if(conv_n_loop>=3.and.upprshft)then
         shift_n_loop=shift_n_loop+1
         if(bath_type/="replica")then
            if(allocated(w))deallocate(w);allocate(w(Lreal));w=0.0d0
@@ -211,7 +232,6 @@ program ed_TEST_REPLICA
            close(unit)
         endif
      endif
-     !
      !
      !
      if(ED_MPI_ID==0)call end_loop
@@ -333,12 +353,17 @@ contains
        enddo
     enddo
     if(rotateG0loc) then
-       allocate(G_in(Nspin,Nspin,Norb,Norb,Lmats))
+       allocate(G_in(Nspin,Nspin,Norb,Norb,Lreal))
        G_in=zero
        do i=1,Lreal
           G_in(:,:,:,:,i)=so2nn_reshape(Greal(:,:,i))
        enddo
-       call rotate_Gloc(G_in,"B")
+       if(real_Hrepl)then
+          call rotate_Gloc(G_in,"B")
+       else
+          call rotate_Gloc(G_in,"A")
+       endif
+       deallocate(G_in)
     endif
   end subroutine build_hk
 
@@ -621,7 +646,7 @@ contains
      T=T_LAOSTO(1:Norb,:)
   else
      if(.not.Hk_test)then
-        T=0.0d0
+        T=0.d0
         T=T_bulk(1:Norb,:)
      elseif(bath_type/="replica".and.Hk_test)then
         T=1.0d0

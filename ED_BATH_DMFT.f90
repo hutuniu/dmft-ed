@@ -232,6 +232,8 @@ contains
                    enddo
                 enddo
              enddo
+             dmft_bath_%h(:,:,:,:,i)=zero
+             dmft_bath_%h(:,:,:,:,i)=(so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)+impHloc)*0.75d0
           enddo
        endif
        !HYBR. INITIALIZATION
@@ -934,12 +936,13 @@ contains
                    LSmatrix(3,5) = + element_R
                    LSmatrix(4,5) = + element_R
                 else
-                   LSmatrix(1,2) = + element_R * xi
-                   LSmatrix(1,6) = - element_R
-                   LSmatrix(2,6) = + element_R * xi
-                   LSmatrix(3,4) = + element_R
-                   LSmatrix(3,5) = - element_R * xi
-                   LSmatrix(4,5) = - element_R * xi
+                   LSmatrix(1,2) = -xi
+                   LSmatrix(1,6) = +1.0d0
+                   LSmatrix(2,6) = -xi
+                   LSmatrix(3,4) = -1.0d0
+                   LSmatrix(3,5) = +xi
+                   LSmatrix(4,5) = +xi
+                   LSmatrix=LSmatrix*element_R
                 endif
                 do io=1,Nspin*Norb
                    do jo=1+io,Nspin*Norb

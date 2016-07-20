@@ -4,7 +4,7 @@ MODULE ED_CHI2FIT
   USE SF_LINALG,   only:eye,zeye,inv,inv_her
   USE SF_IOTOOLS,  only:reg,free_unit,txtfy
   USE SF_ARRAYS,   only:arange
-  USE SF_MISC,     only:assert_shape
+  USE SF_MISC,     only:assert_shape 
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_BATH_DMFT
@@ -70,11 +70,11 @@ contains
        call assert_shape(fg,[Nspin,Nspin,Norb,Norb,size(fg,5)],"chi2_fitgf_generic_normal","fg")
        select case(cg_method)
        case (0)
-          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
+          if(ed_verbose<3)write(LOGfile,"(A,I3)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight
        case (1)
-          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-minimize"
+          if(ed_verbose<3)write(LOGfile,"(A,I3)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight
        case(2)
-          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
+          if(ed_verbose<3)write(LOGfile,"(A,I3)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight
        case default
           stop "chi2_fitgf_generic_normal error: cg_method > 2" 
        end select

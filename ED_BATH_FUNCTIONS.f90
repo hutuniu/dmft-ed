@@ -427,31 +427,18 @@ contains
                 !
              enddo
              !
-             compute_component=.false.
              do ibath=1,Nbath
                 do ispin=1,Nspin
                    do jspin=1,Nspin
                       do iorb=1,Norb
                          do jorb=1,Norb
-                         !   compute_component = SOC_compute_component(ispin,jspin,iorb,jorb)
-                         !   if((ed_para).and.(.not.compute_component)) cycle
                             Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
-                            !conjg(dmft_bath_%vr(ibath))*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,2))*dmft_bath_%rot(ispin,jspin,iorb,jorb,1) * &
                             conjg(dmft_bath_%vr(ibath)) * invH_knn(ispin,jspin,iorb,jorb,ibath) * dmft_bath_%vr(ibath)!&
-                            !dmft_bath_%vr(ibath)*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,1))*dmft_bath_%rot(ispin,jspin,iorb,jorb,2)
                          enddo
                       enddo
                    enddo
                 enddo
              enddo
-            ! if(ed_para)then
-            !    allocate(Delta_tmp(Nspin,Nspin,Norb,Norb));Delta_tmp=zero
-            !    Delta_tmp=Delta(:,:,:,:,i)
-            !    call SOC_jz_symmetrize(Delta_tmp)
-            !    Delta(:,:,:,:,i)=zero
-            !    Delta(:,:,:,:,i)=Delta_tmp
-            !    deallocate(Delta_tmp)
-            ! endif
           enddo
           !
        end select
@@ -883,16 +870,13 @@ contains
                 !
              enddo
              !
-             compute_component=.false.
              do ibath=1,Nbath
                 do ispin=1,Nspin
                    do jspin=1,Nspin
                       do iorb=1,Norb
                          do jorb=1,Norb
                             Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
-                            !conjg(dmft_bath_%vr(ibath))*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,2))*dmft_bath_%rot(ispin,jspin,iorb,jorb,1) * &
                             conjg(dmft_bath_%vr(ibath)) * invH_knn(ispin,jspin,iorb,jorb,ibath) * dmft_bath_%vr(ibath)!&
-                            !dmft_bath_%vr(ibath)*conjg(dmft_bath_%rot(jspin,ispin,jorb,iorb,1))*dmft_bath_%rot(ispin,jspin,iorb,jorb,2)
                          enddo
                       enddo
                    enddo
