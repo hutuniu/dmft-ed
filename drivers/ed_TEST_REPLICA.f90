@@ -32,7 +32,7 @@ program ed_TEST_REPLICA
   complex(8),allocatable :: delta_conv(:,:,:),delta_conv_avrg(:)
   !density matrix
   real(8),allocatable    :: dm_eig(:)
-  complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:)
+  complex(8),allocatable :: density_matrix(:,:),dm_rot(:,:),Stot(:,:,:),Ltot(:,:,:),jz(:)
   !
   real(8),dimension(2)   :: Eout
 #ifdef _MPI
@@ -104,14 +104,14 @@ program ed_TEST_REPLICA
 #ifdef _MPI
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
+     if(ED_MPI_ID==0)call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
+     if(ED_MPI_ID==0)call check_rotations(dm_rot)
      if(ED_MPI_ID==0)call rotate_Gloc(Greal)
-     !if(ED_MPI_ID==1)call Quantum_operator()
+     if(ED_MPI_ID==0)call Quantum_operator()
+     if(ED_MPI_ID==0)call ed_get_quantum_SOC_operators()
+
+
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
-     !density matrix
-     !if(ED_MPI_ID==0)then
-     !   call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-     !endif
-     !Fit the new bath, starting from the old bath + the supplied delta 
      Bath_=bath
      if (ed_mode=="normal") then
         call ed_chi2_fitgf(delta,bath,ispin=1)
@@ -263,10 +263,10 @@ contains
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     do ik=1,Lk
        do i=1,Lmats
-          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+xmu , Hk(:,:,ik) )/Lk
+          Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i)+4.7 , Hk(:,:,ik) )/Lk
        enddo
        do i=1,Lreal
-          Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+xmu,Hk(:,:,ik))/Lk
+          Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps)+4.7,Hk(:,:,ik))/Lk
        enddo
     enddo
     do ispin=1,Nspin
@@ -303,10 +303,6 @@ contains
     integer                     :: N,ndx
     real(8),dimension(Norb,0:6) :: HoppingMatrix
     !
-    s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
-    s_x(1,2)=cmplx(1.0d0,0.0d0); s_x(2,1)=cmplx(1.0d0,0.0d0)
-    s_y(1,2)=cmplx(0.0d0,-1.0d0);s_y(2,1)=cmplx(0.0d0,1.0d0)
-    s_z(1,1)=cmplx(1.0d0,0.0d0); s_z(2,2)=cmplx(-1.0d0,0.0d0)
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
     !
     call get_hopping(HoppingMatrix)
@@ -321,15 +317,15 @@ contains
        if(Hk_test)then
           do i=1,Norb
              ndx=2*i-1
-             Hk(ndx,ndx+1) = cmplx(soc,soc/4.d0)
+             !Hk(ndx,ndx+1) = cmplx(soc,soc/4.d0)
              !Hk(ndx,ndx+1) = cmplx(soc,0.d0)
-             !Hk(ndx,ndx+1) = cmplx(0.d0,soc)
+             Hk(ndx,ndx+1) = cmplx(0.d0,soc)
           enddo
        else
           !REALISTIC SOC (upper triangle)
-          Hk(1:2,3:4)= +xi * s_z * soc/2.
-          Hk(1:2,5:6)= -xi * s_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-          Hk(3:4,5:6)= +xi * s_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+          Hk(1:2,3:4)= +xi * pauli_z * soc/2.
+          Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+          Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
        endif
        !hermiticity
        do i=1,Nspin*Norb
@@ -356,10 +352,6 @@ contains
     integer                     :: N,ndx
     real(8),dimension(Norb,0:6) :: HoppingMatrix
     !
-    s_x=cmplx(0.0d0,0.0d0);s_y=cmplx(0.0d0,0.0d0);s_z=cmplx(0.0d0,0.0d0)
-    s_x(1,2)=cmplx(1.0d0,0.0d0); s_x(2,1)=cmplx(1.0d0,0.0d0)
-    s_y(1,2)=cmplx(0.0d0,-1.0d0);s_y(2,1)=cmplx(0.0d0,1.0d0)
-    s_z(1,1)=cmplx(1.0d0,0.0d0); s_z(2,2)=cmplx(-1.0d0,0.0d0)
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
     !
     if(Norb==3)call get_hopping(HoppingMatrix)
@@ -378,9 +370,9 @@ contains
           enddo
        else
           !REALISTIC SOC (upper triangle)
-          Hk(1:2,3:4)= +xi * s_z * soc/2.
-          Hk(1:2,5:6)= -xi * s_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-          Hk(3:4,5:6)= +xi * s_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+          Hk(1:2,3:4)= +xi * pauli_z * soc/2.
+          Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
+          Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
        endif
        !hermiticity
        do i=1,Nspin*Norb
@@ -613,16 +605,14 @@ contains
     integer (kind=4), parameter                   :: lwork=2000
     complex (kind=8), dimension(lwork)            :: work
     real    (kind=8), dimension(lwork)            :: rwork
-
-    g0k=zero
-    g0k_tmp=zero
-
-    g0k=iw*eye(Nspin*Norb)+xmu-hk
+    !
+    g0k=zero;g0k_tmp=zero
+    !
+    g0k=iw*eye(Nspin*Norb)-hk
     g0k_tmp=g0k
-
+    !
     call inv(g0k)
     call inversion_test(g0k,g0k_tmp,1.e-9)
-
   end function inverse_g0k
 
   !---------------------------------------------------------------------
@@ -702,6 +692,7 @@ contains
     !
     !
     !1)rotation
+    G_out=zero
     do i=1,Lreal
        G_out(:,:,i)=matmul(transpose(conjg(impHloc_rot)),matmul(G_in(:,:,i),impHloc_rot))
     enddo
@@ -751,6 +742,7 @@ contains
     !
     !
     !1)rotation
+    G_out=zero
     do i=1,Lreal
        G_out(:,:,i)=matmul(transpose(conjg(theta)),matmul(G_in(:,:,i),theta))
     enddo
@@ -791,6 +783,56 @@ contains
     enddo
     close(106)
     !
+    !
+    !###############################################################
+    !#                                                             #
+    !#                  ROTATION WITH rot_rho                      #
+    !#                                                             #
+    !###############################################################
+    !
+    !
+    !1)rotation
+    G_out=zero
+    do i=1,Lreal
+       G_out(:,:,i)=matmul(transpose(conjg(dm_rot)),matmul(G_in(:,:,i),dm_rot))
+    enddo
+    !
+    !2)output save
+    if(isetup) then
+       file_rotation="G0loc_rot_R_l"
+    else
+       file_rotation="Giloc_rot_R_l"
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    !3)save the integral
+    if(isetup) then
+       open(unit=106,file='sum_w_G0loc_rot_R.dat',status='unknown',action='write',position='rewind')
+    else
+       open(unit=106,file='sum_w_Gloc_rot_R.dat',status='unknown',action='write',position='rewind')
+    endif
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_out(io,jo,:)))
+             enddo
+          enddo
+       enddo
+    enddo
+    close(106)
+    !
   end subroutine rotate_Gloc
 
   !---------------------------------------------------------------------
@@ -800,7 +842,7 @@ contains
     complex(8),dimension(6,6),intent(out)   ::   theta_
     complex(8),dimension(6,6),intent(out)   ::   impHloc_rot_
     real(8),dimension(6)                    ::   impHloc_eig
-    theta_=cmplx(0.0d0,0.0d0)
+    theta_=zero
     !J=1/2 jz=-1/2
     theta_(1,1)=-Xi
     theta_(3,1)=-1.0d0
@@ -836,6 +878,65 @@ contains
     call matrix_diagonalize(impHloc_rot_,impHloc_eig,'V','U')
     !
   end subroutine build_rotation
+
+
+  !---------------------------------------------------------------------
+  !PURPOSE: Build the operators that defines J and jz
+  !---------------------------------------------------------------------
+  subroutine check_rotations(rotation)
+    complex(8),dimension(6,6),intent(in)   ::   rotation
+    complex(8),dimension(6,6)              ::   LSmatrix,LSmatrix_rot
+    complex(8),dimension(6,6)              ::   jzmatrix,jzmatrix_rot
+    integer                                ::   io,jo,unit_
+    !
+    LSmatrix=zero;LSmatrix_rot=zero
+    jzmatrix=zero;jzmatrix_rot=zero
+    !
+    LSmatrix(1:2,3:4)= -Xi * pauli_z / 2.
+    LSmatrix(1:2,5:6)= +Xi * pauli_y / 2.
+    LSmatrix(3:4,5:6)= -Xi * pauli_x / 2.
+    do io=1,Nspin*Norb
+       do jo=io+1,Nspin*Norb
+          LSmatrix(jo,io)=conjg(LSmatrix(io,jo))
+       enddo
+    enddo
+    LSmatrix=reshape_Z_to_A1(LSmatrix)
+    !
+    jzmatrix(1:2,1:2)=pauli_z/2
+    jzmatrix(3:4,3:4)=pauli_z/2
+    jzmatrix(5:6,5:6)=pauli_z/2
+    jzmatrix(1,3)=-xi
+    jzmatrix(2,4)=-xi
+    jzmatrix(4,2)=xi
+    jzmatrix(3,1)=xi
+    jzmatrix=reshape_Z_to_A1(jzmatrix)
+    !
+    LSmatrix_rot = matmul(transpose(conjg(rotation)),matmul(LSmatrix,(rotation)))
+    jzmatrix_rot = matmul(transpose(conjg(rotation)),matmul(jzmatrix,(rotation)))
+    !
+    unit_ = free_unit();rewind(unit_)
+    open(unit_,file="jz_LS_rotations.dat",action="write",position="append",status='unknown')
+    write(unit_,'(A100)')"# rotation on LS [Re,Im]"
+    do io=1,Nspin*Norb
+       write(unit_,'(30(F21.12,1X))') (real(LSmatrix_rot(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    write(unit_,*)
+    do io=1,Nspin*Norb
+       write(unit_,'(30(F21.12,1X))') (aimag(LSmatrix_rot(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    write(unit_,*)
+    write(unit_,'(A100)')"# rotation on jz [Re,Im]"
+    write(unit_,*)
+    do io=1,Nspin*Norb
+       write(unit_,'(30(F21.12,1X))') (real(jzmatrix_rot(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    write(unit_,*)
+    do io=1,Nspin*Norb
+       write(unit_,'(30(F21.12,1X))') (aimag(jzmatrix_rot(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    close(unit_)
+    !
+  end subroutine check_rotations
 
 
 
@@ -966,7 +1067,8 @@ contains
     complex(8),allocatable             :: Gso(:,:,:,:,:)
     complex(8),allocatable             :: Stot(:,:,:),Ltot(:,:,:)
     complex(8)                         :: LdotS
-    complex(8)                         :: Sx,Lx,Sy,Ly,Sz,Lz,jz
+    complex(8)                         :: Sx,Lx,Sy,Ly,Sz,Lz
+    complex(8)                         :: J,jz
     integer                            :: ilat,io,jo
     integer                            :: ispin,jspin
     integer                            :: iorb,jorb
@@ -1113,17 +1215,19 @@ contains
     LdotS=LdotS/2.d0
     !
     open(unit=107,file='Jz.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(107,'(30a20)') "Re{Sz}_11","Re{Sz}_22","Re{Sz}_33","Im{Sz}_11","Im{Sz}_22","Im{Sz}_33","Re{Tr[Sz]}","Im{Tr[Sz]}" &
-                                                ,"Re{Lz}_uu","Im{Lz}_uu","Re{Lz}_dd","Im{Lz}_dd","Re{Tr[Lz]}","Im{Tr[Lz]}" &
-                                                ,"Re{jz}","Im{jz}","Re{L.S}","Im{L.S}"
+    write(107,'(30a20)') "#1-Re{Sz}_11","2-Re{Sz}_22","3-Re{Sz}_33","4-Im{Sz}_11","5-Im{Sz}_22","6-Im{Sz}_33","7-Re{Tr[Sz]}","8-Im{Tr[Sz]}" &
+                                                ,"9-Re{Lz}_uu","10-Im{Lz}_uu","11-Re{Lz}_dd","12-Im{Lz}_dd","13-Re{Tr[Lz]}","14-Im{Tr[Lz]}" &
+                                                ,"15-Re{jz}","16-Im{jz}","17-Re{L.S}","18-Im{L.S}","19-Re{J}","20-Im{J}"
     Sx=trace(Stot(1,:,:));Sy=trace(Stot(2,:,:));Sz=trace(Stot(3,:,:))
     Lx=trace(Ltot(1,:,:));Ly=trace(Ltot(2,:,:));Lz=trace(Ltot(3,:,:))
+    J=(Sx+Lx)+(Sy+Ly)+(Sz+Lz)
     jz=Sz+Lz
     write(107,'(30F20.12)') real(Stot(3,1,1)), real(Stot(3,2,2)), real(Stot(3,3,3)) &
                          , aimag(Stot(3,1,1)),aimag(Stot(3,2,2)),aimag(Stot(3,3,3)),real(Sz),aimag(Sz) &
                          ,  real(Ltot(3,1,1)), real(Ltot(3,2,2)) &
                          , aimag(Ltot(3,1,1)),aimag(Ltot(3,2,2)),real(Lz),aimag(Lz) &
-                         ,  real(jz),aimag(jz),real(LdotS),aimag(LdotS)
+                         ,  real(jz),aimag(jz),real(LdotS),aimag(LdotS),real(J),aimag(J)
+    write(*,*)  "   Re{Jz}",real(jz),"   Im{Jz}",aimag(jz)
     close(107)
     !
     deallocate(Ltot,Stot)

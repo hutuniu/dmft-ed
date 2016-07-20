@@ -245,6 +245,7 @@ module ED_MAIN
   public :: ed_get_dph_lattice
   !
   public :: ed_get_density_matrix
+  public :: ed_get_quantum_SOC_operators
 
 
 
@@ -264,16 +265,16 @@ contains
   ! PURPOSE: allocate and initialize one or multiple baths -+!
   !+-----------------------------------------------------------------------------+!
   subroutine ed_init_solver(bath_,himp_,hwband,Hunit)
-    real(8),dimension(:),intent(inout)   :: bath_
-    real(8),optional,intent(in)          :: hwband
-    complex(8),allocatable,optional,intent(in)     :: himp_(:,:,:,:)
-    real(8)                              :: hwband_
-    complex(8)                           :: himp(Nspin,Nspin,Norb,Norb)
-    character(len=*),optional,intent(in) :: Hunit
-    character(len=64)                    :: Hunit_
-    logical                              :: check 
-    logical,save                         :: isetup=.true.
-    integer :: i
+    real(8),dimension(:),intent(inout)           :: bath_
+    real(8),optional,intent(in)                  :: hwband
+    complex(8),allocatable,optional,intent(in)   :: himp_(:,:,:,:)
+    real(8)                                      :: hwband_
+    complex(8)                                   :: himp(Nspin,Nspin,Norb,Norb)
+    character(len=*),optional,intent(in)         :: Hunit
+    character(len=64)                            :: Hunit_
+    logical                                      :: check 
+    logical,save                                 :: isetup=.true.
+    integer                                      :: i
 
     hwband_=2.d0;if(present(hwband))hwband_=hwband
     Hunit_='inputHLOC.in';if(present(Hunit))Hunit_=Hunit
@@ -288,17 +289,20 @@ contains
     if(.not.check)stop "init_ed_solver: wrong bath dimensions"
     bath_ = 0.d0
 
-    !qui alloco le gf, impHloc=0 e provo a leggerla da file , setto le dimensioni dei blocchi
+    !allocation of Gfs, impHloc=0 (plus trial to read from file), block dimension setting
     if(isetup)call init_ed_structure(Hunit_)
     call set_hloc(himp)
 
     call allocate_dmft_bath(dmft_bath)
     if(bath_type=="replica")call init_dmft_bath_mask(dmft_bath)
     call init_dmft_bath(dmft_bath,hwband_)
-    !
-    !call write_dmft_bath(dmft_bath,LOGfile)
-    !
     call get_dmft_bath(dmft_bath,bath_)
+    !
+    !DEBUG>
+    !call write_dmft_bath(dmft_bath,LOGfile)
+    if(ED_MPI_ID==0)write(LOGfile,'(20(F12.6,1X))') bath_
+    !stop
+    !>DEBUG
     !
     if(isetup)then
        select case(ed_mode)
@@ -365,9 +369,10 @@ contains
     !
     !SOLVE THE QUANTUM IMPURITY PROBLEM:
     call diagonalize_impurity         !find target states by digonalization of Hamiltonian
+    call observables_impurity         !obtain impurity observables as thermal averages.  
     call buildgf_impurity             !build the one-particle impurity Green's functions
     if(chiflag)call buildchi_impurity !build the local susceptibilities (spin [todo charge])
-    call observables_impurity         !obtain impurity observables as thermal averages.  
+    !call observables_impurity        !obtain impurity observables as thermal averages.  
     call local_energy_impurity        !obtain the local energy of the effective impurity problem.
     !
     call deallocate_dmft_bath(dmft_bath)   
@@ -1797,27 +1802,18 @@ contains
   end function ed_get_dph_lattice
 
   !DEBUG>>
-  subroutine ed_get_density_matrix(dm_,iprint,dm_eig,dm_rot)
+  subroutine ed_get_density_matrix(dm_,iprint,dm_eig_,dm_rot_)
     !passed
-    complex(8),allocatable,intent(inout)           :: dm_(:,:)
-    integer,intent(in)                             :: iprint
-    real(8),allocatable,intent(inout),optional     :: dm_eig(:)
-    complex(8),allocatable,intent(inout),optional  :: dm_rot(:,:)
+    complex(8),allocatable,intent(out)           :: dm_(:,:)
+    integer,intent(in)                           :: iprint
+    real(8),allocatable,intent(out),optional     :: dm_eig_(:)
+    complex(8),allocatable,intent(out),optional  :: dm_rot_(:,:)
     !internal
-    integer                                        :: unit  
-    integer                                        :: iorb,jorb,ispin,jspin,io,jo
-    complex(8)                                     :: Tr
-
-    if (ed_mode/="nonsu2") then
-       write(*,*) "Not tested for ed_mode different from nonsu2"
-       stop
-    elseif (bath_type/="hybrid") then
-       write(*,*) "Not tested for bath_type different from hybrid"
-       stop
-    elseif (ed_type/="c") then
-       write(*,*) "Not tested for ed_type different from c"
-       stop
-    elseif (((.not.present(dm_eig)).or.(.not.present(dm_rot))).and.(iprint/=0)) then
+    integer                                      :: unit  
+    integer                                      :: iorb,jorb,ispin,jspin,io,jo
+    complex(8)                                   :: Tr
+    !
+    if (((.not.present(dm_eig_)).or.(.not.present(dm_rot_))).and.(iprint/=0)) then
        write(*,*) "iprint/=0 but matrices not allocated"
        stop
     elseif (.not.allocated(imp_density_matrix)) then
@@ -1825,7 +1821,14 @@ contains
        stop
     endif
     !
-    dm_ = zero
+    if(present(dm_eig_))then
+       if(allocated(dm_eig_))deallocate(dm_eig_);allocate(dm_eig_(Nspin*Norb));dm_eig_ = 0.0d0
+    endif
+    if(present(dm_rot_))then
+       if(allocated(dm_rot_))deallocate(dm_rot_);allocate(dm_rot_(Nspin*Norb,Nspin*Norb));dm_rot_ = zero
+    endif
+    if(allocated(dm_))deallocate(dm_);allocate(dm_(Nspin*Norb,Nspin*Norb));dm_ = zero
+    !
     do ispin=1,Nspin
        do jspin=1,Nspin
           do iorb=1,Norb
@@ -1838,9 +1841,9 @@ contains
        enddo
     enddo
     !
-    if(iprint==0) then
-       unit = free_unit()
-       open(unit,file="imp_density_matrix.ed",action="write",position="rewind",status='unknown')
+    unit = free_unit()
+    open(unit,file="imp_density_matrix.dat",action="write",position="rewind",status='unknown')
+    if(iprint>=0) then
        write(unit,"(A10)")"# Re{rho}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb
           write(unit,"(90(F15.9,1X))") (real(dm_(io,jo)),jo=1,Nspin*Norb)
@@ -1850,40 +1853,138 @@ contains
        do io=1,Nspin*Norb
           write(unit,"(90(F15.9,1X))") (aimag(dm_(io,jo)),jo=1,Nspin*Norb)
        enddo
-       close(unit)
     endif
     if(iprint>=1)then
        Tr=zero;Tr=trace(dm_)
-       write(*,'(A25,6F15.7)') 'test #1: Tr[rho]:    ',real(Tr),aimag(Tr)
-       dm_rot=zero;dm_rot=matmul(dm_,dm_)
-       Tr=zero;Tr=trace(dm_rot)
-       write(*,'(A25,6F15.7)') 'test #2: Tr[rho^2]:  ',real(Tr),aimag(Tr)
-       dm_eig=0.0d0;dm_rot=zero;dm_rot=dm_
-       call matrix_diagonalize(dm_rot,dm_eig,'V','U')
-       Tr=zero;Tr=sum(dm_eig)
-       write(*,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
+       if(ED_MPI_ID==0)write(LOGfile,'(A25,6F15.7)') 'test #1: Tr[rho]:    ',real(Tr),aimag(Tr)
+       dm_rot_=zero;dm_rot_=matmul(dm_,dm_)
+       Tr=zero;Tr=trace(dm_rot_)
+       if(ED_MPI_ID==0)write(LOGfile,'(A25,6F15.7)') 'test #2: Tr[rho^2]:  ',real(Tr),aimag(Tr)
+       dm_eig_=0.0d0;dm_rot_=zero;dm_rot_=dm_
+       call matrix_diagonalize(dm_rot_,dm_eig_,'V','U')
+       Tr=zero;Tr=sum(dm_eig_)
+       if(ED_MPI_ID==0)write(LOGfile,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
     endif
     if(iprint>=2)then
-       dm_eig=0.0d0;dm_rot=zero;dm_rot=dm_
-       call matrix_diagonalize(dm_rot,dm_eig,'V','U')
-       unit = free_unit()
-       open(unit,file="imp_density_matrix.ed",action="write",position="append",status='unknown')
+       dm_eig_=0.0d0;dm_rot_=zero;dm_rot_=dm_
+       call matrix_diagonalize(dm_rot_,dm_eig_,'V','U')
        write(unit,"(A10)")
        write(unit,"(A10)")"# rho_tilda"
-       write(unit,'(10F22.12)') dm_eig
+       write(unit,'(10F22.12)') dm_eig_
        write(unit,"(A10)")
-       write(unit,"(A10)")"# Re{theta}: [Norb*Norb]*Nspin"
+       write(unit,"(A100)")"# Re{theta}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb
-          write(unit,"(90(F15.9,1X))") (real(dm_rot(io,jo)),jo=1,Nspin*Norb)
+          write(unit,"(90(F15.9,1X))") (real(dm_rot_(io,jo)),jo=1,Nspin*Norb)
        enddo
        write(unit,"(A10)")
-       write(unit,"(A10)")"# Im{theta}: [Norb*Norb]*Nspin"
+       write(unit,"(A100)")"# Im{theta}: [Norb*Norb]*Nspin"
        do io=1,Nspin*Norb
-          write(unit,"(90(F15.9,1X))") (aimag(dm_rot(io,jo)),jo=1,Nspin*Norb)
+          write(unit,"(90(F15.9,1X))") (aimag(dm_rot_(io,jo)),jo=1,Nspin*Norb)
        enddo
-       close(unit)
     endif
+    close(unit)
   end subroutine ed_get_density_matrix
+
+
+  subroutine ed_get_quantum_SOC_operators(Simp,Limp,jimp)
+    !passed
+    complex(8),allocatable,optional,intent(out)  ::  Simp(:,:,:)
+    complex(8),allocatable,optional,intent(out)  ::  Limp(:,:,:)
+    complex(8),allocatable,optional,intent(out)  ::  jimp(:)
+    integer                                      ::  unit_
+    integer                                      ::  iorb,ispin,jorb,jspin
+    real(8)                                      ::  Lxsq,Lysq,Lzsq,Lsq
+    real(8)                                      ::  Sxsq,Sysq,Szsq,Ssq
+    real(8)                                      ::  jxsq,jysq,jzsq,jsq
+    if(Norb/=3)stop"SOC_operators implemented for 3 orbitals"
+    if(present(Simp).and.((size(Simp,dim=1)/=3).or.(size(Simp,dim=2)/=3).or.(size(Simp,dim=3)/=3)))stop"wrong S size (3,3,3)"
+    if(present(Limp).and.((size(Limp,dim=1)/=3).or.(size(Limp,dim=2)/=2).or.(size(Limp,dim=3)/=2)))stop"wrong L size (3,2,2)"
+    if(present(jimp).and.(size(jimp)/=3))stop"wrong j size (3)"
+    !
+    if(present(Simp))        Simp=impStot
+    if(present(Limp))        Limp=impLtot
+    if(present(jimp))        jimp=impj_aplha
+    !
+    Sxsq = (trace(impStot(1,:,:)))*conjg(trace(impStot(1,:,:)))
+    Sysq = (trace(impStot(2,:,:)))*conjg(trace(impStot(2,:,:)))
+    Szsq = (trace(impStot(3,:,:)))*conjg(trace(impStot(3,:,:)))
+    Ssq  = Sxsq + Sysq + Szsq
+    !
+    Lxsq = (trace(impLtot(1,:,:)))*conjg(trace(impStot(1,:,:)))
+    Lysq = (trace(impLtot(2,:,:)))*conjg(trace(impLtot(2,:,:)))
+    Lzsq = (trace(impLtot(3,:,:)))*conjg(trace(impLtot(3,:,:)))
+    Lsq  = Lxsq + Lysq + Lzsq
+    !
+    jxsq = (impj_aplha(1))*conjg(impj_aplha(1))
+    jysq = (impj_aplha(2))*conjg(impj_aplha(2))
+    jzsq = (impj_aplha(3))*conjg(impj_aplha(3))
+    jsq  = jxsq + jysq + jzsq
+    !
+    unit_ = free_unit()
+    open(unit=unit_,file='Simpimp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Sx]}","2-Im{Tr[Sx]}","3-Re{Tr[Sy]}","4-Im{Tr[Sy]}","5-Re{Tr[Sz]}","6-Im{Tr[Sz]}",&
+                                "7-|Sx|^2","8-|Sy|^2","9-|Sz|^2","10-|S|^2"
+    write(unit_,'(30(F20.12,1X))') real(trace(impStot(1,:,:))),aimag(trace(impStot(1,:,:))),&
+                                   real(trace(impStot(2,:,:))),aimag(trace(impStot(2,:,:))),&
+                                   real(trace(impStot(3,:,:))),aimag(trace(impStot(3,:,:))),&
+                                   Sxsq,Sysq,Szsq,Ssq
+
+    write(unit_,*)
+    write(unit_,'(30(a20,1X))') "#Sx(orb_1)","Sx(orb_2)","Sx(orb_3)","Sy(orb_1)","Sy(orb_2)","Sy(orb_3)","Sz(orb_1)","Sz(orb_2)","Sz(orb_3)"
+    write(unit_,*)
+    do iorb=1,Norb
+       write(unit_,'(30(F20.12,1X))') (real(impStot(1,iorb,jorb)),jorb=1,Norb) &
+                                     ,(real(impStot(2,iorb,jorb)),jorb=1,Norb) &
+                                     ,(real(impStot(3,iorb,jorb)),jorb=1,Norb)
+    enddo
+    write(unit_,*)
+    do iorb=1,Norb
+       write(unit_,'(30(F20.12,1X))') (aimag(impStot(1,iorb,jorb)),jorb=1,Norb) &
+                                     ,(aimag(impStot(2,iorb,jorb)),jorb=1,Norb) &
+                                     ,(aimag(impStot(3,iorb,jorb)),jorb=1,Norb)
+    enddo
+    close(unit_)
+    !
+    unit_ = free_unit()
+    open(unit=unit_,file='Limpimp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Lx]}","2-Im{Tr[Lx]}","3-Re{Tr[Ly]}","4-Im{Tr[ly]}","5-Re{Tr[Lz]}","6-Im{Tr[Lz]}",&
+                               "7-|Lx|^2","8-|Ly|^2","9-|Lz|^2","10-|L|^2"
+    write(unit_,'(30(F20.12,1X))') real(trace(impLtot(1,:,:))),aimag(trace(impLtot(1,:,:))),&
+                                   real(trace(impLtot(2,:,:))),aimag(trace(impLtot(2,:,:))),&
+                                   real(trace(impLtot(3,:,:))),aimag(trace(impLtot(3,:,:))),&
+                                   Lxsq,Lysq,Lzsq,Lsq
+    write(unit_,*)
+    write(unit_,'(30(a20,1X))') "#Lx(spin_1)","Lx(spin_2)","Ly(spin_1)","Ly(spin_2)","Lz(spin_1)","Lz(spin_2)"
+    write(unit_,*)
+    do ispin=1,Nspin
+       write(unit_,'(30(F20.12,1X))') (real(impLtot(1,ispin,jspin)),jspin=1,Nspin) &
+                                     ,(real(impLtot(2,ispin,jspin)),jspin=1,Nspin) &
+                                     ,(real(impLtot(3,ispin,jspin)),jspin=1,Nspin)
+    enddo
+    write(unit_,*)
+    do ispin=1,Nspin
+       write(unit_,'(30(F20.12,1X))') (aimag(impLtot(1,ispin,jspin)),jspin=1,Nspin) &
+                                     ,(aimag(impLtot(2,ispin,jspin)),jspin=1,Nspin) &
+                                     ,(aimag(impLtot(3,ispin,jspin)),jspin=1,Nspin)
+    enddo
+    close(unit_)
+    !
+    unit_ = free_unit()
+    open(unit=unit_,file='Jz_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(unit_,'(30(a20,1X))') "#1-Re{jx}","2-Im{jx}","3-Re{jy}","4-Im{jy}","5-Re{jz}","6-Im{jz}",&
+                                 "7-|jx|^2","8-|jy|^2","9-|jz|^2","10-|j|^2","11-Re{L.S}","12-Im{L.S}"
+    write(unit_,'(30(F20.12,1X))') real(impj_aplha(1)),aimag(impj_aplha(1)),real(impj_aplha(2)),aimag(impj_aplha(2)),real(impj_aplha(3)),aimag(impj_aplha(3)) &
+                                  ,jxsq,jysq,jzsq,jsq,real(impLdotS),aimag(impLdotS)
+    close(unit_)
+    !
+    unit_ = free_unit()
+    open(unit=unit_,file='operators_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(unit_,'(30(a20,1X))') "#1-Re{Tr[Lz]}","2-|Lz|^2","3-|L|^2","4-Re{Tr[Sz]}","5-|Sz|^2","6-|S|^2",&
+                                 "7-Re{jz}","7-|jz|^2","8-|j|^2","10-Re{L.S}"
+    write(unit_,'(30(F20.12,1X))') real(trace(impLtot(3,:,:))),Lzsq,Lsq,real(trace(impStot(3,:,:))),Szsq,Ssq,&
+                                   real(impj_aplha(3)),jzsq,jsq,real(impLdotS)
+    close(unit_)
+  end subroutine ed_get_quantum_SOC_operators
   !<<DEBUG
 
 end module ED_MAIN

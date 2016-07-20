@@ -27,7 +27,8 @@ MODULE DMFT_ED
        lso2nnn_reshape       ,&
        nnn2lso_reshape       ,&
        get_independent_sites ,&  
-       search_chemical_potential
+       search_chemical_potential,&
+       search_chempot
 
 
   USE ED_BATH_USER, only: &
@@ -41,6 +42,7 @@ MODULE DMFT_ED
        copy_component_bath,              &
        save_bath,                        &
        spin_symmetrize_bath ,            &
+       SOC_symmetrize_bath ,             &
        ph_symmetrize_bath   ,            &
        ph_trans_bath        ,            &
        break_symmetry_bath  ,            &
@@ -99,7 +101,8 @@ MODULE DMFT_ED
        ed_get_dund_lattice            ,&
        ed_get_dse_lattice             ,&
        ed_get_dph_lattice             ,&
-       ed_get_density_matrix              !TODO:works only for ED_TYPE="c", BATH_TYPE="hybrid", ED_MODE="nonsu2"
+       ed_get_density_matrix          ,&
+       ed_get_quantum_SOC_operators
 
 
   USE ED_GLOC,     only:&

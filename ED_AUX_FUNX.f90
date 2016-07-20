@@ -54,8 +54,6 @@ MODULE ED_AUX_FUNX
      module procedure extract_Hloc_2
   end interface extract_Hloc
 
-
-
   public :: set_Hloc
   public :: get_Hloc  
   public :: print_Hloc
@@ -66,11 +64,16 @@ MODULE ED_AUX_FUNX
   public :: so2nn_reshape
   public :: nnn2lso_reshape
   public :: nn2so_reshape
+  public :: so2os_reshape
+  public :: os2so_reshape
   public :: extract_Hloc
   public :: stride_index
   public :: get_independent_sites  
   !OBSOLETE (to be removed)
   public :: search_chemical_potential
+  public :: search_chempot
+  public :: SOC_jz_symmetrize
+  !public :: SOC_compute_component
 
 contains
 
@@ -554,6 +557,59 @@ contains
   end function c_nn2nso
 
 
+  function so2os_reshape(fg,Nspin,Norb) result(g)
+    integer                                     :: Nspin,Norb
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: fg
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: g
+    integer                                     :: i,j,iorb,jorb,ispin,jspin
+    integer                                     :: io1,jo1,io2,jo2
+       g = zero
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !O-index
+                   io1 = iorb + (ispin-1)*Norb
+                   jo1 = jorb + (jspin-1)*Norb
+                   !I-index
+                   io2 = ispin + (iorb-1)*Nspin
+                   jo2 = jspin + (jorb-1)*Nspin
+                   !switch
+                   g(io1,jo1)  = fg(io2,jo2)
+                   !
+                enddo
+             enddo
+          enddo
+       enddo
+  end function so2os_reshape
+
+  function os2so_reshape(fg,Nspin,Norb) result(g)
+    integer                                     :: Nspin,Norb
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: fg
+    complex(8),dimension(Nspin*Norb,Nspin*Norb) :: g
+    integer                                     :: i,j,iorb,jorb,ispin,jspin
+    integer                                     :: io1,jo1,io2,jo2
+       g = zero
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !O-index
+                   io1 = ispin + (iorb-1)*Nspin
+                   jo1 = jspin + (jorb-1)*Nspin
+                   !I-index
+                   io2 = iorb + (ispin-1)*Norb
+                   jo2 = jorb + (jspin-1)*Norb
+                   !switch
+                   g(io1,jo1)  = fg(io2,jo2)
+                   !
+                enddo
+             enddo
+          enddo
+       enddo
+  end function os2so_reshape
+
+
 
 
   !+-----------------------------------------------------------------------------+!
@@ -619,7 +675,7 @@ contains
           end do
        end if
     end do
-    write(*,*) Nlat
+    write(LOGfile,*) Nlat
     !
     Nindep=i_ind
     ! (remember: each site is connected with Nsymm sites (+ 1 = identity)) !
@@ -639,8 +695,8 @@ contains
     if(mpiID==0) close(unit)
     !+-  build maps -+!
     !
-    write(*,*) "NINDEP",Nindep
-    write(*,*) indep_list
+    write(LOGfile,*) "NINDEP",Nindep
+    write(LOGfile,*) indep_list
     do i_ind=1,Nindep
        map_lat2ind(indep_list(i_ind))=i_ind
        do isymm=1,Nsymm
@@ -806,6 +862,111 @@ contains
 
 
 
+
+
+  subroutine search_chempot(xmu_tmp,dens_tmp,converged_,bath_) 
+    real(8),intent(in)    ::   dens_tmp
+    real(8),intent(inout) ::   xmu_tmp
+    logical,intent(inout) ::   converged_
+    real(8),allocatable,optional,intent(inout) :: bath_(:)
+    !internal
+    real(8)               ::   diffdens,delta_xmu,xmu_shift
+    real(8)               ::   denslarge,denssmall
+    real(8),save          ::   diffdens_old
+    real(8),save          ::   xmularge
+    real(8),save          ::   xmusmall
+    integer,save          ::   ilarge
+    integer,save          ::   ismall
+    integer,save          ::   inotbound
+    integer,save          ::   iattempt=1,iattemptm=1
+    integer               ::   unit,i_
+    logical,save          ::   bandmix=.true.
+    !
+    !if(ED_MPI_ID==0)then
+       !
+       diffdens=dens_tmp-nread
+       delta_xmu=0.1d0
+       !if(abs(diffdens).lt.2.d0*nerr)delta_xmu=0.5d0
+       !
+       if ((dabs(diffdens)).le.nerr) then
+          converged_=.TRUE.
+          inotbound=0
+          if(ED_MPI_ID==0)then
+             write(LOGfile,*)
+             write(LOGfile,*) "   --------------------------------------------"
+             write(LOGfile,'(A30,I3)')    "   Density ok in attempt: ",iattempt
+             write(LOGfile,'(A30,F10.6)') "   tolerance: ",nerr
+             write(LOGfile,'(A30,F10.6)') "   density: ",dens_tmp
+             write(LOGfile,'(A30,F10.6)') "   target desity: ",nread
+             write(LOGfile,'(A30,F10.6)') "   xmu: ",xmu_tmp
+             write(LOGfile,"(A30,L3)")    "   Converged(n): ",converged_
+             write(LOGfile,*) "   --------------------------------------------"
+             write(LOGfile,*)
+             unit=free_unit()
+             open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+             write(unit,*)xmu_tmp,dens_tmp,diffdens
+             close(unit)
+          endif
+       else
+          converged_=.FALSE.
+          if(ED_MPI_ID==0)then
+             write(LOGfile,*)
+             write(LOGfile,*) "   --------------------------------------------"
+             write(LOGfile,'(A30,2I5)')    "   Adjusting xmu #",iattempt,inotbound
+             write(LOGfile,'(A10,F10.6,A7,F10.6)') "    n:",dens_tmp,"!= n:",nread
+          endif
+          !vedo se la densità è troppa o troppo poca
+          if (diffdens.gt.0.d0) then  
+             ilarge=1
+             xmularge=xmu_tmp
+             denslarge=dens_tmp
+          elseif (diffdens.lt.0.d0) then
+             ismall=1
+             xmusmall=xmu_tmp
+             denssmall=dens_tmp
+          endif
+          if (ilarge*ismall.eq.0) then
+             !non ho ancora trovato un xmu per cui diffdens cambia segno
+             inotbound=inotbound+1
+             if (inotbound>=6)  delta_xmu = delta_xmu*2.0d0
+             if (inotbound>=10) delta_xmu = delta_xmu*3.0d0
+             if (inotbound>=15) delta_xmu = delta_xmu*4.0d0
+             xmu_shift = delta_xmu * diffdens
+             xmu_tmp = xmu_tmp - xmu_shift
+             if(ED_MPI_ID==0)then
+                write(LOGfile,*) "   Delta xmu: ",delta_xmu
+                write(LOGfile,*) "   Try xmu: ",xmu_tmp
+                write(LOGfile,*) "   --------------------------------------------"
+                write(LOGfile,*)
+             endif
+          else
+             !ho trovato un xmu per cui diffdens cambia segno
+             if(ED_MPI_ID==0)then
+                write(LOGfile,*)"   xmu is bound",xmularge,"-",xmusmall
+                xmu_shift =  sign(1.0d0,diffdens)*abs((xmusmall-xmularge)/2.)
+                xmu_tmp = xmu_tmp - xmu_shift
+                write(LOGfile,*) "   Try xmu =",xmu_tmp
+                write(LOGfile,*) "   --------------------------------------------"
+                write(LOGfile,*)
+             endif
+          endif
+          if(ED_MPI_ID==0)then
+             unit=free_unit()
+             open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+             write(unit,*)xmu_tmp,dens_tmp,diffdens,iattempt
+             close(unit)
+          endif
+       endif
+       iattempt=iattempt+1
+       diffdens_old=diffdens
+       !
+    !endif
+!#ifdef _MPI
+!    call MPI_BCAST(xmu,1,MPI_Double_Precision,0,MPI_COMM_WORLD,ED_MPI_ERR)
+!#endif
+  end subroutine search_chempot
+
+
   ! subroutine search_mu(ntmp,convergence)
   !   logical,intent(inout) :: convergence
   !   real(8)               :: ntmp
@@ -838,9 +999,9 @@ contains
   !   endif
   !   xmu=xmu+real(nindex,8)*ndelta
   !   if(abs(ntmp-nread)>nerr)convergence=.false.
-  !   write(*,"(A,f15.12,A,f15.12,A,f15.12,A,f15.12)")" n=",ntmp," /",nread,&
+  !   write(LOGfile,"(A,f15.12,A,f15.12,A,f15.12,A,f15.12)")" n=",ntmp," /",nread,&
   !        "| shift=",nindex*ndelta,"| xmu=",xmu
-  !   write(*,"(A,f15.12)")"dn=",abs(ntmp-nread)
+  !   write(LOGfile,"(A,f15.12)")"dn=",abs(ntmp-nread)
   !   print*,""
   !   print*,"Convergence:",convergence
   !   print*,""
@@ -849,6 +1010,88 @@ contains
   !   close(10)
   ! end subroutine search_mu
 
+  !function SOC_compute_component(s1,s2,a,b) result(bool)
+  !  logical    ::   bool
+  !  integer    ::   a,b,s1,s2
+  !  !
+  !  bool=.false.
+  !  !
+  !  !diagonal
+  !  if((s1==1).and.(s2==1).and.(a==1).and.(b==1))bool=.true.
+  !  if((s1==1).and.(s2==1).and.(a==2).and.(b==2))bool=.true.
+  !  if((s1==1).and.(s2==1).and.(a==3).and.(b==3))bool=.true.
+  !  if((s1==2).and.(s2==2).and.(a==2).and.(b==2))bool=.true.
+  !  !off-diag - upper [to be copied]
+  !  if((s1==1).and.(s2==2).and.(a==3).and.(b==2))bool=.true.  !(1,2,3,2)-->(2,2,1,2)
+  !  if((s1==1).and.(s2==1).and.(a==1).and.(b==2))bool=.true.  !(1,1,1,2)-->(1,2,2,3)
+  !  !off-diag - lower [to be copied]
+  !  if((s1==1).and.(s2==1).and.(a==2).and.(b==1))bool=.true.  !(1,1,2,1)-->(2,1,3,2)
+  !  if((s1==2).and.(s2==2).and.(a==2).and.(b==1))bool=.true.  !(2,2,2,1)-->(2,1,2,3)
+  !  !all off-diag [to be copied]
+  !  if((s1==1).and.(s2==2).and.(a==1).and.(b==3))bool=.true.  !(1,2,1,3)-->(2,1,3,1)
+  !  if((s1==1).and.(s2==2).and.(a==3).and.(b==1))bool=.true.  !(1,2,3,1)-->(2,1,1,3)
+  !  !test
+  !  if((s1==2).and.(s2==1).and.(a==3).and.(b==1))bool=.true.  !(1,2,1,3)-->(2,1,3,1)
+  !  !
+  !end function SOC_compute_component
+
+  subroutine SOC_jz_symmetrize(funct,dmft_bath_)
+    !passed
+    complex(8),allocatable,intent(inout)         ::  funct(:,:,:,:,:)
+    type(effective_bath),intent(in)              ::  dmft_bath_
+    complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:,:)
+    complex(8),allocatable                       ::  a_funct(:),b_funct(:),c_funct(:),d_funct(:)
+    integer                                      ::  ispin,jspin,iorb,jorb,io,jo
+    integer                                      ::  ifreq,Lfreq
+    logical                                      ::  compute_component
+    if(size(funct,dim=1)/=Nspin)stop "wrong size 1 in SOC symmetrize input f"
+    if(size(funct,dim=2)/=Nspin)stop "wrong size 2 in SOC symmetrize input f"
+    if(size(funct,dim=3)/=Norb) stop "wrong size 3 in SOC symmetrize input f"
+    if(size(funct,dim=4)/=Norb) stop "wrong size 4 in SOC symmetrize input f"
+    Lfreq=size(funct,dim=5)
+    allocate(symmetrized_funct(Nspin,Nspin,Norb,Norb,Lfreq));symmetrized_funct=zero
+    allocate(a_funct(Lfreq));a_funct=zero
+    allocate(b_funct(Lfreq));b_funct=zero
+    allocate(c_funct(Lfreq));c_funct=zero
+    allocate(d_funct(Lfreq));d_funct=zero
+    compute_component=.false.
+    !
+    !diagonal
+    do ispin=1,Nspin
+       do iorb=1,Norb
+         a_funct = a_funct + funct(ispin,ispin,iorb,iorb,:)
+       enddo
+    enddo
+    a_funct = a_funct / ( Nspin * Norb )
+    !
+    !upper triang
+    b_funct = ( funct(1,1,1,2,:) + funct(1,2,1,3,:) + funct(1,2,2,3,:) )/3.d0 + ( funct(1,2,3,1,:) + funct(1,2,3,2,:) + funct(2,2,1,2,:) )/3.d0
+    !lower triang
+    c_funct = ( funct(1,1,2,1,:) + funct(2,1,3,1,:) + funct(2,1,3,2,:) )/3.d0 + ( funct(2,1,1,3,:) + funct(2,1,2,3,:) + funct(2,2,2,1,:) )/3.d0
+    !avrg
+    d_funct = ( c_funct + d_funct ) / 2.d0
+    !
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                io = iorb + (ispin-1)*Norb
+                jo = jorb + (jspin-1)*Norb
+                if(io==jo)then
+                   symmetrized_funct(ispin,jspin,iorb,jorb,:) = a_funct
+                else
+                   if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath_%mask(ispin,jspin,iorb,jorb,2)) symmetrized_funct(ispin,jspin,iorb,jorb,:) = d_funct
+                endif
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    funct = zero
+    funct = symmetrized_funct
+    !
+    deallocate(symmetrized_funct)
+  end subroutine SOC_jz_symmetrize
 
 
 END MODULE ED_AUX_FUNX

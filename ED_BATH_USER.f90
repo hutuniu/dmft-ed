@@ -16,10 +16,9 @@ MODULE ED_BATH_USER
   end interface get_bath_size
 
   interface get_size_bath
-     module procedure get_size_bath!_normal_hybrid
-     !module procedure get_size_bath_replica
+     module procedure get_size_bath
   end interface get_size_bath
-  !
+
   interface check_bath_dimension
      module procedure check_size_bath
   end interface check_bath_dimension
@@ -59,6 +58,7 @@ MODULE ED_BATH_USER
   !explicit symmetries:
   public :: break_symmetry_bath              
   public :: spin_symmetrize_bath             
+  public :: SOC_symmetrize_bath             
   public :: ph_symmetrize_bath               
   public :: ph_trans_bath                    
   public :: enforce_normal_bath              
@@ -78,7 +78,7 @@ contains
   ! 1 for get_spin_orb_component_size_bath
   !+-------------------------------------------------------------------+
   function get_size_bath(Hloc_nn,ispin_) result(bath_size)
-    integer :: bath_size,ndx,ispin,iorb,jspin,jorb,io,jo,off_im_ndx
+    integer :: bath_size,ndx,ispin,iorb,jspin,jorb,io,jo
     integer,optional :: ispin_
     complex(8),allocatable,optional,intent(in) :: Hloc_nn(:,:,:,:)
     select case(bath_type)
@@ -112,7 +112,6 @@ contains
        !
        if(.not.present(Hloc_nn))stop "ERROR: bath_type='replica' but impHloc_nn not provided to get_size_bath"
        ndx=0
-       off_im_ndx=0
        !off-diagonal non-vanishing elements
        do ispin=1,Nspin
           do jspin=1,Nspin
@@ -121,11 +120,17 @@ contains
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
                    if(io.lt.jo)then
-                      if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
-                      if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)then
-                         ndx=ndx+1
-                         if(io.lt.jo)off_im_ndx=off_im_ndx+1
-                         if(ed_mode=="d")stop "complex impHloc and ed_mode='d' are not compatible"
+                      if(real_Hrepl)then
+                         if( abs((Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-12)ndx=ndx+1
+                         if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)then
+                            if(ed_mode=="d")stop "complex impHloc and ed_mode='d' are not compatible"
+                         endif
+                      else
+                         if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                         if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)then
+                            ndx=ndx+1
+                            if(ed_mode=="d")stop "complex impHloc and ed_mode='d' are not compatible"
+                         endif
                       endif
                    endif
                 enddo
@@ -137,33 +142,36 @@ contains
        !complex diagonal elements checked
        do ispin=1,Nspin
           do iorb=1,Norb
-             if(abs(aimag(Hloc_nn(ispin,ispin,iorb,iorb))).gt.1e-6)ndx=ndx+1
+             if(abs(aimag(Hloc_nn(ispin,ispin,iorb,iorb))).gt.1e-6)stop"impHloc is not Hermitian"
           enddo
        enddo
        select case(ed_mode)
        case default
-          !              [Re,Im bath ham] * Nbath + [Re diag hybr] * Nbath + [Re free off-diag hybr] * Nbath
-          if(ed_type=="d")bath_size = ndx * Nbath + Nspin * Norb * Nbath
+          !
+          if(ed_type=="d")bath_size = ndx * Nbath + Nbath
           if(ed_type=="c")then
-             if(bonded_hybr)then
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath + ( Nspin * Norb - off_im_ndx ) * Nbath
-             elseif(real_hybr)then
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath
+             if(real_hybr)then
+                !bath_size = ndx * Nbath + 1 !Nbath
+                bath_size = ndx * Nbath + Nbath
              else
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath * 2
+                bath_size = ndx * Nbath + Nbath * 2
              endif
           endif
        case ("superc")
           !
        case ("nonsu2")
-          if(ed_type=="d")bath_size = ndx * Nbath + Nspin * Norb * Nbath
-          if(ed_type=="c")then
-             if(bonded_hybr)then
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath + ( Nspin * Norb - off_im_ndx ) * Nbath
-             elseif(real_hybr)then
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath
-             else
-                bath_size = ndx * Nbath + Nspin * Norb * Nbath * 2
+          if(ed_para)then
+                bath_size = 2 * Nbath
+                if(real_hybr)      bath_size = bath_size + Nbath 
+                if(.not.real_hybr) bath_size = bath_size + Nbath * 2
+          else
+             if(ed_type=="d")bath_size = ndx * Nbath + Nbath
+             if(ed_type=="c")then
+                if(real_hybr)then
+                   bath_size = ndx * Nbath + Nbath
+                else
+                   bath_size = ndx * Nbath + Nbath * 2
+                endif
              endif
           endif
        end select
@@ -1171,26 +1179,91 @@ contains
     type(effective_bath)   :: dmft_bath_
     logical,optional       :: save
     logical                :: save_
-    integer                :: bath_size
+    integer                :: bath_size,shift,ibath
+    complex(8),dimension(Norb):: dum
     save_=.true.;if(present(save))save_=save
     if(Nspin==1)then
        if(ED_MPI_ID==0)write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
        return
     endif
+    !
+    call allocate_dmft_bath(dmft_bath_)
+    if (bath_type=="replica")call init_dmft_bath_mask(dmft_bath_)
+    call set_dmft_bath(bath_,dmft_bath_)
+    !
     if (bath_type/="replica") then
-       call allocate_dmft_bath(dmft_bath_)
-       call set_dmft_bath(bath_,dmft_bath_)
        dmft_bath_%e(Nspin,:,:)=dmft_bath_%e(1,:,:)
        dmft_bath_%v(Nspin,:,:)=dmft_bath_%v(1,:,:)
        if(ed_mode=="superc")dmft_bath_%d(Nspin,:,:)=dmft_bath_%d(1,:,:)
-       if(save_)call save_dmft_bath(dmft_bath_)
-       call get_dmft_bath(dmft_bath_,bath_)
-       call deallocate_dmft_bath(dmft_bath_)
     else
-       bath_size = size(bath_) / 2
-       bath_(1+bath_size:2*bath_size)=bath_(1:bath_size)
+       stop"spin symmetrize not implemented for replica"
     endif
+    if(save_)call save_dmft_bath(dmft_bath_)
+    call get_dmft_bath(dmft_bath_,bath_)
+    call deallocate_dmft_bath(dmft_bath_)
   end subroutine spin_symmetrize_bath
+
+  subroutine SOC_symmetrize_bath(bath_,save,rot_)
+    real(8),dimension(:),intent(inout)          :: bath_
+    logical,optional                            :: save
+    complex(8),allocatable,intent(in)           :: rot_(:,:)
+    type(effective_bath)                        :: dmft_bath_
+    logical                                     :: save_
+    integer                                     :: ispin,jspin,iorb,jorb,ibath,io,jo
+    complex(8)                                  :: Hrepl(Nspin*Norb,Nspin*Norb,Nbath)
+    complex(8)                                  :: Hrepl_tilda(Nspin*Norb,Nspin*Norb,Nbath)
+    !
+    write(LOGfile,"(A)")"SOC_symmetrize_bath"
+    save_=.true.;if(present(save))save_=save
+    if(bath_type/="replica")then
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"SOC_symmetrize_bath: not in replica bath mode, no SOC"
+       return
+    endif
+    if(Nspin==1)then
+       if(ED_MPI_ID==0)write(LOGfile,"(A)")"SOC_symmetrize_bath: Nspin=1 nothing to symmetrize"
+       return
+    endif
+    !
+    call allocate_dmft_bath(dmft_bath_)
+    call init_dmft_bath_mask(dmft_bath_)
+    call set_dmft_bath(bath_,dmft_bath_)
+    do ibath=1,Nbath
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   Hrepl(io,jo,ibath)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    !
+    do ibath=1,Nbath
+       Hrepl_tilda(:,:,ibath)=matmul(transpose(conjg(rot_)),matmul(Hrepl(:,:,ibath),rot_))
+       Hrepl(:,:,ibath)=zero
+    enddo
+    !
+    do ibath=1,Nbath
+       Hrepl_tilda(1,1,ibath)=(Hrepl_tilda(1,1,ibath)+Hrepl_tilda(2,2,ibath))/2.d0
+       Hrepl_tilda(2,2,ibath)=(Hrepl_tilda(1,1,ibath)+Hrepl_tilda(2,2,ibath))/2.d0
+       Hrepl_tilda(3,3,ibath)=(Hrepl_tilda(3,3,ibath)+Hrepl_tilda(4,4,ibath)+Hrepl_tilda(5,5,ibath)+Hrepl_tilda(6,6,ibath))/2.d0
+       Hrepl_tilda(4,4,ibath)=(Hrepl_tilda(3,3,ibath)+Hrepl_tilda(4,4,ibath)+Hrepl_tilda(5,5,ibath)+Hrepl_tilda(6,6,ibath))/2.d0
+       Hrepl_tilda(5,5,ibath)=(Hrepl_tilda(3,3,ibath)+Hrepl_tilda(4,4,ibath)+Hrepl_tilda(5,5,ibath)+Hrepl_tilda(6,6,ibath))/2.d0
+       Hrepl_tilda(6,6,ibath)=(Hrepl_tilda(3,3,ibath)+Hrepl_tilda(4,4,ibath)+Hrepl_tilda(5,5,ibath)+Hrepl_tilda(6,6,ibath))/2.d0
+       do io=1,Nspin*Norb
+          do jo=1,Nspin*Norb
+             if(io/=jo)Hrepl_tilda(:,:,ibath)=zero
+          enddo
+       enddo
+    enddo
+    !
+    do ibath=1,Nbath
+       Hrepl(:,:,ibath)=matmul(rot_,matmul(Hrepl_tilda(:,:,ibath),transpose(conjg(rot_))))
+    enddo
+  end subroutine SOC_symmetrize_bath
 
   subroutine ph_symmetrize_bath(bath_,save)
     real(8),dimension(:)   :: bath_
