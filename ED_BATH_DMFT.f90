@@ -233,7 +233,7 @@ contains
                 enddo
              enddo
              dmft_bath_%h(:,:,:,:,i)=zero
-             dmft_bath_%h(:,:,:,:,i)=(so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)+impHloc)*0.75d0
+             dmft_bath_%h(:,:,:,:,i)=(-1.d0*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)+impHloc)*0.75d0+noise_b(i)
           enddo
        endif
        !HYBR. INITIALIZATION
@@ -923,7 +923,7 @@ contains
                 enddo
                 i=i+1
                 element_R=0.0d0;element_I=0.0d0
-                element_R=abs(bath_(i))!off-diagonal lambda_k
+                element_R=(bath_(i))!off-diagonal lambda_k
                 !LSmatrix(1:2,3:4)= -Xi * element_R * pauli_z / 2.
                 !LSmatrix(1:2,5:6)= +Xi * element_R * pauli_y / 2.
                 !LSmatrix(3:4,5:6)= -Xi * element_R * pauli_x / 2.
@@ -1000,7 +1000,7 @@ contains
           do ibath=1,Nbath
              element_R=0.0d0;element_I=0.0d0
              i=i+1
-             element_R=abs(bath_(i))
+             element_R=(bath_(i))
              if((ed_type=="c").and.(.not.real_hybr))then
                 i=i+1
                 element_I=(bath_(i))
@@ -1248,7 +1248,7 @@ contains
                 123 continue
                 i=i+1
                 if(real_Hrepl)bath_(i)=abs(real(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)))
-                if(.not.real_Hrepl)bath_(i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
+                if(.not.real_Hrepl)bath_(i)=real(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath))
              enddo
           else
              !all non-vanishing terms in imploc - all spin
@@ -1279,7 +1279,7 @@ contains
           do ibath=1,Nbath
           !do ibath=1,1
              i=i+1
-             bath_(i)=abs(real(dmft_bath_%vr(ibath)))
+             bath_(i)=(real(dmft_bath_%vr(ibath)))
              if((ed_type=="c").and.(.not.real_hybr))then
                 i=i+1
                 bath_(i)=aimag(dmft_bath_%vr(ibath))

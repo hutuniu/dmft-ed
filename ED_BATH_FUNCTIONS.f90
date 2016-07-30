@@ -1243,7 +1243,7 @@ contains
        case ("nonsu2")
           !
           Nso=Nspin*Norb
-          allocate(fgorb(Nso,Nso),zeta(Nso,Nso))
+          allocate(fgorb(Nso,Nso),zeta(Nso,Nso));fgorb=zero
           Delta = delta_bath_mats(x,dmft_bath_)
           do i=1,L
              zeta  = (x(i) + xmu)*zeye(Nso)
@@ -1254,7 +1254,7 @@ contains
                       do jorb=1,Norb
                          io = iorb + (ispin-1)*Norb
                          jo = jorb + (jspin-1)*Norb
-                         fgorb(io,jo) = zeta(io,jo) - impHloc(ispin,jspin,iorb,jorb) - Delta(ispin,jspin,iorb,jorb,i)
+                         fgorb(io,jo) = zeta(io,jo) - conjg(impHloc(ispin,jspin,iorb,jorb)) - Delta(ispin,jspin,iorb,jorb,i)
                       enddo
                    enddo
                 enddo
@@ -1622,7 +1622,7 @@ contains
           !
           Nso=Nspin*Norb
           Delta = delta_bath_real(x,dmft_bath_)
-          allocate(fgorb(Nso,Nso),zeta(Nso,Nso))
+          allocate(fgorb(Nso,Nso),zeta(Nso,Nso));fgorb=zero
           do i=1,L
              zeta  = (x(i) + xmu)*zeye(Nso)
              fgorb = zero
@@ -1992,7 +1992,7 @@ contains
                       do jorb=1,Norb
                          io = iorb + (ispin-1)*Norb
                          jo = jorb + (jspin-1)*Norb
-                         G0and(ispin,jspin,iorb,jorb,i) = zeta(io,jo) -impHloc(ispin,jspin,iorb,jorb) - Delta(ispin,jspin,iorb,jorb,i)
+                         G0and(ispin,jspin,iorb,jorb,i) = zeta(io,jo) - conjg(impHloc(ispin,jspin,iorb,jorb)) - Delta(ispin,jspin,iorb,jorb,i)
                       enddo
                    enddo
                 enddo

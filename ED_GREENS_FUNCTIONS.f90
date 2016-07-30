@@ -38,8 +38,13 @@ MODULE ED_GREENS_FUNCTIONS
   !Non-interacting GF
   !=========================================================
   complex(8),allocatable,dimension(:,:,:,:,:):: impG0mats,impG0real
-  complex(8),allocatable,dimension(:,:,:,:,:):: impDeltamats,impDeltareal
   complex(8),allocatable,dimension(:,:,:,:,:):: impF0mats,impF0real
+
+  !Auxiliary functions GF
+  !=========================================================
+  complex(8),allocatable,dimension(:,:,:,:,:):: impDeltamats,impDeltareal
+  complex(8),allocatable,dimension(:,:,:,:,:):: invimpG0mats,invimpG0real
+  complex(8),allocatable,dimension(:,:,:,:,:):: invimpGmats,invimpGreal
 
   !AUX GF
   !=========================================================
@@ -104,17 +109,29 @@ contains
     impSAmats = zero
     impSAreal = zero
     !
-    if(.not.allocated(impG0mats)) allocate(impG0mats(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(impG0mats))    allocate(   impG0mats(Nspin,Nspin,Norb,Norb,Lmats))
     if(.not.allocated(impDeltamats)) allocate(impDeltamats(Nspin,Nspin,Norb,Norb,Lmats))
-    if(.not.allocated(impF0mats)) allocate(impF0mats(Nspin,Nspin,Norb,Norb,Lmats))
-    if(.not.allocated(impG0real)) allocate(impG0real(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(invimpG0mats)) allocate(invimpG0mats(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(invimpGmats))  allocate( invimpGmats(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(impF0mats))    allocate(   impF0mats(Nspin,Nspin,Norb,Norb,Lmats))
+    if(.not.allocated(impG0real))    allocate(   impG0real(Nspin,Nspin,Norb,Norb,Lreal))
     if(.not.allocated(impDeltareal)) allocate(impDeltareal(Nspin,Nspin,Norb,Norb,Lreal))
-    if(.not.allocated(impF0real)) allocate(impF0real(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(invimpG0real)) allocate(invimpG0real(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(invimpGreal))  allocate( invimpGreal(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(impF0real))    allocate(   impF0real(Nspin,Nspin,Norb,Norb,Lreal))
     impG0mats=zero
+    !
     impDeltamats=zero
+    invimpGmats=zero
+    invimpG0mats=zero
+    !
     impF0mats=zero
     impG0real=zero
+    !
     impDeltareal=zero
+    invimpGreal=zero
+    invimpG0real=zero
+    !
     impF0real=zero
     !
     if(.not.allocated(GFpoles))   allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
@@ -143,8 +160,14 @@ contains
     if(allocated(GFpoles))deallocate(GFpoles)
     if(allocated(GFweights))deallocate(GFweights)
     if(allocated(impG0mats))deallocate(impG0mats)
+    if(allocated(invimpG0mats))deallocate(invimpG0mats)
+    if(allocated(invimpGmats))deallocate(invimpGmats)
+    if(allocated(impDeltamats))deallocate(impDeltamats)
     if(allocated(impF0mats))deallocate(impF0mats)
     if(allocated(impG0real))deallocate(impG0real)
+    if(allocated(invimpG0real))deallocate(invimpG0real)
+    if(allocated(invimpGreal))deallocate(invimpGreal)
+    if(allocated(impDeltareal))deallocate(impDeltareal)
     if(allocated(impF0real))deallocate(impF0real)
   end subroutine buildgf_impurity
   !+------------------------------------------------------------------+
@@ -423,8 +446,17 @@ contains
     !Get G0^-1 
     invG0mats(:,:,:,:,:)=invg0_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
     invG0real(:,:,:,:,:)=invg0_bath_real(dcmplx(wr(:),eps),dmft_bath)
+   ! if(ed_para)then
+   !     if(ED_MPI_ID==0)write(LOGfile,*)"  Symmetrizing impG"
+   !     call SOC_jz_symmetrize(impGmats,dmft_bath)
+   !     call SOC_jz_symmetrize(impGreal,dmft_bath)
+   ! endif
+     !
+    !
     impDeltamats(:,:,:,:,:)=delta_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
     impDeltareal(:,:,:,:,:)=delta_bath_real(dcmplx(wr(:),eps),dmft_bath)
+    invimpG0mats=invG0mats
+    invimpG0real=invG0real
     !
     select case(bath_type)
        !
@@ -513,6 +545,7 @@ contains
                    do jorb=1,Norb
                       io = iorb + (ispin-1)*Norb
                       jo = jorb + (jspin-1)*Norb
+                      invimpGmats(ispin,jspin,iorb,jorb,i) = invGimp(io,jo)
                       impSmats(ispin,jspin,iorb,jorb,i) = invG0mats(ispin,jspin,iorb,jorb,i) - invGimp(io,jo) !<-- calG0_imp^-1 - Gimp^-1
                    enddo
                 enddo
@@ -539,6 +572,7 @@ contains
                    do jorb=1,Norb
                       io = iorb + (ispin-1)*Norb
                       jo = jorb + (jspin-1)*Norb
+                      invimpGreal(ispin,jspin,iorb,jorb,i) = invGimp(io,jo)
                       impSreal(ispin,jspin,iorb,jorb,i) = invG0real(ispin,jspin,iorb,jorb,i) - invGimp(io,jo) !<-- calG0_imp^-1 - Gimp^-1
                    enddo
                 enddo
@@ -837,7 +871,7 @@ contains
   !PURPOSE  : Print nonSU2 Green's functions
   !+------------------------------------------------------------------+
   subroutine print_gf_nonsu2
-    integer                          :: i,isign,unit(12),iorb,jorb,ispin,jspin
+    integer                          :: i,isign,unit(20),iorb,jorb,ispin,jspin
     integer,dimension(:),allocatable :: getIorb,getJorb,getIspin,getJspin
     integer                          :: totNso,totNorb,totNspin,l
     character(len=20)                :: suffix
@@ -959,6 +993,18 @@ contains
              do i=1,Lreal
                 write(unit(9),"(F26.15,2(F26.15))")wr(i),dimag(impDeltareal(ispin,jspin,iorb,jorb,i)),dreal(impDeltareal(ispin,jspin,iorb,jorb,i))
              enddo
+             do i=1,Lmats
+                write(unit(10),"(F26.15,2(F26.15))")wm(i),dimag(invimpG0mats(ispin,jspin,iorb,jorb,i)),dreal(invimpG0mats(ispin,jspin,iorb,jorb,i))
+             enddo
+             do i=1,Lreal
+                write(unit(11),"(F26.15,2(F26.15))")wr(i),dimag(invimpG0real(ispin,jspin,iorb,jorb,i)),dreal(invimpG0real(ispin,jspin,iorb,jorb,i))
+             enddo
+             do i=1,Lmats
+                write(unit(12),"(F26.15,2(F26.15))")wm(i),dimag(invimpGmats(ispin,jspin,iorb,jorb,i)),dreal(invimpGmats(ispin,jspin,iorb,jorb,i))
+             enddo
+             do i=1,Lreal
+                write(unit(13),"(F26.15,2(F26.15))")wr(i),dimag(invimpGreal(ispin,jspin,iorb,jorb,i)),dreal(invimpGreal(ispin,jspin,iorb,jorb,i))
+             enddo
           endif
           call close_units()
        enddo
@@ -983,6 +1029,10 @@ contains
          open(unit(7),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
          open(unit(8),file="impDelta"//string//"_iw"//reg(ed_file_suffix)//".ed")
          open(unit(9),file="impDelta"//string//"_realw"//reg(ed_file_suffix)//".ed")
+         open(unit(10),file="invimpG0"//string//"_iw"//reg(ed_file_suffix)//".ed")
+         open(unit(11),file="invimpG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
+         open(unit(12),file="invimpG"//string//"_iw"//reg(ed_file_suffix)//".ed")
+         open(unit(13),file="invimpG"//string//"_realw"//reg(ed_file_suffix)//".ed")
       endif
     end subroutine open_units
     !
@@ -1001,6 +1051,10 @@ contains
          close(unit(7))
          close(unit(8))
          close(unit(9))
+         close(unit(10))
+         close(unit(11))
+         close(unit(12))
+         close(unit(13))
       endif
     end subroutine close_units
     !

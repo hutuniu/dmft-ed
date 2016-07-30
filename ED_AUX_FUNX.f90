@@ -885,7 +885,7 @@ contains
     !if(ED_MPI_ID==0)then
        !
        diffdens=dens_tmp-nread
-       delta_xmu=0.1d0
+       delta_xmu=1.d0
        !if(abs(diffdens).lt.2.d0*nerr)delta_xmu=0.5d0
        !
        if ((dabs(diffdens)).le.nerr) then
@@ -1040,7 +1040,7 @@ contains
     complex(8),allocatable,intent(inout)         ::  funct(:,:,:,:,:)
     type(effective_bath),intent(in)              ::  dmft_bath_
     complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:,:)
-    complex(8),allocatable                       ::  a_funct(:),b_funct(:),c_funct(:),d_funct(:)
+    complex(8),allocatable                       ::  a_funct(:),b_funct(:),c_funct(:),d_funct(:),e_funct(:),f_funct(:)
     integer                                      ::  ispin,jspin,iorb,jorb,io,jo
     integer                                      ::  ifreq,Lfreq
     logical                                      ::  compute_component
@@ -1054,6 +1054,8 @@ contains
     allocate(b_funct(Lfreq));b_funct=zero
     allocate(c_funct(Lfreq));c_funct=zero
     allocate(d_funct(Lfreq));d_funct=zero
+    allocate(e_funct(Lfreq));e_funct=zero
+    allocate(f_funct(Lfreq));f_funct=zero
     compute_component=.false.
     !
     !diagonal
@@ -1064,12 +1066,19 @@ contains
     enddo
     a_funct = a_funct / ( Nspin * Norb )
     !
-    !upper triang
-    b_funct = ( funct(1,1,1,2,:) + funct(1,2,1,3,:) + funct(1,2,2,3,:) )/3.d0 + ( funct(1,2,3,1,:) + funct(1,2,3,2,:) + funct(2,2,1,2,:) )/3.d0
-    !lower triang
-    c_funct = ( funct(1,1,2,1,:) + funct(2,1,3,1,:) + funct(2,1,3,2,:) )/3.d0 + ( funct(2,1,1,3,:) + funct(2,1,2,3,:) + funct(2,2,2,1,:) )/3.d0
-    !avrg
-    d_funct = ( c_funct + d_funct ) / 2.d0
+    !quadrotto nero
+    b_funct = ( funct(1,1,1,2,:) + funct(1,2,2,3,:) + funct(2,2,2,1,:) + funct(2,1,2,3,:) )/3.d0
+    !quadrotto bianco
+    c_funct = ( funct(1,1,2,1,:) + funct(1,2,3,2,:) + funct(2,2,1,2,:) + funct(2,1,3,2,:) )/3.d0
+    !media quadri
+    !b_funct = ( b_funct - c_funct )/2.d0
+
+    !cerchio nero
+    d_funct = ( funct(1,2,3,1,:) + funct(2,1,1,3,:) )/2.d0
+    !cerchio bianco
+    e_funct = ( funct(1,2,1,3,:) + funct(2,1,3,1,:) )/2.d0
+    !media cerchi
+    !d_funct = ( d_funct - e_funct )/2.d0
     !
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -1078,14 +1087,30 @@ contains
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
                 if(io==jo)then
-                   symmetrized_funct(ispin,jspin,iorb,jorb,:) = a_funct
-                else
-                   if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath_%mask(ispin,jspin,iorb,jorb,2)) symmetrized_funct(ispin,jspin,iorb,jorb,:) = d_funct
+                   symmetrized_funct(ispin,ispin,iorb,iorb,:) = a_funct
+               ! else
+               !    symmetrized_funct(ispin,jspin,iorb,jorb,:) = funct(ispin,jspin,iorb,jorb,:)
                 endif
              enddo
           enddo
        enddo
     enddo
+    !quadrotto nero
+    symmetrized_funct(1,1,1,2,:) = +b_funct
+    symmetrized_funct(1,2,2,3,:) = +b_funct
+    symmetrized_funct(2,2,2,1,:) = +b_funct
+    symmetrized_funct(2,1,2,3,:) = +b_funct
+    !quadrotto bianco
+    symmetrized_funct(1,1,2,1,:) = -b_funct
+    symmetrized_funct(1,2,3,2,:) = -b_funct
+    symmetrized_funct(2,2,1,2,:) = -b_funct
+    symmetrized_funct(2,1,3,2,:) = -b_funct
+    !cerchio nero
+    symmetrized_funct(1,2,3,1,:) = +d_funct
+    symmetrized_funct(2,1,1,3,:) = +d_funct
+    !cerchio bianco
+    symmetrized_funct(1,2,1,3,:) = -d_funct
+    symmetrized_funct(2,1,3,1,:) = -d_funct
     !
     funct = zero
     funct = symmetrized_funct

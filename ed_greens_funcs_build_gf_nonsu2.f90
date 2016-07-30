@@ -321,12 +321,6 @@ subroutine build_gf_nonsu2()
            enddo
         enddo
      enddo
-     if(ed_para)then
-        if(ED_MPI_ID==0)write(LOGfile,*)"  Symmetrizing impG"
-        call SOC_jz_symmetrize(impGmats,dmft_bath)
-        call SOC_jz_symmetrize(impGreal,dmft_bath)
-     endif
-     !
   end select
 
 end subroutine build_gf_nonsu2

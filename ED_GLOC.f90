@@ -107,22 +107,24 @@ contains
     wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
     do i=1,Lmats
-       Smats_aux=zero;Smats_aux=nn2so_reshape(Smats(:,:,:,:,i),Nspin,Norb)
-       do io=1,Nso
-          do jo=1+io,Nso
-             if(.not.real_Hrepl)Smats_aux(jo,io)=conjg(Smats_aux(io,jo))
-          enddo
-       enddo
-       zeta_mats(:,:,i)=(xi*wm(i)+xmu)*eye(Nso) - Smats_aux
+       !Smats_aux=zero;Smats_aux=nn2so_reshape(Smats(:,:,:,:,i),Nspin,Norb)
+       !do io=1,Nso
+       !   do jo=1+io,Nso
+       !     ! if(.not.real_Hrepl)Smats_aux(jo,io)=conjg(Smats_aux(io,jo))
+       !   enddo
+       !enddo
+       !zeta_mats(:,:,i)=(xi*wm(i)+xmu)*eye(Nso) - Smats_aux
+       zeta_mats(:,:,i)=(xi*wm(i)+xmu)*eye(Nso) - nn2so_reshape(Smats(:,:,:,:,i),Nspin,Norb)
     enddo
     do i=1,Lreal
-       Sreal_aux=zero;Sreal_aux=nn2so_reshape(Sreal(:,:,:,:,i),Nspin,Norb)
-       do io=1,Nso
-          do jo=1+io,Nso
-             if(.not.real_Hrepl)Sreal_aux(jo,io)=conjg(Sreal_aux(io,jo))
-          enddo
-       enddo
-       zeta_real(:,:,i)=(wr(i)+xi*eps+xmu)*eye(Nso) - Sreal_aux
+       !Sreal_aux=zero;Sreal_aux=nn2so_reshape(Sreal(:,:,:,:,i),Nspin,Norb)
+       !do io=1,Nso
+       !   do jo=1+io,Nso
+       !     ! if(.not.real_Hrepl)Sreal_aux(jo,io)=conjg(Sreal_aux(io,jo))
+       !   enddo
+       !enddo
+       !zeta_real(:,:,i)=(wr(i)+xi*eps+xmu)*eye(Nso) - Sreal_aux
+       zeta_real(:,:,i)=(wr(i)+xi*eps+xmu)*eye(Nso) - nn2so_reshape(Sreal(:,:,:,:,i),Nspin,Norb)
     enddo
 
     !pass each Z_site to the routines that invert (Z-Hk) for each k-point 
@@ -135,8 +137,8 @@ contains
       !    call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,unit_ik)      
       !    call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
       ! else
-          call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)      
-          call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
+          call add_to_gloc_normal(zeta_mats,(Hk(:,:,ik)),hk_symm_(ik),Gkmats)      
+          call add_to_gloc_normal(zeta_real,(Hk(:,:,ik)),hk_symm_(ik),Gkreal)
       ! endif
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
