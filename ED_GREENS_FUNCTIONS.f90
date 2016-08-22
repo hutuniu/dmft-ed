@@ -1,18 +1,14 @@
-!###################################################################
-!PURPOSE  : Build the impurity Green's function using spectral sum 
-!NOTE: in the MPI implementation we may require all the nodes to 
-!evaluate the GF, this is safer, simpler and works for both Lanc &
-!Ed. For Lanc we can indeed assign the contribution from each state 
-!to different node and accumulate the result at the end.
-!AUTHORS  : Adriano Amaricci
-!###################################################################
+!>DEV:
+!The MPI structure goes into the Lanczos tridiagonalization of the resolvant (z-H)
+!buried in the `build_gf_{normal,superc,nonsu2}` & `build_chi_{spin,dens,pair}` routines
+!<DEV
 MODULE ED_GREENS_FUNCTIONS
   USE SF_CONSTANTS, only:one,xi,zero,pi
   USE SF_TIMER  
   USE SF_IOTOOLS, only: free_unit,reg,free_units,txtfy,splot
   USE SF_ARRAYS,  only: arange,linspace
   USE SF_LINALG,  only: inv,inv_sym,inv_her
-  USE PLAIN_LANCZOS
+  USE SF_SP_LINALG, only: sp_lanc_tridiag
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
@@ -32,53 +28,53 @@ MODULE ED_GREENS_FUNCTIONS
 
   !Frequency and time arrays:
   !=========================================================
-  real(8),dimension(:),allocatable           :: wm,tau,wr,vm
+  real(8),dimension(:),allocatable            :: wm,tau,wr,vm
 
   !Non-interacting GF
   !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:,:):: impG0mats,impG0real
-  complex(8),allocatable,dimension(:,:,:,:,:):: impF0mats,impF0real
+  complex(8),allocatable,dimension(:,:,:,:,:) :: impG0mats,impG0real
+  complex(8),allocatable,dimension(:,:,:,:,:) :: impF0mats,impF0real
 
   !AUX GF
   !=========================================================
-  complex(8),allocatable,dimension(:,:)      :: auxGmats,auxGreal
-  complex(8),allocatable,dimension(:,:,:)    :: auxGpoles,auxGweights
+  complex(8),allocatable,dimension(:,:)       :: auxGmats,auxGreal
+  complex(8),allocatable,dimension(:,:,:)     :: auxGpoles,auxGweights
 
   !Poles & Weights 
   !=========================================================
-  real(8),allocatable,dimension(:,:,:,:,:,:) :: GFpoles,GFweights
+  real(8),allocatable,dimension(:,:,:,:,:,:)  :: GFpoles,GFweights
 
 
   !Spin Susceptibilities
   !=========================================================
-  real(8),allocatable,dimension(:,:)      :: spinChi_tau
-  complex(8),allocatable,dimension(:,:)   :: spinChi_w
-  complex(8),allocatable,dimension(:,:)   :: spinChi_iv
+  real(8),allocatable,dimension(:,:)          :: spinChi_tau
+  complex(8),allocatable,dimension(:,:)       :: spinChi_w
+  complex(8),allocatable,dimension(:,:)       :: spinChi_iv
 
 
   !Diagonal/Off-diagonal charge-charge Susceptibilities
   !=========================================================  
-  real(8),allocatable,dimension(:,:,:)    :: densChi_tau
-  complex(8),allocatable,dimension(:,:,:) :: densChi_w
-  complex(8),allocatable,dimension(:,:,:) :: densChi_iv
+  real(8),allocatable,dimension(:,:,:)        :: densChi_tau
+  complex(8),allocatable,dimension(:,:,:)     :: densChi_w
+  complex(8),allocatable,dimension(:,:,:)     :: densChi_iv
 
   !Mixed inter-orbital charge-charge Susceptibilities
   !=========================================================
-  real(8),allocatable,dimension(:,:,:)    :: densChi_mix_tau
-  complex(8),allocatable,dimension(:,:,:) :: densChi_mix_w
-  complex(8),allocatable,dimension(:,:,:) :: densChi_mix_iv
+  real(8),allocatable,dimension(:,:,:)        :: densChi_mix_tau
+  complex(8),allocatable,dimension(:,:,:)     :: densChi_mix_w
+  complex(8),allocatable,dimension(:,:,:)     :: densChi_mix_iv
 
   !Total (orbital-sum) Density-density Susceptibilities
   !=========================================================
-  real(8),allocatable,dimension(:)        :: densChi_tot_tau
-  complex(8),allocatable,dimension(:)     :: densChi_tot_w
-  complex(8),allocatable,dimension(:)     :: densChi_tot_iv
+  real(8),allocatable,dimension(:)            :: densChi_tot_tau
+  complex(8),allocatable,dimension(:)         :: densChi_tot_w
+  complex(8),allocatable,dimension(:)         :: densChi_tot_iv
 
   !Pair-Pair Susceptibilities
   !=========================================================
-  real(8),allocatable,dimension(:,:)      :: pairChi_tau
-  complex(8),allocatable,dimension(:,:)   :: pairChi_w
-  complex(8),allocatable,dimension(:,:)   :: pairChi_iv
+  real(8),allocatable,dimension(:,:)          :: pairChi_tau
+  complex(8),allocatable,dimension(:,:)       :: pairChi_w
+  complex(8),allocatable,dimension(:,:)       :: pairChi_iv
 
 
   public :: buildgf_impurity
@@ -234,18 +230,18 @@ contains
   !+------------------------------------------------------------------+
   !                    GREEN'S FUNCTIONS 
   !+------------------------------------------------------------------+
-  include 'ed_greens_funcs_build_gf_normal.f90'
-  include 'ed_greens_funcs_build_gf_superc.f90'
-  include 'ed_greens_funcs_build_gf_nonsu2.f90'
+  include 'ED_GREENS_FUNCTIONS/ed_greens_funcs_build_gf_normal.f90'
+  include 'ED_GREENS_FUNCTIONS/ed_greens_funcs_build_gf_superc.f90'
+  include 'ED_GREENS_FUNCTIONS/ed_greens_funcs_build_gf_nonsu2.f90'
 
 
 
   !+------------------------------------------------------------------+
   !                    SELF-ENERGY FUNCTIONS 
   !+------------------------------------------------------------------+
-  include "ed_greens_funcs_get_sigma_normal.f90"
-  include "ed_greens_funcs_get_sigma_superc.f90"
-  include "ed_greens_funcs_get_sigma_nonsu2.f90"
+  include "ED_GREENS_FUNCTIONS/ed_greens_funcs_get_sigma_normal.f90"
+  include "ED_GREENS_FUNCTIONS/ed_greens_funcs_get_sigma_superc.f90"
+  include "ED_GREENS_FUNCTIONS/ed_greens_funcs_get_sigma_nonsu2.f90"
 
 
   !+------------------------------------------------------------------+
@@ -262,7 +258,7 @@ contains
     call print_impG_normal
     call print_impG0_normal
   end subroutine print_gf_normal
-  include "ed_greens_funcs_print_gf_normal.f90"
+  include "ED_GREENS_FUNCTIONS/ed_greens_funcs_print_gf_normal.f90"
 
   !SUPERConducting case
   !+------------------------------------------------------------------+
@@ -272,7 +268,7 @@ contains
     call print_impG_superc
     call print_impG0_superc
   end subroutine print_gf_superc
-  include "ed_greens_funcs_print_gf_superc.f90"
+  include "ED_GREENS_FUNCTIONS/ed_greens_funcs_print_gf_superc.f90"
 
   !nonSU2 case
   !+------------------------------------------------------------------+
@@ -282,7 +278,7 @@ contains
     call print_impG_nonsu2
     call print_impG0_nonsu2
   end subroutine print_gf_nonsu2
-  include "ed_greens_funcs_print_gf_nonsu2.f90"
+  include "ED_GREENS_FUNCTIONS/ed_greens_funcs_print_gf_nonsu2.f90"
 
 
 
@@ -479,9 +475,9 @@ contains
   !+------------------------------------------------------------------+
   !                    SUSCEPTIBILITIES (SPIN, CHARGE, PAIR)
   !+------------------------------------------------------------------+
-  include 'ed_greens_funcs_build_chi_spin.f90'
-  include 'ed_greens_funcs_build_chi_dens.f90'
-  include 'ed_greens_funcs_build_chi_pair.f90'
+  include 'ED_GREENS_FUNCTIONS/ed_greens_funcs_build_chi_spin.f90'
+  include 'ED_GREENS_FUNCTIONS/ed_greens_funcs_build_chi_dens.f90'
+  include 'ED_GREENS_FUNCTIONS/ed_greens_funcs_build_chi_pair.f90'
 
 
   !+------------------------------------------------------------------+

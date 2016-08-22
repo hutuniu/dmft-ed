@@ -1,14 +1,19 @@
 MODULE ED_VARS_GLOBAL
   USE SF_CONSTANTS
-  USE ED_BATH_TYPE
+  !USE ED_BATH_TYPE
   USE MATRIX_SPARSE
-#ifdef _MPI_INEQ
-  USE MPI
-#endif
 #ifdef _MPI
   USE MPI
 #endif
   implicit none
+
+  type effective_bath
+     real(8),dimension(:,:,:),allocatable   :: e  !local energies [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
+     real(8),dimension(:,:,:),allocatable   :: d  !SC amplitues   [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
+     real(8),dimension(:,:,:),allocatable   :: v  !spin-keep hyb. [Nspin][Norb][Nbath]
+     real(8),dimension(:,:,:),allocatable   :: u  !spin-flip hyb. [Nspin][Norb][Nbath]
+     logical                                :: status=.false.
+  end type effective_bath
 
 
   !-------------------- ED  VARIABLES ----------------------!
@@ -90,16 +95,16 @@ MODULE ED_VARS_GLOBAL
   !Impurity dennsity matrix
   !PRIVATE (now public but accessible thru routine)
   !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:)  :: imp_density_matrix
+  complex(8),allocatable,dimension(:,:,:,:)   :: imp_density_matrix
+
 
   !MPI Parallel environment variables
   !PUBLIC
   !=========================================================
+  integer                                     :: ED_MPI_COMM
   integer                                     :: ED_MPI_ID=0
   integer                                     :: ED_MPI_SIZE=1
   integer                                     :: ED_MPI_ERR
-
-
 
 
   !--------------- LATTICE WRAP VARIABLES -----------------!
@@ -111,8 +116,8 @@ MODULE ED_VARS_GLOBAL
   !Symmetry operations
   !=========================================================
   integer,allocatable,dimension(:)            :: indep_list
-  integer,dimension(:),allocatable   :: map_lat2ind
-  integer,dimension(:,:),allocatable :: map_ind2lat
+  integer,dimension(:),allocatable            :: map_lat2ind
+  integer,dimension(:,:),allocatable          :: map_ind2lat
 
 
 
@@ -121,8 +126,7 @@ MODULE ED_VARS_GLOBAL
   !PUBLIC
   !=========================================================
   integer,dimension(:),allocatable            :: icol,irow
-  integer,dimension(:,:),allocatable          :: ij2site
-  ! real(8),dimension(:,:),allocatable          :: H0
+  ! integer,dimension(:,:),allocatable          :: ij2site
 
 
 END MODULE ED_VARS_GLOBAL

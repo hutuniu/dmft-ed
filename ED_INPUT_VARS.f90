@@ -22,6 +22,7 @@ MODULE ED_INPUT_VARS
   real(8)              :: eps                 !broadening
   real(8)              :: wini,wfin           !
   integer              :: Nsuccess            !
+  integer              :: mpi_colors          !
   logical              :: Jhflag              !spin-exchange and pair-hopping flag.
   logical              :: chiflag             !
   logical              :: HFmode              !flag for HF interaction form U(n-1/2)(n-1/2) VS Unn
@@ -75,11 +76,6 @@ MODULE ED_INPUT_VARS
   !RDMFT VARIABLES:
   !=========================================================
   integer              :: Nside            !linear size of the cluster to be solved.
-  real(8)              :: rdmft_nread      !density value for chemical potential search.
-  real(8)              :: rdmft_nerror     ! max error in adjusting chemical potential. 
-  real(8)              :: rdmft_ndelta     !starting value for chemical potential shift.
-  logical              :: rdmft_lrsym      !flag to enforce left-right symmetry in a biased system
-  integer              :: mix_type         !flag for mixing type: 0=mix G0, 1=mix Sigma
   character(len=64)    :: fileSig,fileSelf !restart files
 
 
@@ -108,6 +104,7 @@ contains
     call parse_input_variable(sb_field,"SB_FIELD",INPUTunit,default=0.1d0,comment="Value of a symmetry breaking field for magnetic solutions.")
     call parse_input_variable(ed_twin,"ED_TWIN",INPUTunit,default=.false.,comment="flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.")
     call parse_input_variable(nsuccess,"NSUCCESS",INPUTunit,default=1,comment="Number of successive iterations below threshold for convergence")
+    call parse_input_variable(mpi_colors,"MPI_COLORS",INPUTunit,default=1,comment="Number of color groups to divide the MPI Communicators into inequivalent sites")
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=5000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=5000,comment="Number of real-axis frequencies.")
     call parse_input_variable(Ltau,"LTAU",INPUTunit,default=1000,comment="Number of imaginary time points.")
@@ -154,7 +151,6 @@ contains
     call parse_input_variable(Nside,"NSIDE",INPUTunit,default=6)
     call parse_input_variable(fileSig,"FILESIG",INPUTunit,default="LSigma.data")
     call parse_input_variable(fileSelf,"FILESELF",INPUTunit,default="LSelf.data")
-    call parse_input_variable(mix_type,"MIX_TYPE",INPUTunit,default=0)
     call substring_delete(ed_file_suffix,".ed")
     call substring_delete(Hfile,".restart")
     call substring_delete(Hfile,".ed")

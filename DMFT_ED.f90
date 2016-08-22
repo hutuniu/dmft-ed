@@ -5,7 +5,6 @@ MODULE DMFT_ED
        Nlat        ,&
        icol        ,&
        irow        ,&
-       ij2site     ,&
        impSmats    ,&
        impSAmats   ,&
        impSreal    ,&

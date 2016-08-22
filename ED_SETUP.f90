@@ -1,3 +1,7 @@
+!<DEV:
+!This module is not very much affected by MPI.
+!The Nup-Ndw will however largely affect the build_sector routine
+!>DEV
 MODULE ED_SETUP
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL

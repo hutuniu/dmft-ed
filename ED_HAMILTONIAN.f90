@@ -1,8 +1,3 @@
-!########################################################################
-!PURPOSE  : Build the impurity Hamiltonian
-!|ImpUP,(2ImpUP),BathUP;,ImpDW,(2ImpDW),BathDW >
-! |1,2;3...Ns>_UP * |Ns+1,Ns+2;Ns+3,...,2*Ns>_DOWN
-!########################################################################
 MODULE ED_HAMILTONIAN
   USE SF_CONSTANTS,only:zero
   USE ED_INPUT_VARS
@@ -73,7 +68,7 @@ contains
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
     !this part is identical between d_ and c_ codes.
-    include "ed_hamiltonian_build_h.f90"
+    include "ED_HAMILTONIAN/ed_hamiltonian_build_h.f90"
     !-----------------------------------------------!
     !
     deallocate(Hmap)
@@ -83,7 +78,7 @@ contains
 #ifdef _MPI
        allocate(Hredux(dim,dim));Hredux=0.0d0
        call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
-       call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Precision,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
+       call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Precision,MPI_Sum,ED_MPI_Comm,ED_MPI_ERR)
 #else
        call sp_dump_matrix(spH0,Hmat)
 #endif
@@ -150,17 +145,17 @@ contains
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
     !this part is identical between d_ and c_ codes.
-    include "ed_hamiltonian_build_h.f90"
+    include "ED_HAMILTONIAN/ed_hamiltonian_build_h.f90"
     !-----------------------------------------------!
     !
     deallocate(Hmap)
     !
     if(present(Hmat))then
-       if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "ED_HAMILTONIAN/ed_buildH_d: wrong dimensions in Hmat"
+       if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "ED_HAMILTONIAN/ed_buildH_c: wrong dimensions in Hmat"
 #ifdef _MPI
        allocate(Hredux(dim,dim));Hredux=zero
        call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
-       call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Complex,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
+       call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Complex,MPI_Sum,ED_MPI_Comm,ED_MPI_ERR)
 #else
        call sp_dump_matrix(spH0,Hmat)
 #endif

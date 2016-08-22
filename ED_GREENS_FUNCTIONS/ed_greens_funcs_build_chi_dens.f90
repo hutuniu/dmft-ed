@@ -115,7 +115,7 @@ subroutine lanc_ed_build_densChi_diag_d(iorb)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
+     call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nitermax)
      cnorm2=one*norm0
      isign=1
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,iorb)
@@ -172,7 +172,7 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_c(isector)
-     call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_cc)
+     call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nitermax)
      cnorm2=one*norm0
      isign=1
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,iorb)
@@ -241,7 +241,7 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
+     call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nitermax)
      cnorm2=one*norm0
      !particle and holes excitations all at once
      isign=1                    !<---
@@ -266,7 +266,7 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
      cvinit=cvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dc)
+     call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nitermax)
      cnorm2=xi*norm0
      isign=1
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
@@ -288,7 +288,7 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
      cvinit=cvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dc)
+     call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nitermax)
      cnorm2=xi*norm0
      isign=-1
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
@@ -352,7 +352,7 @@ subroutine lanc_ed_build_densChi_tot_d()
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
+     call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nitermax)
      cnorm2=one*norm0
      isign=1
      call add_to_lanczos_densChi_tot(cnorm2,state_e,nitermax,alfa_,beta_,isign)
@@ -409,7 +409,7 @@ subroutine lanc_ed_build_densChi_tot_c()
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_c(isector)
-     call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_cc)
+     call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nitermax)
      cnorm2=one*norm0
      isign=1
      call add_to_lanczos_densChi_tot(cnorm2,state_e,nitermax,alfa_,beta_,isign)
@@ -514,7 +514,7 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
         call ed_buildH_d(ksector)
-        call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
+        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
         cnorm2=one*norm2
         call add_to_lanczos_densChi_mix(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb)
         deallocate(vvinit)
@@ -563,7 +563,7 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
         call ed_buildH_d(ksector)
-        call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dd)
+        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
         cnorm2=one*norm2
         call add_to_lanczos_densChi_mix(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb)
         deallocate(vvinit)

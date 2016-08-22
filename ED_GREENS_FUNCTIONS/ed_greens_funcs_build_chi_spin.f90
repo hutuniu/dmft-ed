@@ -78,7 +78,7 @@ subroutine lanc_ed_build_spinChi_d(iorb)
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
+     call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nitermax)
      !particles
      isign=1
      call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
@@ -135,7 +135,7 @@ subroutine lanc_ed_build_spinChi_c(iorb)
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_c(isector)
-     call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_cc)
+     call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nitermax)
      !particles
      isign=1
      call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
@@ -203,7 +203,7 @@ subroutine lanc_ed_build_spinChi_tot_d()
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call lanczos_plain_tridiag_d(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_dd)
+     call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nitermax)
      !particles
      isign=1
      call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,Norb+1)
@@ -260,7 +260,7 @@ subroutine lanc_ed_build_spinChi_tot_c()
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_c(isector)
-     call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nitermax,lanc_spHtimesV_cc)
+     call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nitermax)
      !particles
      isign=1
      call add_to_lanczos_spinChi(norm0,state_e,nitermax,alfa_,beta_,isign,Norb+1)

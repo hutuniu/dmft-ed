@@ -8,8 +8,8 @@ module ED_DIAG
   USE SF_TIMER,  only: start_timer,stop_timer,eta
   USE SF_IOTOOLS, only:reg,free_unit
   USE SF_STAT
+  USE SF_SP_LINALG
   !
-  USE ARPACK_LANCZOS
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
@@ -117,9 +117,11 @@ contains
           eig_values=0d0 ; eig_basis=0d0
           call ed_buildH_d(isector)
 #ifdef _MPI
-          call lanczos_parpack(Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,lanc_verbose)
+          call sp_peigh(ED_MPI_COMM,spHtimesV_dd,Ns,Neigen,Nblock,Nitermax,eig_values,eig_basis)
+          !call lanczos_parpack(Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,lanc_verbose)
 #else
-          call lanczos_arpack(Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,lanc_verbose)
+          call sp_eigh(spHtimesV_dd,Ns,Neigen,Nblock,Nitermax,eig_values,eig_basis)
+          !call lanczos_arpack(Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,lanc_verbose)
 #endif
        else
           if(allocated(eig_values))deallocate(eig_values)
@@ -233,9 +235,11 @@ contains
           eig_values=0d0 ; eig_basis=0d0
           call ed_buildH_c(isector)
 #ifdef _MPI
-          call lanczos_parpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
+          call sp_peigh(ED_MPI_COMM,spHtimesV_cc,Ns,Neigen,Nblock,Nitermax,eig_values,eig_basis)
+          !call lanczos_parpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
 #else
-          call lanczos_arpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
+          call sp_eigh(spHtimesV_cc,Ns,Neigen,Nblock,Nitermax,eig_values,eig_basis)
+          !call lanczos_arpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
 #endif
        else
           allocate(eig_values(Dim),eig_basis(Dim,dim))

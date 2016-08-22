@@ -1,3 +1,6 @@
+!<DEV:
+!This module only need to check the writing statements
+!>DEV
 MODULE ED_AUX_FUNX
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
@@ -24,6 +27,7 @@ MODULE ED_AUX_FUNX
      module procedure print_Hloc_4
   end interface print_Hloc
 
+  !<DEV: These are now in DMFT_MISC
   interface select_block
      module procedure select_block_Nlso
      module procedure select_block_NNN
@@ -48,6 +52,7 @@ MODULE ED_AUX_FUNX
      module procedure d_nn2nso
      module procedure c_nn2nso
   end interface nn2so_reshape
+  !>DEV
 
   interface extract_Hloc
      module procedure extract_Hloc_1
