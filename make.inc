@@ -11,14 +11,14 @@ PLAT=gnu
 ##$ Leave blank for SERIAL CODE
 ##$
 ##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-FPP_INEQ=MPI_INEQ
+#FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
-FPP_ED=
+#FPP_ED=MPI
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=$(HOME)/opt
+LIBDIR=/opt
 
 
 
@@ -91,7 +91,7 @@ endif
 ##$ 
 ##$ ELSE:
 ##$ 
-ARGS=  -ldmftt -lscifor -lfftpack -lminpack -llapack -lblas  -larpack -lparpack
+ARGS=  -ldmftt -lscifor #-lfftpack -lminpack -llapack -lblas  -larpack -lparpack
 
 
 

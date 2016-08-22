@@ -262,7 +262,7 @@ contains
     Hk     = build_hk_model(hk_bhz,Nso,kpath,Nkpath)
     wtk = 1d0/Lk
     if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_bhz,Nso,kpath,Lk,&
-         colors_name=[character(len=20) :: 'red','blue','red','blue'],&
+         colors_name=[red1,blue1,red1,blue1],&
          points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
          file=reg(file))
   end subroutine build_hk_GXMG
