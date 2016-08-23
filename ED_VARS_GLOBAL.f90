@@ -105,7 +105,7 @@ MODULE ED_VARS_GLOBAL
   integer                                     :: ED_MPI_ID=0
   integer                                     :: ED_MPI_SIZE=1
   integer                                     :: ED_MPI_ERR
-
+  logical                                     :: ED_MPI_MASTER=.true.
 
   !--------------- LATTICE WRAP VARIABLES -----------------!
   !Lattice size:
