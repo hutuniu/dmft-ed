@@ -885,7 +885,7 @@ contains
     !if(ED_MPI_ID==0)then
        !
        diffdens=dens_tmp-nread
-       delta_xmu=1.d0
+       delta_xmu=0.3d0
        !if(abs(diffdens).lt.2.d0*nerr)delta_xmu=0.5d0
        !
        if ((dabs(diffdens)).le.nerr) then
@@ -1035,15 +1035,13 @@ contains
   !  !
   !end function SOC_compute_component
 
-  subroutine SOC_jz_symmetrize(funct,dmft_bath_)
+  subroutine SOC_jz_symmetrize(funct)
     !passed
     complex(8),allocatable,intent(inout)         ::  funct(:,:,:,:,:)
-    type(effective_bath),intent(in)              ::  dmft_bath_
     complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:,:)
     complex(8),allocatable                       ::  a_funct(:),b_funct(:),c_funct(:),d_funct(:),e_funct(:),f_funct(:)
     integer                                      ::  ispin,jspin,iorb,jorb,io,jo
     integer                                      ::  ifreq,Lfreq
-    logical                                      ::  compute_component
     if(size(funct,dim=1)/=Nspin)stop "wrong size 1 in SOC symmetrize input f"
     if(size(funct,dim=2)/=Nspin)stop "wrong size 2 in SOC symmetrize input f"
     if(size(funct,dim=3)/=Norb) stop "wrong size 3 in SOC symmetrize input f"
@@ -1056,7 +1054,6 @@ contains
     allocate(d_funct(Lfreq));d_funct=zero
     allocate(e_funct(Lfreq));e_funct=zero
     allocate(f_funct(Lfreq));f_funct=zero
-    compute_component=.false.
     !
     !diagonal
     do ispin=1,Nspin
@@ -1066,19 +1063,11 @@ contains
     enddo
     a_funct = a_funct / ( Nspin * Norb )
     !
-    !quadrotto nero
-    b_funct = ( funct(1,1,1,2,:) + funct(1,2,2,3,:) + funct(2,2,2,1,:) + funct(2,1,2,3,:) )/3.d0
-    !quadrotto bianco
-    c_funct = ( funct(1,1,2,1,:) + funct(1,2,3,2,:) + funct(2,2,1,2,:) + funct(2,1,3,2,:) )/3.d0
-    !media quadri
-    !b_funct = ( b_funct - c_funct )/2.d0
-
-    !cerchio nero
-    d_funct = ( funct(1,2,3,1,:) + funct(2,1,1,3,:) )/2.d0
-    !cerchio bianco
-    e_funct = ( funct(1,2,1,3,:) + funct(2,1,3,1,:) )/2.d0
-    !media cerchi
-    !d_funct = ( d_funct - e_funct )/2.d0
+    !uniche due funzioni che servono (cerchi b-n)
+    b_funct = ( funct(1,2,1,3,:) + funct(2,1,3,1,:) )/2.d0
+    c_funct = ( funct(1,2,3,1,:) + funct(2,1,1,3,:) )/2.d0
+    !media
+    d_funct = ( b_funct - c_funct )/2.d0
     !
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -1088,29 +1077,29 @@ contains
                 jo = jorb + (jspin-1)*Norb
                 if(io==jo)then
                    symmetrized_funct(ispin,ispin,iorb,iorb,:) = a_funct
-               ! else
-               !    symmetrized_funct(ispin,jspin,iorb,jorb,:) = funct(ispin,jspin,iorb,jorb,:)
                 endif
              enddo
           enddo
        enddo
     enddo
-    !quadrotto nero
-    symmetrized_funct(1,1,1,2,:) = +b_funct
-    symmetrized_funct(1,2,2,3,:) = +b_funct
-    symmetrized_funct(2,2,2,1,:) = +b_funct
-    symmetrized_funct(2,1,2,3,:) = +b_funct
-    !quadrotto bianco
-    symmetrized_funct(1,1,2,1,:) = -b_funct
-    symmetrized_funct(1,2,3,2,:) = -b_funct
-    symmetrized_funct(2,2,1,2,:) = -b_funct
-    symmetrized_funct(2,1,3,2,:) = -b_funct
-    !cerchio nero
-    symmetrized_funct(1,2,3,1,:) = +d_funct
-    symmetrized_funct(2,1,1,3,:) = +d_funct
+    !nell'inserire rapporto tutto al cerchio bianco
     !cerchio bianco
-    symmetrized_funct(1,2,1,3,:) = -d_funct
-    symmetrized_funct(2,1,3,1,:) = -d_funct
+    symmetrized_funct(1,2,1,3,:) = +d_funct
+    symmetrized_funct(2,1,3,1,:) = +d_funct
+    !cerchio nero
+    symmetrized_funct(1,2,3,1,:) = -d_funct
+    symmetrized_funct(2,1,1,3,:) = -d_funct
+    !quadrotto nero
+    symmetrized_funct(1,1,1,2,:) = -xi*d_funct
+    symmetrized_funct(1,2,2,3,:) = -xi*d_funct
+    symmetrized_funct(2,2,2,1,:) = -xi*d_funct
+    symmetrized_funct(2,1,2,3,:) = -xi*d_funct
+    !quadrotto bianco
+    symmetrized_funct(1,1,2,1,:) = +xi*d_funct
+    symmetrized_funct(1,2,3,2,:) = +xi*d_funct
+    symmetrized_funct(2,2,1,2,:) = +xi*d_funct
+    symmetrized_funct(2,1,3,2,:) = +xi*d_funct
+
     !
     funct = zero
     funct = symmetrized_funct

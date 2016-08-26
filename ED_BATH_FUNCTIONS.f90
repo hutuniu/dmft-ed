@@ -2286,7 +2286,7 @@ contains
           Delta = delta_bath_real(x,dmft_bath_)
           do ispin=1,Nspin
              do i=1,L
-                zeta = (dreal(x(i))  + xmu)*eye(Norb)
+                zeta = ((x(i))  + xmu)*eye(Norb)
                 do iorb=1,Norb
                    do jorb=1,Norb
                       G0and(ispin,ispin,iorb,jorb,i) = zeta(iorb,jorb) - impHloc(ispin,ispin,iorb,jorb)  - Delta(ispin,ispin,iorb,jorb,i)

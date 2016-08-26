@@ -48,7 +48,7 @@ MODULE ED_GREENS_FUNCTIONS
 
   !AUX GF
   !=========================================================
-  complex(8),allocatable,dimension(:,:)      :: auxGmats,auxGreal
+  complex(8),allocatable,dimension(:,:)      :: auxGmats,auxGreal 
 
   !Poles & Weights 
   !=========================================================
@@ -75,6 +75,8 @@ MODULE ED_GREENS_FUNCTIONS
   real(8),allocatable,dimension(:,:)      :: phiChi_tau
   complex(8),allocatable,dimension(:,:)   :: phiChi_w
   complex(8),allocatable,dimension(:,:)   :: phiChi_iv
+
+  integer :: norm_sign
 
 
   public                                     :: buildgf_impurity
@@ -350,11 +352,11 @@ contains
     invF0mats(ispin,ispin,:,:,:) = invf0_bath_mats(ispin,ispin,dcmplx(0d0,wm(:)),dmft_bath)
     !
     invG0real(ispin,ispin,:,:,:) = invg0_bath_real(ispin,ispin,dcmplx(wr(:),eps),dmft_bath)
-    invF0real(ispin,ispin,:,:,:) = invf0_bath_real(ispin,ispin,dcmplx(wr(:),eps),dmft_bath)
+    invF0real(ispin,ispin,:,:,:) = invf0_bath_real(ispin,ispin,dcmplx(wr(:),eps),dmft_bath) 
     !
     select case(bath_type)
     case default
-       !      
+       !
        !Get Gimp^-1
        do iorb=1,Norb
           det_mats  =  abs(impGmats(ispin,ispin,iorb,iorb,:))**2 + (impFmats(ispin,ispin,iorb,iorb,:))**2
