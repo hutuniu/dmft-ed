@@ -201,6 +201,7 @@ contains
 #undef INPUT_LIST
 
 
+  
 #ifdef _MPI
 #define INPUT_LIST MpiComm,bath,Hloc,iprint,Uloc_ii,Ust_ii,Jh_ii
 #else
