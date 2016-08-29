@@ -1254,7 +1254,7 @@ contains
                       do jorb=1,Norb
                          io = iorb + (ispin-1)*Norb
                          jo = jorb + (jspin-1)*Norb
-                         fgorb(io,jo) = zeta(io,jo) - conjg(impHloc(ispin,jspin,iorb,jorb)) - Delta(ispin,jspin,iorb,jorb,i)
+                         fgorb(io,jo) = zeta(io,jo) - impHloc(ispin,jspin,iorb,jorb) - Delta(ispin,jspin,iorb,jorb,i)
                       enddo
                    enddo
                 enddo
@@ -1992,7 +1992,7 @@ contains
                       do jorb=1,Norb
                          io = iorb + (ispin-1)*Norb
                          jo = jorb + (jspin-1)*Norb
-                         G0and(ispin,jspin,iorb,jorb,i) = zeta(io,jo) - conjg(impHloc(ispin,jspin,iorb,jorb)) - Delta(ispin,jspin,iorb,jorb,i)
+                         G0and(ispin,jspin,iorb,jorb,i) = zeta(io,jo) - impHloc(ispin,jspin,iorb,jorb) - Delta(ispin,jspin,iorb,jorb,i)
                       enddo
                    enddo
                 enddo

@@ -132,7 +132,6 @@ program ed_TEST_REPLICA
      !
      !cg_weight=cg_weight_static
      wmixing=wmixing_static
-   !  if(iloop==1)wmixing=0.0d0
      if(ED_MPI_ID==0)write(LOGfile,'(a10,F10.5,a10,i3)') " wmixing",wmixing,"cg_weight",cg_weight
      Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      !
@@ -415,9 +414,9 @@ contains
              Hk(1:2,5:6)= abs(+xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
              Hk(3:4,5:6)= abs(-xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
           else
-             Hk(1:2,3:4)= +xi * pauli_z * soc/2.
-             Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-             Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+             Hk(1:2,3:4)= (-xi * pauli_z * soc/2.)
+             Hk(1:2,5:6)= (+xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
+             Hk(3:4,5:6)= (-xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
           endif
        endif
        !hermiticity
@@ -480,9 +479,9 @@ contains
              Hk(1:2,5:6)= abs(+xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
              Hk(3:4,5:6)= abs(-xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
           else
-             Hk(1:2,3:4)= +xi * pauli_z * soc/2.
-             Hk(1:2,5:6)= -xi * pauli_y * soc/2. + ivb*2*xi*sin(kx)*eye(2)
-             Hk(3:4,5:6)= +xi * pauli_x * soc/2. + ivb*2*xi*sin(ky)*eye(2)
+             Hk(1:2,3:4)= (-xi * pauli_z * soc/2.)
+             Hk(1:2,5:6)= (+xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
+             Hk(3:4,5:6)= (-xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
           endif
        endif
        !hermiticity

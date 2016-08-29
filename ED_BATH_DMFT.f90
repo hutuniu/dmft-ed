@@ -233,7 +233,7 @@ contains
                 enddo
              enddo
              dmft_bath_%h(:,:,:,:,i)=zero
-             dmft_bath_%h(:,:,:,:,i)=(-1.d0*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)+impHloc)*0.75d0+noise_b(i)
+             dmft_bath_%h(:,:,:,:,i)=(-xmu*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)+impHloc)*(1.d0+noise_b(i))
           enddo
        endif
        !HYBR. INITIALIZATION
@@ -241,12 +241,12 @@ contains
        if((ed_type=="d").or.((ed_type=="c").and.(real_hybr)))then
           do i=1,Nbath
              noise_tot=noise_b(i)
-             dmft_bath_%vr(i)=cmplx(0.5d0+noise_tot,0.0d0)*ed_vsf_ratio!*(-1)**(i-1)
+             dmft_bath_%vr(i)=cmplx(0.5d0+noise_tot,0.0d0)!*(-1)**(i-1)
           enddo
        elseif((ed_type=="c").and.(.not.real_hybr))then
           do i=1,Nbath
              noise_tot=noise_b(i)
-             dmft_bath_%vr(i)=cmplx(0.5d0+noise_tot,0.1d0+noise_tot**2)*ed_vsf_ratio!*(-1)**(i-1)
+             dmft_bath_%vr(i)=cmplx(0.5d0+noise_tot,0.1d0+noise_tot**2)!*(-1)**(i-1)
           enddo
        endif
        !
@@ -598,15 +598,15 @@ contains
                 himp_aux=zero;himp_aux=nn2so_reshape(dmft_bath_%h(:,:,:,:,i),Nspin,Norb)
                 hybr_aux=dmft_bath_%vr(i)
                 do io=1,Nspin*Norb
-                   if(unit_==6)then
+                   if(unit_==LOGfile)then
                       if((ed_type=="d").or.((ed_type=="c").and.(real_Hrepl))) then
-                         if(io==1)write(unit_,"(F10.4,a5,90(F10.4,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                         if(io/=1)write(unit_,"(a10,a5,90(F10.4,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                         if(io==1)write(unit_,"(F8.3,a5,90(F8.3,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                         if(io/=1)write(unit_,"(a8,a5,90(F8.3,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
                       endif
                       if((ed_type=="c").and.(.not.real_Hrepl)) then
-                         if(io==1) write(unit_,"(2F10.4,a5,90(F10.4,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
+                         if(io==1) write(unit_,"(2F8.3,a5,90(F8.3,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
                                                                                                               (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                         if(io/=1) write(unit_,"(2a10,a5,90(F10.4,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
+                         if(io/=1) write(unit_,"(2a8,a5,90(F8.3,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
                                                                                                               (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
                       endif
                    else
@@ -623,15 +623,15 @@ contains
                 himp_aux=zero;himp_aux=nn2so_reshape(dmft_bath_%h(:,:,:,:,i),Nspin,Norb)
                 hybr_aux=dmft_bath_%vr(i)
                 do io=1,Nspin*Norb
-                   if(unit_==6)then
+                   if(unit_==LOGfile)then
                       if((ed_type=="d").or.((ed_type=="c").and.(real_Hrepl))) then
-                         if(io==1)write(unit_,"(F10.4,a5,90(F10.4,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                         if(io/=1)write(unit_,"(a10,a5,90(F10.4,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                         if(io==1)write(unit_,"(F8.3,a5,90(F8.3,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                         if(io/=1)write(unit_,"(a8,a5,90(F8.3,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
                       endif
                       if((ed_type=="c").and.(.not.real_Hrepl)) then
-                         if(io==1) write(unit_,"(2F10.4,a5,90(F10.4,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
+                         if(io==1) write(unit_,"(2F8.3,a5,90(F8.3,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
                                                                                                               (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                         if(io/=1) write(unit_,"(2a10,a5,90(F10.4,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
+                         if(io/=1) write(unit_,"(2a8,a5,90(F8.3,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
                                                                                                               (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
                       endif
                    else
@@ -1000,7 +1000,7 @@ contains
           do ibath=1,Nbath
              element_R=0.0d0;element_I=0.0d0
              i=i+1
-             element_R=(bath_(i))
+             element_R=abs(bath_(i))
              if((ed_type=="c").and.(.not.real_hybr))then
                 i=i+1
                 element_I=(bath_(i))
@@ -1279,7 +1279,7 @@ contains
           do ibath=1,Nbath
           !do ibath=1,1
              i=i+1
-             bath_(i)=(real(dmft_bath_%vr(ibath)))
+             bath_(i)=abs(real(dmft_bath_%vr(ibath)))
              if((ed_type=="c").and.(.not.real_hybr))then
                 i=i+1
                 bath_(i)=aimag(dmft_bath_%vr(ibath))

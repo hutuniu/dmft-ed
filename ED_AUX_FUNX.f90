@@ -885,7 +885,7 @@ contains
     !if(ED_MPI_ID==0)then
        !
        diffdens=dens_tmp-nread
-       delta_xmu=0.3d0
+       delta_xmu=0.1d0
        !if(abs(diffdens).lt.2.d0*nerr)delta_xmu=0.5d0
        !
        if ((dabs(diffdens)).le.nerr) then
@@ -928,7 +928,7 @@ contains
           if (ilarge*ismall.eq.0) then
              !non ho ancora trovato un xmu per cui diffdens cambia segno
              inotbound=inotbound+1
-             if (inotbound>=6)  delta_xmu = delta_xmu*2.0d0
+             if (inotbound>=5)  delta_xmu = delta_xmu*2.0d0
              if (inotbound>=10) delta_xmu = delta_xmu*3.0d0
              if (inotbound>=15) delta_xmu = delta_xmu*4.0d0
              xmu_shift = delta_xmu * diffdens

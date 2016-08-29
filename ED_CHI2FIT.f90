@@ -70,13 +70,13 @@ contains
        call assert_shape(fg,[Nspin,Nspin,Norb,Norb,size(fg,5)],"chi2_fitgf_generic_normal","fg")
        select case(cg_method)
        case (0)
-          if(ed_verbose<3)write(LOGfile,"(A,I3)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight
+          if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
        case (1)
-          if(ed_verbose<3)write(LOGfile,"(A,I3)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight
+          if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
        case(2)
-          if(ed_verbose<3)write(LOGfile,"(A,I3)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight
+          if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
        case default
-          stop "chi2_fitgf_generic_normal error: cg_method > 2" 
+          stop "chi2_fitgf_generic_normal error: cg_method > 2"
        end select
     endif
     !

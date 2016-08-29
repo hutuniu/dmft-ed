@@ -39,6 +39,15 @@ subroutine chi2_fitgf_replica(fg,bath_)
   call init_dmft_bath_mask(dmft_bath)
   call set_dmft_bath(bath_,dmft_bath)
   !
+ ! do i=1,Nbath
+ !    do ispin=1,Nspin
+ !       do iorb=1,Norb
+ !          dmft_bath%h(ispin,ispin,iorb,iorb,i)=dmft_bath%h(ispin,ispin,iorb,iorb,i)-xmu
+ !       enddo
+ !    enddo
+ ! enddo
+ ! call get_dmft_bath(dmft_bath,bath_)
+  !
   count=0
   do ispin=1,Nspin
      do jspin=1,Nspin
@@ -146,6 +155,13 @@ subroutine chi2_fitgf_replica(fg,bath_)
   endif
   !
   call set_dmft_bath(array_bath,dmft_bath)           ! *** array_bath --> dmft_bath ***    (per write fit result)
+ ! do i=1,Nbath
+ !    do ispin=1,Nspin
+ !       do iorb=1,Norb
+ !          dmft_bath%h(ispin,ispin,iorb,iorb,i)=dmft_bath%h(ispin,ispin,iorb,iorb,i)+xmu
+ !       enddo
+ !    enddo
+ ! enddo
   !
   if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
   !
@@ -595,7 +611,7 @@ function delta_replica_normal(a) result(Delta)
            enddo
         enddo
         !
-        invH_k(:,:,i) = eye(Norb) * xi * Xdelta(i) - invH_k(:,:,i)
+        invH_k(:,:,i) = eye(Norb) * xi * Xdelta(i) + xmu - invH_k(:,:,i)
         call inv(invH_k(:,:,i))
      enddo
      !
