@@ -235,7 +235,7 @@ contains
     integer          :: neigen_sectortmp(size(bath,1),Nsectors)
     integer          :: neigen_totaltmp(size(bath,1))
     ! 
-    integer          :: ilat,iorb,jorb,ispin,jspin
+    integer          :: i,j,ilat,iorb,jorb,ispin,jspin
     integer          :: Nsites
     logical          :: check_dim
     character(len=5) :: tmp_suffix
@@ -559,6 +559,9 @@ contains
 #define INPUT_LIST bath,Hloc,iprint
 #endif
   subroutine ed_rebuild_sigma_lattice(INPUT_LIST)
+#ifdef _MPI
+    integer          :: MpiComm
+#endif
     real(8)          :: bath(:,:) ![Nlat][Nb]
     complex(8)       :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
     integer          :: iprint

@@ -55,20 +55,20 @@ contains
     integer                          :: i
     integer,allocatable,dimension(:) :: SendCounts,Displs
 #ifdef _MPI
-    rank = MPI_Get_rank(MpiComm)
-    size = MPI_Get_size(MpiComm)
+    rank = MPI_Get_rank(ED_MPI_COMM)
+    size = MPI_Get_size(ED_MPI_COMM)
     N=0
-    call MPI_AllReduce(Nloc,N,1,MPI_Integer,MPI_Sum,MpiComm,ierr)
-    Q = MPI_Get_Q(MpiComm,N)
-    R = MPI_Get_R(MpiComm,N)
+    call MPI_AllReduce(Nloc,N,1,MPI_Integer,MPI_Sum,ED_MPI_COMM,ierr)
+    Q = MPI_Get_Q(ED_MPI_COMM,N)
+    R = MPI_Get_R(ED_MPI_COMM,N)
     !
     allocate(vin(N));vin=0d0
     allocate(SendCounts(0:size-1),displs(0:size-1))
     SendCounts(0:)     = Q
     SendCounts(size-1) = Q+mod(N,size)
     forall(i=0:size-1)Displs(i)=i*Q
-    call MPI_Allgatherv(v(1:Nloc),Nloc,MPI_Double_Precision,vin,SendCounts,Displs,MPI_Double_Precision,MpiComm,ierr)
-    call MPI_Bcast(vin,N,MPI_Double_Precision,0,MpiComm,ierr)
+    call MPI_Allgatherv(v(1:Nloc),Nloc,MPI_Double_Precision,vin,SendCounts,Displs,MPI_Double_Precision,ED_MPI_COMM,ierr)
+    call MPI_Bcast(vin,N,MPI_Double_Precision,0,ED_MPI_COMM,ierr)
     Hv=0d0
     call sp_matrix_vector_product_mpi_dd(spH0,N,vin,Nloc,Hv)
 #else
@@ -87,12 +87,12 @@ contains
     integer                             :: i
     integer,allocatable,dimension(:)    :: SendCounts,Displs
 #ifdef _MPI
-    rank = MPI_Get_rank(MpiComm)
-    size = MPI_Get_size(MpiComm)
+    rank = MPI_Get_rank(ED_MPI_COMM)
+    size = MPI_Get_size(ED_MPI_COMM)
     N=0
-    call MPI_AllReduce(Nloc,N,1,MPI_Integer,MPI_Sum,MpiComm,ierr)
-    Q = MPI_Get_Q(MpiComm,N)
-    R = MPI_Get_R(MpiComm,N)
+    call MPI_AllReduce(Nloc,N,1,MPI_Integer,MPI_Sum,ED_MPI_COMM,ierr)
+    Q = MPI_Get_Q(ED_MPI_COMM,N)
+    R = MPI_Get_R(ED_MPI_COMM,N)
     !
     allocate(vin(N))
     vin=dcmplx(0d0,0d0)
@@ -100,15 +100,16 @@ contains
     SendCounts(0:)     = Q
     SendCounts(size-1) = Q+mod(N,size)
     forall(i=0:size-1)Displs(i)=i*Q
-    call MPI_Allgatherv(v(1:Nloc),Nloc,MPI_Double_Complex,vin,SendCounts,Displs,MPI_Double_Complex,MpiComm,ierr)
-    call MPI_Bcast(vin,N,MPI_Double_Complex,0,MpiComm,ierr)
+    call MPI_Allgatherv(v(1:Nloc),Nloc,MPI_Double_Complex,vin,SendCounts,Displs,MPI_Double_Complex,ED_MPI_COMM,ierr)
+    call MPI_Bcast(vin,N,MPI_Double_Complex,0,ED_MPI_COMM,ierr)
     Hv=zero
     call sp_matrix_vector_product_mpi_cc(spH0,N,vin,Nloc,Hv)
 #else
     Hv=zero
     call sp_matrix_vector_product_cc(spH0,Nloc,v,Hv)
-  end subroutine spHtimesV_cc
 #endif
+  end subroutine spHtimesV_cc
+
 
 
 
@@ -129,10 +130,10 @@ contains
     integer                          :: i,j
     integer,allocatable,dimension(:) :: SendCounts,Displs
     !
-    rank = MPI_Get_rank(MpiComm)
-    size = MPI_Get_size(MpiComm)
-    Q = MPI_Get_Q(MpiComm,N)
-    R = MPI_Get_R(MpiComm,N)
+    rank = MPI_Get_rank(ED_MPI_COMM)
+    size = MPI_Get_size(ED_MPI_COMM)
+    Q = MPI_Get_Q(ED_MPI_COMM,N)
+    R = MPI_Get_R(ED_MPI_COMM,N)
     Nloc = Q+R
     !
     allocate(vout(Nloc))
@@ -144,8 +145,8 @@ contains
     SendCounts(size-1) = Q+mod(N,size)
     forall(i=0:size-1)Displs(i)=i*Q
     Hv=0d0
-    call MPI_Allgatherv(vout(1:Nloc),Nloc,MPI_Double_Complex,Hv,SendCounts,Displs,MPI_Double_Complex,MpiComm,ierr)
-    call MPI_Bcast(Hv,N,MPI_Double_Complex,0,MpiComm,ierr)
+    call MPI_Allgatherv(vout(1:Nloc),Nloc,MPI_Double_Complex,Hv,SendCounts,Displs,MPI_Double_Complex,ED_MPI_COMM,ierr)
+    call MPI_Bcast(Hv,N,MPI_Double_Complex,0,ED_MPI_COMM,ierr)
 #else
     Hv=0.d0
     call sp_matrix_vector_product_dd(spH0,N,v,Hv)
@@ -164,10 +165,10 @@ contains
     integer                             :: i,j
     integer,allocatable,dimension(:)    :: SendCounts,Displs
     !
-    rank = MPI_Get_rank(MpiComm)
-    size = MPI_Get_size(MpiComm)
-    Q = MPI_Get_Q(MpiComm,N)
-    R = MPI_Get_R(MpiComm,N)
+    rank = MPI_Get_rank(ED_MPI_COMM)
+    size = MPI_Get_size(ED_MPI_COMM)
+    Q = MPI_Get_Q(ED_MPI_COMM,N)
+    R = MPI_Get_R(ED_MPI_COMM,N)
     Nloc = Q+R
     !
     allocate(vout(Nloc))
@@ -179,8 +180,8 @@ contains
     SendCounts(size-1) = Q+mod(N,size)
     forall(i=0:size-1)Displs(i)=i*Q
     Hv=zero
-    call MPI_Allgatherv(vout(1:Nloc),Nloc,MPI_Double_Complex,Hv,SendCounts,Displs,MPI_Double_Complex,MpiComm,ierr)
-    call MPI_Bcast(Hv,N,MPI_Double_Complex,0,MpiComm,ierr)
+    call MPI_Allgatherv(vout(1:Nloc),Nloc,MPI_Double_Complex,Hv,SendCounts,Displs,MPI_Double_Complex,ED_MPI_COMM,ierr)
+    call MPI_Bcast(Hv,N,MPI_Double_Complex,0,ED_MPI_COMM,ierr)
 #else
     Hv=zero
     call sp_matrix_vector_product_dc(spH0,N,v,Hv)
@@ -199,10 +200,10 @@ contains
     integer                             :: i,j
     integer,allocatable,dimension(:)    :: SendCounts,Displs
     !
-    rank = MPI_Get_rank(MpiComm)
-    size = MPI_Get_size(MpiComm)
-    Q = MPI_Get_Q(MpiComm,N)
-    R = MPI_Get_R(MpiComm,N)
+    rank = MPI_Get_rank(ED_MPI_COMM)
+    size = MPI_Get_size(ED_MPI_COMM)
+    Q = MPI_Get_Q(ED_MPI_COMM,N)
+    R = MPI_Get_R(ED_MPI_COMM,N)
     Nloc = Q+R
     !
     allocate(vout(Nloc))
@@ -214,8 +215,8 @@ contains
     SendCounts(size-1) = Q+mod(N,size)
     forall(i=0:size-1)Displs(i)=i*Q
     Hv=zero
-    call MPI_Allgatherv(vout(1:Nloc),Nloc,MPI_Double_Complex,Hv,SendCounts,Displs,MPI_Double_Complex,MpiComm,ierr)
-    call MPI_Bcast(Hv,N,MPI_Double_Complex,0,MpiComm,ierr)
+    call MPI_Allgatherv(vout(1:Nloc),Nloc,MPI_Double_Complex,Hv,SendCounts,Displs,MPI_Double_Complex,ED_MPI_COMM,ierr)
+    call MPI_Bcast(Hv,N,MPI_Double_Complex,0,ED_MPI_COMM,ierr)
 #else
     Hv=zero
     call sp_matrix_vector_product_cc(spH0,N,v,Hv)
