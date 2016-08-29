@@ -29,31 +29,11 @@ MODULE DMFT_ED
        search_chemical_potential
 
 
-  USE ED_BATH_USER, only: &
-       get_bath_size,get_size_bath,      &
-       get_component_size_bath,           &
-       get_spin_component_size_bath,     &
-       get_orb_component_size_bath,      &
-       get_spin_orb_component_size_bath, &
-       get_component_bath,               &
-       set_component_bath,               &      
-       copy_component_bath,              &
-       save_bath,                        &
-       spin_symmetrize_bath ,            &
-       ph_symmetrize_bath   ,            &
-       ph_trans_bath        ,            &
-       break_symmetry_bath  ,            &
-       enforce_normal_bath ,             &
-       check_bath_dimension,             &
-       check_size_bath
-
-
-
-  USE ED_MAIN,      only: &
-       ed_init_solver         ,&
-       ed_solve               ,&
-       ed_rebuild_sigma       ,&
-       ed_rebuild_sigma_lattice,&
+  USE ED_IO,      only: &
+       ed_print_PolesWeights,&
+       ed_print_impSigma,ed_print_impSigma_lattice,&
+       ed_print_impG,ed_print_impG_lattice,&
+       ed_print_impG0,&       
        ed_get_sigma_matsubara ,&
        ed_get_self_matsubara  ,&
        ed_get_sigma_real      ,&
@@ -76,8 +56,6 @@ MODULE DMFT_ED
        ed_get_dund            ,&
        ed_get_dse             ,&
        ed_get_dph             ,&
-       ed_init_solver_lattice         ,&
-       ed_solve_lattice               ,&
        ed_get_sigma_matsubara_lattice ,&
        ed_get_self_matsubara_lattice  ,&
        ed_get_sigma_real_lattice      ,&
@@ -101,6 +79,32 @@ MODULE DMFT_ED
        ed_get_dse_lattice             ,&
        ed_get_dph_lattice             ,&
        ed_get_density_matrix              !TODO:works only for ED_TYPE="c", BATH_TYPE="hybrid", ED_MODE="nonsu2"
+
+
+  USE ED_BATH_USER, only: &
+       get_bath_size,get_size_bath,      &
+       get_component_size_bath,           &
+       get_spin_component_size_bath,     &
+       get_orb_component_size_bath,      &
+       get_spin_orb_component_size_bath, &
+       get_component_bath,               &
+       set_component_bath,               &      
+       copy_component_bath,              &
+       save_bath,                        &
+       spin_symmetrize_bath ,            &
+       ph_symmetrize_bath   ,            &
+       ph_trans_bath        ,            &
+       break_symmetry_bath  ,            &
+       enforce_normal_bath ,             &
+       check_bath_dimension,             &
+       check_size_bath
+
+
+
+  USE ED_MAIN,      only: &
+       ed_init_solver         ,&
+       ed_solve               ,&
+       ed_rebuild_sigma
 
 
   USE ED_GLOC,     only:&

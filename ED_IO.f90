@@ -1,20 +1,10 @@
 MODULE ED_IO
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
-  USE ED_EIGENSPACE, only: state_list,es_delete_espace
   USE ED_AUX_FUNX
-  USE ED_SETUP
-  USE ED_BATH_DMFT
-  USE ED_BATH_USER
-  USE ED_HAMILTONIAN
-  USE ED_GREENS_FUNCTIONS
-  USE ED_OBSERVABLES
-  USE ED_ENERGY
-  USE ED_DIAG
   USE SF_LINALG
   USE SF_ARRAYS, only: linspace,arange
-  USE SF_IOTOOLS, only: reg,store_data,txtfy,free_unit
-  USE SF_TIMER,only: start_timer,stop_timer
+  USE SF_IOTOOLS, only: reg,store_data,txtfy,free_unit,free_units
   implicit none
   private
 
@@ -233,22 +223,144 @@ MODULE ED_IO
   public :: ed_get_dund
   public :: ed_get_dse
   public :: ed_get_dph
-
   public :: ed_get_doubles_lattice
   public :: ed_get_dust_lattice
   public :: ed_get_dund_lattice
   public :: ed_get_dse_lattice
   public :: ed_get_dph_lattice
-
   public :: ed_get_density_matrix
+
+
+  public :: ed_print_PolesWeights
+  public :: ed_print_impSigma
+  public :: ed_print_impSigma_lattice
+  public :: ed_print_impG
+  public :: ed_print_impG_lattice
+  public :: ed_print_impG0
+
+  public :: print_poles_weights_normal
+  public :: print_poles_weights_superc
+  public :: print_poles_weights_nonsu2
+  public :: print_impSigma_normal
+  public :: print_impSigma_superc
+  public :: print_impSigma_nonsu2
+  public :: print_impG_normal
+  public :: print_impG_superc
+  public :: print_impG_nonsu2
+  public :: print_impG0_normal
+  public :: print_impG0_superc
+  public :: print_impG0_nonsu2
 
 
   real(8),dimension(:),allocatable                   :: wr,wm
   character(len=64)                                  :: suffix
 
 
-
 contains
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : Print impurity Functions case:
+  ! - Poles&Weights
+  ! - impSigma
+  ! - impG
+  ! - impG0
+  ! NORMAL - SUPERConducting - NONSU2
+  !+------------------------------------------------------------------+
+  subroutine ed_print_PolesWeights
+    select case(ed_mode)
+    case ("normal")
+       call print_poles_weights_normal
+    case ("superc")
+       call print_poles_weights_superc
+    case ("nonsu2")
+       call print_poles_weights_nonsu2
+    case default
+       stop "ed_print_PolesWeights error: ed_mode not in the list"
+    end select
+  end subroutine ed_print_PolesWeights
+
+
+
+  subroutine ed_print_impSigma
+    select case(ed_mode)
+    case ("normal")
+       call print_impSigma_normal
+    case ("superc")
+       call print_impSigma_superc
+    case ("nonsu2")
+       call print_impSigma_nonsu2
+    case default
+       stop "ed_print_impSigma error: ed_mode not in the list"
+    end select
+  end subroutine ed_print_impSigma
+  !
+  subroutine ed_print_impSigma_lattice(iprint)
+    integer :: iprint
+    select case(ed_mode)
+    case ("normal")
+       call print_impSigma_normal_lattice(iprint)
+    case ("superc")
+       call print_impSigma_superc_lattice(iprint)
+    case ("nonsu2")
+       call print_impSigma_nonsu2_lattice(iprint)
+    case default
+       stop " print_impSigma_lattice error: ed_mode not in the list"
+    end select
+  end subroutine ed_print_impSigma_lattice
+
+
+
+  subroutine ed_print_impG
+    select case(ed_mode)
+    case ("normal")
+       call print_impG_normal
+    case ("superc")
+       call print_impG_superc
+    case ("nonsu2")
+       call print_impG_nonsu2
+    case default
+       stop "ed_print_impG error: ed_mode not in the list"
+    end select
+  end subroutine ed_print_impG
+  !
+  subroutine ed_print_impG_lattice(iprint)
+    integer :: iprint
+    select case(ed_mode)
+    case ("normal")
+       call print_impG_normal_lattice(iprint)
+    case ("superc")
+       call print_impG_superc_lattice(iprint)
+    case ("nonsu2")
+       call print_impG_nonsu2_lattice(iprint)
+    case default
+       stop " print_impG_lattice error: ed_mode not in the list"
+    end select
+  end subroutine ed_print_impG_lattice
+
+
+
+  subroutine ed_print_impG0
+    select case(ed_mode)
+    case ("normal")
+       call print_impG0_normal
+    case ("superc")
+       call print_impG0_superc
+    case ("nonsu2")
+       call print_impG0_nonsu2
+    case default
+       stop "ed_print_impG0 error: ed_mode not in the list"
+    end select
+  end subroutine ed_print_impG0
+
+
+
+  include "ED_IO/ed_io_print_PolesWeights.f90"
+  include "ED_IO/ed_io_print_impSigma.f90"
+  include "ED_IO/ed_io_print_impG.f90"
+  include "ED_IO/ed_io_print_impG0.f90"
+
+
 
 
 

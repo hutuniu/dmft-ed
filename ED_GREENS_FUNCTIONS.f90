@@ -30,19 +30,19 @@ MODULE ED_GREENS_FUNCTIONS
   !=========================================================
   real(8),dimension(:),allocatable            :: wm,tau,wr,vm
 
-  !Non-interacting GF
-  !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:,:) :: impG0mats,impG0real
-  complex(8),allocatable,dimension(:,:,:,:,:) :: impF0mats,impF0real
+  ! !Non-interacting GF
+  ! !=========================================================
+  ! complex(8),allocatable,dimension(:,:,:,:,:) :: impG0mats,impG0real
+  ! complex(8),allocatable,dimension(:,:,:,:,:) :: impF0mats,impF0real
 
   !AUX GF
   !=========================================================
   complex(8),allocatable,dimension(:,:)       :: auxGmats,auxGreal
   complex(8),allocatable,dimension(:,:,:)     :: auxGpoles,auxGweights
 
-  !Poles & Weights 
-  !=========================================================
-  real(8),allocatable,dimension(:,:,:,:,:,:)  :: GFpoles,GFweights
+  ! !Poles & Weights 
+  ! !=========================================================
+  ! real(8),allocatable,dimension(:,:,:,:,:,:)  :: GFpoles,GFweights
 
 
   !Spin Susceptibilities
@@ -81,19 +81,6 @@ MODULE ED_GREENS_FUNCTIONS
   public :: rebuildgf_impurity
   public :: buildchi_impurity
 
-  public :: print_poles_weights_normal
-  public :: print_sigma_normal
-  public :: print_impG_normal
-  public :: print_impG0_normal
-  public :: print_poles_weights_superc
-  public :: print_sigma_superc
-  public :: print_impG_superc
-  public :: print_impG0_superc
-  public :: print_poles_weights_nonsu2
-  public :: print_sigma_nonsu2
-  public :: print_impG_nonsu2
-  public :: print_impG0_nonsu2
-
 
 contains
 
@@ -124,17 +111,20 @@ contains
     impSAmats = zero
     impSAreal = zero
     !
-    if(.not.allocated(impG0mats)) allocate(impG0mats(Nspin,Nspin,Norb,Norb,Lmats))
-    if(.not.allocated(impF0mats)) allocate(impF0mats(Nspin,Nspin,Norb,Norb,Lmats))
-    if(.not.allocated(impG0real)) allocate(impG0real(Nspin,Nspin,Norb,Norb,Lreal))
-    if(.not.allocated(impF0real)) allocate(impF0real(Nspin,Nspin,Norb,Norb,Lreal))
+    if(.not.allocated(impG0mats))stop "buildgf_impurity: impG0mats not allocated"
+    if(.not.allocated(impG0real))stop "buildgf_impurity: impG0real not allocated"
+    if(.not.allocated(impF0mats))stop "buildgf_impurity: impF0mats not allocated"
+    if(.not.allocated(impF0real))stop "buildgf_impurity: impF0real not allocated"
     impG0mats=zero
-    impF0mats=zero
     impG0real=zero
+    impF0mats=zero
     impF0real=zero
+
     !
-    if(.not.allocated(GFpoles))   allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
-    if(.not.allocated(GFweights)) allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+    if(allocated(GFpoles))deallocate(GFpoles)
+    if(allocated(GFweights))deallocate(GFweights)
+    allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+    allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
     GFpoles=zero
     GFweights=zero
     !
@@ -143,15 +133,27 @@ contains
     case default
        call build_gf_normal()
        call get_sigma_normal()
-       call print_gf_normal()
+       call print_poles_weights_normal
+       call print_impSigma_normal
+       call print_impG_normal
+       call print_impG0_normal
+       !
     case ("superc")
        call build_gf_superc()
        call get_sigma_superc()
-       call print_gf_superc()
+       call print_poles_weights_superc
+       call print_impSigma_superc
+       call print_impG_superc
+       call print_impG0_superc
+       !
     case ("nonsu2")
        call build_gf_nonsu2()
        call get_sigma_nonsu2()
-       call print_gf_nonsu2()
+       call print_poles_weights_nonsu2
+       call print_impSigma_nonsu2
+       call print_impG_nonsu2
+       call print_impG0_nonsu2
+       !
     end select
     !
     if(allocated(wm))deallocate(wm)
@@ -163,6 +165,7 @@ contains
     if(allocated(impG0real))deallocate(impG0real)
     if(allocated(impF0real))deallocate(impF0real)
   end subroutine buildgf_impurity
+
 
 
   !+------------------------------------------------------------------+
@@ -236,145 +239,14 @@ contains
 
 
 
+
+
   !+------------------------------------------------------------------+
   !                    SELF-ENERGY FUNCTIONS 
   !+------------------------------------------------------------------+
   include "ED_GREENS_FUNCTIONS/ed_greens_funcs_get_sigma_normal.f90"
   include "ED_GREENS_FUNCTIONS/ed_greens_funcs_get_sigma_superc.f90"
   include "ED_GREENS_FUNCTIONS/ed_greens_funcs_get_sigma_nonsu2.f90"
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Print impurity Functions case:
-  ! - Poles&Weights
-  ! - impSigma
-  ! - impG
-  ! - impG0
-  ! NORMAL case
-  !+------------------------------------------------------------------+
-  subroutine print_gf_normal
-    call print_poles_weights_normal
-    call print_sigma_normal
-    call print_impG_normal
-    call print_impG0_normal
-  end subroutine print_gf_normal
-  include "ED_GREENS_FUNCTIONS/ed_greens_funcs_print_gf_normal.f90"
-
-  !SUPERConducting case
-  !+------------------------------------------------------------------+
-  subroutine print_gf_superc
-    call print_poles_weights_superc
-    call print_sigma_superc
-    call print_impG_superc
-    call print_impG0_superc
-  end subroutine print_gf_superc
-  include "ED_GREENS_FUNCTIONS/ed_greens_funcs_print_gf_superc.f90"
-
-  !nonSU2 case
-  !+------------------------------------------------------------------+
-  subroutine print_gf_nonsu2
-    call print_poles_weights_nonsu2
-    call print_sigma_nonsu2
-    call print_impG_nonsu2
-    call print_impG0_nonsu2
-  end subroutine print_gf_nonsu2
-  include "ED_GREENS_FUNCTIONS/ed_greens_funcs_print_gf_nonsu2.f90"
-
-
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Rebuild the impurity Green's functions
-  ! - normal
-  ! - superc: TODO
-  ! - nonsu2: TODO
-  !+------------------------------------------------------------------+
-  subroutine rebuild_gf_normal
-    integer                          :: i,ispin,isign,unit(1),iorb,jorb
-    character(len=20)                :: suffix
-    integer,dimension(:),allocatable :: getIorb,getJorb
-    integer                          :: totNorb,l,j
-    real(8)                          :: de,peso
-    !
-    if(.not.allocated(wm))allocate(wm(Lmats))
-    if(.not.allocated(wr))allocate(wr(Lreal))
-    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
-    wr     = linspace(wini,wfin,Lreal)
-    !
-    select case(bath_type)
-    case default                !Diagonal in both spin and orbital
-       totNorb=Norb
-       allocate(getIorb(totNorb),getJorb(totNorb))
-       l=0
-       do iorb=1,Norb
-          L=l+1
-          getIorb(l)=iorb
-          getJorb(l)=iorb
-       enddo
-       totNorb=l
-    case ('hybrid')             !Diagonal in spin only. Full Orbital structure
-       totNorb=Norb*(Norb+1)/2
-       allocate(getIorb(totNorb),getJorb(totNorb))
-       l=0
-       do iorb=1,Norb
-          do jorb=iorb,Norb
-             l=l+1
-             getIorb(l)=iorb
-             getJorb(l)=jorb
-          enddo
-       enddo
-    end select
-
-    !Read the Poles&Weights => then it reconstructs the Gimp
-    do l=1,totNorb
-       iorb=getIorb(l)
-       jorb=getJorb(l)
-       suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
-       call open_units(reg(suffix))
-       do isign=1,2
-          do i=1,lanc_nGFiter
-             read(unit(1),*)(GFpoles(ispin,ispin,iorb,jorb,isign,i),GFweights(ispin,ispin,iorb,jorb,isign,i),ispin=1,Nspin)
-          enddo
-       enddo
-       call close_units
-    enddo
-    !
-    impGmats=zero
-    impGreal=zero
-    do ispin=1,Nspin
-       do l=1,totNorb
-          iorb=getIorb(l)
-          jorb=getJorb(l)
-          do isign=1,2
-             do j=1,lanc_nGFiter
-                de    = GFpoles(ispin,ispin,iorb,jorb,isign,j)
-                peso  = GFweights(ispin,ispin,iorb,jorb,isign,j)
-                do i=1,Lmats
-                   impGmats(ispin,ispin,iorb,jorb,i)=impGmats(ispin,ispin,iorb,jorb,i) + peso/(xi*wm(i)-de)
-                enddo
-                do i=1,Lreal
-                   impGreal(ispin,ispin,iorb,jorb,i)=impGreal(ispin,ispin,iorb,jorb,i) + peso/(dcmplx(wr(i),eps)-de)
-                enddo
-             enddo
-          enddo
-       enddo
-    enddo
-    !
-    if(allocated(wm))deallocate(wm)
-    if(allocated(wr))deallocate(wr)
-    !
-  contains
-    subroutine open_units(string)
-      character(len=*) :: string
-      unit=free_units(1)
-      open(unit(1),file="Gpoles_weights"//string//reg(ed_file_suffix)//".ed")
-    end subroutine open_units
-    subroutine close_units()
-      close(unit(1))
-    end subroutine close_units
-  end subroutine rebuild_gf_normal
-
-
-
 
 
 
