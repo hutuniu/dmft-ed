@@ -53,10 +53,10 @@ subroutine build_gf_nonsu2()
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -105,10 +105,10 @@ subroutine build_gf_nonsu2()
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -142,10 +142,10 @@ subroutine build_gf_nonsu2()
                  if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -179,10 +179,10 @@ subroutine build_gf_nonsu2()
                  if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -212,7 +212,6 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    norm_sign=upper_lower(ispin,jspin,iorb,jorb)
                     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
                     select case(ed_type)
                     case default
@@ -232,13 +231,12 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    norm_sign=upper_lower(ispin,jspin,iorb,jorb)
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one+norm_sign*xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+norm_sign*xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one+norm_sign*xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+norm_sign*xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -253,7 +251,6 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    norm_sign=upper_lower(ispin,jspin,iorb,jorb)
                     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
                     select case(ed_type)
                     case default
@@ -273,13 +270,12 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    norm_sign=upper_lower(ispin,jspin,iorb,jorb)
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one+norm_sign*xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+norm_sign*xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one+norm_sign*xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+norm_sign*xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -294,7 +290,6 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    norm_sign=upper_lower(ispin,jspin,iorb,jorb)
                     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
                     select case(ed_type)
                     case default
@@ -314,37 +309,27 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    norm_sign=upper_lower(ispin,jspin,iorb,jorb)
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one+norm_sign*xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+norm_sign*xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one+norm_sign*xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+norm_sign*xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
            enddo
         enddo
      enddo
-
+     !
      if(ed_para)then
         call SOC_jz_symmetrize(impGmats)
         call SOC_jz_symmetrize(impGreal)
      endif
-
+     !
   end select
 
 end subroutine build_gf_nonsu2
-
-function upper_lower(ispin_,jspin_,iorb_,jorb_) result(sig)
-  integer  :: ispin_,jspin_,iorb_,jorb_,io_,jo_,sig
-  io_ = iorb_ + (ispin_-1)*Norb
-  jo_ = jorb_ + (jspin_-1)*Norb
-  if(io_>=jo_)sig=+1!lower
-  if(io_<=jo_)sig=+1!upper
-end function upper_lower
-
 
 
 !+------------------------------------------------------------------+
@@ -593,7 +578,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,ispin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -631,7 +616,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -790,7 +775,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -828,7 +813,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -987,7 +972,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1025,7 +1010,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1303,7 +1288,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1341,7 +1326,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1499,7 +1484,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,jspin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1537,7 +1522,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1695,7 +1680,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=norm_sign*xi*norm2
+        cnorm2=1*xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,jspin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1733,7 +1718,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=norm_sign*xi*norm2
+        cnorm2=1*xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)

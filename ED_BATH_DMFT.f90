@@ -233,7 +233,7 @@ contains
                 enddo
              enddo
              dmft_bath_%h(:,:,:,:,i)=zero
-             dmft_bath_%h(:,:,:,:,i)=(-xmu*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)+impHloc)*(1.d0+noise_b(i))
+             dmft_bath_%h(:,:,:,:,i)=(-0.6d0+noise_b(i))!*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)+impHloc*(1.d0+noise_b(i))
           enddo
        endif
        !HYBR. INITIALIZATION
@@ -241,12 +241,12 @@ contains
        if((ed_type=="d").or.((ed_type=="c").and.(real_hybr)))then
           do i=1,Nbath
              noise_tot=noise_b(i)
-             dmft_bath_%vr(i)=cmplx(0.5d0+noise_tot,0.0d0)!*(-1)**(i-1)
+             dmft_bath_%vr(i)=cmplx(0.2d0+noise_tot,0.0d0)!*(-1)**(i-1)
           enddo
        elseif((ed_type=="c").and.(.not.real_hybr))then
           do i=1,Nbath
              noise_tot=noise_b(i)
-             dmft_bath_%vr(i)=cmplx(0.5d0+noise_tot,0.1d0+noise_tot**2)!*(-1)**(i-1)
+             dmft_bath_%vr(i)=cmplx(0.2d0+noise_tot,0.1d0+noise_tot**2)!*(-1)**(i-1)
           enddo
        endif
        !
@@ -1000,7 +1000,7 @@ contains
           do ibath=1,Nbath
              element_R=0.0d0;element_I=0.0d0
              i=i+1
-             element_R=abs(bath_(i))
+             element_R=(bath_(i))
              if((ed_type=="c").and.(.not.real_hybr))then
                 i=i+1
                 element_I=(bath_(i))
@@ -1279,7 +1279,7 @@ contains
           do ibath=1,Nbath
           !do ibath=1,1
              i=i+1
-             bath_(i)=abs(real(dmft_bath_%vr(ibath)))
+             bath_(i)=(real(dmft_bath_%vr(ibath)))
              if((ed_type=="c").and.(.not.real_hybr))then
                 i=i+1
                 bath_(i)=aimag(dmft_bath_%vr(ibath))

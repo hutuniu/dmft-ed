@@ -86,8 +86,7 @@ contains
        do ibath=1,Nbath
           do ispin=1,Nspin
              do iorb=1,Norb
-                !diag_hybr(ispin,iorb,ibath)=dreal(dmft_bath%vr(ispin,iorb,ibath)) 
-                diag_hybr(ispin,iorb,ibath)=dreal(dmft_bath%vr(ibath)) 
+                diag_hybr(ispin,iorb,ibath)=abs(dreal(dmft_bath%vr(ibath))) 
              enddo
           enddo
        enddo
@@ -186,7 +185,6 @@ contains
        do ibath=1,Nbath
           do ispin=1,Nspin
              do iorb=1,Norb
-                !diag_hybr(ispin,iorb,ibath)=dmft_bath%vr(ispin,iorb,ibath)
                 diag_hybr(ispin,iorb,ibath)=dmft_bath%vr(ibath)
              enddo
           enddo

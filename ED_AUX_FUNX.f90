@@ -886,7 +886,6 @@ contains
        !
        diffdens=dens_tmp-nread
        delta_xmu=0.1d0
-       !if(abs(diffdens).lt.2.d0*nerr)delta_xmu=0.5d0
        !
        if ((dabs(diffdens)).le.nerr) then
           converged_=.TRUE.
@@ -960,80 +959,9 @@ contains
        iattempt=iattempt+1
        diffdens_old=diffdens
        !
-    !endif
-!#ifdef _MPI
-!    call MPI_BCAST(xmu,1,MPI_Double_Precision,0,MPI_COMM_WORLD,ED_MPI_ERR)
-!#endif
   end subroutine search_chempot
 
 
-  ! subroutine search_mu(ntmp,convergence)
-  !   logical,intent(inout) :: convergence
-  !   real(8)               :: ntmp
-  !   logical               :: check
-  !   integer,save          :: count=0
-  !   integer,save          :: nindex=0
-  !   real(8)               :: ndelta1,nindex1
-  !   if(count==0)then
-  !      inquire(file="searchmu_file.restart",exist=check)
-  !      if(check)then
-  !         open(10,file="searchmu_file.restart")
-  !         read(10,*)ndelta,nindex
-  !         close(10)
-  !      endif
-  !   endif
-  !   count=count+1
-  !   nindex1=nindex
-  !   ndelta1=ndelta
-  !   if((ntmp >= nread+nerr))then
-  !      nindex=-1
-  !   elseif(ntmp <= nread-nerr)then
-  !      nindex=1
-  !   else
-  !      nindex=0
-  !   endif
-  !   if(nindex1+nindex==0.AND.nindex/=0)then !avoid loop forth and back
-  !      ndelta=ndelta1/2.d0 !decreasing the step       
-  !   else
-  !      ndelta=ndelta1
-  !   endif
-  !   xmu=xmu+real(nindex,8)*ndelta
-  !   if(abs(ntmp-nread)>nerr)convergence=.false.
-  !   write(LOGfile,"(A,f15.12,A,f15.12,A,f15.12,A,f15.12)")" n=",ntmp," /",nread,&
-  !        "| shift=",nindex*ndelta,"| xmu=",xmu
-  !   write(LOGfile,"(A,f15.12)")"dn=",abs(ntmp-nread)
-  !   print*,""
-  !   print*,"Convergence:",convergence
-  !   print*,""
-  !   open(10,file="searchmu_file.restart.new")
-  !   write(10,*)ndelta,nindex,xmu
-  !   close(10)
-  ! end subroutine search_mu
-
-  !function SOC_compute_component(s1,s2,a,b) result(bool)
-  !  logical    ::   bool
-  !  integer    ::   a,b,s1,s2
-  !  !
-  !  bool=.false.
-  !  !
-  !  !diagonal
-  !  if((s1==1).and.(s2==1).and.(a==1).and.(b==1))bool=.true.
-  !  if((s1==1).and.(s2==1).and.(a==2).and.(b==2))bool=.true.
-  !  if((s1==1).and.(s2==1).and.(a==3).and.(b==3))bool=.true.
-  !  if((s1==2).and.(s2==2).and.(a==2).and.(b==2))bool=.true.
-  !  !off-diag - upper [to be copied]
-  !  if((s1==1).and.(s2==2).and.(a==3).and.(b==2))bool=.true.  !(1,2,3,2)-->(2,2,1,2)
-  !  if((s1==1).and.(s2==1).and.(a==1).and.(b==2))bool=.true.  !(1,1,1,2)-->(1,2,2,3)
-  !  !off-diag - lower [to be copied]
-  !  if((s1==1).and.(s2==1).and.(a==2).and.(b==1))bool=.true.  !(1,1,2,1)-->(2,1,3,2)
-  !  if((s1==2).and.(s2==2).and.(a==2).and.(b==1))bool=.true.  !(2,2,2,1)-->(2,1,2,3)
-  !  !all off-diag [to be copied]
-  !  if((s1==1).and.(s2==2).and.(a==1).and.(b==3))bool=.true.  !(1,2,1,3)-->(2,1,3,1)
-  !  if((s1==1).and.(s2==2).and.(a==3).and.(b==1))bool=.true.  !(1,2,3,1)-->(2,1,1,3)
-  !  !test
-  !  if((s1==2).and.(s2==1).and.(a==3).and.(b==1))bool=.true.  !(1,2,1,3)-->(2,1,3,1)
-  !  !
-  !end function SOC_compute_component
 
   subroutine SOC_jz_symmetrize(funct)
     !passed
@@ -1063,43 +991,39 @@ contains
     enddo
     a_funct = a_funct / ( Nspin * Norb )
     !
-    !uniche due funzioni che servono (cerchi b-n)
+    !cerchi bianchi
     b_funct = ( funct(1,2,1,3,:) + funct(2,1,3,1,:) )/2.d0
+    !cerchi neri
     c_funct = ( funct(1,2,3,1,:) + funct(2,1,1,3,:) )/2.d0
+    !quadri bianchi
+    e_funct = ( funct(1,1,2,1,:) + funct(1,2,3,2,:) + funct(2,2,1,2,:) + funct(2,1,3,2,:) )/4.d0
+    !quadri neri
+    d_funct = ( funct(1,1,1,2,:) + funct(1,2,2,3,:) + funct(2,2,2,1,:) + funct(2,1,2,3,:) )/4.d0
     !media
-    d_funct = ( b_funct - c_funct )/2.d0
+    f_funct = ( b_funct - c_funct - xi*e_funct + xi*d_funct )/4.d0
     !
     do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                if(io==jo)then
-                   symmetrized_funct(ispin,ispin,iorb,iorb,:) = a_funct
-                endif
-             enddo
-          enddo
+       do iorb=1,Norb
+          symmetrized_funct(ispin,ispin,iorb,iorb,:) = a_funct
        enddo
     enddo
-    !nell'inserire rapporto tutto al cerchio bianco
+    !
     !cerchio bianco
-    symmetrized_funct(1,2,1,3,:) = +d_funct
-    symmetrized_funct(2,1,3,1,:) = +d_funct
+    symmetrized_funct(1,2,1,3,:) = +f_funct
+    symmetrized_funct(2,1,3,1,:) = +f_funct
     !cerchio nero
-    symmetrized_funct(1,2,3,1,:) = -d_funct
-    symmetrized_funct(2,1,1,3,:) = -d_funct
+    symmetrized_funct(1,2,3,1,:) = -f_funct
+    symmetrized_funct(2,1,1,3,:) = -f_funct
     !quadrotto nero
-    symmetrized_funct(1,1,1,2,:) = -xi*d_funct
-    symmetrized_funct(1,2,2,3,:) = -xi*d_funct
-    symmetrized_funct(2,2,2,1,:) = -xi*d_funct
-    symmetrized_funct(2,1,2,3,:) = -xi*d_funct
+    symmetrized_funct(1,1,1,2,:) = -xi*f_funct
+    symmetrized_funct(1,2,2,3,:) = -xi*f_funct
+    symmetrized_funct(2,2,2,1,:) = -xi*f_funct
+    symmetrized_funct(2,1,2,3,:) = -xi*f_funct
     !quadrotto bianco
-    symmetrized_funct(1,1,2,1,:) = +xi*d_funct
-    symmetrized_funct(1,2,3,2,:) = +xi*d_funct
-    symmetrized_funct(2,2,1,2,:) = +xi*d_funct
-    symmetrized_funct(2,1,3,2,:) = +xi*d_funct
-
+    symmetrized_funct(1,1,2,1,:) = +xi*f_funct
+    symmetrized_funct(1,2,3,2,:) = +xi*f_funct
+    symmetrized_funct(2,2,1,2,:) = +xi*f_funct
+    symmetrized_funct(2,1,3,2,:) = +xi*f_funct
     !
     funct = zero
     funct = symmetrized_funct

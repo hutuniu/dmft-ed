@@ -60,8 +60,6 @@ contains
     logical,dimension(size(Hk,3)),optional        :: hk_symm   ![Nk]
     logical,dimension(size(Hk,3))                 :: hk_symm_  ![Nk]
     !allocatable arrays
-    complex(8),dimension(:,:),allocatable         :: Smats_aux 
-    complex(8),dimension(:,:),allocatable         :: Sreal_aux 
     complex(8),dimension(:,:,:,:,:),allocatable   :: Gkmats    !as Smats
     complex(8),dimension(:,:,:,:,:),allocatable   :: Gkreal    !as Sreal
     complex(8),dimension(:,:,:),allocatable       :: zeta_mats ![Nspin*Norb][Nspin*Norb][Lmats]
@@ -101,29 +99,12 @@ contains
     allocate(zeta_mats(Nso,Nso,Lmats));zeta_mats=zero
     allocate(zeta_real(Nso,Nso,Lreal));zeta_real=zero
     !
-    if(allocated(Smats_aux))deallocate(Smats_aux);allocate(Smats_aux(Nso,Nso))
-    if(allocated(Sreal_aux))deallocate(Sreal_aux);allocate(Sreal_aux(Nso,Nso))
-    !
     wm = pi/beta*(2*arange(1,Lmats)-1)
     wr = linspace(wini,wfin,Lreal)
     do i=1,Lmats
-       !Smats_aux=zero;Smats_aux=nn2so_reshape(Smats(:,:,:,:,i),Nspin,Norb)
-       !do io=1,Nso
-       !   do jo=1+io,Nso
-       !     ! if(.not.real_Hrepl)Smats_aux(jo,io)=conjg(Smats_aux(io,jo))
-       !   enddo
-       !enddo
-       !zeta_mats(:,:,i)=(xi*wm(i)+xmu)*eye(Nso) - Smats_aux
        zeta_mats(:,:,i)=(xi*wm(i)+xmu)*eye(Nso) - nn2so_reshape(Smats(:,:,:,:,i),Nspin,Norb)
     enddo
     do i=1,Lreal
-       !Sreal_aux=zero;Sreal_aux=nn2so_reshape(Sreal(:,:,:,:,i),Nspin,Norb)
-       !do io=1,Nso
-       !   do jo=1+io,Nso
-       !     ! if(.not.real_Hrepl)Sreal_aux(jo,io)=conjg(Sreal_aux(io,jo))
-       !   enddo
-       !enddo
-       !zeta_real(:,:,i)=(wr(i)+xi*eps+xmu)*eye(Nso) - Sreal_aux
        zeta_real(:,:,i)=(wr(i)+xi*eps+xmu)*eye(Nso) - nn2so_reshape(Sreal(:,:,:,:,i),Nspin,Norb)
     enddo
 
@@ -132,14 +113,8 @@ contains
     Gmats=zero
     Greal=zero
     do ik=1,Lk
-      ! if(mod(ik,100)==pi)then
-      !    unit_ik=ik
-      !    call add_to_gloc_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,unit_ik)      
-      !    call add_to_gloc_normal(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
-      ! else
-          call add_to_gloc_normal(zeta_mats,(Hk(:,:,ik)),hk_symm_(ik),Gkmats)      
-          call add_to_gloc_normal(zeta_real,(Hk(:,:,ik)),hk_symm_(ik),Gkreal)
-      ! endif
+       call add_to_gloc_normal(zeta_mats,(Hk(:,:,ik)),hk_symm_(ik),Gkmats)      
+       call add_to_gloc_normal(zeta_real,(Hk(:,:,ik)),hk_symm_(ik),Gkreal)
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
        if(ED_MPI_ID==0)call eta(ik,Lk,unit=LOGfile)
@@ -363,7 +338,7 @@ contains
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: evaluate the GF for a single k-point
   !+-----------------------------------------------------------------------------+!
-  subroutine add_to_gloc_normal(zeta,Hk,hk_symm,Gkout,unit_)
+  subroutine add_to_gloc_normal(zeta,Hk,hk_symm,Gkout)
     complex(8),dimension(:,:,:),intent(in)        :: zeta    ![Nspin*Norb][Nspin*Norb][Lfreq]
     complex(8),dimension(:,:),intent(in)          :: Hk      ![Nspin*Norb][Nspin*Norb]
     logical,intent(in)                            :: hk_symm                
@@ -372,7 +347,6 @@ contains
     complex(8),dimension(:,:),allocatable         :: Gmatrix ![Nspin*Norb][Nspin*Norb]
     integer                                       :: Nspin,Norb,Nso,Lfreq
     integer                                       :: i,iorb,jorb,ispin,jspin,io,jo
-    integer,intent(in),optional                   :: unit_
     Nspin = size(Gkout,1)
     Norb  = size(Gkout,3)
     Lfreq = size(zeta,3)
@@ -404,21 +378,6 @@ contains
           enddo
        enddo
     enddo
-
-    if (present(unit_))then
-       write(*,*)"printing kvec:",unit_
-       
-       do i=1,Lfreq
-          write(unit_,'(90(F21.10,1X))')real(Gktmp(1,1,1,1,i)),aimag(Gktmp(1,1,1,1,i)),&
-                                        real(Gktmp(1,1,2,2,i)),aimag(Gktmp(1,1,2,2,i)),&
-                                        real(Gktmp(2,2,1,1,i)),aimag(Gktmp(2,2,1,1,i)),&
-                                        real(Gktmp(2,2,2,2,i)),aimag(Gktmp(2,2,2,2,i)),&
-                                        real(Gktmp(3,3,1,1,i)),aimag(Gktmp(3,3,1,1,i)),&
-                                        real(Gktmp(3,3,2,2,i)),aimag(Gktmp(3,3,2,2,i))
-       enddo
-    endif
-
-
     Gkout = Gktmp
   end subroutine add_to_gloc_normal
 

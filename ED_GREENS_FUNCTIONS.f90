@@ -76,9 +76,6 @@ MODULE ED_GREENS_FUNCTIONS
   complex(8),allocatable,dimension(:,:)   :: phiChi_w
   complex(8),allocatable,dimension(:,:)   :: phiChi_iv
 
-  integer :: norm_sign
-
-
   public                                     :: buildgf_impurity
   public                                     :: buildchi_impurity
 
@@ -290,7 +287,7 @@ contains
           enddo
        enddo
        !
-    case ("hybrid","replica")             !Diagonal in spin only. Full Orbital structure
+    case ("hybrid","replica")   !Diagonal in spin only. Full Orbital structure
        !
        !Get Gimp^-1
        do ispin=1,Nspin
@@ -448,15 +445,10 @@ contains
     !Get G0^-1 
     invG0mats(:,:,:,:,:)=invg0_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
     invG0real(:,:,:,:,:)=invg0_bath_real(dcmplx(wr(:),eps),dmft_bath)
-   ! if(ed_para)then
-   !     if(ED_MPI_ID==0)write(LOGfile,*)"  Symmetrizing impG"
-   !     call SOC_jz_symmetrize(impGmats,dmft_bath)
-   !     call SOC_jz_symmetrize(impGreal,dmft_bath)
-   ! endif
-     !
-    !
+    !Get impDelta_anderson
     impDeltamats(:,:,:,:,:)=delta_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
     impDeltareal(:,:,:,:,:)=delta_bath_real(dcmplx(wr(:),eps),dmft_bath)
+    !Get inverse functions
     invimpG0mats=invG0mats
     invimpG0real=invG0real
     !
@@ -897,9 +889,6 @@ contains
           enddo
        enddo
     case ("hybrid")
-       !totNorb =Norb*(Norb+1)/2
-       !totNspin=Nspin*(Nspin+1)/2
-       !totNso  =totNorb*totNspin
        totNso  = (Norb*Nspin)**2
        allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
        l=0
@@ -995,6 +984,9 @@ contains
              do i=1,Lreal
                 write(unit(9),"(F26.15,2(F26.15))")wr(i),dimag(impDeltareal(ispin,jspin,iorb,jorb,i)),dreal(impDeltareal(ispin,jspin,iorb,jorb,i))
              enddo
+          endif
+          !
+          if(ed_verbose<0)then
              do i=1,Lmats
                 write(unit(10),"(F26.15,2(F26.15))")wm(i),dimag(invimpG0mats(ispin,jspin,iorb,jorb,i)),dreal(invimpG0mats(ispin,jspin,iorb,jorb,i))
              enddo
@@ -1031,6 +1023,8 @@ contains
          open(unit(7),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
          open(unit(8),file="impDelta"//string//"_iw"//reg(ed_file_suffix)//".ed")
          open(unit(9),file="impDelta"//string//"_realw"//reg(ed_file_suffix)//".ed")
+      endif
+      if(ed_verbose<0)then
          open(unit(10),file="invimpG0"//string//"_iw"//reg(ed_file_suffix)//".ed")
          open(unit(11),file="invimpG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
          open(unit(12),file="invimpG"//string//"_iw"//reg(ed_file_suffix)//".ed")
@@ -1053,6 +1047,8 @@ contains
          close(unit(7))
          close(unit(8))
          close(unit(9))
+      endif
+      if(ed_verbose<0)then
          close(unit(10))
          close(unit(11))
          close(unit(12))

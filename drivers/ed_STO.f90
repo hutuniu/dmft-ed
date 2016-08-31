@@ -13,7 +13,7 @@ program ed_TEST_REPLICA
   integer                :: Nb,unit
   real(8),allocatable    :: Bath(:),Bath_(:)
   !dmft functions:
-  complex(8),allocatable :: Delta(:,:,:,:,:)
+  complex(8),allocatable :: Delta(:,:,:,:,:),Delta_old(:,:,:,:,:)
   complex(8),allocatable :: Smats(:,:,:,:,:),Sreal(:,:,:,:,:)
   complex(8),allocatable :: Gmats(:,:,:,:,:),Greal(:,:,:,:,:)
   !hamiltonian input:
@@ -30,7 +30,7 @@ program ed_TEST_REPLICA
   !custom variables:
   integer                :: conv_n_loop=1,shift_n_loop=1,cg_weight_n_loop=1
   integer                :: cg_weight_static
-  real(8)                :: wmixing_static,Alvl
+  real(8)                :: Alvl
   logical                :: converged_n,upprshft
   !convergence functions:
   complex(8),allocatable :: delta_conv(:,:,:),delta_conv_avrg(:)
@@ -70,6 +70,7 @@ program ed_TEST_REPLICA
   !
   !Allocate dmft functions:
   allocate(delta(Nspin,Nspin,Norb,Norb,Lmats));delta=zero
+  allocate(delta_old(Nspin,Nspin,Norb,Norb,Lmats));delta_old=zero
   allocate(Smats(Nspin,Nspin,Norb,Norb,Lmats));Smats=zero
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats));Gmats=zero
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal));Sreal=zero
@@ -87,7 +88,6 @@ program ed_TEST_REPLICA
   allocate(Ltot(3,Nspin,Nspin));Ltot=zero
   allocate(jz(3));jz=zero
   !
-  wmixing_static=wmixing
   cg_weight_static=cg_weight
   !
   !Buil the non interacting Hamiltonian:
@@ -120,20 +120,15 @@ program ed_TEST_REPLICA
      call ed_get_sigma_real(Sreal)
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
-     Bath_=bath
+     if(ED_MPI_ID==0)write(LOGfile,'(a10,F10.5,a10,i3)') " wmixing",wmixing,"cg_weight",cg_weight
+     if(iloop>1)delta = wmixing*delta + (1.d0-wmixing)*delta_old
      if (ed_mode=="normal") then
         call ed_chi2_fitgf(delta,bath,ispin=1)
         call spin_symmetrize_bath(bath,save=.false.)
      else
         call ed_chi2_fitgf(delta,bath)
      endif
-     !
-     !mixing:
-     !
-     !cg_weight=cg_weight_static
-     wmixing=wmixing_static
-     if(ED_MPI_ID==0)write(LOGfile,'(a10,F10.5,a10,i3)') " wmixing",wmixing,"cg_weight",cg_weight
-     Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
+     delta_old = delta
      !
      !operations:
      !
@@ -164,7 +159,7 @@ program ed_TEST_REPLICA
      if(ED_MPI_ID==0)write(*,'(3(a10,F10.5))') "sumdens",sumdens,"diffdens",abs(nread-sumdens),"nread",nread
      if(nread/=0.d0)then
         converged_n=.false.
-        if(iloop>=2)call search_chempot(xmu,sumdens,converged_n,Bath)
+        if(iloop>=3)call search_chempot(xmu,sumdens,converged_n,Bath)
         !call search_chempot(xmu,sumdens,converged_n,Bath)
         if(ED_MPI_ID==0)write(*,'(2(a10,F10.5))') "xmu_old",xmu_old,"xmu_new",xmu
      endif
