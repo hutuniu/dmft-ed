@@ -78,15 +78,6 @@ subroutine build_gf_normal()
      enddo
   endif
   !
-  if(ed_para)then
-     if(ED_MPI_ID==0)write(LOGfile,*)"  Symmetrizing impG"
-     !
-     impGmats(2,2,1,1,:)=impGmats(1,1,1,1,:)
-     impGmats(2,2,2,2,:)=impGmats(1,1,2,2,:)
-     impGmats(2,2,3,3,:)=impGmats(1,1,3,3,:)
-     !
-  endif
-  !
 end subroutine build_gf_normal
 
 

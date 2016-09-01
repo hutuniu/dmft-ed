@@ -124,7 +124,7 @@ program ed_TEST_REPLICA
      if(iloop>1)delta = wmixing*delta + (1.d0-wmixing)*delta_old
      if (ed_mode=="normal") then
         call ed_chi2_fitgf(delta,bath,ispin=1)
-        call spin_symmetrize_bath(bath,save=.false.)
+        call spin_symmetrize_bath(bath,save=.true.)
      else
         call ed_chi2_fitgf(delta,bath)
      endif

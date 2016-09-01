@@ -42,7 +42,6 @@ MODULE DMFT_ED
        copy_component_bath,              &
        save_bath,                        &
        spin_symmetrize_bath ,            &
-       SOC_symmetrize_bath ,             &
        ph_symmetrize_bath   ,            &
        ph_trans_bath        ,            &
        break_symmetry_bath  ,            &
