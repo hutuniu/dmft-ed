@@ -865,7 +865,7 @@ contains
   !PURPOSE  : Print nonSU2 Green's functions
   !+------------------------------------------------------------------+
   subroutine print_gf_nonsu2
-    integer                          :: i,isign,unit(20),iorb,jorb,ispin,jspin
+    integer                          :: i,isign,unit(20),iorb,jorb,ispin,jspin,io,jo
     integer,dimension(:),allocatable :: getIorb,getJorb,getIspin,getJspin
     integer                          :: totNso,totNorb,totNspin,l
     character(len=20)                :: suffix
@@ -911,6 +911,9 @@ contains
           do jorb=1,Norb
              do ispin=1,Nspin
                 do jspin=1,Nspin
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   if(ed_verbose>=0.and.io<jo)cycle
                    if(dmft_bath%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath%mask(ispin,jspin,iorb,jorb,2)) l=l+1
                 enddo
              enddo
@@ -923,6 +926,9 @@ contains
           do jorb=1,Norb
              do ispin=1,Nspin
                 do jspin=1,Nspin
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   if(ed_verbose>=0.and.io<jo)cycle
                    if((.not.dmft_bath%mask(ispin,jspin,iorb,jorb,1)).and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,2))) cycle
                    l=l+1
                    getIorb(l)=iorb

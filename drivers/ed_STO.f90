@@ -14,7 +14,7 @@ program ed_TEST_REPLICA
   real(8),allocatable    :: Bath(:),Bath_(:)
   !dmft functions:
   complex(8),allocatable :: Delta(:,:,:,:,:),Delta_old(:,:,:,:,:)
-  complex(8),allocatable :: Smats(:,:,:,:,:),Sreal(:,:,:,:,:)
+  complex(8),allocatable :: Smats(:,:,:,:,:),Sreal(:,:,:,:,:),SigmaHk(:,:,:,:,:)
   complex(8),allocatable :: Gmats(:,:,:,:,:),Greal(:,:,:,:,:)
   !hamiltonian input:
   complex(8),allocatable :: Hk(:,:,:)
@@ -28,8 +28,7 @@ program ed_TEST_REPLICA
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   !custom variables:
-  integer                :: conv_n_loop=1,shift_n_loop=1,cg_weight_n_loop=1
-  integer                :: cg_weight_static
+  integer                :: conv_n_loop,shift_n_loop
   real(8)                :: Alvl
   logical                :: converged_n,upprshft
   !convergence functions:
@@ -72,6 +71,7 @@ program ed_TEST_REPLICA
   allocate(delta(Nspin,Nspin,Norb,Norb,Lmats));delta=zero
   allocate(delta_old(Nspin,Nspin,Norb,Norb,Lmats));delta_old=zero
   allocate(Smats(Nspin,Nspin,Norb,Norb,Lmats));Smats=zero
+  allocate(SigmaHk(Nspin,Nspin,Norb,Norb,Lmats));SigmaHk=zero
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats));Gmats=zero
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal));Sreal=zero
   allocate(Greal(Nspin,Nspin,Norb,Norb,Lreal));Greal=zero
@@ -88,11 +88,8 @@ program ed_TEST_REPLICA
   allocate(Ltot(3,Nspin,Nspin));Ltot=zero
   allocate(jz(3));jz=zero
   !
-  cg_weight_static=cg_weight
-  !
   !Buil the non interacting Hamiltonian:
   call build_hk(trim(hkfile))
-  call build_hk_path
   !
   !Allocate bath:
   if (bath_type/="replica") then
@@ -121,7 +118,10 @@ program ed_TEST_REPLICA
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=3)
      call ed_get_weiss(Gmats,Smats,Delta,Ti3dt2g_Hloc_nn,iprint=3)
      if(ED_MPI_ID==0)write(LOGfile,'(a10,F10.5,a10,i3)') " wmixing",wmixing,"cg_weight",cg_weight
-     if(iloop>1)delta = wmixing*delta + (1.d0-wmixing)*delta_old
+     if(iloop>1)then
+        delta = wmixing*delta + (1.d0-wmixing)*delta_old
+        !bath = wmixing*bath_ + (1.d0-wmixing)*bath_
+     endif
      if (ed_mode=="normal") then
         call ed_chi2_fitgf(delta,bath,ispin=1)
         call spin_symmetrize_bath(bath,save=.true.)
@@ -129,26 +129,18 @@ program ed_TEST_REPLICA
         call ed_chi2_fitgf(delta,bath)
      endif
      delta_old = delta
+     bath_=bath
      !
      !operations:
      !
      if(bath_type=="replica")then
-        if(iloop==1)then
-           Alvl=0.2d0
-        else
-           Alvl=0.8d0
-        endif
+        Alvl=0.8d0
         if(ED_MPI_ID==0)then
            call build_hk_path
-           call ed_get_density_matrix(density_matrix,2,dm_eig,dm_rot)
-           call check_rotations_on_Jz(dm_rot)
+           call ed_get_density_matrix(density_matrix,dm_eig,dm_rot)
            call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
         endif
-        if(real_Hrepl)then
-           call rotate_Gloc(Greal,"B",bottom,top,pi*Alvl)
-        else
-           call rotate_Gloc(Greal,"A",bottom,top,pi*Alvl)
-        endif
+        call Jz_rotate(Greal,"A",bottom,top,pi*Alvl)
      endif
      !
      !chemical potential find:
@@ -160,13 +152,12 @@ program ed_TEST_REPLICA
      if(nread/=0.d0)then
         converged_n=.false.
         if(iloop>=3)call search_chempot(xmu,sumdens,converged_n,Bath)
-        !call search_chempot(xmu,sumdens,converged_n,Bath)
         if(ED_MPI_ID==0)write(*,'(2(a10,F10.5))') "xmu_old",xmu_old,"xmu_new",xmu
      endif
      if(converged_n)then
         conv_n_loop=conv_n_loop+1
      else
-        conv_n_loop=1
+        conv_n_loop=0
      endif
      !
      !convergence:
@@ -175,8 +166,6 @@ program ed_TEST_REPLICA
         delta_conv(:,:,i)=nn2so_reshape(delta(:,:,:,:,i))
         delta_conv_avrg(i)=sum(delta_conv(:,:,i))
      enddo
-     !final mu shift:
-     !
      if(ED_MPI_ID==0) then
         converged = check_convergence(delta_conv_avrg,dmft_error,nsuccess,nloop)
         write(LOGfile,'(2(a15,L3))') "converged",converged,"converged(n)",converged_n
@@ -191,26 +180,27 @@ program ed_TEST_REPLICA
      call mpi_barrier(MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
      !
+     !final mu shift:
+     !
+     shift_n_loop=0
      if(converged_n.and.upprshft)then
         shift_n_loop=shift_n_loop+1
         if(bath_type/="replica")then
            if(allocated(w))deallocate(w);allocate(w(Lreal));w=0.0d0
            w = linspace(wini,wfin,Lreal,mesh=dw)
-           do i=1,Lreal
+           loop1: do i=1,Lreal
               if(abs(aimag(Greal(1,1,1,1,i))).gt.0.8d0)then
                  bottom=w(i)
-                 go to 4321
+                 exit loop1
               endif
-           enddo
-           4321 continue
-           do i=1,Lreal
+           enddo loop1
+           loop2: do i=1,Lreal
               if(abs(aimag(Greal(1,1,1,1,Lreal-i+1))).gt.0.8d0)then
                  top=w(Lreal-i+1)
-                 go to 4322
+                 exit loop2
               endif
-           enddo
-           4322 continue
-         endif
+           enddo loop2
+        endif
         if(ED_MPI_ID==0)write(LOGfile,*)"top",top,"bottom",bottom
         shift      = bottom + ( top - bottom ) / 2.d0
         xmu_old    = xmu
@@ -236,12 +226,6 @@ program ed_TEST_REPLICA
 #endif
 contains
 
-!
-! OLD TO BE REMOVED
-!
-! call build_Jz_upprshftnet
-! call SOC_symmetrize_bath
-!
 
 !_______________________________________________________________________
 !                      NON-INTERACTING HAMILTONIAN
@@ -281,6 +265,7 @@ contains
     allocate(Hk(Nso,Nso,Lk));allocate(wtk(Lk));allocate(kxgrid(Nk),kygrid(Nk),kzgrid(Nk))
     wtk = 1.0d0/Lk
     kxgrid=0.0d0;kygrid=0.0d0;kzgrid=0.0d0
+    SigmaHk=zero
     kxgrid = kgrid(Nk)
     kygrid = kgrid(Nk)
     if(.not.surface) kzgrid = kgrid(Nk)
@@ -302,9 +287,6 @@ contains
     Ti3dt2g_Hloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs((Ti3dt2g_Hloc))<1.d-9)Ti3dt2g_Hloc=0d0
     Ti3dt2g_Hloc_nn=so2nn_reshape(Ti3dt2g_Hloc)
-    !
-    !inv_impHloc=Ti3dt2g_Hloc
-    !call inv(inv_impHloc)
     !
     !scrivo impHloc
     !
@@ -353,17 +335,14 @@ contains
        do i=1,Lreal
           G_in(:,:,:,:,i)=so2nn_reshape(Greal(:,:,i))
        enddo
-       if(real_Hrepl)then
-          call rotate_Gloc(G_in,"B")
-       else
-          call rotate_Gloc(G_in,"A")
-       endif
+       call Jz_rotate(G_in,"A")
        deallocate(G_in)
     endif
   end subroutine build_hk
 
+
   !---------------------------------------------------------------------
-  !PURPOSE: GET STO HAMILTONIAN
+  !PURPOSE: GET STO HAMILTONIAN eventually corrected with Sigma(iw=0)
   !---------------------------------------------------------------------
   function hk_Ti3dt2g(kvec,N) result(hk)
     real(8),dimension(:)        :: kvec
@@ -382,109 +361,17 @@ contains
     !
     Hk=zero
     do i=1,Norb
-       orbitalHopping=0.0d0;orbitalHopping=HoppingMatrix(i,:)
        ndx=2*i-1
        if(Hk_test)then
-          if(Nspin==2)then
-             Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,0.1d0)
-          else
-             Hk_temp = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,0.1d0)
-             Hk(i,i) = Hk_temp(1,1) 
-          endif
+          !spin degenerate H(k)
+          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:),0.1d0)
        else
-          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,1.0d0)
+          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:),1.0d0)
        endif
     enddo
     !
-    if(SOC/=zero)then
-       if((Hk_test).and.(Norb/=3))then
-          do i=1,Norb
-             ndx=2*i-1
-             Hk(ndx,ndx+1) = cmplx(0.d0,soc)
-          enddo
-       else
-          !REALISTIC SOC (upper triangle)
-          if(real_Hrepl)then
-             Hk(1:2,3:4)= abs(-xi * pauli_z * soc/2.)
-             Hk(1:2,5:6)= abs(+xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
-             Hk(3:4,5:6)= abs(-xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
-          else
-             Hk(1:2,3:4)= (-xi * pauli_z * soc/2.)
-             Hk(1:2,5:6)= (+xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
-             Hk(3:4,5:6)= (-xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
-          endif
-       endif
-       !hermiticity
-       do i=1,Nspin*Norb
-          do j=1,Nspin*Norb
-             Hk(j,i)=conjg(Hk(i,j))
-          enddo
-       enddo
-    endif
-    !
-    !A1 shape: [Norb*Norb]*Nspin
-    if(Nspin==2)Hk = Z2so_reshape(Hk)
-    !
-  end function hk_Ti3dt2g
-
-  !---------------------------------------------------------------------
-  !PURPOSE: GET STO HAMILTONIAN corrected with Sigma(iw=0)
-  !---------------------------------------------------------------------
-  function hk_Ti3dt2g_Hartree(kvec,N) result(hk)
-    real(8),dimension(:)        :: kvec
-    complex(8),dimension(N,N)   :: hk
-    complex(8),dimension(2,2)   :: s_x,s_y,s_z,Hk_temp
-    complex(8),dimension(2,2)   :: t_inter
-    real(8)                     :: kx,ky,kz
-    integer                     :: N,ndx
-    real(8),allocatable         :: HoppingMatrix(:,:)
-    real(8),dimension(0:6)      :: orbitalHopping
-    !
-    kx=kvec(1);ky=kvec(2);kz=kvec(3)
-    !
-    allocate(HoppingMatrix(Norb,0:6));HoppingMatrix=0.0d0
-    call get_hopping(HoppingMatrix)
-    !
-    Hk=zero
-    do i=1,Norb
-       orbitalHopping=0.0d0;orbitalHopping=HoppingMatrix(i,:)
-       ndx=2*i-1
-       if(Hk_test)then
-          if(Nspin==2)then
-             Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,0.1d0)
-          else
-             Hk_temp = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,0.1d0)
-             Hk(i,i) = Hk_temp(1,1) 
-          endif
-       else
-          Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,orbitalHopping,1.0d0)
-       endif
-    enddo
-    !
-    if(SOC/=zero)then
-       if((Hk_test).and.(Norb/=3))then
-          do i=1,Norb
-             ndx=2*i-1
-             Hk(ndx,ndx+1) = cmplx(0.d0,soc)
-          enddo
-       else
-          !REALISTIC SOC (upper triangle)
-          if(real_Hrepl)then
-             Hk(1:2,3:4)= abs(-xi * pauli_z * soc/2.)
-             Hk(1:2,5:6)= abs(+xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
-             Hk(3:4,5:6)= abs(-xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
-          else
-             Hk(1:2,3:4)= (-xi * pauli_z * soc/2.)
-             Hk(1:2,5:6)= (+xi * pauli_y * soc/2.) + ivb*2*xi*sin(kx)*eye(2)
-             Hk(3:4,5:6)= (-xi * pauli_x * soc/2.) + ivb*2*xi*sin(ky)*eye(2)
-          endif
-       endif
-       !hermiticity
-       do i=1,Nspin*Norb
-          do j=1,Nspin*Norb
-             Hk(j,i)=conjg(Hk(i,j))
-          enddo
-       enddo
+    if(SOC/=zero.or.IVB/=zero)then
+       Hk = Hk + SOC*H_LS(kx,ky,kz) + IVB*H_IVB(kx,ky,kz)
     endif
     !
     !correction with Sigma(iw=0)
@@ -494,16 +381,16 @@ contains
              do jorb=1,Norb
                 io = ispin + (iorb-1)*Nspin
                 jo = jspin + (jorb-1)*Nspin
-                Hk(io,jo) = Hk(io,jo) + Smats(ispin,jspin,iorb,jorb,1)
+                Hk(io,jo) = Hk(io,jo) + SigmaHk(ispin,jspin,iorb,jorb,1)
              enddo
           enddo
        enddo
     enddo
     !
     !A1 shape: [Norb*Norb]*Nspin
-    if(Nspin==2)Hk = Z2so_reshape(Hk)
+    Hk = Z2so_reshape(Hk)
     !
-  end function hk_Ti3dt2g_Hartree
+  end function hk_Ti3dt2g
 
   !---------------------------------------------------------------------
   !PURPOSE: 2x2 band structures
@@ -517,7 +404,7 @@ contains
     hk = zero
     if (surface) then
        if(Hk_test)then
-          hk(1,1) = t(0)-2.*t0*(cos(kx)+cos(ky)-1.d0)
+          hk(1,1) = t(0)-2.*t0*(cos(kx)+cos(ky)+1.d0)
           hk(2,2) = hk(1,1)
        else
           hk(1,1) = t(0)+(                       & !onsite
@@ -531,16 +418,11 @@ contains
        endif
     else
        if(Hk_test)then
-          if(bath_type=="replica")then
-             hk(1,1) = t(0)-2.*t0*(cos(kx)+cos(ky)+cos(kz))
-             hk(2,2) = hk(1,1)
-          else
-             hk(1,1) = t(0)+(                    & !onsite
-                       -2.*t(1)*cos(kx)          & !t_100
-                       -2.*t(2)*cos(ky)          & !t_010
-                       -2.*t(3)*cos(kz))*t0        !t_001
-             hk(2,2) = hk(1,1)
-          endif
+          hk(1,1) = t(0)+(                       & !onsite
+                    -2.*t(1)*cos(kx)             & !t_100
+                    -2.*t(2)*cos(ky)             & !t_010
+                    -2.*t(3)*cos(kz))*t0           !t_001
+          hk(2,2) = hk(1,1)
        else
           hk(1,1) = t(0)+(                       & !onsite
                     -2.*t(1)*cos(kx)             & !t_100
@@ -553,6 +435,39 @@ contains
        endif
     endif
   end function diagonal_orbital_dispersion
+
+  function H_LS(kx,ky,kz) result(hls)
+    real(8),intent(in)                           :: kx,ky,kz
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: hls
+    hls=zero
+    hls(1:2,3:4) = -Xi * pauli_z / 2.
+    hls(1:2,5:6) = +Xi * pauli_y / 2.
+    hls(3:4,5:6) = -Xi * pauli_x / 2.
+    !hermiticity
+    do i=1,Nspin*Norb
+       do j=1,Nspin*Norb
+          hls(j,i)=conjg(hls(i,j))
+       enddo
+    enddo
+  end function H_LS
+
+  function H_IVB(kx,ky,kz) result(hivb)
+    real(8),intent(in)                           :: kx,ky,kz
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: hivb
+    hivb=zero
+    hivb(1:2,3:4) = zero
+    hivb(1:2,5:6) = 2*xi*sin(kx)*eye(2) 
+    hivb(3:4,5:6) = 2*xi*sin(ky)*eye(2)
+    !hermiticity
+    do i=1,Nspin*Norb
+       do j=1,Nspin*Norb
+          hivb(j,i)=conjg(hivb(i,j))
+       enddo
+    enddo
+  end function H_IVB
+
+
+
 
   !---------------------------------------------------------------------
   !PURPOSE: Build the hopping integrals in k-space for realistic bandstructure
@@ -643,11 +558,16 @@ contains
      if(.not.Hk_test)then
         T=0.d0
         T=T_bulk(1:Norb,:)
+     elseif(bath_type=="replica".and.Hk_test)then
+        T=1.0d0
+        T(1,0) = 0.0d0
+        T(2,0) = 0.0d0
+        T(3,0) = 0.0d0
      elseif(bath_type/="replica".and.Hk_test)then
         T=1.0d0
         T(1,0) = +0.30d0
-        T(2,0) = -0.14d0
-        T(3,0) = -0.14d0
+        T(2,0) = -0.15d0
+        T(3,0) = -0.15d0
      endif
   endif
   !
@@ -675,16 +595,14 @@ contains
        kpath(5,:)=kpoint_X1
        kpath(6,:)=kpoint_Gamma
        kpath(7,:)=kpoint_X1
-       if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,&
-            colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
-            points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
-            file="Eigenband_bulk.nint")
-       if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g_Hartree,Nso,kpath,Lk,&
-            colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
-            points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
-            file="Eigenband_bulk_Hartree.nint")
-
-
+       if(ED_MPI_ID==0) then
+          call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
+               points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],file="Eigenband_bulk.nint")
+          SigmaHk=Smats
+          call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
+               points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],file="Eigenband_bulk.Sigma")
+          SigmaHk=zero
+       endif
     else
        if(ED_MPI_ID==0)then
           if(ED_MPI_ID==0)write(LOGfile,*)"Build surface H(k) along the path M-X-G-X"
@@ -697,14 +615,14 @@ contains
        kpath(2,:)=kpoint_X1
        kpath(3,:)=kpoint_Gamma
        kpath(4,:)=kpoint_X1
-       if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,&
-            colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
-            points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
-            file="Eigenband_surf.nint")
-       if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_Ti3dt2g_Hartree,Nso,kpath,Lk,&
-            colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
-            points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
-            file="Eigenband_surf_Hartree.nint")
+       if(ED_MPI_ID==0) then
+          call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
+               points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],file="Eigenband_surf.nint")
+          SigmaHk=Smats
+          call solve_Hk_along_BZpath(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=[character(len=20) :: 'red','green','blue','red','green','blue'],&
+               points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],file="Eigenband_surf.Sigma")
+          SigmaHk=zero
+       endif
     endif
   end subroutine build_hk_path
 
@@ -740,7 +658,7 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: rotations on G0loc/Gloc
   !---------------------------------------------------------------------
-  subroutine rotate_Gloc(Gsowr,type_rot,bottom_,top_,lvl_)
+  subroutine Jz_rotate(Gsowr,type_rot,bottom_,top_,lvl_)
     implicit none
     complex(8),allocatable,intent(in)             ::   Gsowr(:,:,:,:,:)
     character(len=1),intent(in),optional          ::   type_rot
@@ -760,7 +678,7 @@ contains
     if(allocated(Bath))     isetup=.false.
     lvl=1.0d0;if(present(lvl_))lvl=lvl_
     !
-    call build_rotation(theta_C,theta_R,impHloc_rot)
+    call build_rotation(theta_C,impHloc_rot)
     !
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     if(allocated( G_in))deallocate( G_in);allocate( G_in(Nspin*Norb,Nspin*Norb,Lreal));G_in=zero
@@ -940,78 +858,6 @@ contains
     !
     !###############################################################
     !#                                                             #
-    !#                    ROTATION WITH theta_R                    #
-    !#                                                             #
-    !###############################################################
-    !
-    if(present(type_rot).and.(type_rot=="B"))then
-       if(ED_MPI_ID==0)write(LOGfile,*) "  Gloc rotation with LS(R)",lvl
-    !
-    !1)rotation
-    G_out=zero
-    do i=1,Lfreq
-       G_out(:,:,i)=matmul(transpose(conjg(theta_R)),matmul(G_in(:,:,i),theta_R))
-    enddo
-    !
-    !top-bottom find of the upper band
-    if(present(top_).and.present(bottom_))then
-       do i=1,Lfreq
-          if(abs(aimag(G_out(1,1,i))).gt.lvl)then
-             bottom_=wr(i)
-             go to 1236
-          endif
-       enddo
-       1236 continue
-       do i=1,Lfreq
-          if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.lvl)then
-             top_=wr(Lfreq-i+1)
-             go to 1237
-          endif
-       enddo
-       1237 continue
-    endif
-    !
-    !2)output save
-    if(isetup) then
-       file_rotation="G0loc_rot_B_l"
-    else
-       file_rotation="Giloc_rot_B_l"
-    endif
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
-             enddo
-          enddo
-       enddo
-    enddo
-    !3)save the integral
-    if(isetup) then
-       open(unit=106,file='sum_w_G0loc_rot_B.dat',status='unknown',action='write',position='rewind')
-    else
-       open(unit=106,file='sum_w_Gloc_rot_B.dat',status='unknown',action='write',position='rewind')
-    endif
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                write(106,*) io,jo,"---",ispin,jspin,iorb,jorb,sum(abs(G_out(io,jo,:)))
-             enddo
-          enddo
-       enddo
-    enddo
-    close(106)
-
-    endif
-    !
-    !
-    !###############################################################
-    !#                                                             #
     !#                  ROTATION WITH rot_rho                      #
     !#                                                             #
     !###############################################################
@@ -1059,7 +905,7 @@ contains
     enddo
     close(106)
     !
-  end subroutine rotate_Gloc
+  end subroutine Jz_rotate
 
 
 
@@ -1069,10 +915,10 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: Build the rotations
   !---------------------------------------------------------------------
-  subroutine build_rotation(theta_C_,theta_R_,impHloc_rot_)
-    complex(8),dimension(6,6),intent(out)            ::   theta_C_,theta_R_
+  subroutine build_rotation(theta_C_,impHloc_rot_)
+    complex(8),dimension(6,6),intent(out)            ::   theta_C_
     complex(8),dimension(6,6),intent(out)            ::   impHloc_rot_
-    real(8),dimension(6)                             ::   impHloc_eig,theta_R_eig
+    real(8),dimension(6)                             ::   impHloc_eig
     theta_C_=zero
     !J=1/2 jz=-1/2
     theta_C_(1,1)=-Xi
@@ -1104,81 +950,12 @@ contains
     theta_C_(:,6)=theta_C_(:,6)/sqrt(6.)
     theta_C_=Z2so_reshape(theta_C_)
     !
-    theta_R_=zero
-    theta_R_(1:2,3:4)= -abs(+xi * pauli_z)
-    theta_R_(1:2,5:6)= -abs(-xi * pauli_y)
-    theta_R_(3:4,5:6)= -abs(+xi * pauli_x)
-    do i=1,Nspin*Norb
-       do j=1,Nspin*Norb
-          theta_R_(j,i)=conjg(theta_R_(i,j))
-       enddo
-    enddo
-    theta_R_ = Z2so_reshape(theta_R_)
-    call matrix_diagonalize(theta_R_,theta_R_eig,'V','U')
-    !
     impHloc_rot_=zero
     impHloc_rot_=Ti3dt2g_Hloc
     call matrix_diagonalize(impHloc_rot_,impHloc_eig,'V','U')
     !
   end subroutine build_rotation
 
-  !---------------------------------------------------------------------
-  !PURPOSE: Build the operators that defines J and jz
-  !---------------------------------------------------------------------
-  subroutine check_rotations_on_Jz(rotation)
-    complex(8),dimension(6,6),intent(in)   ::   rotation
-    complex(8),dimension(6,6)              ::   LSmatrix,LSmatrix_rot
-    complex(8),dimension(6,6)              ::   jzmatrix,jzmatrix_rot
-    integer                                ::   io,jo,unit_
-    !
-    LSmatrix=zero;LSmatrix_rot=zero
-    jzmatrix=zero;jzmatrix_rot=zero
-    !
-    LSmatrix(1:2,3:4)= -Xi * pauli_z / 2.
-    LSmatrix(1:2,5:6)= +Xi * pauli_y / 2.
-    LSmatrix(3:4,5:6)= -Xi * pauli_x / 2.
-    do io=1,Nspin*Norb
-       do jo=io+1,Nspin*Norb
-          LSmatrix(jo,io)=conjg(LSmatrix(io,jo))
-       enddo
-    enddo
-    LSmatrix=Z2so_reshape(LSmatrix)
-    !
-    jzmatrix(1:2,1:2)=pauli_z/2
-    jzmatrix(3:4,3:4)=pauli_z/2
-    jzmatrix(5:6,5:6)=pauli_z/2
-    jzmatrix(1,3)=-xi
-    jzmatrix(2,4)=-xi
-    jzmatrix(4,2)=xi
-    jzmatrix(3,1)=xi
-    jzmatrix=Z2so_reshape(jzmatrix)
-    !
-    LSmatrix_rot = matmul(transpose(conjg(rotation)),matmul(LSmatrix,(rotation)))
-    jzmatrix_rot = matmul(transpose(conjg(rotation)),matmul(jzmatrix,(rotation)))
-    !
-    unit_ = free_unit()
-    open(unit_,file="jz_LS_rotations.dat",action="write",position="rewind",status='unknown')
-    write(unit_,'(A100)')"# rotation on LS [Re,Im]"
-    do io=1,Nspin*Norb
-       write(unit_,'(30(F21.12,1X))') (real(LSmatrix_rot(io,jo)),jo=1,Nspin*Norb)
-    enddo
-    write(unit_,*)
-    do io=1,Nspin*Norb
-       write(unit_,'(30(F21.12,1X))') (aimag(LSmatrix_rot(io,jo)),jo=1,Nspin*Norb)
-    enddo
-    write(unit_,*)
-    write(unit_,'(A100)')"# rotation on jz [Re,Im]"
-    write(unit_,*)
-    do io=1,Nspin*Norb
-       write(unit_,'(30(F21.12,1X))') (real(jzmatrix_rot(io,jo)),jo=1,Nspin*Norb)
-    enddo
-    write(unit_,*)
-    do io=1,Nspin*Norb
-       write(unit_,'(30(F21.12,1X))') (aimag(jzmatrix_rot(io,jo)),jo=1,Nspin*Norb)
-    enddo
-    close(unit_)
-    !
-  end subroutine check_rotations_on_Jz
 
 
 

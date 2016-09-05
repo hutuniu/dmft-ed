@@ -43,7 +43,7 @@ MODULE ED_CHI2FIT
   integer,dimension(:),allocatable      :: getIorb,getJorb,getIspin,getJspin
   integer                               :: Orb_indx,Spin_indx,Spin_mask
   type(effective_bath)                  :: chi2_bath
-  integer                               :: cg_iter_count=0  
+  integer                               :: cg_iter_count=0
 
 contains
 
@@ -123,16 +123,8 @@ contains
        end select
        !
     case ("replica")
-       select case(ed_mode)
-       case default
-          !
-          call chi2_fitgf_replica(fg,bath)
-          !
-       case ("normal")
-          !
-          call chi2_fitgf_replica_normal(fg(ispin_,ispin_,:,:,:),bath,ispin_)
-          !
-       end select
+       !
+       call chi2_fitgf_replica(fg,bath)
        !
     end select
 #ifdef _MPI

@@ -1802,10 +1802,9 @@ contains
   end function ed_get_dph_lattice
 
   !DEBUG>>
-  subroutine ed_get_density_matrix(dm_,iprint,dm_eig_,dm_rot_)
+  subroutine ed_get_density_matrix(dm_,dm_eig_,dm_rot_)
     !passed
     complex(8),allocatable,intent(out)           :: dm_(:,:)
-    integer,intent(in)                           :: iprint
     real(8),allocatable,intent(out),optional     :: dm_eig_(:)
     complex(8),allocatable,intent(out),optional  :: dm_rot_(:,:)
     !internal
@@ -1813,11 +1812,8 @@ contains
     integer                                      :: iorb,jorb,ispin,jspin,io,jo
     complex(8)                                   :: Tr
     !
-    if (((.not.present(dm_eig_)).or.(.not.present(dm_rot_))).and.(iprint/=0)) then
-       write(*,*) "iprint/=0 but matrices not allocated"
-       stop
-    elseif (.not.allocated(imp_density_matrix)) then
-       write(*,*) "for some reason imp_density_matrix is not allocated"
+    if (.not.allocated(imp_density_matrix)) then
+       write(*,*) "imp_density_matrix is not allocated"
        stop
     endif
     !
@@ -1841,61 +1837,55 @@ contains
        enddo
     enddo
     !
+    dm_eig_=0.0d0;dm_rot_=zero;dm_rot_=dm_
+    call matrix_diagonalize(dm_rot_,dm_eig_,'V','U')
+    !
     unit = free_unit()
     open(unit,file="imp_density_matrix.dat",action="write",position="rewind",status='unknown')
-    if(iprint>=0) then
-       write(unit,"(A10)")"# Re{rho}: [Norb*Norb]*Nspin"
-       do io=1,Nspin*Norb
-          write(unit,"(90(F15.9,1X))") (real(dm_(io,jo)),jo=1,Nspin*Norb)
-       enddo
-       write(unit,"(A10)")
-       write(unit,"(A10)")"# Im{rho}: [Norb*Norb]*Nspin"
-       do io=1,Nspin*Norb
-          write(unit,"(90(F15.9,1X))") (aimag(dm_(io,jo)),jo=1,Nspin*Norb)
-       enddo
-    endif
-    if(iprint>=1)then
+    write(unit,"(A10)")"# Re{rho}: [Norb*Norb]*Nspin"
+    do io=1,Nspin*Norb
+       write(unit,"(90(F15.9,1X))") (real(dm_(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    write(unit,"(A10)")
+    write(unit,"(A10)")"# Im{rho}: [Norb*Norb]*Nspin"
+    do io=1,Nspin*Norb
+       write(unit,"(90(F15.9,1X))") (aimag(dm_(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    write(unit,"(A10)")
+    write(unit,"(A10)")"# rho_tilda"
+    write(unit,'(10F22.12)') dm_eig_
+    write(unit,"(A10)")
+    write(unit,"(A100)")"# Re{theta}: [Norb*Norb]*Nspin"
+    do io=1,Nspin*Norb
+       write(unit,"(90(F15.9,1X))") (real(dm_rot_(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    write(unit,"(A10)")
+    write(unit,"(A100)")"# Im{theta}: [Norb*Norb]*Nspin"
+    do io=1,Nspin*Norb
+       write(unit,"(90(F15.9,1X))") (aimag(dm_rot_(io,jo)),jo=1,Nspin*Norb)
+    enddo
+    close(unit)
+    !
+    if(ed_verbose<1) then
        Tr=zero;Tr=trace(dm_)
        if(ED_MPI_ID==0)write(LOGfile,'(A25,6F15.7)') 'test #1: Tr[rho]:    ',real(Tr),aimag(Tr)
-       dm_rot_=zero;dm_rot_=matmul(dm_,dm_)
-       Tr=zero;Tr=trace(dm_rot_)
+       Tr=zero;Tr=trace(matmul(dm_,dm_))
        if(ED_MPI_ID==0)write(LOGfile,'(A25,6F15.7)') 'test #2: Tr[rho^2]:  ',real(Tr),aimag(Tr)
-       dm_eig_=0.0d0;dm_rot_=zero;dm_rot_=dm_
-       call matrix_diagonalize(dm_rot_,dm_eig_,'V','U')
        Tr=zero;Tr=sum(dm_eig_)
        if(ED_MPI_ID==0)write(LOGfile,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
     endif
-    if(iprint>=2)then
-       dm_eig_=0.0d0;dm_rot_=zero;dm_rot_=dm_
-       call matrix_diagonalize(dm_rot_,dm_eig_,'V','U')
-       write(unit,"(A10)")
-       write(unit,"(A10)")"# rho_tilda"
-       write(unit,'(10F22.12)') dm_eig_
-       write(unit,"(A10)")
-       write(unit,"(A100)")"# Re{theta}: [Norb*Norb]*Nspin"
-       do io=1,Nspin*Norb
-          write(unit,"(90(F15.9,1X))") (real(dm_rot_(io,jo)),jo=1,Nspin*Norb)
-       enddo
-       write(unit,"(A10)")
-       write(unit,"(A100)")"# Im{theta}: [Norb*Norb]*Nspin"
-       do io=1,Nspin*Norb
-          write(unit,"(90(F15.9,1X))") (aimag(dm_rot_(io,jo)),jo=1,Nspin*Norb)
-       enddo
-    endif
-    close(unit)
   end subroutine ed_get_density_matrix
 
 
   subroutine ed_get_quantum_SOC_operators(Simp,Limp,jimp)
-    !passed
     complex(8),allocatable,optional,intent(out)  ::  Simp(:,:,:)
     complex(8),allocatable,optional,intent(out)  ::  Limp(:,:,:)
-    complex(8),allocatable,optional,intent(out)  ::  jimp(:)
+    complex(8),allocatable,optional,intent(out)  ::  Jimp(:)
     integer                                      ::  unit_
     integer                                      ::  iorb,ispin,jorb,jspin
     real(8)                                      ::  Lxsq,Lysq,Lzsq,Lsq
     real(8)                                      ::  Sxsq,Sysq,Szsq,Ssq
-    real(8)                                      ::  jxsq,jysq,jzsq,jsq
+    real(8)                                      ::  jxsq,jysq,jzsq,Jsq
     if(Norb/=3)stop"SOC_operators implemented for 3 orbitals"
     if(present(Simp).and.((size(Simp,dim=1)/=3).or.(size(Simp,dim=2)/=3).or.(size(Simp,dim=3)/=3)))stop"wrong S size (3,3,3)"
     if(present(Limp).and.((size(Limp,dim=1)/=3).or.(size(Limp,dim=2)/=2).or.(size(Limp,dim=3)/=2)))stop"wrong L size (3,2,2)"
@@ -1918,74 +1908,70 @@ contains
     jxsq = (impj_aplha(1))*conjg(impj_aplha(1))
     jysq = (impj_aplha(2))*conjg(impj_aplha(2))
     jzsq = (impj_aplha(3))*conjg(impj_aplha(3))
-    jsq  = jxsq + jysq + jzsq
+    Jsq  = jxsq + jysq + jzsq
+    !
+    !   IMPURITY SPIN OPERATOR - (S)
     !
     unit_ = free_unit()
-    open(unit=unit_,file='Simpimp.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Sx]}","2-Im{Tr[Sx]}","3-Re{Tr[Sy]}","4-Im{Tr[Sy]}","5-Re{Tr[Sz]}","6-Im{Tr[Sz]}",&
-                                "7-|Sx|^2","8-|Sy|^2","9-|Sz|^2","10-|S|^2"
+    open(unit=unit_,file='S_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(unit_,'(A)')"# Re{Sx_(iorb,jorb)}, Im{Sx_(iorb,jorb)}"
+    do iorb=1,Norb
+       write(unit_,'(30(F20.12,1X))') (real(impStot(1,iorb,jorb)),jorb=1,Norb),(aimag(impStot(1,iorb,jorb)),jorb=1,Norb)
+    enddo
+    write(unit_,*)
+    write(unit_,'(A)')"# Re{Sy_(iorb,jorb)}, Im{Sy_(iorb,jorb)}"
+    do iorb=1,Norb
+       write(unit_,'(30(F20.12,1X))') (real(impStot(2,iorb,jorb)),jorb=1,Norb),(aimag(impStot(2,iorb,jorb)),jorb=1,Norb)
+    enddo
+    write(unit_,*)
+    write(unit_,'(A)')"# Re{Sz_(iorb,jorb)}, Im{Sz_(iorb,jorb)}"
+    do iorb=1,Norb
+       write(unit_,'(30(F20.12,1X))') (real(impStot(3,iorb,jorb)),jorb=1,Norb),(aimag(impStot(3,iorb,jorb)),jorb=1,Norb)
+    enddo
+    write(unit_,*)
+    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Sx]}","2-Im{Tr[Sx]}","3-Re{Tr[Sy]}","4-Im{Tr[Sy]}","5-Re{Tr[Sz]}","6-Im{Tr[Sz]}","7-|Sx|^2","8-|Sy|^2","9-|Sz|^2","10-|S|^2"
     write(unit_,'(30(F20.12,1X))') real(trace(impStot(1,:,:))),aimag(trace(impStot(1,:,:))),&
                                    real(trace(impStot(2,:,:))),aimag(trace(impStot(2,:,:))),&
                                    real(trace(impStot(3,:,:))),aimag(trace(impStot(3,:,:))),&
                                    Sxsq,Sysq,Szsq,Ssq
-
-    write(unit_,*)
-    write(unit_,'(30(a20,1X))') "#Sx(orb_1)","Sx(orb_2)","Sx(orb_3)","Sy(orb_1)","Sy(orb_2)","Sy(orb_3)","Sz(orb_1)","Sz(orb_2)","Sz(orb_3)"
-    write(unit_,*)
-    do iorb=1,Norb
-       write(unit_,'(30(F20.12,1X))') (real(impStot(1,iorb,jorb)),jorb=1,Norb) &
-                                     ,(real(impStot(2,iorb,jorb)),jorb=1,Norb) &
-                                     ,(real(impStot(3,iorb,jorb)),jorb=1,Norb)
-    enddo
-    write(unit_,*)
-    do iorb=1,Norb
-       write(unit_,'(30(F20.12,1X))') (aimag(impStot(1,iorb,jorb)),jorb=1,Norb) &
-                                     ,(aimag(impStot(2,iorb,jorb)),jorb=1,Norb) &
-                                     ,(aimag(impStot(3,iorb,jorb)),jorb=1,Norb)
-    enddo
     close(unit_)
     !
+    !   IMPURITY ORBITAL ANGULAR MOMENTUM OPERATOR - (L)
+    !
     unit_ = free_unit()
-    open(unit=unit_,file='Limpimp.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Lx]}","2-Im{Tr[Lx]}","3-Re{Tr[Ly]}","4-Im{Tr[ly]}","5-Re{Tr[Lz]}","6-Im{Tr[Lz]}",&
-                               "7-|Lx|^2","8-|Ly|^2","9-|Lz|^2","10-|L|^2"
+    open(unit=unit_,file='L_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(unit_,'(A)')"# Re{Lx_(ipin,jspin)}, Im{Lx_(ipin,jspin)}"
+    do ispin=1,Nspin
+       write(unit_,'(30(F20.12,1X))') (real(impLtot(1,ispin,jspin)),jspin=1,Nspin),(aimag(impLtot(1,ispin,jspin)),jspin=1,Nspin)
+    enddo
+    write(unit_,*)
+    write(unit_,'(A)')"# Re{Ly_(ipin,jspin)}, Im{Ly_(ipin,jspin)}"
+    do ispin=1,Nspin
+       write(unit_,'(30(F20.12,1X))') (real(impLtot(2,ispin,jspin)),jspin=1,Nspin),(aimag(impLtot(2,ispin,jspin)),jspin=1,Nspin)
+    enddo
+    write(unit_,*)
+    write(unit_,'(A)')"# Re{Lz_(ipin,jspin)}, Im{Lz_(ipin,jspin)}"
+    do ispin=1,Nspin
+       write(unit_,'(30(F20.12,1X))') (real(impLtot(3,ispin,jspin)),jspin=1,Nspin),(aimag(impLtot(3,ispin,jspin)),jspin=1,Nspin)
+    enddo
+    write(unit_,*)
+    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Lx]}","2-Im{Tr[Lx]}","3-Re{Tr[Ly]}","4-Im{Tr[ly]}","5-Re{Tr[Lz]}","6-Im{Tr[Lz]}","7-|Lx|^2","8-|Ly|^2","9-|Lz|^2","10-|L|^2"
     write(unit_,'(30(F20.12,1X))') real(trace(impLtot(1,:,:))),aimag(trace(impLtot(1,:,:))),&
                                    real(trace(impLtot(2,:,:))),aimag(trace(impLtot(2,:,:))),&
                                    real(trace(impLtot(3,:,:))),aimag(trace(impLtot(3,:,:))),&
                                    Lxsq,Lysq,Lzsq,Lsq
-    write(unit_,*)
-    write(unit_,'(30(a20,1X))') "#Lx(spin_1)","Lx(spin_2)","Ly(spin_1)","Ly(spin_2)","Lz(spin_1)","Lz(spin_2)"
-    write(unit_,*)
-    do ispin=1,Nspin
-       write(unit_,'(30(F20.12,1X))') (real(impLtot(1,ispin,jspin)),jspin=1,Nspin) &
-                                     ,(real(impLtot(2,ispin,jspin)),jspin=1,Nspin) &
-                                     ,(real(impLtot(3,ispin,jspin)),jspin=1,Nspin)
-    enddo
-    write(unit_,*)
-    do ispin=1,Nspin
-       write(unit_,'(30(F20.12,1X))') (aimag(impLtot(1,ispin,jspin)),jspin=1,Nspin) &
-                                     ,(aimag(impLtot(2,ispin,jspin)),jspin=1,Nspin) &
-                                     ,(aimag(impLtot(3,ispin,jspin)),jspin=1,Nspin)
-    enddo
     close(unit_)
     !
+    !   IMPURITY TOTAL ANGULAR MOMENTUM OPERATOR - (J = S + L)
+    !
     unit_ = free_unit()
-    open(unit=unit_,file='Jz_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(unit_,'(30(a20,1X))') "#1-Re{jx}","2-Im{jx}","3-Re{jy}","4-Im{jy}","5-Re{jz}","6-Im{jz}",&
-                                 "7-|jx|^2","8-|jy|^2","9-|jz|^2","10-|j|^2","11-Re{L.S}","12-Im{L.S}"
+    open(unit=unit_,file='J_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
+    write(unit_,'(30(a20,1X))') "#1-Re{jx}","2-Im{jx}","3-Re{jy}","4-Im{jy}","5-Re{jz}","6-Im{jz}","7-|jx|^2","8-|jy|^2","9-|jz|^2","10-|j|^2","11-Re{L.S}","12-Im{L.S}"
     write(unit_,'(30(F20.12,1X))') real(impj_aplha(1)),aimag(impj_aplha(1)),real(impj_aplha(2)),aimag(impj_aplha(2)),real(impj_aplha(3)),aimag(impj_aplha(3)) &
-                                  ,jxsq,jysq,jzsq,jsq,real(impLdotS),aimag(impLdotS)
+                                  ,jxsq,jysq,jzsq,Jsq,real(impLdotS),aimag(impLdotS)
     close(unit_)
     !
-    unit_ = free_unit()
-    open(unit=unit_,file='operators_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
-    write(unit_,'(30(a20,1X))') "#1-Re{Tr[Lz]}","2-|Lz|^2","3-|L|^2","4-Re{Tr[Sz]}","5-|Sz|^2","6-|S|^2",&
-                                 "7-Re{jz}","7-|jz|^2","8-|j|^2","10-Re{L.S}"
-    write(unit_,'(30(F20.12,1X))') real(trace(impLtot(3,:,:))),Lzsq,Lsq,real(trace(impStot(3,:,:))),Szsq,Ssq,&
-                                   real(impj_aplha(3)),jzsq,jsq,real(impLdotS)
-    close(unit_)
   end subroutine ed_get_quantum_SOC_operators
-  !<<DEBUG
 
 end module ED_MAIN
 
