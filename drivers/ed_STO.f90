@@ -28,7 +28,7 @@ program ed_TEST_REPLICA
   character(len=16)      :: finput
   character(len=32)      :: hkfile
   !custom variables:
-  integer                :: conv_n_loop,shift_n_loop
+  integer                :: conv_n_loop=0,shift_n_loop=0
   real(8)                :: Alvl
   logical                :: converged_n,upprshft
   !convergence functions:
@@ -140,7 +140,8 @@ program ed_TEST_REPLICA
            call ed_get_density_matrix(density_matrix,dm_eig,dm_rot)
            call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
         endif
-        call Jz_rotate(Greal,"A",bottom,top,pi*Alvl)
+        call Jz_rotate(Greal,"Gw","A",bottom,top,pi*Alvl)
+        call Jz_rotate(Smats,"Sw","A")
      endif
      !
      !chemical potential find:
@@ -335,7 +336,7 @@ contains
        do i=1,Lreal
           G_in(:,:,:,:,i)=so2nn_reshape(Greal(:,:,i))
        enddo
-       call Jz_rotate(G_in,"A")
+       call Jz_rotate(G_in,"G0","A")
        deallocate(G_in)
     endif
   end subroutine build_hk
@@ -658,9 +659,10 @@ contains
   !---------------------------------------------------------------------
   !PURPOSE: rotations on G0loc/Gloc
   !---------------------------------------------------------------------
-  subroutine Jz_rotate(Gsowr,type_rot,bottom_,top_,lvl_)
+  subroutine Jz_rotate(Gsowr,type_funct,type_rot,bottom_,top_,lvl_)
     implicit none
     complex(8),allocatable,intent(in)             ::   Gsowr(:,:,:,:,:)
+    character(len=2),intent(in)                   ::   type_funct
     character(len=1),intent(in),optional          ::   type_rot
     real(8),intent(out),optional                  ::   bottom_,top_
     real(8),intent(in),optional                   ::   lvl_
@@ -670,12 +672,14 @@ contains
     integer                                       ::   ispin,jspin
     integer                                       ::   iorb,jorb
     integer                                       ::   Lfreq
-    real(8)                                       ::   wr(Lreal),dw,bttm,tp,lvl
+    real(8)                                       ::   wr(Lreal),z_rot(Nspin*Norb)
+    real(8)                                       ::   dw,bttm,tp,lvl,fact
     character(len=13)                             ::   file_rotation
-    logical                                       ::   isetup
+    integer                                       ::   isetup=0
     !
-    if(.not.allocated(Bath))isetup=.true.
-    if(allocated(Bath))     isetup=.false.
+    if(type_funct=="G0") isetup=1
+    if(type_funct=="Gw") isetup=2
+    if(type_funct=="Sw") isetup=3
     lvl=1.0d0;if(present(lvl_))lvl=lvl_
     !
     call build_rotation(theta_C,impHloc_rot)
@@ -685,10 +689,15 @@ contains
     if(allocated(G_out))deallocate(G_out);allocate(G_out(Nspin*Norb,Nspin*Norb,Lreal));G_out=zero
     Lfreq=size(Gsowr,dim=5)
     !
-    if(isetup) then
-       if(ED_MPI_ID==0)write(LOGfile,*) "  A(w) rotation - non interacting system",Lfreq
-    else
-       if(ED_MPI_ID==0)write(LOGfile,*) "  A(w) rotation - interacting system",Lfreq
+    if(isetup==1) then
+       if(ED_MPI_ID==0)write(LOGfile,*) "  A(w) rotation - non interacting system"
+       fact=1.d0
+    elseif(isetup==2) then
+       if(ED_MPI_ID==0)write(LOGfile,*) "  A(w) rotation - interacting system"
+       fact=1.d0
+    elseif(isetup==3) then
+       if(ED_MPI_ID==0)write(LOGfile,*) "  Sigma(iw) rotation"
+       fact=-1.d0
     endif
     !
     !
@@ -705,16 +714,18 @@ contains
              do jorb=1,Norb
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
-                G_in(io,jo,:)=Gsowr(ispin,jspin,iorb,jorb,:)
+                G_in(io,jo,:)=fact*Gsowr(ispin,jspin,iorb,jorb,:)
              enddo
           enddo
        enddo
     enddo
     !save the integral
-    if(isetup) then
+    if(isetup==1) then
        open(unit=106,file='sum_w_G0loc.dat',status='unknown',action='write',position='rewind')
-    else
+    elseif(isetup==2) then
        open(unit=106,file='sum_w_Gloc.dat',status='unknown',action='write',position='rewind')
+    elseif(isetup==3) then
+       open(unit=106,file='sum_w_Smats.dat',status='unknown',action='write',position='rewind')
     endif
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -737,7 +748,7 @@ contains
     !###############################################################
     !
     if(present(type_rot).and.(type_rot=="H"))then
-       if(ED_MPI_ID==0)write(LOGfile,*) "  Gloc rotation with impHloc"
+       if(ED_MPI_ID==0)write(LOGfile,*) "  Rotation with impHloc"
     !
     !1)rotation
     G_out=zero
@@ -745,11 +756,28 @@ contains
        G_out(:,:,i)=matmul(transpose(conjg(impHloc_rot)),matmul(G_in(:,:,i),impHloc_rot))
     enddo
     !
+    !Zqp save
+    if(isetup==3)then
+       open(unit=106,file='Zqp_rot.dat',status='unknown',action='write',position='append')
+       do io=1,Nspin*Norb
+          z_rot(io)   = 1.d0/( 1.d0 + abs( dimag(G_out(io,io,1))/(pi/beta) ))
+       enddo
+       rewind(106)
+       write(106,*) "# impHloc rotation"
+       write(106,'(90F15.9,1X)')(z_rot(io),io=1,Nspin*Norb)
+       write(106,*)
+       write(106,*)
+       write(106,*)
+       close(106)
+    endif
+    !
     !2)output save
-    if(isetup) then
+    if(isetup==1) then
        file_rotation="G0loc_rot_H_l"
-    else
+    elseif(isetup==2) then
        file_rotation="Giloc_rot_H_l"
+    elseif(isetup==3) then
+       file_rotation="Smats_rot_H_l"
     endif
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -763,10 +791,12 @@ contains
        enddo
     enddo
     !3)save the integral
-    if(isetup) then
+    if(isetup==1) then
        open(unit=106,file='sum_w_G0loc_rot_H.dat',status='unknown',action='write',position='rewind')
-    else
+    elseif(isetup==2) then
        open(unit=106,file='sum_w_Gloc_rot_H.dat',status='unknown',action='write',position='rewind')
+    elseif(isetup==3) then
+       open(unit=106,file='sum_w_Smats_rot_H.dat',status='unknown',action='write',position='rewind')
     endif
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -780,7 +810,6 @@ contains
        enddo
     enddo
     close(106)
-
     endif
     !
     !
@@ -791,7 +820,7 @@ contains
     !###############################################################
     !
     if(present(type_rot).and.(type_rot=="A"))then
-       if(ED_MPI_ID==0)write(LOGfile,*) "  Gloc rotation with LS(C) Martins",lvl
+       if(ED_MPI_ID==0)write(LOGfile,*) "  Rotation with LS(C) Martins"
     !
     !1)rotation
     G_out=zero
@@ -799,29 +828,44 @@ contains
        G_out(:,:,i)=matmul(transpose(conjg(theta_C)),matmul(G_in(:,:,i),theta_C))
     enddo
     !
+    !Zqp save
+    if(isetup==3)then
+       open(unit=106,file='Zqp_rot.dat',status='unknown',action='write',position='append')
+       do io=1,Nspin*Norb
+          z_rot(io)   = 1.d0/( 1.d0 + abs( dimag(G_out(io,io,1))/(pi/beta) ))
+       enddo
+       rewind(106)
+       write(106,*) "# Analytic LS rotation"
+       write(106,'(90F15.9,1X)')(z_rot(io),io=1,Nspin*Norb)
+       write(106,*)
+       write(106,*)
+       write(106,*)
+       close(106)
+    endif
+    !
     !top-bottom find of the upper band
     if(present(top_).and.present(bottom_))then
-       do i=1,Lfreq
+       outerloop1:do i=1,Lfreq
           if(abs(aimag(G_out(1,1,i))).gt.lvl)then
              bottom_=wr(i)
-             go to 1234
+             exit outerloop1
           endif
-       enddo
-       1234 continue
-       do i=1,Lfreq
+       enddo outerloop1
+       outerloop2:do i=1,Lfreq
           if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.lvl)then
              top_=wr(Lfreq-i+1)
-             go to 1235
+             exit outerloop2
           endif
-       enddo
-       1235 continue
+       enddo outerloop2
     endif
     !
     !2)output save
-    if(isetup) then
+    if(isetup==1) then
        file_rotation="G0loc_rot_A_l"
-    else
+    elseif(isetup==2) then
        file_rotation="Giloc_rot_A_l"
+    elseif(isetup==3) then
+       file_rotation="Smats_rot_A_l"
     endif
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -835,10 +879,12 @@ contains
        enddo
     enddo
     !3)save the integral
-    if(isetup) then
+    if(isetup==1) then
        open(unit=106,file='sum_w_G0loc_rot_A.dat',status='unknown',action='write',position='rewind')
-    else
+    elseif(isetup==2) then
        open(unit=106,file='sum_w_Gloc_rot_A.dat',status='unknown',action='write',position='rewind')
+    elseif(isetup==3) then
+       open(unit=106,file='sum_w_Smats_rot_A.dat',status='unknown',action='write',position='rewind')
     endif
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -852,7 +898,6 @@ contains
        enddo
     enddo
     close(106)
-
     endif
     !
     !
@@ -862,6 +907,8 @@ contains
     !#                                                             #
     !###############################################################
     !
+    if(sum(abs(dm_rot))>=1e-6)then
+       if(ED_MPI_ID==0)write(LOGfile,*) "  Rotation with impurity density matrix"
     !
     !1)rotation
     G_out=zero
@@ -869,11 +916,27 @@ contains
        G_out(:,:,i)=matmul(transpose(conjg(dm_rot)),matmul(G_in(:,:,i),dm_rot))
     enddo
     !
+    !Zqp save
+    if(isetup==3)then
+       open(unit=106,file='Zqp_rot.dat',status='unknown',action='write',position='append')
+       do io=1,Nspin*Norb
+          z_rot(io)   = 1.d0/( 1.d0 + abs( dimag(G_out(io,io,1))/(pi/beta) ))
+       enddo
+       write(106,*) "# density matrix rotation"
+       write(106,'(90F15.9,1X)')(z_rot(io),io=1,Nspin*Norb)
+       write(106,*)
+       write(106,*)
+       write(106,*)
+       close(106)
+    endif
+    !
     !2)output save
-    if(isetup) then
+    if(isetup==1) then
        file_rotation="G0loc_rot_R_l"
-    else
+    elseif(isetup==2) then
        file_rotation="Giloc_rot_R_l"
+    elseif(isetup==3) then
+       file_rotation="Smats_rot_R_l"
     endif
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -887,10 +950,12 @@ contains
        enddo
     enddo
     !3)save the integral
-    if(isetup) then
+    if(isetup==1) then
        open(unit=106,file='sum_w_G0loc_rot_R.dat',status='unknown',action='write',position='rewind')
-    else
+    elseif(isetup==2) then
        open(unit=106,file='sum_w_Gloc_rot_R.dat',status='unknown',action='write',position='rewind')
+    elseif(isetup==3) then
+       open(unit=106,file='sum_w_Smats_rot_R.dat',status='unknown',action='write',position='rewind')
     endif
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -904,9 +969,9 @@ contains
        enddo
     enddo
     close(106)
+    endif
     !
   end subroutine Jz_rotate
-
 
 
 !_______________________________________________________________________
