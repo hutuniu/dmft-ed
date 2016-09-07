@@ -2,7 +2,7 @@
 !PURPOSE  : Evaluate Green's functions using Lanczos algorithm
 !+------------------------------------------------------------------+
 subroutine build_gf_nonsu2()
-  integer :: izero,iorb,jorb,ispin,jspin,i
+  integer :: izero,iorb,jorb,ispin,jspin,i,io,jo,ifreq
   integer :: isect0,numstates
   real(8) :: norm0
   !
@@ -15,61 +15,158 @@ subroutine build_gf_nonsu2()
   if(.not.allocated(impGreal))stop "build_gf_nonsu2: Greal not allocated"
   impGmats=zero
   impGreal=zero
-
-  !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
-  do ispin=1,Nspin
-     do iorb=1,Norb
-        if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
-        select case(ed_type)
-        case default
-           call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
-        case ('c')
-           call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
-        end select
-     enddo
-  enddo
-
-  !Here we evaluate the same orbital, different spin GF: G_{aa}^{ss'}(z)
-  !if(bath_type=='normal')then
-  do ispin=1,Nspin
-     do jspin=1,Nspin
+  !
+  select case(bath_type)
+  case("normal")
+     !
+     !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
+     do ispin=1,Nspin
         do iorb=1,Norb
-           do jorb=1,Norb
-              if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
-                 if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
-                 select case(ed_type)
-                 case default
-                    call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
-                 case ('c')
-                    call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
-                 end select
-              endif
+           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
+           select case(ed_type)
+           case default
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
+           case ('c')
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
+           end select
+        enddo
+     enddo
+! <<<<<<< HEAD
+!   enddo
+
+!   !Here we evaluate the same orbital, different spin GF: G_{aa}^{ss'}(z)
+!   !if(bath_type=='normal')then
+!   do ispin=1,Nspin
+!      do jspin=1,Nspin
+!         do iorb=1,Norb
+!            do jorb=1,Norb
+!               if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+!                  if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+!                  select case(ed_type)
+!                  case default
+!                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
+!                  case ('c')
+!                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
+!                  end select
+!               endif
+!            enddo
+!         enddo
+!      enddo
+!   enddo
+!   !Here we put the symmetry manipulation
+!   do ispin=1,Nspin
+!      do jspin=1,Nspin
+!         do iorb=1,Norb
+!            do jorb=1,Norb
+!               if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+!                  !
+!                  impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
+!                       - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+!                  !
+!                  impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+!                       - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+!                  !
+!               endif
+!            enddo
+!         enddo
+!      enddo
+!   enddo
+!   !endif
+
+
+!   if(bath_type=='hybrid')then
+! =======
+     !
+     !same orbital, different spin GF: G_{aa}^{ss'}(z)
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+                    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    select case(ed_type)
+                    case default
+                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
+                    case ('c')
+                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
+                    end select
+                 endif
+              enddo
            enddo
         enddo
      enddo
-  enddo
-  !Here we put the symmetry manipulation
-  do ispin=1,Nspin
-     do jspin=1,Nspin
-        do iorb=1,Norb
-           do jorb=1,Norb
-              if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
-                 !
-                 impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
-                 !
-                 impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
-                 !
-              endif
+     !Here we put the symmetry manipulation
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+                    !
+                    impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                    !
+                    impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                    !
+                 endif
+              enddo
            enddo
         enddo
      enddo
-  enddo
-  !endif
-
-
-  if(bath_type=='hybrid')then
+     !
+  case("hybrid")
+     !
+     !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
+           select case(ed_type)
+           case default
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
+           case ('c')
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
+           end select
+        enddo
+     enddo
+     !
+     !same orbital, different spin GF: G_{aa}^{ss'}(z)
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+                    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    select case(ed_type)
+                    case default
+                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
+                    case ('c')
+                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
+                    end select
+                 endif
+              enddo
+           enddo
+        enddo
+     enddo
+     !Here we put the symmetry manipulation
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+                    !
+                    impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                    !
+                    impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                    !
+                 endif
+              enddo
+           enddo
+        enddo
+     enddo
+     !
+! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
      !Here we evaluate the different orbital, same spin GF: G_{ab}^{ss}(z)
      do ispin=1,Nspin
         do jspin=1,Nspin
@@ -96,17 +193,25 @@ subroutine build_gf_nonsu2()
                  if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                         - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+!>DEBUG: THIS SOLVES THE LAST (HOPEFULLY) BUG: *HERMITICITY BREAKING* DID NOT ALLOW TO GET DECENT G_LOCAL <DEBUG
+! <<<<<<< HEAD
+!                          - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+!                     !
+!                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+!                          - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+! =======
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                         - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
                     !
                  endif
               enddo
            enddo
         enddo
      enddo
-
+     !
      !Here we evaluate the different orbital, different spin GF: G_{ab}^{ss'}(z)
      do ispin=1,Nspin
         do jspin=1,Nspin
@@ -133,21 +238,173 @@ subroutine build_gf_nonsu2()
                  if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                         - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+!>DEBUG IDEM COME SOPRA <DEBUG
+! <<<<<<< HEAD
+!                          - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+!                     !
+!                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+!                          - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+! =======
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                         - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
                     !
                  endif
               enddo
            enddo
         enddo
      enddo
-  endif
+! <<<<<<< HEAD
+!   endif
+!   if(allocated(wm))deallocate(wm)
+!   if(allocated(wr))deallocate(wr)
+! =======
+     !
+  case("replica")
+     !
+     !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
+           select case(ed_type)
+           case default
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
+           case ('c')
+              call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
+           end select
+        enddo
+     enddo
+     !
+     !same orbital, different spin GF: G_{aa}^{ss'}(z)
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+                    if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
+                    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    select case(ed_type)
+                    case default
+                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
+                    case ('c')
+                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
+                    end select
+                 endif
+              enddo
+           enddo
+        enddo
+     enddo
+     !Here we put the symmetry manipulation
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+                    if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
+                    !
+                    impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                    !
+                    impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                    !
+                 endif
+              enddo
+           enddo
+        enddo
+     enddo
+     !
+     !Here we evaluate the different orbital, same spin GF: G_{ab}^{ss}(z)
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
+                    if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
+                    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    select case(ed_type)
+                    case default
+                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
+                    case ('c')
+                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
+                    end select
+                 endif
+              enddo
+           enddo
+        enddo
+     enddo
+     !Here we put the symmetry manipulation
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
+                    if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
+                    !
+                    impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                    !
+                    impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                    !
+                 endif
+              enddo
+           enddo
+        enddo
+     enddo
+     !
+     !Here we evaluate the different orbital, different spin GF: G_{ab}^{ss'}(z)
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
+                    if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
+                    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    select case(ed_type)
+                    case default
+                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
+                    case ('c')
+                       call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
+                    end select
+                 endif
+              enddo
+           enddo
+        enddo
+     enddo
+     !Here we put the symmetry manipulation
+     do ispin=1,Nspin
+        do jspin=1,Nspin
+           do iorb=1,Norb
+              do jorb=1,Norb
+                 if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
+                    if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
+                    !
+                    impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
+                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                    !
+                    impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                    !
+                 endif
+              enddo
+           enddo
+        enddo
+     enddo
+     !
+     if(ed_para)then
+        call SOC_jz_symmetrize(impGmats)
+        call SOC_jz_symmetrize(impGreal)
+     endif
+     !
+  end select
+
+! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
 end subroutine build_gf_nonsu2
-
 
 
 !+------------------------------------------------------------------+
@@ -396,7 +653,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,ispin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -434,7 +691,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -593,7 +850,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -631,7 +888,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -790,7 +1047,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -828,7 +1085,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
         call lanczos_plain_tridiag_c(cvinit,alfa_,beta_,nlanc,lanc_spHtimesV_dc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1106,7 +1363,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1144,7 +1401,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1302,7 +1559,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,jspin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1340,7 +1597,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=-xi*norm2
+        cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1498,7 +1755,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=-xi*norm2
+        cnorm2=1*xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,jspin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
@@ -1536,7 +1793,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
         call lanczos_plain_tridiag_c(vvinit,alfa_,beta_,nlanc,lanc_spHtimesV_cc)
-        cnorm2=-xi*norm2
+        cnorm2=1*xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
         deallocate(vvinit)
         if(spH0%status)call sp_delete_matrix(spH0)

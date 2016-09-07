@@ -1,16 +1,15 @@
 MODULE ED_CHI2FIT
   USE SF_CONSTANTS
   USE SF_OPTIMIZE, only:fmin_cg,fmin_cgplus,fmin_cgminimize
-  USE SF_LINALG,   only:eye,zeye,inv
+  USE SF_LINALG,   only:eye,zeye,inv,inv_her
   USE SF_IOTOOLS,  only:reg,free_unit,txtfy
   USE SF_ARRAYS,   only:arange
-  USE SF_MISC,     only:assert_shape
+  USE SF_MISC,     only:assert_shape 
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
-  USE ED_BATH_DMFT
-  USE ED_BATH_USER
+  USE ED_AUX_FUNX
+  USE ED_BATH
   USE ED_BATH_FUNCTIONS
-  USE ED_AUX_FUNX, only:set_Hloc
 
   implicit none
   private
@@ -41,9 +40,9 @@ MODULE ED_CHI2FIT
   real(8),dimension(:),allocatable      :: Xdelta,Wdelta
   integer                               :: totNorb,totNspin,totNso
   integer,dimension(:),allocatable      :: getIorb,getJorb,getIspin,getJspin
-  integer                               :: Orb_indx,Spin_indx
+  integer                               :: Orb_indx,Spin_indx,Spin_mask
   type(effective_bath)                  :: chi2_bath
-  integer                               :: cg_iter_count=0  
+  integer                               :: cg_iter_count=0
 
 contains
 
@@ -61,7 +60,7 @@ contains
   !+-------------------------------------------------------------+
   !NORMAL:
   subroutine chi2_fitgf_generic_normal(fg,bath,ispin)
-    complex(8),dimension(:,:,:,:,:) :: fg ![Nspin][Nspin][Norb][Norb][Niw]
+    complex(8),dimension(:,:,:,:,:) :: fg ![Nspin][Nspin][Norb][Norb][Niw] 
     real(8),dimension(:)            :: bath
     integer,optional                :: ispin
     integer                         :: ispin_
@@ -70,11 +69,11 @@ contains
        call assert_shape(fg,[Nspin,Nspin,Norb,Norb,size(fg,5)],"chi2_fitgf_generic_normal","fg")
        select case(cg_method)
        case (0)
-          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
+          if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
        case (1)
-          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-minimize"
+          if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
        case(2)
-          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
+          if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
        case default
           stop "chi2_fitgf_generic_normal error: cg_method > 2"
        end select
@@ -118,9 +117,14 @@ contains
           !
        case default
           !
-          stop "chi2_fitgf ERROR: ed_mode!=normal/nonsu2 but only NORMAL component is provided"
+          stop "chi2_fitgf ERROR: ed_mode!=normal/nonsu2 but only NORMAL component is provided" 
           !
        end select
+       !
+    case ("replica")
+       !
+       call chi2_fitgf_replica(fg,bath)
+       !
     end select
 #ifdef _MPI
     call MPI_BCAST(bath,size(bath),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
@@ -137,7 +141,7 @@ contains
     integer,optional                                 :: ispin
     integer                                          :: ispin_
     ispin_=1;if(present(ispin))ispin_=ispin
-    if(size(fg,3)<Lfit)stop "chi2_fitgf_generic_normal_NOSPIN error: size[fg,3] < Lfit"
+    if(size(fg,3)<Lfit)stop "chi2_fitgf_generic_normal_NOSPIN error: size[fg,3] < Lfit" 
     fg_=zero
     fg_(ispin_,ispin_,:,:,1:Lfit) = fg(:,:,1:Lfit)
     call chi2_fitgf_generic_normal(fg_,bath,ispin_)
@@ -235,7 +239,10 @@ contains
   !hybrid ED_bath
   include "ed_chi2_fitgf_hybrid_normal.f90"  
   include "ed_chi2_fitgf_hybrid_superc.f90"  
-  include "ed_chi2_fitgf_hybrid_nonsu2.f90"  
+  include "ed_chi2_fitgf_hybrid_nonsu2.f90"
+
+  !replica ED_bath
+  include "ed_chi2_fitgf_replica.f90"
   !*****************************************************************************
   !*****************************************************************************
   !*****************************************************************************

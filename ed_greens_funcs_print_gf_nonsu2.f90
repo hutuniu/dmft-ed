@@ -1,7 +1,7 @@
 subroutine print_poles_weights_nonsu2
   integer                          :: i,isign,unit(1),iorb,jorb,ispin,jspin
   integer,dimension(:),allocatable :: getIorb,getJorb,getIspin,getJspin
-  integer                          :: totNso,totNorb,totNspin,l
+  integer                          :: totNso,totNorb,totNspin,l,io,jo
   character(len=20)                :: suffix
   !
   select case(bath_type)
@@ -23,15 +23,47 @@ subroutine print_poles_weights_nonsu2
         enddo
      enddo
   case ("hybrid")
-     totNorb =Norb*(Norb+1)/2
-     totNspin=Nspin*(Nspin+1)/2
-     totNso  =totNorb*totNspin
+     totNso  = (Norb*Nspin)**2
      allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
      l=0
      do iorb=1,Norb
-        do jorb=iorb,Norb
+        do jorb=1,Norb
            do ispin=1,Nspin
-              do jspin=ispin,Nspin
+              do jspin=1,Nspin
+                 l=l+1
+                 getIorb(l)=iorb
+                 getIspin(l)=ispin
+                 getJorb(l)=jorb
+                 getJspin(l)=jspin
+              enddo
+           enddo
+        enddo
+     enddo
+  case ("replica")
+     l=0
+     do iorb=1,Norb
+        do jorb=1,Norb
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 io = iorb + (ispin-1)*Norb
+                 jo = jorb + (jspin-1)*Norb
+                 if(ed_verbose>=0.and.io<jo)cycle
+                 if(dmft_bath%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath%mask(ispin,jspin,iorb,jorb,2)) l=l+1
+              enddo
+           enddo
+        enddo
+     enddo
+     totNso = l
+     allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
+     l=0
+     do iorb=1,Norb
+        do jorb=1,Norb
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 io = iorb + (ispin-1)*Norb
+                 jo = jorb + (jspin-1)*Norb
+                 if(ed_verbose>=0.and.io<jo)cycle
+                 if((.not.dmft_bath%mask(ispin,jspin,iorb,jorb,1)).and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,2))) cycle
                  l=l+1
                  getIorb(l)=iorb
                  getIspin(l)=ispin
@@ -84,7 +116,7 @@ end subroutine print_poles_weights_nonsu2
 subroutine print_sigma_nonsu2
   integer                          :: i,isign,unit(2),iorb,jorb,ispin,jspin
   integer,dimension(:),allocatable :: getIorb,getJorb,getIspin,getJspin
-  integer                          :: totNso,totNorb,totNspin,l
+  integer                          :: totNso,totNorb,totNspin,l,io,jo
   character(len=20)                :: suffix
   !
   if(.not.allocated(wm))allocate(wm(Lmats))
@@ -111,15 +143,47 @@ subroutine print_sigma_nonsu2
         enddo
      enddo
   case ("hybrid")
-     totNorb =Norb*(Norb+1)/2
-     totNspin=Nspin*(Nspin+1)/2
-     totNso  =totNorb*totNspin
+     totNso  = (Norb*Nspin)**2
      allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
      l=0
      do iorb=1,Norb
-        do jorb=iorb,Norb
+        do jorb=1,Norb
            do ispin=1,Nspin
-              do jspin=ispin,Nspin
+              do jspin=1,Nspin
+                 l=l+1
+                 getIorb(l)=iorb
+                 getIspin(l)=ispin
+                 getJorb(l)=jorb
+                 getJspin(l)=jspin
+              enddo
+           enddo
+        enddo
+     enddo
+  case ("replica")
+     l=0
+     do iorb=1,Norb
+        do jorb=1,Norb
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 io = iorb + (ispin-1)*Norb
+                 jo = jorb + (jspin-1)*Norb
+                 if(ed_verbose>=0.and.io<jo)cycle
+                 if(dmft_bath%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath%mask(ispin,jspin,iorb,jorb,2)) l=l+1
+              enddo
+           enddo
+        enddo
+     enddo
+     totNso = l
+     allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
+     l=0
+     do iorb=1,Norb
+        do jorb=1,Norb
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 io = iorb + (ispin-1)*Norb
+                 jo = jorb + (jspin-1)*Norb
+                 if(ed_verbose>=0.and.io<jo)cycle
+                 if((.not.dmft_bath%mask(ispin,jspin,iorb,jorb,1)).and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,2))) cycle
                  l=l+1
                  getIorb(l)=iorb
                  getIspin(l)=ispin
@@ -186,7 +250,7 @@ end subroutine print_sigma_nonsu2
 subroutine print_impG_nonsu2
   integer                          :: i,isign,unit(2),iorb,jorb,ispin,jspin
   integer,dimension(:),allocatable :: getIorb,getJorb,getIspin,getJspin
-  integer                          :: totNso,totNorb,totNspin,l
+  integer                          :: totNso,totNorb,totNspin,l,io,jo
   character(len=20)                :: suffix
   !
   if(.not.allocated(wm))allocate(wm(Lmats))
@@ -213,15 +277,47 @@ subroutine print_impG_nonsu2
         enddo
      enddo
   case ("hybrid")
-     totNorb =Norb*(Norb+1)/2
-     totNspin=Nspin*(Nspin+1)/2
-     totNso  =totNorb*totNspin
+     totNso  = (Norb*Nspin)**2
      allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
      l=0
      do iorb=1,Norb
-        do jorb=iorb,Norb
+        do jorb=1,Norb
            do ispin=1,Nspin
-              do jspin=ispin,Nspin
+              do jspin=1,Nspin
+                 l=l+1
+                 getIorb(l)=iorb
+                 getIspin(l)=ispin
+                 getJorb(l)=jorb
+                 getJspin(l)=jspin
+              enddo
+           enddo
+        enddo
+     enddo
+  case ("replica")
+     l=0
+     do iorb=1,Norb
+        do jorb=1,Norb
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 io = iorb + (ispin-1)*Norb
+                 jo = jorb + (jspin-1)*Norb
+                 if(ed_verbose>=0.and.io<jo)cycle
+                 if(dmft_bath%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath%mask(ispin,jspin,iorb,jorb,2)) l=l+1
+              enddo
+           enddo
+        enddo
+     enddo
+     totNso = l
+     allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
+     l=0
+     do iorb=1,Norb
+        do jorb=1,Norb
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 io = iorb + (ispin-1)*Norb
+                 jo = jorb + (jspin-1)*Norb
+                 if(ed_verbose>=0.and.io<jo)cycle
+                 if((.not.dmft_bath%mask(ispin,jspin,iorb,jorb,1)).and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,2))) cycle
                  l=l+1
                  getIorb(l)=iorb
                  getIspin(l)=ispin
@@ -288,7 +384,7 @@ end subroutine print_impG_nonsu2
 subroutine print_impG0_nonsu2
   integer                          :: i,isign,unit(2),iorb,jorb,ispin,jspin
   integer,dimension(:),allocatable :: getIorb,getJorb,getIspin,getJspin
-  integer                          :: totNso,totNorb,totNspin,l
+  integer                          :: totNso,totNorb,totNspin,l,io,jo
   character(len=20)                :: suffix
   !
   if(.not.allocated(wm))allocate(wm(Lmats))
@@ -315,15 +411,47 @@ subroutine print_impG0_nonsu2
         enddo
      enddo
   case ("hybrid")
-     totNorb =Norb*(Norb+1)/2
-     totNspin=Nspin*(Nspin+1)/2
-     totNso  =totNorb*totNspin
+     totNso  = (Norb*Nspin)**2
      allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
      l=0
      do iorb=1,Norb
-        do jorb=iorb,Norb
+        do jorb=1,Norb
            do ispin=1,Nspin
-              do jspin=ispin,Nspin
+              do jspin=1,Nspin
+                 l=l+1
+                 getIorb(l)=iorb
+                 getIspin(l)=ispin
+                 getJorb(l)=jorb
+                 getJspin(l)=jspin
+              enddo
+           enddo
+        enddo
+     enddo
+  case ("replica")
+     l=0
+     do iorb=1,Norb
+        do jorb=1,Norb
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 io = iorb + (ispin-1)*Norb
+                 jo = jorb + (jspin-1)*Norb
+                 if(ed_verbose>=0.and.io<jo)cycle
+                 if(dmft_bath%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath%mask(ispin,jspin,iorb,jorb,2)) l=l+1
+              enddo
+           enddo
+        enddo
+     enddo
+     totNso = l
+     allocate(getIorb(totNso),getJorb(totNso),getIspin(totNso),getJspin(totNso))
+     l=0
+     do iorb=1,Norb
+        do jorb=1,Norb
+           do ispin=1,Nspin
+              do jspin=1,Nspin
+                 io = iorb + (ispin-1)*Norb
+                 jo = jorb + (jspin-1)*Norb
+                 if(ed_verbose>=0.and.io<jo)cycle
+                 if((.not.dmft_bath%mask(ispin,jspin,iorb,jorb,1)).and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,2))) cycle
                  l=l+1
                  getIorb(l)=iorb
                  getIspin(l)=ispin

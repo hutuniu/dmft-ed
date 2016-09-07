@@ -27,15 +27,16 @@ MODULE DMFT_ED
        lso2nnn_reshape       ,&
        nnn2lso_reshape       ,&
        get_independent_sites ,&  
-       search_chemical_potential
+       search_chemical_potential,&
+       search_chempot
 
 
-  USE ED_BATH_USER, only: &
-       get_bath_size,get_size_bath,      &
-       get_component_size_bath,           &
-       get_spin_component_size_bath,     &
-       get_orb_component_size_bath,      &
-       get_spin_orb_component_size_bath, &
+  USE ED_BATH, only: &
+       get_bath_dimension,      &
+       get_component_bath_dimension,           &
+       get_spin_component_bath_dimension,     &
+       get_orb_component_bath_dimension,      &
+       get_spin_orb_component_bath_dimension, &
        get_component_bath,               &
        set_component_bath,               &      
        copy_component_bath,              &
@@ -45,8 +46,7 @@ MODULE DMFT_ED
        ph_trans_bath        ,            &
        break_symmetry_bath  ,            &
        enforce_normal_bath ,             &
-       check_bath_dimension,             &
-       check_size_bath
+       check_bath_dimension
 
 
 
@@ -101,7 +101,8 @@ MODULE DMFT_ED
        ed_get_dund_lattice            ,&
        ed_get_dse_lattice             ,&
        ed_get_dph_lattice             ,&
-       ed_get_density_matrix              !TODO:works only for ED_TYPE="c", BATH_TYPE="hybrid", ED_MODE="nonsu2"
+       ed_get_density_matrix          ,&
+       ed_get_quantum_SOC_operators
 
 
   USE ED_GLOC,     only:&

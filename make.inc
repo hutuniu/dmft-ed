@@ -1,11 +1,11 @@
 ##$ COMPILER: suppprted compilers are ifort, gnu >v4.7
 ##$ use mpif90 for parallel compiler
-FC=mpif90
+FC=ifort
 
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=gnu
+PLAT=intel
 
 ##$ PRECOMPILATION FLAGS
 ##$ Leave blank for SERIAL CODE
@@ -59,9 +59,10 @@ LIBDIR=/opt
 #EXE=hartree_nano
 #EXE=ed_cdwhm_bethe
 
+EXE=ed_STO
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
-DIR =drivers
+DIR =./drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
 DIREXE=$(HOME)/.bin
@@ -69,6 +70,8 @@ DIREXE=$(HOME)/.bin
 
 ifeq ($(PLAT),intel)
 FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
+DFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
+OFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
 endif
 
 ifeq ($(PLAT),gnu)

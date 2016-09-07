@@ -24,6 +24,12 @@ subroutine get_sigma_nonsu2
   !Get G0^-1
   invG0mats(:,:,:,:,:)=invg0_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
   invG0real(:,:,:,:,:)=invg0_bath_real(dcmplx(wr(:),eps),dmft_bath)
+  !Get impDelta_anderson
+  impDeltamats(:,:,:,:,:)=delta_bath_mats(dcmplx(0d0,wm(:)),dmft_bath)
+  impDeltareal(:,:,:,:,:)=delta_bath_real(dcmplx(wr(:),eps),dmft_bath)
+  !Get inverse functions
+  invimpG0mats=invG0mats
+  invimpG0real=invG0real
   !
   select case(bath_type)
      !
@@ -90,7 +96,7 @@ subroutine get_sigma_nonsu2
         enddo
      enddo
      !
-  case ("hybrid")
+  case ("hybrid","replica")
      !
      !Get Gimp^-1 - Matsubara freq.
      do i=1,Lmats

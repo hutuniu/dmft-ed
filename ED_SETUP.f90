@@ -45,6 +45,8 @@ contains
        Ns = (Nbath+1)*Norb
     case ('hybrid')
        Ns = Nbath+Norb
+    case ('replica')
+       Ns = Norb*(Nbath+1)
     end select
     Nlevels  = 2*Ns
     Nhilbert = 2**Nlevels
@@ -312,6 +314,12 @@ contains
        do i=1,Nbath
           getBathStride(:,i)       = Norb + i
        enddo
+    case ('replica')
+       do i=1,Nbath
+          do iorb=1,Norb
+             getBathStride(iorb,i) = Norb + (i-1)*Norb + iorb
+          enddo
+       enddo
     end select
     !
     getCsector=0
@@ -419,6 +427,12 @@ contains
     case ('hybrid')
        do i=1,Nbath
           getBathStride(:,i)      = Norb + i
+       enddo
+    case ('replica')
+       do i=1,Nbath
+          do iorb=1,Norb
+             getBathStride(iorb,i) = Norb + (i-1)*Norb + iorb
+          enddo
        enddo
     end select
     !    
@@ -529,6 +543,12 @@ contains
     case ('hybrid')
        do i=1,Nbath
           getBathStride(:,i)      = Norb + i
+       enddo
+    case ('replica')
+       do i=1,Nbath
+          do iorb=1,Norb
+             getBathStride(iorb,i) = Norb + (i-1)*Norb + iorb
+          enddo
        enddo
     end select
     !

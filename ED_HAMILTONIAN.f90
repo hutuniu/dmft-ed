@@ -7,7 +7,7 @@ MODULE ED_HAMILTONIAN
   USE SF_CONSTANTS,only:zero
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
-  USE ED_BATH_DMFT
+  USE ED_BATH
   USE ED_SETUP
   implicit none
   private
@@ -32,12 +32,15 @@ contains
     integer,dimension(Nlevels)         :: ib
     integer                            :: mpiQ,mpiR                
     integer                            :: dim
-    integer                            :: i,j,m,ms,iorb,jorb,ispin,impi,ishift
+    integer                            :: i,j,m,ms,impi,ishift
+    integer                            :: iorb,jorb,ispin,jspin,ibath
     integer                            :: kp,k1,k2,k3,k4
+    integer                            :: alfa,beta
     real(8)                            :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)            :: nup,ndw
     real(8)                            :: htmp
     real(8),dimension(Nspin,Norb)      :: eloc
+    real(8),dimension(Nspin,Norb,Nbath):: diag_hybr
     logical                            :: Jcondition
     integer                            :: first_state,last_state
     !
@@ -66,9 +69,28 @@ contains
     !Get diagonal part of Hloc
     do ispin=1,Nspin
        do iorb=1,Norb
-          eloc(ispin,iorb)=dreal(impHloc(ispin,ispin,iorb,iorb))
+          eloc(ispin,iorb)=dreal(impHloc(ispin,ispin,iorb,iorb)) 
        enddo
     enddo
+    !Get diagonal hybridization
+    diag_hybr=0.0d0
+    if(bath_type/="replica")then
+       do ibath=1,Nbath
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                diag_hybr(ispin,iorb,ibath)=dmft_bath%v(ispin,iorb,ibath)
+             enddo
+          enddo
+       enddo
+    else
+       do ibath=1,Nbath
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                diag_hybr(ispin,iorb,ibath)=abs(dreal(dmft_bath%vr(ibath))) 
+             enddo
+          enddo
+       enddo
+    endif
     !
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
@@ -106,12 +128,15 @@ contains
     integer,dimension(Nlevels)            :: ib
     integer                               :: mpiQ,mpiR                
     integer                               :: dim
-    integer                               :: i,j,m,ms,iorb,jorb,ispin,impi,ishift
+    integer                               :: i,j,m,ms,impi,ishift
+    integer                               :: iorb,jorb,ispin,jspin,ibath
     integer                               :: kp,k1,k2,k3,k4
+    integer                               :: alfa,beta
     real(8)                               :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)               :: nup,ndw
     complex(8)                            :: htmp
     complex(8),dimension(Nspin,Norb)      :: eloc
+    complex(8),dimension(Nspin,Norb,Nbath):: diag_hybr
     logical                               :: Jcondition
     integer                               :: first_state,last_state
     !
@@ -126,7 +151,7 @@ contains
 #ifdef _MPI
     mpiQ = dim/ED_MPI_SIZE
     mpiR = 0
-    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE)
+    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE) 
     call sp_init_matrix(spH0,mpiQ+mpiR)
     ishift     = ED_MPI_ID*mpiQ
     first_state= ED_MPI_ID*mpiQ+1
@@ -146,6 +171,25 @@ contains
           eloc(ispin,iorb)=impHloc(ispin,ispin,iorb,iorb)
        enddo
     enddo
+    !Get diagonal hybridization
+    diag_hybr=zero
+    if(bath_type/="replica")then
+       do ibath=1,Nbath
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                diag_hybr(ispin,iorb,ibath)=cmplx(dmft_bath%v(ispin,iorb,ibath),0.0d0)
+             enddo
+          enddo
+       enddo
+    else
+       do ibath=1,Nbath
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                diag_hybr(ispin,iorb,ibath)=dmft_bath%vr(ibath)
+             enddo
+          enddo
+       enddo
+    endif
     !
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX

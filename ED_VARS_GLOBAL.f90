@@ -1,6 +1,6 @@
 MODULE ED_VARS_GLOBAL
   USE SF_CONSTANTS
-  USE ED_BATH_TYPE
+  ! USE ED_BATH_TYPE
   USE MATRIX_SPARSE
 #ifdef _MPI_INEQ
   USE MPI
@@ -9,6 +9,21 @@ MODULE ED_VARS_GLOBAL
   USE MPI
 #endif
   implicit none
+
+
+  type effective_bath
+     real(8),dimension(:,:,:),allocatable          :: e     !local energies [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
+     real(8),dimension(:,:,:),allocatable          :: d     !SC amplitues   [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
+     real(8),dimension(:,:,:),allocatable          :: v     !spin-keep hyb. [Nspin][Norb][Nbath]
+     real(8),dimension(:,:,:),allocatable          :: u     !spin-flip hyb. [Nspin][Norb][Nbath]
+     complex(8),dimension(:),allocatable           :: vr    !diagonal hyb.  [Nbath]
+     complex(8),dimension(:,:,:,:,:),allocatable   :: h     !Replica hamilt [Nspin][Nspin][Norb][Norb][Nbath]
+     logical(8),dimension(:,:,:,:,:),allocatable   :: mask  !impHloc mask   [Nspin][Nspin][Norb][Norb][Re,Im]
+     complex(8),dimension(:,:,:,:,:),allocatable   :: LS    !Replica hamilt [Nspin][Nspin][Norb][Norb][LS,LSrot]
+     logical                                :: status=.false.
+  end type effective_bath
+
+
 
 
   !-------------------- ED  VARIABLES ----------------------!
@@ -87,10 +102,14 @@ MODULE ED_VARS_GLOBAL
   real(8)                                     :: ed_Eknot
   real(8)                                     :: ed_Dust,ed_Dund,ed_Dse,ed_Dph
 
-  !Impurity dennsity matrix
+  !Impurity operators
   !PRIVATE (now public but accessible thru routine)
   !=========================================================
   complex(8),allocatable,dimension(:,:,:,:)  :: imp_density_matrix
+  complex(8),allocatable,dimension(:,:,:)    :: impStot
+  complex(8),allocatable,dimension(:,:,:)    :: impLtot
+  complex(8),allocatable,dimension(:)        :: impj_aplha
+  complex(8)                                 :: impLdotS
 
   !MPI Parallel environment variables
   !PUBLIC

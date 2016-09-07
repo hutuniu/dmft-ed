@@ -53,7 +53,7 @@ MODULE ED_INPUT_VARS
   real(8)              :: ed_vsf_ratio        !
   real(8)              :: ed_bath_noise_thr   !
   character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
-  character(len=100)   :: ed_file_suffix      !suffix string attached to the output files.
+  character(len=64)    :: ed_file_suffix      !suffix string attached to the output files.
   real(8)              :: nread               !fixed density. if 0.d0 fixed chemical potential calculation.
   real(8)              :: nerr                !fix density threshold. a loop over from 1.d-1 to required nerr is performed
   real(8)              :: ndelta              !initial chemical potential step
@@ -95,7 +95,7 @@ contains
     !
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals.")
-    call parse_input_variable(Nbath,"NBATH",INPUTunit,default=6,comment="Number of bath sites (per orbital or not depending on bath_type)")
+    call parse_input_variable(Nbath,"NBATH",INPUTunit,default=6,comment="Number of bath sites:(normal=>Nbath per orb)(hybrid=>Nbath total)(replica=>Nbath=Nreplica)")
     call parse_input_variable(Nspin,"NSPIN",INPUTunit,default=1,comment="Number of spin degeneracy (max 2)")
     call parse_input_variable(uloc,"ULOC",INPUTunit,default=[2.d0,0.d0,0.d0],comment="Values of the local interaction per orbital (max 3)")
     call parse_input_variable(ust,"UST",INPUTunit,default=0.d0,comment="Value of the inter-orbital interaction term")
@@ -141,28 +141,30 @@ contains
     call parse_input_variable(cg_weight,"CG_WEIGHT",INPUTunit,default=0,comment="Conjugate-Gradient weight form: 0=1.0 ,1=1/n , 2=1/w.")
     call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")    
     call parse_input_variable(ed_mode,"ED_MODE",INPUTunit,default='normal',comment="Flag to set ED type: normal=normal, superc=superconductive, nonsu2=broken SU(2)")
-    call parse_input_variable(ed_para,"ED_PARA",INPUTunit,default=.false.,comment="Flag to force paramagnetic solution (only used in ed_mode=nonsu2 now).")
+    call parse_input_variable(ed_para,"ED_PARA",INPUTunit,default=.true.,comment="Flag to force paramagnetic solution (only used in ed_mode=nonsu2 now).")
     call parse_input_variable(ed_vsf_ratio,"ED_VSF_RATIO",INPUTunit,default=0.1d0,comment="Ration of the spin-flip hopping to spin-hold ones in the nonSU2 channel.")
     call parse_input_variable(ed_bath_noise_thr,"ED_BATH_NOISE_THR",INPUTunit,default=0.d0,comment="Noise added to the impurity hybridization")
-    call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath)")
+    call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath), replica(1replica/imp)")
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
     call parse_input_variable(ed_verbose,"ED_VERBOSE",INPUTunit,default=0,comment="Verbosity level: 0=all --> 5:almost nothing on the screen.")
     call parse_input_variable(ed_file_suffix,"ED_FILE_SUFFIX",INPUTunit,default=".ed",comment="Suffix in the output files.")
-
     !+- LATTICE INPUT -+!
     call parse_input_variable(Nside,"NSIDE",INPUTunit,default=6)
     call parse_input_variable(fileSig,"FILESIG",INPUTunit,default="LSigma.data")
     call parse_input_variable(fileSelf,"FILESELF",INPUTunit,default="LSelf.data")
     call parse_input_variable(mix_type,"MIX_TYPE",INPUTunit,default=0)
-    call substring_delete(ed_file_suffix,".ed")
-    call substring_delete(Hfile,".restart")
-    call substring_delete(Hfile,".ed")
     Ltau=max(int(beta),Ltau)
     if(ED_MPI_ID==0.AND.mpiID==0)then
        call save_input_file(INPUTunit)
        call sf_version(revision)
     endif
+    !Act on the input variable only after printing.
+    !In the new parser variables are hard-linked into the list:
+    !any change to the variable is immediately copied into the list... (if you delete .ed it won't be printed out)
+    call substring_delete(ed_file_suffix,".ed")
+    call substring_delete(Hfile,".restart")
+    call substring_delete(Hfile,".ed")
   end subroutine ed_read_input
 
 
