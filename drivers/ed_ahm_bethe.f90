@@ -1,7 +1,10 @@
 program ed_ahm_bethe
+  USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
-  USE DMFT_ED
+#ifdef _MPI
+  USE MPI
+#endif
   implicit none
   integer                          :: iloop,Nb,Lk
   logical                          :: converged
@@ -13,6 +16,15 @@ program ed_ahm_bethe
   character(len=16)                :: finput,fhloc
   logical                          :: phsym,normal_bath
   real(8),allocatable              :: Hk(:),wt(:)
+  !
+#ifdef _MPI
+  call MPI_INIT(ED_MPI_ERR)
+  call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
+  call MPI_COMM_SIZE(MPI_COMM_WORLD,ED_MPI_SIZE,ED_MPI_ERR)
+  write(LOGfile,"(A,I4,A,I4,A)")'Processor ',ED_MPI_ID,' of ',ED_MPI_SIZE,' is alive'
+  call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
+#endif
+  !
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.conf')
   call parse_input_variable(wmixing,"wmixing",finput,default=1.d0,comment="Mixing bath parameter")
@@ -30,7 +42,7 @@ program ed_ahm_bethe
   Nb=get_bath_size()
   allocate(bath(Nb))
   allocate(bathold(Nb))
-  call ed_init_solver(bath)
+  call ed_init_solver(bath,hwband=0.5d0)
 
   !DMFT loop
   iloop=0;converged=.false.

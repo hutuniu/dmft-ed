@@ -1,11 +1,12 @@
 MODULE ED_BATH_FUNCTIONS
   USE SF_CONSTANTS, only: zero
   USE SF_IOTOOLS, only:free_unit,reg,file_length,txtfy
-  USE SF_LINALG, only: eye,inv,zeye
+  USE SF_LINALG, only: eye,inv,zeye,inv_her
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_BATH_DMFT
   USE ED_BATH_USER
+  USE ED_AUX_FUNX
   implicit none
 
   private
@@ -222,7 +223,9 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: Delta
-    integer                                             :: i,iorb,jorb,ispin,jspin,ih,k,L
+    integer                                             :: i,ih,k,L
+    integer                                             :: iorb,jorb,ispin,jspin,ibath
+    integer                                             :: io,jo
     real(8),dimension(Nbath)                            :: eps,dps,vps
     real(8),dimension(Norb,Nbath)                       :: vops
     real(8),dimension(Nspin,Nbath)                      :: hps
@@ -232,6 +235,13 @@ contains
     real(8),dimension(Nspin,Nbath)                      :: ehel
     real(8),dimension(Nspin,Nspin,Nbath)                :: whel
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
+    !
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)         :: V_k
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: invH_k
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Nbath)   :: invH_knn
+    !
+    logical                                             :: compute_component
+    complex(8),allocatable                              :: Delta_tmp(:,:,:,:)
     !
     Delta=zero
     !
@@ -341,6 +351,54 @@ contains
                 enddo
              enddo
           enddo
+          !
+       end select
+       !
+    case ("replica")
+       !
+       select case(ed_mode)
+       case ("normal","nonsu2")
+          !
+          invH_k=zero
+          do i=1,L
+             invH_knn=zero
+             do ibath=1,Nbath
+                !
+                do ispin=1,Nspin
+                   do jspin=1,Nspin
+                      do iorb=1,Norb
+                         do jorb=1,Norb
+                            io = iorb + (ispin-1) * Norb
+                            jo = jorb + (jspin-1) * Norb
+                            invH_k(io,jo,i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+                !
+                invH_k(:,:,i) = zeye(Nspin*Norb) * x(i) - invH_k(:,:,i)
+                call inv(invH_k(:,:,i))
+                invH_knn(:,:,:,:,ibath)=so2nn_reshape(invH_k(:,:,i),Nspin,Norb)
+                !
+             enddo
+             !
+             do ibath=1,Nbath
+                do ispin=1,Nspin
+                   do jspin=1,Nspin
+                      do iorb=1,Norb
+                         do jorb=1,Norb
+                            Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
+                            conjg(dmft_bath_%vr(ibath)) * invH_knn(ispin,jspin,iorb,jorb,ibath) * dmft_bath_%vr(ibath)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+          !
+       case ("superc")
+          !
+
           !
        end select
        !
@@ -567,7 +625,9 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: Delta
-    integer                                             :: iorb,jorb,ispin,jspin,k,ih,i,L
+    integer                                             :: i,ih,k,L
+    integer                                             :: iorb,jorb,ispin,jspin,ibath
+    integer                                             :: io,jo
     real(8),dimension(Nbath)                            :: eps,dps,vps
     real(8),dimension(Norb,Nbath)                       :: vops
     real(8),dimension(Nspin,Nbath)                      :: hps
@@ -577,6 +637,13 @@ contains
     real(8),dimension(Nspin,Nbath)                      :: ehel
     real(8),dimension(Nspin,Nspin,Nbath)                :: whel
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
+    !
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)         :: V_k
+    complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: invH_k
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,Nbath)   :: invH_knn
+    !
+    logical                                             :: compute_component
+    complex(8),allocatable                              :: Delta_tmp(:,:,:,:)
     !
     Delta=zero
     !
@@ -686,6 +753,54 @@ contains
                 enddo
              enddo
           enddo
+          !
+       end select
+       !
+    case ("replica")
+       !
+       select case(ed_mode)
+       case ("normal","nonsu2")
+          !
+          invH_k=zero
+          do i=1,L
+             invH_knn=zero
+             do ibath=1,Nbath
+                !
+                do ispin=1,Nspin
+                   do jspin=1,Nspin
+                      do iorb=1,Norb
+                         do jorb=1,Norb
+                            io = iorb + (ispin-1) * Norb
+                            jo = jorb + (jspin-1) * Norb
+                            invH_k(io,jo,i)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+                !
+                invH_k(:,:,i) = zeye(Nspin*Norb) * x(i) - invH_k(:,:,i)
+                call inv(invH_k(:,:,i))
+                invH_knn(:,:,:,:,ibath)=so2nn_reshape(invH_k(:,:,i),Nspin,Norb)
+                !
+             enddo
+             !
+             do ibath=1,Nbath
+                do ispin=1,Nspin
+                   do jspin=1,Nspin
+                      do iorb=1,Norb
+                         do jorb=1,Norb
+                            Delta(ispin,jspin,iorb,jorb,i)=Delta(ispin,jspin,iorb,jorb,i)+ &
+                            conjg(dmft_bath_%vr(ibath)) * invH_knn(ispin,jspin,iorb,jorb,ibath) * dmft_bath_%vr(ibath)
+                         enddo
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+          !
+       case ("superc")
+          !
+
           !
        end select
        !
@@ -993,7 +1108,7 @@ contains
        end select
        !
        !
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
+    case ("hybrid","replica")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
        !
        !
        select case(ed_mode)
@@ -1046,7 +1161,7 @@ contains
        case ("nonsu2")
           !
           Nso=Nspin*Norb
-          allocate(fgorb(Nso,Nso),zeta(Nso,Nso))
+          allocate(fgorb(Nso,Nso),zeta(Nso,Nso));fgorb=zero
           Delta = delta_bath_mats(x,dmft_bath_)
           do i=1,L
              zeta  = (x(i) + xmu)*zeye(Nso)
@@ -1371,7 +1486,7 @@ contains
        end select
        !
        !
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
+    case ("hybrid","replica")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
        !
        !
        select case(ed_mode)
@@ -1425,7 +1540,7 @@ contains
           !
           Nso=Nspin*Norb
           Delta = delta_bath_real(x,dmft_bath_)
-          allocate(fgorb(Nso,Nso),zeta(Nso,Nso))
+          allocate(fgorb(Nso,Nso),zeta(Nso,Nso));fgorb=zero
           do i=1,L
              zeta  = (x(i) + xmu)*zeye(Nso)
              fgorb = zero
@@ -1742,7 +1857,7 @@ contains
           !
        end select
        !
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
+    case ("hybrid","replica")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
        !
        select case(ed_mode)
        case default
@@ -1795,7 +1910,7 @@ contains
                       do jorb=1,Norb
                          io = iorb + (ispin-1)*Norb
                          jo = jorb + (jspin-1)*Norb
-                         G0and(ispin,jspin,iorb,jorb,i) = zeta(io,jo) -impHloc(ispin,jspin,iorb,jorb) - Delta(ispin,jspin,iorb,jorb,i)
+                         G0and(ispin,jspin,iorb,jorb,i) = zeta(io,jo) - impHloc(ispin,jspin,iorb,jorb) - Delta(ispin,jspin,iorb,jorb,i)
                       enddo
                    enddo
                 enddo
@@ -2064,7 +2179,7 @@ contains
           !
        end select
        !
-    case ("hybrid")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
+    case ("hybrid","replica")             !hybrid: all _{ab} components allowed (inter-orbital local mixing present)
        !
        select case(ed_mode)
        case default
@@ -2089,7 +2204,7 @@ contains
           Delta = delta_bath_real(x,dmft_bath_)
           do ispin=1,Nspin
              do i=1,L
-                zeta = (dreal(x(i))  + xmu)*eye(Norb)
+                zeta = ((x(i))  + xmu)*eye(Norb)
                 do iorb=1,Norb
                    do jorb=1,Norb
                       G0and(ispin,ispin,iorb,jorb,i) = zeta(iorb,jorb) - impHloc(ispin,ispin,iorb,jorb)  - Delta(ispin,ispin,iorb,jorb,i)

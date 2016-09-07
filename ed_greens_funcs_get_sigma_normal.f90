@@ -38,7 +38,7 @@ subroutine get_sigma_normal
         enddo
      enddo
      !
-  case ('hybrid')             !Diagonal in spin only. Full Orbital structure
+  case ("hybrid","replica")   !Diagonal in spin only. Full Orbital structure
      !
      !Get Gimp^-1
      do ispin=1,Nspin

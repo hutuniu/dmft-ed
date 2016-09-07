@@ -22,7 +22,7 @@ subroutine build_gf_normal()
      enddo
   enddo
   !
-  if(bath_type=='hybrid')then
+  if(bath_type=="hybrid")then
      do ispin=1,Nspin
         do iorb=1,Norb
            do jorb=iorb+1,Norb
@@ -46,6 +46,40 @@ subroutine build_gf_normal()
                 - (one-xi)*impGreal(:,:,iorb,iorb,:) - (one-xi)*impGreal(:,:,jorb,jorb,:))
            impGmats(:,:,jorb,iorb,:) = impGmats(:,:,iorb,jorb,:)
            impGreal(:,:,jorb,iorb,:) = impGreal(:,:,iorb,jorb,:)
+        enddo
+     enddo
+  endif
+  !
+  if(bath_type=="replica")then
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           do jorb=iorb+1,Norb
+              if((dmft_bath%mask(ispin,ispin,iorb,jorb,1).eqv. .true.).or.(dmft_bath%mask(ispin,ispin,iorb,jorb,2).eqv. .true.))then
+                 if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")&
+                      "Get G_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))
+                 select case(ed_type)
+                 case default
+                    call lanc_build_gf_normal_mix_d(iorb,jorb,ispin)
+                 case ('c')
+                    call lanc_build_gf_normal_mix_c(iorb,jorb,ispin)                    
+                 end select
+              endif
+           enddo
+        enddo
+     enddo
+     !Put here off-diagonal manipulation by symmetry:
+     do ispin=1,Nspin
+        do iorb=1,Norb
+           do jorb=iorb+1,Norb
+              if((dmft_bath%mask(ispin,ispin,iorb,jorb,1).eqv. .true.).or.(dmft_bath%mask(ispin,ispin,iorb,jorb,2).eqv. .true.))then
+                 impGmats(ispin,ispin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,ispin,iorb,jorb,:) &
+                      - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(ispin,ispin,jorb,jorb,:))
+                 impGreal(ispin,ispin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,ispin,iorb,jorb,:) &
+                      - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(ispin,ispin,jorb,jorb,:))
+                 impGmats(ispin,ispin,jorb,iorb,:) = impGmats(ispin,ispin,iorb,jorb,:)
+                 impGreal(ispin,ispin,jorb,iorb,:) = impGreal(ispin,ispin,iorb,jorb,:)
+              endif
+           enddo
         enddo
      enddo
   endif

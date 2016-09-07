@@ -14,7 +14,11 @@ MODULE ED_BATH_USER
   interface get_bath_size
      module procedure get_size_bath
   end interface get_bath_size
-  !
+
+  interface get_size_bath
+     module procedure get_size_bath
+  end interface get_size_bath
+
   interface check_bath_dimension
      module procedure check_size_bath
   end interface check_bath_dimension
@@ -39,7 +43,10 @@ MODULE ED_BATH_USER
   end interface copy_component_bath
 
   public :: get_size_bath
+
+  public :: check_size_bath                  
   public :: get_bath_size
+  public :: check_bath_dimension
   public :: get_component_size_bath
   public :: get_spin_component_size_bath
   public :: get_orb_component_size_bath
@@ -48,9 +55,6 @@ MODULE ED_BATH_USER
   public :: set_component_bath
   public :: copy_component_bath
   public :: save_bath
-  public :: check_size_bath                  
-  public :: check_bath_dimension
-
 
   !explicit symmetries:
   interface break_symmetry_bath
@@ -99,9 +103,10 @@ contains
   ! 2 for get_spin_component_size_bath & get_orb_component_size_bath
   ! 1 for get_spin_orb_component_size_bath
   !+-------------------------------------------------------------------+
-  function get_size_bath(ispin) result(bath_size)
-    integer :: bath_size
-    integer,optional :: ispin
+  function get_size_bath(Hloc_nn,ispin_) result(bath_size)
+    integer :: bath_size,ndx,ispin,iorb,jspin,jorb,io,jo
+    integer,optional :: ispin_
+    complex(8),allocatable,optional,intent(in) :: Hloc_nn(:,:,:,:)
     select case(bath_type)
     case default
        select case(ed_mode)
@@ -115,6 +120,7 @@ contains
           !( e [Nspin][Norb][Nbath] + v [Nspin][Norb][Nbath] + u [Nspin][Norb][Nbath] )
           bath_size = Norb*Nbath + Norb*Nbath + Norb*Nbath
        end select
+       if(.not.present(ispin_))bath_size=Nspin*bath_size
     case('hybrid')
        select case(ed_mode)
        case default
@@ -127,9 +133,51 @@ contains
           !(e [Nspin][1][Nbath] + v [Nspin][Norb][Nbath] + u [Nspin][Norb][Nbath] )
           bath_size = Nbath + Norb*Nbath + Norb*Nbath
        end select
+       if(.not.present(ispin_))bath_size=Nspin*bath_size
+    case('replica')
+       !
+       if(.not.present(Hloc_nn))stop "ERROR: bath_type='replica' but impHloc_nn not provided to get_size_bath"
+       ndx=0
+       !Re/Im off-diagonal non-vanishing elements
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   if(io.lt.jo)then
+                      if( abs(real(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)ndx=ndx+1
+                      if(abs(aimag(Hloc_nn(ispin,jspin,iorb,jorb))).gt.1e-6)then
+                         ndx=ndx+1
+                         if(ed_mode=="d")stop "complex impHloc and ed_mode='d' are not compatible"
+                      endif
+                   endif
+                enddo
+             enddo
+          enddo
+       enddo
+       !Real diagonal elements (always assumed)
+       ndx= ndx + Nspin * Norb
+       !complex diagonal elements checked
+       do ispin=1,Nspin
+          do iorb=1,Norb
+             if(abs(aimag(Hloc_nn(ispin,ispin,iorb,iorb))).gt.1e-6)stop"impHloc is not Hermitian"
+          enddo
+       enddo
+       !number of non vanishing elements for each replica
+       ndx = ndx * Nbath
+       !real diagonal hybridizations
+       ndx = ndx + Nbath
+       !
+       if(ed_para)then
+          bath_size = ( 1+1+1 ) * Nbath
+       else
+          bath_size = ndx
+       endif
+       !
     end select
-    if(.not.present(ispin))bath_size=Nspin*bath_size
   end function get_size_bath
+
 
   function get_component_size_bath(itype) result(Ndim)
     integer                  :: itype
@@ -1147,16 +1195,25 @@ contains
     type(effective_bath)   :: dmft_bath_
     logical,optional       :: save
     logical                :: save_
+    integer                :: bath_size,shift,ibath
+    complex(8),dimension(Norb):: dum
     save_=.true.;if(present(save))save_=save
     if(Nspin==1)then
        if(ED_MPI_ID==0)write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
        return
     endif
+    !
     call allocate_dmft_bath(dmft_bath_)
+    if (bath_type=="replica")call init_dmft_bath_mask(dmft_bath_)
     call set_dmft_bath(bath_,dmft_bath_)
-    dmft_bath_%e(Nspin,:,:)=dmft_bath_%e(1,:,:)
-    dmft_bath_%v(Nspin,:,:)=dmft_bath_%v(1,:,:)
-    if(ed_mode=="superc")dmft_bath_%d(Nspin,:,:)=dmft_bath_%d(1,:,:)
+    !
+    if (bath_type/="replica") then
+       dmft_bath_%e(Nspin,:,:)=dmft_bath_%e(1,:,:)
+       dmft_bath_%v(Nspin,:,:)=dmft_bath_%v(1,:,:)
+       if(ed_mode=="superc")dmft_bath_%d(Nspin,:,:)=dmft_bath_%d(1,:,:)
+    else
+       stop"spin symmetrize not implemented for replica"
+    endif
     if(save_)call save_dmft_bath(dmft_bath_)
     call get_dmft_bath(dmft_bath_,bath_)
     call deallocate_dmft_bath(dmft_bath_)
@@ -1317,11 +1374,16 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : Check if the dimension of the bath array are consistent
   !+-------------------------------------------------------------------+
-  function check_size_bath(bath_) result(bool)
+  function check_size_bath(bath_,Hloc_nn) result(bool)
     real(8),dimension(:) :: bath_
     integer              :: Ntrue
     logical              :: bool
-    Ntrue = get_size_bath()
+    complex(8),optional,allocatable,intent(in) :: Hloc_nn(:,:,:,:)
+    if (present(Hloc_nn))then
+       Ntrue = get_size_bath(Hloc_nn)
+    else
+       Ntrue = get_size_bath()
+    endif
     bool  = ( size(bath_) == Ntrue )
   end function check_size_bath
 
