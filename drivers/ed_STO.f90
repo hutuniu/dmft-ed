@@ -184,7 +184,7 @@ program ed_TEST_REPLICA
      !final mu shift:
      !
      shift_n_loop=0
-     if(converged_n.and.upprshft)then
+     if(converged_n.and.upprshft.and.((nread==5.d0).or.(nread==2.d0)))then
         shift_n_loop=shift_n_loop+1
         if(bath_type/="replica")then
            if(allocated(w))deallocate(w);allocate(w(Lreal));w=0.0d0
@@ -668,11 +668,10 @@ contains
     real(8),intent(in),optional                   ::   lvl_
     complex(8),allocatable                        ::   G_in(:,:,:),G_out(:,:,:)
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   ::   theta_C,theta_R,impHloc_rot
-    integer                                       ::   io,jo
-    integer                                       ::   ispin,jspin
-    integer                                       ::   iorb,jorb
+    integer                                       ::   io,jo,ndx
+    integer                                       ::   ispin,jspin,iorb,jorb
     integer                                       ::   Lfreq
-    real(8)                                       ::   wr(Lreal),z_rot(Nspin*Norb)
+    real(8)                                       ::   wr(Lreal),wm(Lmats),z_rot(Nspin*Norb)
     real(8)                                       ::   dw,bttm,tp,lvl,fact
     character(len=13)                             ::   file_rotation
     integer                                       ::   isetup=0
@@ -685,6 +684,7 @@ contains
     call build_rotation(theta_C,impHloc_rot)
     !
     wr = linspace(wini,wfin,Lreal,mesh=dw)
+    wm = pi/beta*(2*arange(1,Lmats)-1)
     if(allocated( G_in))deallocate( G_in);allocate( G_in(Nspin*Norb,Nspin*Norb,Lreal));G_in=zero
     if(allocated(G_out))deallocate(G_out);allocate(G_out(Nspin*Norb,Nspin*Norb,Lreal));G_out=zero
     Lfreq=size(Gsowr,dim=5)
@@ -779,17 +779,31 @@ contains
     elseif(isetup==3) then
        file_rotation="Smats_rot_H_l"
     endif
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+    if(isetup/=3)then
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+                enddo
              enddo
           enddo
        enddo
-    enddo
+    else
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,dimag(G_out(io,jo,:)),dreal(G_out(io,jo,:)))
+                enddo
+             enddo
+          enddo
+       enddo
+    endif
     !3)save the integral
     if(isetup==1) then
        open(unit=106,file='sum_w_G0loc_rot_H.dat',status='unknown',action='write',position='rewind')
@@ -835,7 +849,7 @@ contains
           z_rot(io)   = 1.d0/( 1.d0 + abs( dimag(G_out(io,io,1))/(pi/beta) ))
        enddo
        rewind(106)
-       write(106,*) "# Analytic LS rotation"
+       write(106,'(90A15,1X)') "#J=1/2,jz=-1/2","#J=3/2,jz=+1/2","#J=3/2,jz=-3/2","#J=1/2,jz=+1/2","#J=3/2,jz=+3/2","#J=3/2,jz=-1/2"
        write(106,'(90F15.9,1X)')(z_rot(io),io=1,Nspin*Norb)
        write(106,*)
        write(106,*)
@@ -844,15 +858,17 @@ contains
     endif
     !
     !top-bottom find of the upper band
+    if(nread==5.d0)ndx=1
+    if(nread==2.d0)ndx=2
     if(present(top_).and.present(bottom_))then
        outerloop1:do i=1,Lfreq
-          if(abs(aimag(G_out(1,1,i))).gt.lvl)then
+          if(abs(aimag(G_out(ndx,ndx,i))).gt.lvl)then
              bottom_=wr(i)
              exit outerloop1
           endif
        enddo outerloop1
        outerloop2:do i=1,Lfreq
-          if(abs(aimag(G_out(1,1,Lfreq-i+1))).gt.lvl)then
+          if(abs(aimag(G_out(ndx,ndx,Lfreq-i+1))).gt.lvl)then
              top_=wr(Lfreq-i+1)
              exit outerloop2
           endif
@@ -867,17 +883,31 @@ contains
     elseif(isetup==3) then
        file_rotation="Smats_rot_A_l"
     endif
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+    if(isetup/=3)then
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+                enddo
              enddo
           enddo
        enddo
-    enddo
+    else
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,dimag(G_out(io,jo,:)),dreal(G_out(io,jo,:)))
+                enddo
+             enddo
+          enddo
+       enddo
+    endif
     !3)save the integral
     if(isetup==1) then
        open(unit=106,file='sum_w_G0loc_rot_A.dat',status='unknown',action='write',position='rewind')
@@ -938,17 +968,31 @@ contains
     elseif(isetup==3) then
        file_rotation="Smats_rot_R_l"
     endif
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                io = iorb + (ispin-1)*Norb
-                jo = jorb + (jspin-1)*Norb
-                call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+    if(isetup/=3)then
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(G_out(io,jo,:))/pi,dreal(G_out(io,jo,:)))
+                enddo
              enddo
           enddo
        enddo
-    enddo
+    else
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,dimag(G_out(io,jo,:)),dreal(G_out(io,jo,:)))
+                enddo
+             enddo
+          enddo
+       enddo
+    endif
     !3)save the integral
     if(isetup==1) then
        open(unit=106,file='sum_w_G0loc_rot_R.dat',status='unknown',action='write',position='rewind')
