@@ -85,18 +85,18 @@ end subroutine build_gf_superc
 !PURPOSE  : DOUBLE PRECISION
 !+------------------------------------------------------------------+
 subroutine lanc_build_gf_superc_d(iorb)
-  real(8),allocatable              :: vvinit(:)
-  complex(8),allocatable           :: cvinit(:)
-  real(8),allocatable              :: alfa_(:),beta_(:)  
-  integer                          :: iorb,isector,istate
-  integer                          :: idim,jsector
-  integer                          :: jdim,isz,jsz
-  integer                          :: ib(Nlevels)
-  integer                          :: m,i,j,r,numstates
-  real(8)                          :: sgn,norm2,norm0
-  complex(8)                       :: cnorm2
-  integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap
+  real(8),allocatable    :: vvinit(:)
+  complex(8),allocatable :: cvinit(:)
+  real(8),allocatable    :: alfa_(:),beta_(:)  
+  integer                :: iorb,isector,istate
+  integer                :: idim,jsector
+  integer                :: jdim,isz,jsz
+  integer                :: ib(Nlevels)
+  integer                :: m,i,j,r,numstates
+  real(8)                :: sgn,norm2,norm0
+  complex(8)             :: cnorm2
+  integer                :: Nitermax,Nlanc
+  type(sector_map)       :: HI,HJ
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -112,27 +112,26 @@ subroutine lanc_build_gf_superc_d(iorb)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     call build_sector(isector,HI)
      !
      !EVALUATE c^+_{up,iorb}|v> --> Gaux(1) = G_{iorb,iorb}
      jsector = getCDGsector(1,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3,I15)")'apply c^+_up:',getsz(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3)")'apply c^+_up:',getsz(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(iorb)==0)then
               call cdg(iorb,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -148,20 +147,20 @@ subroutine lanc_build_gf_superc_d(iorb)
      jsector = getCsector(1,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3,I15)")'apply c_up:',getsz(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3)")'apply c_up:',getsz(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(iorb)==1)then
               call c(iorb,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -181,20 +180,20 @@ subroutine lanc_build_gf_superc_d(iorb)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)&
-             write(LOGfile,"(A23,I3,I15)")'apply c_dw:',getsz(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+             write(LOGfile,"(A23,I3)")'apply c_dw:',getsz(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(iorb+Ns)==1)then
               call c(iorb+Ns,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -211,20 +210,20 @@ subroutine lanc_build_gf_superc_d(iorb)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)&
-             write(LOGfile,"(A23,I3,I15)")'apply c^+_dw:',getsz(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap) !note that here you are doing twice the map building...
+             write(LOGfile,"(A23,I3)")'apply c^+_dw:',getsz(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ) !note that here you are doing twice the map building...
         vvinit=0.d0
         do m=1,idim                     !loop over |gs> components m
-           i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
+           i=HI%map(m)                    !map m to Hilbert space state i
+           ib = bdecomp(i,2*Ns)            !i into binary representation
            if(ib(iorb+Ns)==0)then           !if impurity is empty: proceed
               call cdg(iorb+Ns,i,r,sgn)
-              j=binary_search(HJmap,r)      !map r back to  jsector
+              j=binary_search(HJ%map,r)      !map r back to  jsector
               vvinit(j) = sgn*state_vec(m)  !build the cdg_up|gs> state
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -245,29 +244,29 @@ subroutine lanc_build_gf_superc_d(iorb)
         jsz   = isz+1
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3,I15)")'apply c^+_up + c_dw:',getsz(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3)")'apply c^+_up + c_dw:',getsz(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(iorb)==0)then
               call cdg(iorb,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(iorb+Ns)==1)then
               call c(iorb+Ns,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -286,29 +285,29 @@ subroutine lanc_build_gf_superc_d(iorb)
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)&
-             write(LOGfile,"(A23,I3,I15)")'apply c_up + c^+_dw:',getsz(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+             write(LOGfile,"(A23,I3)")'apply c_up + c^+_dw:',getsz(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(iorb)==1)then
               call c(iorb,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(iorb+Ns)==0)then
               call cdg(iorb+Ns,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -329,29 +328,29 @@ subroutine lanc_build_gf_superc_d(iorb)
      !    jsz   = isz+1
      !    jsector = getsector(jsz,1)
      !    jdim  = getdim(jsector)
-     !    if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3,I15)")'apply c^+_up + xi*c_dw:',getsz(jsector),jdim
-     !    allocate(HJmap(jdim),cvinit(jdim))
-     !    call build_sector(jsector,HJmap)
+     !    if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3)")'apply c^+_up + xi*c_dw:',getsz(jsector)
+     !    allocate(cvinit(jdim))
+     !    call build_sector(jsector,HJ)
      !    cvinit=0.d0
      !    do m=1,idim
-     !       i=HImap(m)
-     !       call bdecomp(i,ib)
+     !       i=HI%map(m)
+     !       ib = bdecomp(i,2*Ns)
      !       if(ib(iorb)==0)then
      !          call cdg(iorb,i,r,sgn)
-     !          j=binary_search(HJmap,r)
+     !          j=binary_search(HJ%map,r)
      !          cvinit(j) = sgn*state_vec(m)
      !       endif
      !    enddo
      !    do m=1,idim
-     !       i=HImap(m)
-     !       call bdecomp(i,ib)
+     !       i=HI%map(m)
+     !       ib = bdecomp(i,2*Ns)
      !       if(ib(iorb+Ns)==1)then
      !          call c(iorb+Ns,i,r,sgn)
-     !          j=binary_search(HJmap,r)
+     !          j=binary_search(HJ%map,r)
      !          cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
      !       endif
      !    enddo
-     !    deallocate(HJmap)
+     !    deallocate(HJ%map)
      !    norm2=dot_product(cvinit,cvinit)
      !    cvinit=cvinit/sqrt(norm2)
      !    alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -370,29 +369,29 @@ subroutine lanc_build_gf_superc_d(iorb)
      !    jsector = getsector(jsz,1)
      !    jdim  = getdim(jsector)
      !    if(ed_verbose<1.AND.ED_MPI_ID==0)&
-     !         write(LOGfile,"(A23,I3,I15)")'apply c_up - xi*c^+_dw:',getsz(jsector),jdim
-     !    allocate(HJmap(jdim),cvinit(jdim))
-     !    call build_sector(jsector,HJmap)
+     !         write(LOGfile,"(A23,I3)")'apply c_up - xi*c^+_dw:',getsz(jsector)
+     !    allocate(cvinit(jdim))
+     !    call build_sector(jsector,HJ)
      !    cvinit=0.d0
      !    do m=1,idim
-     !       i=HImap(m)
-     !       call bdecomp(i,ib)
+     !       i=HI%map(m)
+     !       ib = bdecomp(i,2*Ns)
      !       if(ib(iorb)==1)then
      !          call c(iorb,i,r,sgn)
-     !          j=binary_search(HJmap,r)
+     !          j=binary_search(HJ%map,r)
      !          cvinit(j) = sgn*state_vec(m)
      !       endif
      !    enddo
      !    do m=1,idim
-     !       i=HImap(m)
-     !       call bdecomp(i,ib)
+     !       i=HI%map(m)
+     !       ib = bdecomp(i,2*Ns)
      !       if(ib(iorb+Ns)==0)then
      !          call cdg(iorb+Ns,i,r,sgn)
-     !          j=binary_search(HJmap,r)
+     !          j=binary_search(HJ%map,r)
      !          cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
      !       endif
      !    enddo
-     !    deallocate(HJmap)
+     !    deallocate(HJ%map)
      !    norm2=dot_product(cvinit,cvinit)
      !    cvinit=cvinit/sqrt(norm2)
      !    alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -406,7 +405,7 @@ subroutine lanc_build_gf_superc_d(iorb)
      ! ! <ANOMAL
      !
      nullify(state_vec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
@@ -432,7 +431,7 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
   integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap
+  type(sector_map) :: HI,HJ
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -450,8 +449,7 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     call build_sector(isector,HI)
 
 
      !EVALUATE [c^+_{up,iorb} + c_{dw,jorb}]|gs> --> A_{iorb,jorb}
@@ -460,29 +458,29 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         jsz   = isz+1
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3,I15)")'apply c^+_{up,iorb} + c_{dw,jorb}:',getsz(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3)")'apply c^+_{up,iorb} + c_{dw,jorb}:',getsz(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -501,29 +499,29 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)&
-             write(LOGfile,"(A23,I3,I15)")'apply c_{up,iorb} + c^+_{dw,jorb}:',getsz(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+             write(LOGfile,"(A23,I3)")'apply c_{up,iorb} + c^+_{dw,jorb}:',getsz(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -542,29 +540,29 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         jsz   = isz+1
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3,I15)")'apply c^+_{up,iorb} + xi*c_{dw,horb}:',getsz(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A23,I3)")'apply c^+_{up,iorb} + xi*c_{dw,horb}:',getsz(jsector)
+        allocate(cvinit(jdim))
+        call build_sector(jsector,HJ)
         cvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -583,29 +581,29 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
         if(ed_verbose<1.AND.ED_MPI_ID==0)&
-             write(LOGfile,"(A23,I3,I15)")'apply c_{up,iorb} - xi*c^+_{dw,jorb}:',getsz(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
-        call build_sector(jsector,HJmap)
+             write(LOGfile,"(A23,I3)")'apply c_{up,iorb} - xi*c^+_{dw,jorb}:',getsz(jsector)
+        allocate(cvinit(jdim))
+        call build_sector(jsector,HJ)
         cvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -618,7 +616,7 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
      endif
      !
      nullify(state_vec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   !
@@ -645,9 +643,9 @@ subroutine add_to_lanczos_gf_superc(vnorm2,Ei,nlanc,alanc,blanc,isign,ichan)
   !
   Egs = state_list%emin       !get the gs energy
   !
- ! if((finiteT).and.(beta*(Ei-Egs).lt.200))then
- !    pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
- ! elseif(.not.finiteT)then
+  ! if((finiteT).and.(beta*(Ei-Egs).lt.200))then
+  !    pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
+  ! elseif(.not.finiteT)then
   !   pesoBZ = vnorm2/zeta_function
   !else
   !   pesoBZ=0.d0

@@ -28,7 +28,8 @@ contains
     real(8),dimension(:,:),allocatable :: Hredux
 #endif
     integer                            :: isector
-    integer,dimension(:),allocatable   :: Hmap    !map of the Sector S to Hilbert space H
+    ! integer,dimension(:),allocatable   :: Hmap    !map of the Sector S to Hilbert space H
+    type(sector_map)                   :: H
     integer,dimension(Nlevels)         :: ib
     integer                            :: mpiQ,mpiR                
     integer                            :: dim
@@ -45,8 +46,7 @@ contains
     integer                            :: first_state,last_state
     !
     dim=getdim(isector)
-    allocate(Hmap(dim))
-    call build_sector(isector,Hmap)
+    call build_sector(isector,H)
     !
     if(spH0%status)call sp_delete_matrix(spH0) 
 #ifdef _MPI
@@ -98,7 +98,7 @@ contains
     include "ed_hamiltonian_build_h.f90"
     !-----------------------------------------------!
     !
-    deallocate(Hmap)
+    deallocate(H%map)
     !
     if(present(Hmat))then
        if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "ED_HAMILTONIAN/ed_buildH_d: wrong dimensions in Hmat"
@@ -124,7 +124,8 @@ contains
     complex(8),dimension(:,:),allocatable :: Hredux
 #endif
     integer                               :: isector
-    integer,dimension(:),allocatable      :: Hmap    !map of the Sector S to Hilbert space H
+    !integer,dimension(:),allocatable      :: Hmap    !map of the Sector S to Hilbert space H
+    type(sector_map)                      :: H
     integer,dimension(Nlevels)            :: ib
     integer                               :: mpiQ,mpiR                
     integer                               :: dim
@@ -141,8 +142,7 @@ contains
     integer                               :: first_state,last_state
     !
     dim=getdim(isector)
-    allocate(Hmap(dim))
-    call build_sector(isector,Hmap)
+    call build_sector(isector,H)
     !
     first_state= 1
     last_state = dim
@@ -197,7 +197,7 @@ contains
     include "ed_hamiltonian_build_h.f90"
     !-----------------------------------------------!
     !
-    deallocate(Hmap)
+    deallocate(H%map)
     !
     if(present(Hmat))then
        if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "ED_HAMILTONIAN/ed_buildH_d: wrong dimensions in Hmat"

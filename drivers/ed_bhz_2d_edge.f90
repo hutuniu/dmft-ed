@@ -114,7 +114,7 @@ program ed_bhz_2d_edge
 
 
   !Setup solver
-  Nb=get_bath_size()
+  Nb=get_bath_dimension()
   allocate(Bath_ineq(Nineq,Nb) )
   allocate(Bath_prev(Nineq,Nb) )
   call ed_init_solver_lattice(Bath_ineq)

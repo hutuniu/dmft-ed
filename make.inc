@@ -1,6 +1,6 @@
 ##$ COMPILER: suppprted compilers are ifort, gnu >v4.7
 ##$ use mpif90 for parallel compiler
-FC=ifort
+FC=mpif90
 
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
@@ -45,7 +45,7 @@ LIBDIR=/opt
 ##$ --> B-H-Z MODELS
 #EXE=ed_bhz_2d
 #EXE=ed_bhz_3d
-#EXE=ed_bhz_2d_edge
+EXE=ed_bhz_2d_edge
 #EXE=ed_bhz_afm_2d
 #EXE=ed_bhz_afm_3d
 
@@ -59,7 +59,8 @@ LIBDIR=/opt
 #EXE=hartree_nano
 #EXE=ed_cdwhm_bethe
 
-EXE=ed_STO
+##$ STO (nonSU2)
+#EXE=ed_STO
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
 DIR =./drivers

@@ -48,7 +48,7 @@ subroutine lanc_ed_build_spinChi_d(iorb)
   real(8),allocatable              :: alfa_(:),beta_(:)
   real(8),allocatable              :: vvinit(:)
   integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -63,17 +63,17 @@ subroutine lanc_ed_build_spinChi_d(iorb)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim),vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isector),getndw(isector),idim
-     call build_sector(isector,HImap)
+     allocate(vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+     call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = dble(ib(iorb))-dble(ib(iorb+Ns))
         vvinit(m) = 0.5d0*sgn*state_vec(m)   !build the cdg_up|gs> state
      enddo
-     deallocate(HImap)
+     deallocate(HI%map)
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
@@ -104,7 +104,7 @@ subroutine lanc_ed_build_spinChi_c(iorb)
   real(8),allocatable              :: alfa_(:),beta_(:)
   complex(8),allocatable           :: vvinit(:)
   integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -120,17 +120,17 @@ subroutine lanc_ed_build_spinChi_c(iorb)
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim),vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isector),getndw(isector),idim
-     call build_sector(isector,HImap)
+     allocate(vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+     call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = dble(ib(iorb))-dble(ib(iorb+Ns))
         vvinit(m) = 0.5d0*sgn*state_cvec(m)   !build the cdg_up|gs> state
      enddo
-     deallocate(HImap)
+     deallocate(HI%map)
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
@@ -173,7 +173,7 @@ subroutine lanc_ed_build_spinChi_tot_d()
   real(8),allocatable              :: alfa_(:),beta_(:)
   real(8),allocatable              :: vvinit(:)
   integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -188,17 +188,17 @@ subroutine lanc_ed_build_spinChi_tot_d()
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim),vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isector),getndw(isector),idim
-     call build_sector(isector,HImap)
+     allocate(vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+     call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim  
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = sum(dble(ib(1:Norb)))-sum(dble(ib(Ns+1:Ns+Norb)))
         vvinit(m) = 0.5d0*sgn*state_vec(m) 
      enddo
-     deallocate(HImap)
+     deallocate(HI%map)
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
@@ -229,7 +229,7 @@ subroutine lanc_ed_build_spinChi_tot_c()
   real(8),allocatable              :: alfa_(:),beta_(:)
   complex(8),allocatable           :: vvinit(:)
   integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -245,17 +245,17 @@ subroutine lanc_ed_build_spinChi_tot_c()
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim),vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply Sz:',getnup(isector),getndw(isector),idim
-     call build_sector(isector,HImap)
+     allocate(vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+     call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = sum(dble(ib(1:Norb)))-sum(dble(ib(Ns+1:Ns+Norb)))
         vvinit(m) = 0.5d0*sgn*state_cvec(m) 
      enddo
-     deallocate(HImap)
+     deallocate(HI%map)
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0

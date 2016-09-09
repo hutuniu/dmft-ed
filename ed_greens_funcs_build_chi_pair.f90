@@ -36,7 +36,7 @@ subroutine lanc_ed_build_pairChi_d(iorb)
   real(8),allocatable              :: alfa_(:),beta_(:)
   real(8),allocatable              :: vvinit(:)
   integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -51,19 +51,19 @@ subroutine lanc_ed_build_pairChi_d(iorb)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     
+     call build_sector(isector,HI)
      !Build the C_{iorb,up}C_{iorb,dw}|eigvec> 
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector),idim
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector)
      allocate(vvinit(idim))
      vvinit=0.d0
      do m=1,idim
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         if(ib(iorb+Ns)==0.OR.ib(iorb)==0)cycle
         call c(iorb+Ns,i,i1,sgn1)
         call c(iorb,i1,i2,sgn2)
-        j = binary_search(HImap,i2)
+        j = binary_search(HI%map,i2)
         vvinit(j) = sgn1*sgn2*state_vec(m)
      enddo
      norm0=sqrt(dot_product(vvinit,vvinit))
@@ -75,16 +75,16 @@ subroutine lanc_ed_build_pairChi_d(iorb)
      call add_to_lanczos_pairChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
      deallocate(vvinit)
      !Build the CDG_{iorb,dw}CDG_{iorb,up}|eigvec> 
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector),idim
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector)
      allocate(vvinit(idim))
      vvinit=0.d0
      do m=1,idim
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         if(ib(iorb+Ns)==1.OR.ib(iorb)==1)cycle
         call cdg(iorb,i,i1,sgn1)
         call cdg(iorb+Ns,i1,i2,sgn2)
-        j = binary_search(HImap,i2)
+        j = binary_search(HI%map,i2)
         vvinit(j) = sgn1*sgn2*state_vec(m)
      enddo
      norm0=sqrt(dot_product(vvinit,vvinit))
@@ -96,7 +96,7 @@ subroutine lanc_ed_build_pairChi_d(iorb)
      call add_to_lanczos_pairChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
      if(spH0%status)call sp_delete_matrix(spH0)
      deallocate(vvinit)
-     deallocate(HImap)
+     deallocate(HI%map)
      nullify(state_vec)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
@@ -114,7 +114,7 @@ subroutine lanc_ed_build_pairChi_c(iorb)
   real(8),allocatable              :: alfa_(:),beta_(:)
   complex(8),allocatable           :: vvinit(:)
   integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -130,19 +130,19 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+
+     call build_sector(isector,HI)
      !Build the C_{iorb,up}C_{iorb,dw}|eigvec> 
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector),idim
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector)
      allocate(vvinit(idim))
      vvinit=0.d0
      do m=1,idim
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         if(ib(iorb+Ns)==0.OR.ib(iorb)==0)cycle
         call c(iorb+Ns,i,i1,sgn1)
         call c(iorb,i1,i2,sgn2)
-        j = binary_search(HImap,i2)
+        j = binary_search(HI%map,i2)
         vvinit(j) = sgn1*sgn2*state_cvec(m)
      enddo
      norm0=sqrt(dot_product(vvinit,vvinit))
@@ -154,16 +154,16 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      call add_to_lanczos_pairChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
      deallocate(vvinit)
      !Build the CDG_{iorb,dw}CDG_{iorb,up}|eigvec> 
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector),idim
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector)
      allocate(vvinit(idim))
      vvinit=0.d0
      do m=1,idim
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         if(ib(iorb+Ns)==1.OR.ib(iorb)==1)cycle
         call cdg(iorb,i,i1,sgn1)
         call cdg(iorb+Ns,i1,i2,sgn2)
-        j = binary_search(HImap,i2)
+        j = binary_search(HI%map,i2)
         vvinit(j) = sgn1*sgn2*state_cvec(m)
      enddo
      norm0=sqrt(dot_product(vvinit,vvinit))
@@ -175,7 +175,7 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      call add_to_lanczos_pairChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
      if(spH0%status)call sp_delete_matrix(spH0)
      deallocate(vvinit)
-     deallocate(HImap)
+     deallocate(HI%map)
      nullify(state_cvec)
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer

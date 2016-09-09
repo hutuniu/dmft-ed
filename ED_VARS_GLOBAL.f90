@@ -1,6 +1,5 @@
 MODULE ED_VARS_GLOBAL
   USE SF_CONSTANTS
-  ! USE ED_BATH_TYPE
   USE MATRIX_SPARSE
 #ifdef _MPI_INEQ
   USE MPI
@@ -12,18 +11,27 @@ MODULE ED_VARS_GLOBAL
 
 
   type effective_bath
-     real(8),dimension(:,:,:),allocatable          :: e     !local energies [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
-     real(8),dimension(:,:,:),allocatable          :: d     !SC amplitues   [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
-     real(8),dimension(:,:,:),allocatable          :: v     !spin-keep hyb. [Nspin][Norb][Nbath]
-     real(8),dimension(:,:,:),allocatable          :: u     !spin-flip hyb. [Nspin][Norb][Nbath]
-     complex(8),dimension(:),allocatable           :: vr    !diagonal hyb.  [Nbath]
-     complex(8),dimension(:,:,:,:,:),allocatable   :: h     !Replica hamilt [Nspin][Nspin][Norb][Norb][Nbath]
-     logical(8),dimension(:,:,:,:,:),allocatable   :: mask  !impHloc mask   [Nspin][Nspin][Norb][Norb][Re,Im]
-     complex(8),dimension(:,:,:,:,:),allocatable   :: LS    !Replica hamilt [Nspin][Nspin][Norb][Norb][LS,LSrot]
-     logical                                :: status=.false.
+     real(8),dimension(:,:,:),allocatable        :: e     !local energies [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
+     real(8),dimension(:,:,:),allocatable        :: d     !SC amplitues   [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
+     real(8),dimension(:,:,:),allocatable        :: v     !spin-keep hyb. [Nspin][Norb][Nbath]
+     real(8),dimension(:,:,:),allocatable        :: u     !spin-flip hyb. [Nspin][Norb][Nbath]
+     complex(8),dimension(:),allocatable         :: vr    !diagonal hyb.  [Nbath]
+     complex(8),dimension(:,:,:,:,:),allocatable :: h     !Replica hamilt [Nspin][Nspin][Norb][Norb][Nbath]
+     logical(8),dimension(:,:,:,:,:),allocatable :: mask  !impHloc mask   [Nspin][Nspin][Norb][Norb][Re,Im]
+     complex(8),dimension(:,:,:,:,:),allocatable :: LS    !Replica hamilt [Nspin][Nspin][Norb][Norb][LS,LSrot]
+     logical                                     :: status=.false.
   end type effective_bath
 
 
+
+  type sector_map
+     integer,dimension(:),allocatable :: map
+  end type sector_map
+
+  interface map_allocate
+     module procedure :: map_allocate_scalar
+     module procedure :: map_allocate_vector
+  end interface map_allocate
 
 
   !-------------------- ED  VARIABLES ----------------------!
@@ -36,7 +44,6 @@ MODULE ED_VARS_GLOBAL
   !=========================================================
   integer                                     :: Ns
   integer                                     :: Nlevels
-  integer                                     :: Nhilbert
   integer                                     :: Nsectors
   integer                                     :: Nhel
 
@@ -142,6 +149,25 @@ MODULE ED_VARS_GLOBAL
   integer,dimension(:),allocatable            :: icol,irow
   integer,dimension(:,:),allocatable          :: ij2site
   ! real(8),dimension(:,:),allocatable          :: H0
+
+
+
+contains
+
+  subroutine map_allocate_scalar(H,N)
+    type(sector_map) :: H
+    integer :: N
+    allocate(H%map(N))
+  end subroutine map_allocate_scalar
+  !
+  subroutine map_allocate_vector(H,N)
+    type(sector_map),dimension(:) :: H
+    integer,dimension(size(H))    :: N
+    integer :: i
+    do i=1,size(H)
+       allocate(H(i)%map(N(i)))
+    enddo
+  end subroutine map_allocate_vector
 
 
 END MODULE ED_VARS_GLOBAL

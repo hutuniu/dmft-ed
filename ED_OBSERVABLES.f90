@@ -35,30 +35,25 @@ contains
   !PURPOSE  : Evaluate and print out many interesting physical qties
   !+-------------------------------------------------------------------+
   subroutine observables_impurity()
-    integer,dimension(Nlevels)       :: ib
-    integer                          :: i,j
-    integer                          :: izero
-    integer                          :: isector,jsector
-    integer                          :: idim,jdim
-    integer                          :: isz,jsz
-    integer                          :: iorb,jorb,ispin,jspin,isite,jsite
-    integer                          :: numstates
-    integer                          :: r,m,k
-    real(8)                          :: sgn,sgn1,sgn2
-    real(8)                          :: gs_weight
-    real(8)                          :: Ei
-    real(8)                          :: peso
-    real(8)                          :: norm
-    real(8),dimension(Norb)          :: nup,ndw,Sz,nt
-    real(8),dimension(:),pointer     :: gsvec
-    complex(8),dimension(:),pointer  :: gscvec
-    integer,allocatable,dimension(:) :: Hmap,HJmap
-    real(8),allocatable              :: vvinit(:)
-    !!<DEBUG
-    !logical :: converged
-    !real(8) :: pdens
-    !>DEBUG
-
+    integer,dimension(Nlevels)      :: ib
+    integer                         :: i,j
+    integer                         :: izero
+    integer                         :: isector,jsector
+    integer                         :: idim,jdim
+    integer                         :: isz,jsz
+    integer                         :: iorb,jorb,ispin,jspin,isite,jsite
+    integer                         :: numstates
+    integer                         :: r,m,k
+    real(8)                         :: sgn,sgn1,sgn2
+    real(8)                         :: gs_weight
+    real(8)                         :: Ei
+    real(8)                         :: peso
+    real(8)                         :: norm
+    real(8),dimension(Norb)         :: nup,ndw,Sz,nt
+    real(8),dimension(:),pointer    :: gsvec
+    complex(8),dimension(:),pointer :: gscvec
+    type(sector_map)                :: H,HJ
+    real(8),allocatable             :: vvinit(:)
     !
     !LOCAL OBSERVABLES:
     ! density, 
@@ -101,13 +96,13 @@ contains
        peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
        peso = peso/zeta_function
        !
-       allocate(Hmap(idim))
-       call build_sector(isector,Hmap)
+
+       call build_sector(isector,H)
        !
        !pdens=0d0
        do i=1,idim
-          m=Hmap(i)
-          call bdecomp(m,ib)
+          m=H%map(i)
+          ib = bdecomp(m,2*Ns)
           !
           if(ed_type=='d')then
              gs_weight=peso*gsvec(i)**2
@@ -155,7 +150,7 @@ contains
        !!>DEBUG
        if(associated(gsvec))nullify(gsvec)
        if(associated(gscvec))nullify(gscvec)
-       deallocate(Hmap)
+       deallocate(H%map)
     enddo
     !
     !SUPERCONDUCTING ORDER PARAMETER
@@ -180,8 +175,8 @@ contains
                 peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
                 peso = peso/zeta_function
                 !
-                allocate(Hmap(idim))
-                call build_sector(isector,Hmap)
+
+                call build_sector(isector,H)
                 !GET <(C_UP + CDG_DW)(CDG_UP + C_DW)> = 
                 !<C_UP*CDG_UP> + <CDG_DW*C_DW> + <C_UP*C_DW> + <CDG_DW*CDG_UP> = 
                 !<N_UP> + < 1 - N_DW> + 2*<PHI>
@@ -190,33 +185,33 @@ contains
                    jsz     = isz+1
                    jsector = getsector(jsz,1)
                    jdim    = getdim(jsector)
-                   allocate(HJmap(jdim),vvinit(jdim))
-                   call build_sector(jsector,HJmap)
+                   allocate(vvinit(jdim))
+                   call build_sector(jsector,HJ)
                    vvinit=0.d0
                    do i=1,idim
-                      m=Hmap(i)
-                      call bdecomp(m,ib)
+                      m=H%map(i)
+                      ib = bdecomp(m,2*Ns)
                       if(ib(iorb)==0)then
                          call cdg(iorb,m,r,sgn)
-                         j=binary_search(HJmap,r)
+                         j=binary_search(HJ%map,r)
                          vvinit(j) = sgn*gsvec(i)
                       endif
                    enddo
                    do i=1,idim
-                      m=Hmap(i)
-                      call bdecomp(m,ib)
+                      m=H%map(i)
+                      ib = bdecomp(m,2*Ns)
                       if(ib(iorb+Ns)==1)then
                          call c(iorb+Ns,m,r,sgn)
-                         j=binary_search(HJmap,r)
+                         j=binary_search(HJ%map,r)
                          vvinit(j) = vvinit(j) + sgn*gsvec(i)
                       endif
                    enddo
-                   deallocate(HJmap)
+                   deallocate(HJ%map)
                    phisc(iorb) = phisc(iorb) + dot_product(vvinit,vvinit)*peso
                    deallocate(vvinit)
                 endif
                 if(associated(gsvec)) nullify(gsvec)
-                deallocate(Hmap)
+                deallocate(H%map)
                 !
              enddo
              phisc(iorb) = 0.5d0*(phisc(iorb) - dens_up(iorb) - (1.d0-dens_dw(iorb)))
@@ -246,15 +241,15 @@ contains
        peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
        peso = peso/zeta_function
        !
-       allocate(Hmap(idim))
-       call build_sector(isector,Hmap)
+
+       call build_sector(isector,H)
        !Diagonal densities
        do ispin=1,Nspin
           do iorb=1,Norb
              isite=impIndex(iorb,ispin)
              do m=1,idim
-                i=Hmap(m)
-                call bdecomp(i,ib)
+                i=H%map(m)
+                ib = bdecomp(i,2*Ns)
                 if(ed_type=='d')imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + peso*ib(isite)*gsvec(m)*gsvec(m)
                 if(ed_type=='c')imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
              enddo
@@ -270,12 +265,12 @@ contains
                    isite=impIndex(iorb,ispin)
                    jsite=impIndex(jorb,jspin)
                    do m=1,idim
-                      i=Hmap(m)
-                      call bdecomp(i,ib)
+                      i=H%map(m)
+                      ib = bdecomp(i,2*Ns)
                       if((ib(isite)==1).and.(ib(jsite)==0))then
                          call c(isite,i,r,sgn1)
                          call cdg(jsite,r,k,sgn2)
-                         j=binary_search(Hmap,k)
+                         j=binary_search(H%map,k)
                          if(ed_type=='d')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + peso*sgn1*gsvec(m)*sgn2*gsvec(j)
                          if(ed_type=='c')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
                       endif
@@ -284,79 +279,79 @@ contains
              enddo
           enddo
        enddo
-       deallocate(Hmap)
+       deallocate(H%map)
     enddo
     imp_density_matrix = imp_density_matrix/float(numstates)
     !IMPURITY DENSITY OPERATORS
     if((Nspin/=1).and.(Norb==3))then
-    if(allocated(impStot))    deallocate(impStot);   allocate(impStot(3,Norb,Norb));  impStot=zero
-    if(allocated(impLtot))    deallocate(impLtot);   allocate(impLtot(3,Nspin,Nspin));impLtot=zero
-    if(allocated(impj_aplha)) deallocate(impj_aplha);allocate(impj_aplha(3));         impj_aplha=zero
-    impLdotS=zero
-    !
-    !#####################################################
-    !#                    S(iorb,jorb)                   #
-    !#####################################################
-    !
-    !Sx =    [ <c+_up,c_dw> + <c+_dw,c_up> ]_(iorb,jorb)
-    !Sy = xi*[ <c+_dw,c_up> - <c+_up,c_dw> ]_(iorb,jorb)
-    !Sz =    [ <c+_up,c_up> - <c+_dw,c_dw> ]_(iorb,jorb)
-    !
-    do iorb=1,Norb
-       do jorb=1,Norb
-          if(ed_mode=="normal")cycle                     !  ed_mode=="normal" ==>    spin off-dig term not calculated
-          if((bath_type=="normal").and.(iorb/=jorb))cycle!bath_type=="normal" ==> orbital off-dig term not calculated
-          impStot(1,iorb,jorb) = 0.5d0*( imp_density_matrix(1,2,iorb,jorb) + imp_density_matrix(2,1,iorb,jorb) )
-          impStot(2,iorb,jorb) = 0.5d0*( imp_density_matrix(2,1,iorb,jorb) - imp_density_matrix(1,2,iorb,jorb) )*xi
-          impStot(3,iorb,jorb) = 0.5d0*( imp_density_matrix(1,1,iorb,jorb) - imp_density_matrix(2,2,iorb,jorb) )
+       if(allocated(impStot))    deallocate(impStot);   allocate(impStot(3,Norb,Norb));  impStot=zero
+       if(allocated(impLtot))    deallocate(impLtot);   allocate(impLtot(3,Nspin,Nspin));impLtot=zero
+       if(allocated(impj_aplha)) deallocate(impj_aplha);allocate(impj_aplha(3));         impj_aplha=zero
+       impLdotS=zero
+       !
+       !#####################################################
+       !#                    S(iorb,jorb)                   #
+       !#####################################################
+       !
+       !Sx =    [ <c+_up,c_dw> + <c+_dw,c_up> ]_(iorb,jorb)
+       !Sy = xi*[ <c+_dw,c_up> - <c+_up,c_dw> ]_(iorb,jorb)
+       !Sz =    [ <c+_up,c_up> - <c+_dw,c_dw> ]_(iorb,jorb)
+       !
+       do iorb=1,Norb
+          do jorb=1,Norb
+             if(ed_mode=="normal")cycle                     !  ed_mode=="normal" ==>    spin off-dig term not calculated
+             if((bath_type=="normal").and.(iorb/=jorb))cycle!bath_type=="normal" ==> orbital off-dig term not calculated
+             impStot(1,iorb,jorb) = 0.5d0*( imp_density_matrix(1,2,iorb,jorb) + imp_density_matrix(2,1,iorb,jorb) )
+             impStot(2,iorb,jorb) = 0.5d0*( imp_density_matrix(2,1,iorb,jorb) - imp_density_matrix(1,2,iorb,jorb) )*xi
+             impStot(3,iorb,jorb) = 0.5d0*( imp_density_matrix(1,1,iorb,jorb) - imp_density_matrix(2,2,iorb,jorb) )
+          enddo
        enddo
-    enddo
-    !
-    !#####################################################
-    !#                   L(ispin,jspin)                  #
-    !#####################################################
-    !1=yz 2=zx 3=xy
-    !Lx = xi*[ <c+_3,c_2> - <c+_2,c_3> ]_(ispin,jspin)
-    !Ly = xi*[ <c+_1,c_3> - <c+_3,c_1> ]_(ispin,jspin)
-    !Lz = xi*[ <c+_2,c_1> - <c+_1,c_2> ]_(ispin,jspin)
-    !
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          if((ed_mode=="normal").and.(ispin/=jspin))cycle!  ed_mode=="normal" ==>    spin off-dig term not calculated
-          if(bath_type=="normal")cycle                   !bath_type=="normal" ==> orbital off-dig term not calculated
-          impLtot(1,ispin,jspin) = ( imp_density_matrix(ispin,jspin,3,2) - imp_density_matrix(ispin,jspin,2,3) )*xi
-          impLtot(2,ispin,jspin) = ( imp_density_matrix(ispin,jspin,1,3) - imp_density_matrix(ispin,jspin,3,1) )*xi
-          impLtot(3,ispin,jspin) = ( imp_density_matrix(ispin,jspin,2,1) - imp_density_matrix(ispin,jspin,1,2) )*xi
+       !
+       !#####################################################
+       !#                   L(ispin,jspin)                  #
+       !#####################################################
+       !1=yz 2=zx 3=xy
+       !Lx = xi*[ <c+_3,c_2> - <c+_2,c_3> ]_(ispin,jspin)
+       !Ly = xi*[ <c+_1,c_3> - <c+_3,c_1> ]_(ispin,jspin)
+       !Lz = xi*[ <c+_2,c_1> - <c+_1,c_2> ]_(ispin,jspin)
+       !
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             if((ed_mode=="normal").and.(ispin/=jspin))cycle!  ed_mode=="normal" ==>    spin off-dig term not calculated
+             if(bath_type=="normal")cycle                   !bath_type=="normal" ==> orbital off-dig term not calculated
+             impLtot(1,ispin,jspin) = ( imp_density_matrix(ispin,jspin,3,2) - imp_density_matrix(ispin,jspin,2,3) )*xi
+             impLtot(2,ispin,jspin) = ( imp_density_matrix(ispin,jspin,1,3) - imp_density_matrix(ispin,jspin,3,1) )*xi
+             impLtot(3,ispin,jspin) = ( imp_density_matrix(ispin,jspin,2,1) - imp_density_matrix(ispin,jspin,1,2) )*xi
+          enddo
        enddo
-    enddo
-    !
-    !#####################################################
-    !#                        LdotS                      #
-    !#####################################################
-    ! 1=yz 2=zx 3=xy
-    ! + xi*[ <c+_3up,c_1up> - <c+_1up,c_3up> ]  ==  spin - diagonal 1
-    ! + xi*[ <c+_2dw,c_1dw> - <c+_1dw,c_2dw> ]  ==  spin - diagonal 2
-    ! -    [ <c+_2up,c_2dw> + <c+_2dw,c_2up> ]  ==  orb  - diagonal 1
-    ! + xi*[ <c+_3dw,c_3up> - <c+_3up,c_3dw> ]  ==  orb  - diagonal 2
-    ! -    [ <c+_3dw,c_1up> + <c+_1up,c_3dw> ]  ==  full off - diagonal 1
-    ! + xi*[ <c+_2up,c_1dw> - <c+_1dw,c_2up> ]  ==  full off - diagonal 2
-    !
-    impLdotS =  (imp_density_matrix(1,1,3,1)-imp_density_matrix(1,1,1,3))*xi &
-               +(imp_density_matrix(2,2,2,1)-imp_density_matrix(2,2,1,2))*xi &
-               -(imp_density_matrix(1,2,2,2)+imp_density_matrix(2,1,2,2))    &
-               +(imp_density_matrix(2,1,3,3)-imp_density_matrix(1,2,3,3))*xi &
-               -(imp_density_matrix(2,1,3,1)+imp_density_matrix(1,2,1,3))    &
-               +(imp_density_matrix(1,2,2,1)-imp_density_matrix(2,1,1,2))*xi
-    impLdotS = impLdotS/2.d0
-    !
-    !#####################################################
-    !#              ja=trace{La}+trace{Sa}               #
-    !#####################################################
-    !
-    impj_aplha(1)=trace(impStot(1,:,:))+trace(impLtot(1,:,:))
-    impj_aplha(2)=trace(impStot(2,:,:))+trace(impLtot(2,:,:))
-    impj_aplha(3)=trace(impStot(3,:,:))+trace(impLtot(3,:,:))
-    !
+       !
+       !#####################################################
+       !#                        LdotS                      #
+       !#####################################################
+       ! 1=yz 2=zx 3=xy
+       ! + xi*[ <c+_3up,c_1up> - <c+_1up,c_3up> ]  ==  spin - diagonal 1
+       ! + xi*[ <c+_2dw,c_1dw> - <c+_1dw,c_2dw> ]  ==  spin - diagonal 2
+       ! -    [ <c+_2up,c_2dw> + <c+_2dw,c_2up> ]  ==  orb  - diagonal 1
+       ! + xi*[ <c+_3dw,c_3up> - <c+_3up,c_3dw> ]  ==  orb  - diagonal 2
+       ! -    [ <c+_3dw,c_1up> + <c+_1up,c_3dw> ]  ==  full off - diagonal 1
+       ! + xi*[ <c+_2up,c_1dw> - <c+_1dw,c_2up> ]  ==  full off - diagonal 2
+       !
+       impLdotS =  (imp_density_matrix(1,1,3,1)-imp_density_matrix(1,1,1,3))*xi &
+            +(imp_density_matrix(2,2,2,1)-imp_density_matrix(2,2,1,2))*xi &
+            -(imp_density_matrix(1,2,2,2)+imp_density_matrix(2,1,2,2))    &
+            +(imp_density_matrix(2,1,3,3)-imp_density_matrix(1,2,3,3))*xi &
+            -(imp_density_matrix(2,1,3,1)+imp_density_matrix(1,2,1,3))    &
+            +(imp_density_matrix(1,2,2,1)-imp_density_matrix(2,1,1,2))*xi
+       impLdotS = impLdotS/2.d0
+       !
+       !#####################################################
+       !#              ja=trace{La}+trace{Sa}               #
+       !#####################################################
+       !
+       impj_aplha(1)=trace(impStot(1,:,:))+trace(impLtot(1,:,:))
+       impj_aplha(2)=trace(impStot(2,:,:))+trace(impLtot(2,:,:))
+       impj_aplha(3)=trace(impStot(3,:,:))+trace(impLtot(3,:,:))
+       !
     endif
     !<<DEBUG
     !

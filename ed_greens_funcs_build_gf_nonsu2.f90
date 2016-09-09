@@ -31,51 +31,48 @@ subroutine build_gf_nonsu2()
            end select
         enddo
      enddo
-! <<<<<<< HEAD
-!   enddo
-
-!   !Here we evaluate the same orbital, different spin GF: G_{aa}^{ss'}(z)
-!   !if(bath_type=='normal')then
-!   do ispin=1,Nspin
-!      do jspin=1,Nspin
-!         do iorb=1,Norb
-!            do jorb=1,Norb
-!               if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
-!                  if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
-!                  select case(ed_type)
-!                  case default
-!                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
-!                  case ('c')
-!                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
-!                  end select
-!               endif
-!            enddo
-!         enddo
-!      enddo
-!   enddo
-!   !Here we put the symmetry manipulation
-!   do ispin=1,Nspin
-!      do jspin=1,Nspin
-!         do iorb=1,Norb
-!            do jorb=1,Norb
-!               if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
-!                  !
-!                  impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-!                       - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
-!                  !
-!                  impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-!                       - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
-!                  !
-!               endif
-!            enddo
-!         enddo
-!      enddo
-!   enddo
-!   !endif
-
-
-!   if(bath_type=='hybrid')then
-! =======
+     ! <<<<<<< HEAD
+     !   enddo
+     !   !Here we evaluate the same orbital, different spin GF: G_{aa}^{ss'}(z)
+     !   !if(bath_type=='normal')then
+     !   do ispin=1,Nspin
+     !      do jspin=1,Nspin
+     !         do iorb=1,Norb
+     !            do jorb=1,Norb
+     !               if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+     !                  if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+     !                  select case(ed_type)
+     !                  case default
+     !                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
+     !                  case ('c')
+     !                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
+     !                  end select
+     !               endif
+     !            enddo
+     !         enddo
+     !      enddo
+     !   enddo
+     !   !Here we put the symmetry manipulation
+     !   do ispin=1,Nspin
+     !      do jspin=1,Nspin
+     !         do iorb=1,Norb
+     !            do jorb=1,Norb
+     !               if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
+     !                  !
+     !                  impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
+     !                       - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+     !                  !
+     !                  impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+     !                       - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+     !                  !
+     !               endif
+     !            enddo
+     !         enddo
+     !      enddo
+     !   enddo
+     !   !endif
+     !   if(bath_type=='hybrid')then
+     ! =======
      !
      !same orbital, different spin GF: G_{aa}^{ss'}(z)
      do ispin=1,Nspin
@@ -103,10 +100,10 @@ subroutine build_gf_nonsu2()
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                         - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                         - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -155,10 +152,10 @@ subroutine build_gf_nonsu2()
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                         - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                         - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -166,7 +163,7 @@ subroutine build_gf_nonsu2()
         enddo
      enddo
      !
-! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
+     ! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
      !Here we evaluate the different orbital, same spin GF: G_{ab}^{ss}(z)
      do ispin=1,Nspin
         do jspin=1,Nspin
@@ -193,18 +190,18 @@ subroutine build_gf_nonsu2()
                  if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-!>DEBUG: THIS SOLVES THE LAST (HOPEFULLY) BUG: *HERMITICITY BREAKING* DID NOT ALLOW TO GET DECENT G_LOCAL <DEBUG
-! <<<<<<< HEAD
-!                          - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
-!                     !
-!                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-!                          - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
-! =======
-                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                                !>DEBUG: THIS SOLVES THE LAST (HOPEFULLY) BUG: *HERMITICITY BREAKING* DID NOT ALLOW TO GET DECENT G_LOCAL <DEBUG
+                                ! <<<<<<< HEAD
+                                !                          - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                                !                     !
+                                !                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+                                !                          - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                                ! =======
+                         - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
-! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
+                         - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                    ! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
                     !
                  endif
               enddo
@@ -238,29 +235,29 @@ subroutine build_gf_nonsu2()
                  if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-!>DEBUG IDEM COME SOPRA <DEBUG
-! <<<<<<< HEAD
-!                          - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
-!                     !
-!                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-!                          - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
-! =======
-                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                                !>DEBUG IDEM COME SOPRA <DEBUG
+                                ! <<<<<<< HEAD
+                                !                          - (one-xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one-xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                                !                     !
+                                !                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
+                                !                          - (one-xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one-xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                                ! =======
+                         - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
-! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
+                         - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                    ! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
                     !
                  endif
               enddo
            enddo
         enddo
      enddo
-! <<<<<<< HEAD
-!   endif
-!   if(allocated(wm))deallocate(wm)
-!   if(allocated(wr))deallocate(wr)
-! =======
+     ! <<<<<<< HEAD
+     !   endif
+     !   if(allocated(wm))deallocate(wm)
+     !   if(allocated(wr))deallocate(wr)
+     ! =======
      !
   case("replica")
      !
@@ -305,10 +302,10 @@ subroutine build_gf_nonsu2()
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                         - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                         - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -344,10 +341,10 @@ subroutine build_gf_nonsu2()
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                         - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                         - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -383,10 +380,10 @@ subroutine build_gf_nonsu2()
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
                     !
                     impGmats(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGmats(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
+                         - (one+xi)*impGmats(ispin,ispin,iorb,iorb,:) - (one+xi)*impGmats(jspin,jspin,jorb,jorb,:))
                     !
                     impGreal(ispin,jspin,iorb,jorb,:) = 0.5d0*(impGreal(ispin,jspin,iorb,jorb,:) &
-                      - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
+                         - (one+xi)*impGreal(ispin,ispin,iorb,iorb,:) - (one+xi)*impGreal(jspin,jspin,jorb,jorb,:))
                     !
                  endif
               enddo
@@ -400,11 +397,27 @@ subroutine build_gf_nonsu2()
      endif
      !
   end select
-
-! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
+  ! >>>>>>> 979db131f5f27b911ae98300aa4d94137bf0a01a
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
 end subroutine build_gf_nonsu2
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 !+------------------------------------------------------------------+
@@ -422,7 +435,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
   integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap
+  type(sector_map) :: HI,HJ
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -439,27 +452,26 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     call build_sector(isector,HI)
      !
      !APPLY c^+_{iorb,ispin}|gs>
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap) !note that here you are doing twice the map building...
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ) !note that here you are doing twice the map building...
         vvinit=0d0
         do m=1,idim                     !loop over |gs> components m
-           i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
+           i=HI%map(m)                    !map m to Hilbert space state i
+           ib = bdecomp(i,2*Ns)            !i into binary representation
            if(ib(isite)==0)then          !if impurity is empty: proceed
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)      !map r back to  jsector
+              j=binary_search(HJ%map,r)      !map r back to  jsector
               vvinit(j) = sgn*state_vec(m)  !build the cdg_ispin|gs> state
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -475,20 +487,20 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -501,7 +513,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
      endif
      !
      nullify(state_vec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
@@ -522,7 +534,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
   complex(8),allocatable           :: cvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -540,37 +552,36 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      !
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     call build_sector(isector,HI)
      !
      !
      !APPLY (c^+_{iorb,ispin} + c^+_{jorb,ispin})|gs>
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -586,29 +597,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -625,29 +636,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(cvinit(jdim))
+        call build_sector(jsector,HJ)
         cvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -663,29 +674,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(cvinit(jdim))
+        call build_sector(jsector,HJ)
         cvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -698,7 +709,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
      endif
      !
      nullify(state_vec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
@@ -719,7 +730,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
   complex(8),allocatable           :: cvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -737,37 +748,36 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      !
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     call build_sector(isector,HI)
      !
      !
      !APPLY (c^+_{iorb,ispin} + c^+_{iorb,jspin})|gs>
      jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -783,29 +793,29 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
      jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -822,29 +832,29 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(cvinit(jdim))
+        call build_sector(jsector,HJ)
         cvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -860,29 +870,29 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(cvinit(jdim))
+        call build_sector(jsector,HJ)
         cvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -895,7 +905,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
      endif
      !
      nullify(state_vec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
@@ -916,7 +926,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
   complex(8),allocatable           :: cvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -934,37 +944,36 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      !
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     call build_sector(isector,HI)
      !
      !
      !APPLY (c^+_{iorb,ispin} + c^+_{jorb,jspin})|gs>
      jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -980,29 +989,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
      jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1019,29 +1028,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(cvinit(jdim))
+        call build_sector(jsector,HJ)
         cvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1057,29 +1066,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),cvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(cvinit(jdim))
+        call build_sector(jsector,HJ)
         cvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = sgn*state_vec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1092,7 +1101,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
      endif
      !
      nullify(state_vec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
@@ -1133,7 +1142,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
   real(8)                          :: sgn,norm2,norm0
   complex(8)                       :: cnorm2
   integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap
+  type(sector_map) :: HI,HJ
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -1150,27 +1159,26 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     call build_sector(isector,HI)
      !
      !ADD ONE PARTICLE with ISPIN:
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap) !note that here you are doing twice the map building...
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ) !note that here you are doing twice the map building...
         vvinit=0d0
         do m=1,idim                     !loop over |gs> components m
-           i=HImap(m)                    !map m to Hilbert space state i
-           call bdecomp(i,ib)            !i into binary representation
+           i=HI%map(m)                    !map m to Hilbert space state i
+           ib = bdecomp(i,2*Ns)            !i into binary representation
            if(ib(isite)==0)then          !if impurity is empty: proceed
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)      !map r back to  jsector
+              j=binary_search(HJ%map,r)      !map r back to  jsector
               vvinit(j) = sgn*state_cvec(m)  !build the cdg_ispin|gs> state
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1186,20 +1194,20 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1212,7 +1220,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      endif
      !
      nullify(state_cvec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
@@ -1232,7 +1240,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
   complex(8),allocatable           :: vvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -1250,37 +1258,36 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      !
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     call build_sector(isector,HI)
      !
      !
      !APPLY (c^+_{iorb,ispin} + c^+_{jorb,ispin})|gs>
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1296,29 +1303,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1335,29 +1342,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + xi*sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1373,29 +1380,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) - xi*sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1408,7 +1415,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
      endif
      !
      nullify(state_vec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
@@ -1428,7 +1435,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
   complex(8),allocatable           :: vvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -1446,37 +1453,36 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      !
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     call build_sector(isector,HI)
      !
      !
      !APPLY (c^+_{iorb,ispin} + c^+_{iorb,jspin})|gs>
      jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1492,29 +1498,29 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1531,29 +1537,29 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + xi*sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1569,29 +1575,29 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) - xi*sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1604,7 +1610,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
      endif
      !
      nullify(state_cvec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
@@ -1624,7 +1630,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
   complex(8),allocatable           :: vvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: Nitermax,Nlanc
-  integer,allocatable,dimension(:) :: HImap,HJmap    !map of the Sector S to Hilbert space H
+  type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -1642,37 +1648,36 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      !
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+     call build_sector(isector,HI)
      !
      !
      !APPLY (c^+_{iorb,ispin} + c^+_{jorb,jspin})|gs>
      jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1688,29 +1693,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=0.d0
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1727,29 +1732,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' add particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==0)then
               call cdg(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) + xi*sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1765,29 +1770,29 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3,I15)")' del particle:',getn(jsector),jdim
-        allocate(HJmap(jdim),vvinit(jdim))
-        call build_sector(jsector,HJmap)
+        if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        allocate(vvinit(jdim))
+        call build_sector(jsector,HJ)
         vvinit=zero
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(isite)==1)then
               call c(isite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         do m=1,idim
-           i=HImap(m)
-           call bdecomp(i,ib)
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
            if(ib(jsite)==1)then
               call c(jsite,i,r,sgn)
-              j=binary_search(HJmap,r)
+              j=binary_search(HJ%map,r)
               vvinit(j) = vvinit(j) - xi*sgn*state_cvec(m)
            endif
         enddo
-        deallocate(HJmap)
+        deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
         alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
@@ -1800,7 +1805,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      endif
      !
      nullify(state_cvec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer

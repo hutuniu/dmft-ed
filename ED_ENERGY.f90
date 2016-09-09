@@ -69,7 +69,7 @@ contains
     real(8),dimension(Nspin,Norb)                     :: eloc
     real(8),dimension(:),pointer                      :: gsvec
     complex(8),dimension(:),pointer                   :: gscvec
-    integer,allocatable,dimension(:)                  :: Hmap
+    type(sector_map) :: H
     logical                                           :: Jcondition
     !
     Egs     = state_list%emin
@@ -106,12 +106,11 @@ contains
        peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
        peso = peso/zeta_function
        !
-       allocate(Hmap(idim))
-       call build_sector(isector,Hmap)
+       call build_sector(isector,H)
        !
        do i=1,idim
-          m=Hmap(i)
-          call bdecomp(m,ib)
+          m=H%map(i)
+          ib = bdecomp(m,2*Ns)
           !
           if(ed_type=='d')then
              gs_weight=peso*gsvec(i)**2
@@ -136,14 +135,14 @@ contains
                 if((ib(iorb)==0).AND.(ib(jorb)==1))then
                    call c(jorb,m,k1,sg1)
                    call cdg(iorb,k1,k2,sg2)
-                   j=binary_search(Hmap,k2)
+                   j=binary_search(H%map,k2)
                    ed_Eknot = ed_Eknot + impHloc(1,1,iorb,jorb)*sg1*sg2*gs_weight
                 endif
                 !SPIN DW
                 if((ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
                    call c(jorb+Ns,m,k1,sg1)
                    call cdg(iorb+Ns,k1,k2,sg2)
-                   j=binary_search(Hmap,k2)
+                   j=binary_search(H%map,k2)
                    ed_Eknot = ed_Eknot + impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2*gs_weight
                 endif
              enddo
@@ -156,14 +155,14 @@ contains
                    if((impHloc(1,Nspin,iorb,jorb)/=zero).AND.(ib(iorb)==0).AND.(ib(jorb+Ns)==1))then
                       call c(jorb+Ns,m,k1,sg1)
                       call cdg(iorb,k1,k2,sg2)
-                      j=binary_search(Hmap,k2)
+                      j=binary_search(H%map,k2)
                       ed_Eknot = ed_Eknot + impHloc(1,Nspin,iorb,jorb)*sg1*sg2*gs_weight
                    endif
                    !DW-UP
                    if((impHloc(Nspin,1,iorb,jorb)/=zero).AND.(ib(iorb+Ns)==0).AND.(ib(jorb)==1))then
                       call c(jorb,m,k1,sg1)
                       call cdg(iorb+Ns,k1,k2,sg2)
-                      j=binary_search(Hmap,k2)
+                      j=binary_search(H%map,k2)
                       ed_Eknot = ed_Eknot + impHloc(Nspin,1,iorb,jorb)*sg1*sg2*gs_weight
                    endif
                 enddo
@@ -217,7 +216,7 @@ contains
                       call c(iorb+Ns,k1,k2,sg2)
                       call cdg(jorb+Ns,k2,k3,sg3)
                       call cdg(iorb,k3,k4,sg4)
-                      j=binary_search(Hmap,k4)
+                      j=binary_search(H%map,k4)
                       ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gs_weight
                       ed_Dse  = ed_Dse  + sg1*sg2*sg3*sg4*gs_weight
                    endif
@@ -241,7 +240,7 @@ contains
                       call c(jorb+Ns,k1,k2,sg2)
                       call cdg(iorb+Ns,k2,k3,sg3)
                       call cdg(iorb,k3,k4,sg4)
-                      j=binary_search(Hmap,k4)
+                      j=binary_search(H%map,k4)
                       ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gs_weight
                       ed_Dph  = ed_Dph  + sg1*sg2*sg3*sg4*gs_weight
                    endif
@@ -267,7 +266,7 @@ contains
        enddo
        if(associated(gsvec))nullify(gsvec)
        if(associated(gscvec))nullify(gscvec)
-       deallocate(Hmap)
+       deallocate(H%map)
     enddo
     ed_Epot = ed_Epot + ed_Ehartree
     !

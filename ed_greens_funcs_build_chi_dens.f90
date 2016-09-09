@@ -74,18 +74,18 @@ end subroutine build_chi_dens
 ! the orbital diagonal case: \chi_dens_aa = <N_a(\tau)N_a(0)>
 !+------------------------------------------------------------------+
 subroutine lanc_ed_build_densChi_diag_d(iorb)
-  integer                          :: iorb,isite,isector,izero
-  integer                          :: numstates
-  integer                          :: nlanc,idim
-  integer                          :: iup0,idw0,isign
-  integer                          :: ib(Nlevels)
-  integer                          :: m,i,j,r
-  real(8)                          :: norm0,sgn
-  complex(8)                       :: cnorm2
-  real(8),allocatable              :: alfa_(:),beta_(:)
-  real(8),allocatable              :: vvinit(:)
-  integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  integer             :: iorb,isite,isector,izero
+  integer             :: numstates
+  integer             :: nlanc,idim
+  integer             :: iup0,idw0,isign
+  integer             :: ib(Nlevels)
+  integer             :: m,i,j,r
+  real(8)             :: norm0,sgn
+  complex(8)          :: cnorm2
+  real(8),allocatable :: alfa_(:),beta_(:)
+  real(8),allocatable :: vvinit(:)
+  integer             :: Nitermax
+  type(sector_map)    :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -100,17 +100,17 @@ subroutine lanc_ed_build_densChi_diag_d(iorb)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim),vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isector),getndw(isector),idim
-     call build_sector(isector,HImap)
+     allocate(vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
+     call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
         vvinit(m) = sgn*state_vec(m)   !build the cdg_up|gs> state
      enddo
-     deallocate(HImap)
+     deallocate(HI%map)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
@@ -130,18 +130,18 @@ subroutine lanc_ed_build_densChi_diag_d(iorb)
 end subroutine lanc_ed_build_densChi_diag_d
 
 subroutine lanc_ed_build_densChi_diag_c(iorb)
-  integer                          :: iorb,isite,isector,izero
-  integer                          :: numstates
-  integer                          :: nlanc,idim
-  integer                          :: iup0,idw0,isign
-  integer                          :: ib(Nlevels)
-  integer                          :: m,i,j,r
-  real(8)                          :: norm0,sgn
-  complex(8)                       :: cnorm2
-  real(8),allocatable              :: alfa_(:),beta_(:)
-  complex(8),allocatable           :: vvinit(:)
-  integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  integer                :: iorb,isite,isector,izero
+  integer                :: numstates
+  integer                :: nlanc,idim
+  integer                :: iup0,idw0,isign
+  integer                :: ib(Nlevels)
+  integer                :: m,i,j,r
+  real(8)                :: norm0,sgn
+  complex(8)             :: cnorm2
+  real(8),allocatable    :: alfa_(:),beta_(:)
+  complex(8),allocatable :: vvinit(:)
+  integer                :: Nitermax
+  type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -157,17 +157,17 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim),vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isector),getndw(isector),idim
-     call build_sector(isector,HImap)
+     allocate(vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
+     call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
         vvinit(m) = sgn*state_cvec(m)   !build the cdg_up|gs> state
      enddo
-     deallocate(HImap)
+     deallocate(HI%map)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
@@ -193,19 +193,19 @@ end subroutine lanc_ed_build_densChi_diag_c
 ! the orbital off-diagonal case: \chi_dens_ab = <N_a(\tau)N_b(0)>
 !+------------------------------------------------------------------+
 subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
-  integer                          :: iorb,jorb,isite,isector,izero,isign
-  integer                          :: numstates
-  integer                          :: nlanc,idim
-  integer                          :: iup0,idw0
-  integer                          :: ib(Nlevels)
-  integer                          :: m,i,j,r
-  complex(8)                       :: cnorm2
-  real(8)                          :: norm0,sgn
-  real(8),allocatable              :: alfa_(:),beta_(:)
-  real(8),allocatable              :: vvinit(:)
-  complex(8),allocatable              :: cvinit(:)
-  integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  integer                :: iorb,jorb,isite,isector,izero,isign
+  integer                :: numstates
+  integer                :: nlanc,idim
+  integer                :: iup0,idw0
+  integer                :: ib(Nlevels)
+  integer                :: m,i,j,r
+  complex(8)             :: cnorm2
+  real(8)                :: norm0,sgn
+  real(8),allocatable    :: alfa_(:),beta_(:)
+  real(8),allocatable    :: vvinit(:)
+  complex(8),allocatable :: cvinit(:)
+  integer                :: Nitermax
+  type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -221,15 +221,15 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim),vvinit(idim),cvinit(idim))
-     call build_sector(isector,HImap)
+     allocate(vvinit(idim),cvinit(idim))
+     call build_sector(isector,HI)
      !
      !build the (N_iorb+N_jorb)|gs> state
      if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_iorb + N_jorb:'
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
         vvinit(m) = sgn*state_vec(m)   
         !
@@ -253,8 +253,8 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
      if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
      cvinit=zero
      do m=1,idim
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
         cvinit(m) = sgn*state_vec(m)   
         !
@@ -275,8 +275,8 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
      if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
      cvinit=zero
      do m=1,idim
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
         cvinit(m) = sgn*state_vec(m)   
         !
@@ -293,7 +293,7 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
      isign=-1
      call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
      deallocate(vvinit)
-     deallocate(HImap)
+     deallocate(HI%map)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
   enddo
@@ -311,18 +311,18 @@ end subroutine lanc_ed_build_densChi_offdiag_d
 ! \chi_dens_tot = <N(\tau)N(0)>, N=sum_a N_a
 !+------------------------------------------------------------------+
 subroutine lanc_ed_build_densChi_tot_d()
-  integer                          :: iorb,isite,isector,izero
-  integer                          :: numstates
-  integer                          :: nlanc,idim
-  integer                          :: iup0,idw0,isign
-  integer                          :: ib(Nlevels)
-  integer                          :: m,i,j,r
-  complex(8)                       :: cnorm2
-  real(8)                          :: norm0,sgn
-  real(8),allocatable              :: alfa_(:),beta_(:)
-  real(8),allocatable              :: vvinit(:)
-  integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  integer             :: iorb,isite,isector,izero
+  integer             :: numstates
+  integer             :: nlanc,idim
+  integer             :: iup0,idw0,isign
+  integer             :: ib(Nlevels)
+  integer             :: m,i,j,r
+  complex(8)          :: cnorm2
+  real(8)             :: norm0,sgn
+  real(8),allocatable :: alfa_(:),beta_(:)
+  real(8),allocatable :: vvinit(:)
+  integer             :: Nitermax
+  type(sector_map)    :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -337,17 +337,17 @@ subroutine lanc_ed_build_densChi_tot_d()
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim),vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isector),getndw(isector),idim
-     call build_sector(isector,HImap)
+     allocate(vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
+     call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim  
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = sum(dble(ib(1:Norb)))+sum(dble(ib(Ns+1:Ns+Norb)))
         vvinit(m) = sgn*state_vec(m) 
      enddo
-     deallocate(HImap)
+     deallocate(HI%map)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
@@ -367,18 +367,18 @@ subroutine lanc_ed_build_densChi_tot_d()
 end subroutine lanc_ed_build_densChi_tot_d
 
 subroutine lanc_ed_build_densChi_tot_c()
-  integer                          :: iorb,isite,isector,izero
-  integer                          :: numstates
-  integer                          :: nlanc,idim
-  integer                          :: iup0,idw0,isign
-  integer                          :: ib(Nlevels)
-  integer                          :: m,i,j,r
-  complex(8)                       :: cnorm2
-  real(8)                          :: norm0,sgn
-  real(8),allocatable              :: alfa_(:),beta_(:)
-  complex(8),allocatable           :: vvinit(:)
-  integer                          :: Nitermax
-  integer,allocatable,dimension(:) :: HImap    !map of the Sector S to Hilbert space H
+  integer                :: iorb,isite,isector,izero
+  integer                :: numstates
+  integer                :: nlanc,idim
+  integer                :: iup0,idw0,isign
+  integer                :: ib(Nlevels)
+  integer                :: m,i,j,r
+  complex(8)             :: cnorm2
+  real(8)                :: norm0,sgn
+  real(8),allocatable    :: alfa_(:),beta_(:)
+  complex(8),allocatable :: vvinit(:)
+  integer                :: Nitermax
+  type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -394,17 +394,17 @@ subroutine lanc_ed_build_densChi_tot_c()
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim),vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3,I15)")'Apply N:',getnup(isector),getndw(isector),idim
-     call build_sector(isector,HImap)
+     allocate(vvinit(idim))
+     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
+     call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
-        i=HImap(m)
-        call bdecomp(i,ib)
+        i=HI%map(m)
+        ib = bdecomp(i,2*Ns)
         sgn = sum(dble(ib(1:Norb)))+sum(dble(ib(Ns+1:Ns+Norb)))
         vvinit(m) = sgn*state_cvec(m) 
      enddo
-     deallocate(HImap)
+     deallocate(HI%map)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
      alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
@@ -442,19 +442,18 @@ end subroutine lanc_ed_build_densChi_tot_c
 ! \chi_mix = <C^+_a(\tau)N_a(0)>
 !+------------------------------------------------------------------+
 subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
-  integer                          :: iorb,jorb,ispin
-  real(8),allocatable              :: vvinit(:),vvinit_tmp(:)
-  real(8),allocatable              :: alfa_(:),beta_(:)
-  integer                          :: isite,jsite,istate
-  integer                          :: isector,jsector,ksector
-  integer                          :: idim,jdim,kdim
-  integer,allocatable,dimension(:) :: HImap,HJmap,HKmap
-  integer                          :: ib(Nlevels)
-  integer                          :: m,i,j,r,numstates
-  real(8)                          :: sgn,norm2,norm0
-  complex(8)                       :: cnorm2
-  integer                          :: Nitermax,Nlanc
-
+  integer             :: iorb,jorb,ispin
+  real(8),allocatable :: vvinit(:),vvinit_tmp(:)
+  real(8),allocatable :: alfa_(:),beta_(:)
+  integer             :: isite,jsite,istate
+  integer             :: isector,jsector,ksector
+  integer             :: idim,jdim,kdim
+  type(sector_map)    :: HI,HJ,HK
+  integer             :: ib(Nlevels)
+  integer             :: m,i,j,r,numstates
+  real(8)             :: sgn,norm2,norm0
+  complex(8)          :: cnorm2
+  integer             :: Nitermax,Nlanc
   !
   Nitermax=lanc_nGFiter
   allocate(alfa_(Nitermax),beta_(Nitermax))
@@ -469,8 +468,8 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-     allocate(HImap(idim))
-     call build_sector(isector,HImap)
+
+     call build_sector(isector,HI)
      !
      !+- Apply Sum_ispin c^dg_{jorb,ispin} c_{iorb,ispin} -+!
      do ispin=1,Nspin
@@ -478,15 +477,15 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
         jsector = getCsector(ispin,isector)
         if(jsector/=0)then
            jdim  = getdim(jsector)
-           allocate(HJmap(jdim),vvinit_tmp(jdim))
-           call build_sector(jsector,HJmap)
+           allocate(vvinit_tmp(jdim))
+           call build_sector(jsector,HJ)
            vvinit_tmp=0d0
            do m=1,idim
-              i=HImap(m)
-              call bdecomp(i,ib)
+              i=HI%map(m)
+              ib = bdecomp(i,2*Ns)
               if(ib(isite)==1)then
                  call c(isite,i,r,sgn)
-                 j=binary_search(HJmap,r)
+                 j=binary_search(HJ%map,r)
                  vvinit_tmp(j) = sgn*state_vec(m)
               end if
            enddo
@@ -495,20 +494,20 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
         ksector = getCDGsector(ispin,jsector)
         if(ksector/=0) then       
            kdim  = getdim(ksector)
-           allocate(HKmap(kdim),vvinit(kdim)) !<==== ACTHUNG! 
-           call build_sector(ksector,HKmap)
+           allocate(vvinit(kdim)) !<==== ACTHUNG! 
+           call build_sector(ksector,HK)
            vvinit=0d0              !<==== ACTHUNG! 
            do m=1,jdim
-              i=HJmap(m)
-              call bdecomp(i,ib)
+              i=HJ%map(m)
+              ib = bdecomp(i,2*Ns)
               if(ib(jsite)==0)then
                  call cdg(jsite,i,r,sgn)
-                 j=binary_search(HKmap,r)
+                 j=binary_search(HK%map,r)
                  vvinit(j) = sgn*vvinit_tmp(m)
               endif
            enddo
         end if
-        deallocate(HJmap,HKmap,vvinit_tmp)
+        deallocate(HJ%map,HK%map,vvinit_tmp)
         !
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
@@ -527,15 +526,15 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
         jsector = getCsector(ispin,isector)
         if(jsector/=0)then
            jdim  = getdim(jsector)
-           allocate(HJmap(jdim),vvinit_tmp(jdim))
-           call build_sector(jsector,HJmap)
+           allocate(vvinit_tmp(jdim))
+           call build_sector(jsector,HJ)
            vvinit_tmp=0d0
            do m=1,idim
-              i=HImap(m)
-              call bdecomp(i,ib)
+              i=HI%map(m)
+              ib = bdecomp(i,2*Ns)
               if(ib(jsite)==1)then
                  call c(jsite,i,r,sgn)
-                 j=binary_search(HJmap,r)
+                 j=binary_search(HJ%map,r)
                  vvinit_tmp(j) = sgn*state_vec(m)
               endif
            enddo
@@ -544,20 +543,20 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
         ksector = getCDGsector(ispin,jsector)
         if(ksector/=0) then       
            kdim  = getdim(ksector)
-           allocate(HKmap(kdim),vvinit(kdim))
-           call build_sector(ksector,HKmap)
+           allocate(vvinit(kdim))
+           call build_sector(ksector,HK)
            vvinit=0d0
            do m=1,jdim
-              i=HJmap(m)
-              call bdecomp(i,ib)
+              i=HJ%map(m)
+              ib = bdecomp(i,2*Ns)
               if(ib(isite)==0)then
                  call cdg(isite,i,r,sgn)
-                 j=binary_search(HKmap,r)
+                 j=binary_search(HK%map,r)
                  vvinit(j) = sgn*vvinit_tmp(m)
               endif
            enddo
         end if
-        deallocate(HJmap,HKmap,vvinit_tmp)
+        deallocate(HJ%map,HK%map,vvinit_tmp)
         !
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
@@ -570,7 +569,7 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
      enddo
      !
      nullify(state_vec)
-     deallocate(HImap)
+     deallocate(HI%map)
      !
   enddo
   if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
