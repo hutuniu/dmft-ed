@@ -127,17 +127,6 @@ MODULE MATRIX_SPARSE
   !TEST
   public :: sp_test_symmetric
 
-  !HOMEBREW MAT-VEC PRODUCT
-  public :: sp_matrix_vector_product_dd !checked
-  public :: sp_matrix_vector_product_dc !checked
-  public :: sp_matrix_vector_product_cc !checked
-  public :: sp_matrix_vector_product_csr!checked
-
-#ifdef _MPI
-  public :: sp_matrix_vector_product_mpi_dd
-  public :: sp_matrix_vector_product_mpi_dc
-  public :: sp_matrix_vector_product_mpi_cc
-#endif
 
 
   !GET ELEMENT FROM SPARSE MATRIX
@@ -149,6 +138,24 @@ MODULE MATRIX_SPARSE
   !TRANSFORMATION FROM LL TO CSR SPARSE MATRIX FORM
   public :: sp_copy_ll2csr
   public :: sp_move_ll2csr
+
+
+
+
+
+  !HOMEBREW MAT-VEC PRODUCT
+  public :: sp_MatVec_Prod_dd !checked
+  public :: sp_MatVec_Prod_dc !checked
+  public :: sp_MatVec_Prod_cc !checked
+  !
+  public :: sp_MatVec_Prod_csr!checked
+
+  ! #ifdef _MPI
+  !   public :: sp_matrix_vector_product_mpi_dd
+  !   public :: sp_matrix_vector_product_mpi_dc
+  !   public :: sp_matrix_vector_product_mpi_cc
+  ! #endif
+
 
 
 
@@ -707,8 +714,8 @@ contains
   subroutine sp_test_symmetric(sparse,type)
     type(sparse_matrix)                   :: sparse
     logical                               :: is_symmetric
-    real(8),dimension(:,:),allocatable    :: rM,rMtra
-    complex(8),dimension(:,:),allocatable :: cM,cMher
+    real(8),dimension(:,:),allocatable    :: rM
+    complex(8),dimension(:,:),allocatable :: cM
     integer                               :: Nrow,Ncol
     character(len=1),optional             :: type
     character(len=1)                      :: type_
@@ -999,47 +1006,138 @@ contains
   !PURPOSE: given a vector vin, perform the matrix-vector multiplication
   ! H_sparse * vin and put the result in vout.
   !+------------------------------------------------------------------+
-  subroutine sp_matrix_vector_product_dd(sparse,Ndim,vin,vout)
-    integer                               :: Ndim
-    type(sparse_matrix),intent(in)        :: sparse
-    real(8),dimension(Ndim),intent(in)    :: vin
-    real(8),dimension(Ndim),intent(inout) :: vout
-    type(sparse_element),pointer          :: c
-    integer                               :: i
-    vout=0.d0
-    !$omp parallel do shared (Ndim,sparse,vout,vin) private (i,c) schedule(static,1) if(Ndim>5000)
-    do i=1,Ndim
-       c => sparse%row(i)%root%next       
-       matmul: do  
-          if(.not.associated(c))exit matmul
-          vout(i) = vout(i) + c%val*vin(c%col)
-          c => c%next  !traverse list
-       end do matmul
-    end do
-    !$omp end parallel do
-  end subroutine sp_matrix_vector_product_dd
-  !+------------------------------------------------------------------+
-  subroutine sp_matrix_vector_product_dc(sparse,Ndim,vin,vout)
-    integer                                  :: Ndim
+  subroutine sp_MatVec_Prod_dd(sparse,Nin,vin,Nout,vout)
     type(sparse_matrix),intent(in)           :: sparse
-    complex(8),dimension(Ndim),intent(in)    :: vin
-    complex(8),dimension(Ndim),intent(inout) :: vout
+    integer                                  :: Nin
+    real(8),dimension(Nin),intent(in)        :: vin
+    integer                                  :: Nout
+    real(8),dimension(Nout),intent(inout)    :: vout
     type(sparse_element),pointer             :: c
     integer                                  :: i
-    vout=cmplx(0.d0,0.d0,8)
-    !$omp parallel do shared (Ndim,sparse,vout,vin) private (i,c) schedule(static,1) if(Ndim>5000)
-    do i=1,Ndim
+    vout=0.d0
+    do i=1,Nout                 !Ndim
+       c => sparse%row(i)%root%next       
+       matmul: do               !can this be do while(associated(c))?
+          if(.not.associated(c))exit matmul
+          vout(i) = vout(i) + c%val*vin(c%col)
+          c => c%next
+       end do matmul
+    end do
+  end subroutine sp_MatVec_Prod_dd
+  !+------------------------------------------------------------------+
+  subroutine sp_MatVec_Prod_dc(sparse,Nin,vin,Nout,vout)
+    type(sparse_matrix),intent(in)           :: sparse
+    integer                                  :: Nin
+    complex(8),dimension(Nin),intent(in)     :: vin
+    integer                                  :: Nout
+    complex(8),dimension(Nout),intent(inout) :: vout
+    type(sparse_element),pointer             :: c
+    integer                                  :: i
+    vout=cmplx(0d0,0d0,8)
+    do i=1,Nout                 !Ndim
        c => sparse%row(i)%root%next       
        matmul: do
           if(.not.associated(c))exit matmul
           vout(i) = vout(i) + c%val*vin(c%col)
-          c => c%next  !traverse list
+          c => c%next
        end do matmul
     end do
-    !$omp end parallel do
-  end subroutine sp_matrix_vector_product_dc
+  end subroutine sp_MatVec_Prod_dc
   !+------------------------------------------------------------------+
-  subroutine sp_matrix_vector_product_csr(Nrow,sparse,vin,vout)
+  subroutine sp_MatVec_Prod_cc(sparse,Nin,vin,Nout,vout)
+    type(sparse_matrix),intent(in)           :: sparse
+    integer                                  :: Nin
+    complex(8),dimension(Nin),intent(in)     :: vin
+    integer                                  :: Nout
+    complex(8),dimension(Nout),intent(inout) :: vout
+    type(sparse_element),pointer             :: c
+    integer                                  :: i
+    vout=cmplx(0d0,0d0,8)
+    do i=1,Nout                 !Ndim
+       c => sparse%row(i)%root%next
+       matmul: do  
+          if(.not.associated(c))exit matmul
+          vout(i) = vout(i) + c%cval*vin(c%col)
+          c => c%next
+       end do matmul
+    end do
+  end subroutine sp_MatVec_Prod_cc
+
+
+
+
+
+
+
+  ! #ifdef _MPI
+  !   subroutine sp_matrix_vector_product_mpi_dd(sparse,Ndim,vin,Nloc,vout)
+  !     integer                               :: Ndim,Nloc
+  !     type(sparse_matrix),intent(in)        :: sparse
+  !     real(8),dimension(Ndim),intent(in)    :: vin
+  !     real(8),dimension(Nloc),intent(inout) :: vout
+  !     type(sparse_element),pointer          :: c
+  !     integer                               :: i
+  !     integer                               :: Nini,Nfin
+  !     vout=0.d0
+  !     do i=1,Nloc
+  !        c => sparse%row(i)%root%next
+  !        matmul: do
+  !           if(.not.associated(c))exit matmul
+  !           vout(i) = vout(i) + c%val*vin(c%col)
+  !           c => c%next
+  !        end do matmul
+  !     end do
+  !   end subroutine sp_matrix_vector_product_mpi_dd
+  !   !+------------------------------------------------------------------+
+  !   subroutine sp_matrix_vector_product_mpi_dc(sparse,Ndim,vin,Nloc,vout)
+  !     integer                                  :: Ndim,Nloc
+  !     type(sparse_matrix),intent(in)           :: sparse
+  !     complex(8),dimension(Ndim),intent(in)    :: vin
+  !     complex(8),dimension(Nloc),intent(inout) :: vout
+  !     type(sparse_element),pointer             :: c
+  !     integer                                  :: i
+  !     integer                                  :: Nini,Nfin
+  !     vout=zero
+  !     do i=1,Nloc
+  !        c => sparse%row(i)%root%next       
+  !        matmul: do
+  !           if(.not.associated(c))exit matmul
+  !           vout(i) = vout(i) + c%val*vin(c%col)
+  !           c => c%next
+  !        end do matmul
+  !     end do
+  !   end subroutine sp_matrix_vector_product_mpi_dc
+  !   !+------------------------------------------------------------------+
+  !   subroutine sp_matrix_vector_product_mpi_cc(sparse,Ndim,vin,Nloc,vout)
+  !     integer                                  :: Ndim,Nloc
+  !     type(sparse_matrix),intent(in)           :: sparse
+  !     complex(8),dimension(Ndim),intent(in)    :: vin
+  !     complex(8),dimension(Nloc),intent(inout) :: vout
+  !     type(sparse_element),pointer             :: c
+  !     integer                                  :: i
+  !     integer                                  :: Nini,Nfin
+  !     vout=zero
+  !     do i=1,Nloc
+  !        c => sparse%row(i)%root%next       
+  !        matmul: do
+  !           if(.not.associated(c))exit matmul
+  !           vout(i) = vout(i) + c%cval*vin(c%col)
+  !           c => c%next
+  !        end do matmul
+  !     end do
+  !   end subroutine sp_matrix_vector_product_mpi_cc
+  ! #endif
+
+
+
+
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE: given a vector vin, perform the matrix-vector multiplication
+  ! H_sparse * vin and put the result in vout.
+  !+------------------------------------------------------------------+
+  subroutine sp_MatVec_Prod_csr(Nrow,sparse,vin,vout)
     integer                               :: Nrow
     type(sparse_matrix_csr),intent(in)    :: sparse
     real(8),dimension(Nrow),intent(in)    :: vin
@@ -1051,87 +1149,6 @@ contains
           vout(i) = vout(i) + sparse%values(pos)*vin(sparse%columns(pos))
        end do
     end do
-  end subroutine sp_matrix_vector_product_csr
-
-  subroutine sp_matrix_vector_product_cc(sparse,Ndim,vin,vout)
-    integer                                  :: Ndim
-    type(sparse_matrix),intent(in)           :: sparse
-    complex(8),dimension(Ndim),intent(in)    :: vin
-    complex(8),dimension(Ndim),intent(inout) :: vout
-    type(sparse_element),pointer             :: c
-    integer                                  :: i
-    vout=cmplx(0.d0,0.d0,8)
-    !$omp parallel do shared (Ndim,sparse,vout,vin) private (i,c) schedule(static,1) if(Ndim>5000)
-    do i=1,Ndim
-       c => sparse%row(i)%root%next
-       matmul: do  
-          if(.not.associated(c))exit matmul
-          vout(i) = vout(i) + c%cval*vin(c%col)
-          c => c%next  !traverse list
-       end do matmul
-    end do
-    !$omp end parallel do
-  end subroutine sp_matrix_vector_product_cc
-
-
-
-#ifdef _MPI
-  subroutine sp_matrix_vector_product_mpi_dd(sparse,Ndim,vin,Nloc,vout)
-    integer                               :: Ndim,Nloc
-    type(sparse_matrix),intent(in)        :: sparse
-    real(8),dimension(Ndim),intent(in)    :: vin
-    real(8),dimension(Nloc),intent(inout) :: vout
-    type(sparse_element),pointer          :: c
-    integer                               :: i
-    integer                               :: Nini,Nfin
-    vout=0.d0
-    do i=1,Nloc
-       c => sparse%row(i)%root%next
-       matmul: do
-          if(.not.associated(c))exit matmul
-          vout(i) = vout(i) + c%val*vin(c%col)
-          c => c%next
-       end do matmul
-    end do
-  end subroutine sp_matrix_vector_product_mpi_dd
-  !+------------------------------------------------------------------+
-  subroutine sp_matrix_vector_product_mpi_dc(sparse,Ndim,vin,Nloc,vout)
-    integer                                  :: Ndim,Nloc
-    type(sparse_matrix),intent(in)           :: sparse
-    complex(8),dimension(Ndim),intent(in)    :: vin
-    complex(8),dimension(Nloc),intent(inout) :: vout
-    type(sparse_element),pointer             :: c
-    integer                                  :: i
-    integer                                  :: Nini,Nfin
-    vout=zero
-    do i=1,Nloc
-       c => sparse%row(i)%root%next       
-       matmul: do
-          if(.not.associated(c))exit matmul
-          vout(i) = vout(i) + c%val*vin(c%col)
-          c => c%next
-       end do matmul
-    end do
-  end subroutine sp_matrix_vector_product_mpi_dc
-  !+------------------------------------------------------------------+
-  subroutine sp_matrix_vector_product_mpi_cc(sparse,Ndim,vin,Nloc,vout)
-    integer                                  :: Ndim,Nloc
-    type(sparse_matrix),intent(in)           :: sparse
-    complex(8),dimension(Ndim),intent(in)    :: vin
-    complex(8),dimension(Nloc),intent(inout) :: vout
-    type(sparse_element),pointer             :: c
-    integer                                  :: i
-    integer                                  :: Nini,Nfin
-    vout=zero
-    do i=1,Nloc
-       c => sparse%row(i)%root%next       
-       matmul: do
-          if(.not.associated(c))exit matmul
-          vout(i) = vout(i) + c%cval*vin(c%col)
-          c => c%next
-       end do matmul
-    end do
-  end subroutine sp_matrix_vector_product_mpi_cc
-#endif
+  end subroutine sp_MatVec_Prod_csr
 
 end module MATRIX_SPARSE

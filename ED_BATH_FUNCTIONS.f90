@@ -222,25 +222,19 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: Delta
-    integer                                             :: i,ih,k,L
+    integer                                             :: i,ih,L
     integer                                             :: iorb,jorb,ispin,jspin,ibath
     integer                                             :: io,jo
     real(8),dimension(Nbath)                            :: eps,dps,vps
     real(8),dimension(Norb,Nbath)                       :: vops
-    real(8),dimension(Nspin,Nbath)                      :: hps
-    real(8),dimension(Nspin,Nspin,Nbath)                :: wps
-    real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wops
     !
     real(8),dimension(Nspin,Nbath)                      :: ehel
     real(8),dimension(Nspin,Nspin,Nbath)                :: whel
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
     !
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)         :: V_k
     complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: invH_k
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Nbath)   :: invH_knn
     !
-    logical                                             :: compute_component
-    complex(8),allocatable                              :: Delta_tmp(:,:,:,:)
     !
     Delta=zero
     !
@@ -449,7 +443,6 @@ contains
     complex(8),dimension(Norb,Norb,size(x)) :: G0out
     real(8),dimension(:)                    :: bath_
     logical                                 :: check
-    integer                                 :: iorb,jorb
     check= check_bath_dimension(bath_)
     if(.not.check)stop "delta_bath_mats_ error: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath_)
@@ -486,11 +479,10 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: Fdelta
-    integer                                             :: iorb,ispin,jorb,jspin
-    real(8),dimension(Norb,Norb)                        :: delta_orb
+    integer                                             :: iorb,ispin,jorb
     real(8),dimension(Nbath)                            :: eps,dps,vps
     real(8),dimension(Norb,Nbath)                       :: vops
-    integer                                             :: i,k,L
+    integer                                             :: i,L
     !
     Fdelta=zero
     !
@@ -587,7 +579,6 @@ contains
     complex(8),dimension(Norb,Norb,size(x))     :: F0out
     real(8),dimension(:)                        :: bath_
     logical                                     :: check
-    integer                                     :: iorb,jorb
     check= check_bath_dimension(bath_)
     if(.not.check)stop "fdelta_bath_mats_ispin_jspin_ error: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath_)
@@ -624,25 +615,19 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: Delta
-    integer                                             :: i,ih,k,L
+    integer                                             :: i,ih,L
     integer                                             :: iorb,jorb,ispin,jspin,ibath
     integer                                             :: io,jo
     real(8),dimension(Nbath)                            :: eps,dps,vps
     real(8),dimension(Norb,Nbath)                       :: vops
-    real(8),dimension(Nspin,Nbath)                      :: hps
-    real(8),dimension(Nspin,Nspin,Nbath)                :: wps
-    real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wops
     !
     real(8),dimension(Nspin,Nbath)                      :: ehel
     real(8),dimension(Nspin,Nspin,Nbath)                :: whel
     real(8),dimension(Nspin,Nspin,Norb,Nbath)           :: wohel
     !
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)         :: V_k
     complex(8),dimension(Nspin*Norb,Nspin*Norb,size(x)) :: invH_k
     complex(8),dimension(Nspin,Nspin,Norb,Norb,Nbath)   :: invH_knn
     !
-    logical                                             :: compute_component
-    complex(8),allocatable                              :: Delta_tmp(:,:,:,:)
     !
     Delta=zero
     !
@@ -851,7 +836,6 @@ contains
     complex(8),dimension(Norb,Norb,size(x)) :: G0out
     real(8),dimension(:)                    :: bath_
     logical                                 :: check
-    integer                                 :: iorb,jorb
     check= check_bath_dimension(bath_)
     if(.not.check)stop "delta_bath_real_ error: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath_)
@@ -898,11 +882,10 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: Fdelta
-    integer                                             :: iorb,ispin,jorb,jspin
-    real(8),dimension(Norb,Norb)                        :: delta_orb
+    integer                                             :: iorb,ispin,jorb
     real(8),dimension(Nbath)                            :: eps,dps,vps
     real(8),dimension(Norb,Nbath)                       :: vops
-    integer                                             :: i,k,L
+    integer                                             :: i,L
     !
     Fdelta=zero
     !
@@ -998,7 +981,6 @@ contains
     complex(8),dimension(Norb,Norb,size(x)) :: F0out
     real(8),dimension(:)                    :: bath_
     logical                                 :: check
-    integer                                 :: iorb,jorb
     check= check_bath_dimension(bath_)
     if(.not.check)stop "fdelta_bath_real_ispin_jspin_ error: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath_)
@@ -1240,7 +1222,6 @@ contains
     complex(8),dimension(Norb,Norb,size(x)) :: G0out
     real(8),dimension(:)                    :: bath_
     logical                                 :: check
-    integer                                 :: iorb,jorb
     check= check_bath_dimension(bath_)
     if(.not.check)stop "g0and_bath_mats_ error: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath_)
@@ -1278,7 +1259,7 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: F0and,Delta,Fdelta
-    integer                                             :: iorb,jorb,ispin,jspin,i,L
+    integer                                             :: iorb,jorb,ispin,i,L
     real(8),dimension(size(x))                          :: det
     complex(8),dimension(size(x))                       :: fg,ff
     complex(8),dimension(:,:),allocatable               :: fgorb,zeta
@@ -1385,7 +1366,6 @@ contains
     complex(8),dimension(Norb,Norb,size(x)) :: F0out
     real(8),dimension(:)                    :: bath_
     logical                                 :: check
-    integer                                 :: iorb,jorb
     check= check_bath_dimension(bath_)
     if(.not.check)stop "f0and_bath_mats_ispin_jspin_ error: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath_)
@@ -1618,7 +1598,6 @@ contains
     complex(8),dimension(Norb,Norb,size(x)) :: G0out
     real(8),dimension(:)                    :: bath_
     logical                                 :: check
-    integer                                 :: iorb,jorb
     check= check_bath_dimension(bath_)
     if(.not.check)stop "g0and_bath_real_ error: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath_)
@@ -1657,7 +1636,7 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: F0and,Delta,Fdelta
-    integer                                             :: iorb,jorb,ispin,jspin,i,L
+    integer                                             :: iorb,jorb,ispin,i,L
     complex(8),dimension(size(x))                       :: det,fg,ff
     complex(8),dimension(:,:),allocatable               :: fgorb,zeta
     !
@@ -1763,7 +1742,6 @@ contains
     complex(8),dimension(Norb,Norb,size(x)) :: F0out
     real(8),dimension(:)                    :: bath_
     logical                                 :: check
-    integer                                 :: iorb,jorb
     check= check_bath_dimension(bath_)
     if(.not.check)stop "f0and_bath_real_ispin_jspin_ error: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath_)
@@ -1808,9 +1786,8 @@ contains
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: G0and,Delta,Fdelta
     integer                                             :: i,iorb,jorb,ispin,jspin,io,jo,Nso,L
-    real(8),dimension(size(x))                          :: det
-    complex(8),dimension(size(x))                       :: fg,ff
-    complex(8),dimension(:,:),allocatable               :: fgorb,zeta
+    !complex(8),dimension(size(x))                       :: fg,ff
+    complex(8),dimension(:,:),allocatable               :: zeta!,fgorb
     !
     G0and = zero
     !
@@ -2004,7 +1981,7 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: F0and,Fdelta
-    integer                                             :: iorb,jorb,ispin,jspin,i,L
+    integer                                             :: iorb,jorb,ispin,L
     !
     F0and=zero
     !
@@ -2129,10 +2106,10 @@ contains
   function invg0_bath_real_main(x,dmft_bath_) result(G0and)
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
-    complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: G0and,Delta,Fdelta
+    complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: G0and,Delta
     integer                                             :: iorb,jorb,ispin,jspin,io,jo,Nso,i,L
-    complex(8),dimension(size(x))                       :: det,fg,ff
-    complex(8),dimension(:,:),allocatable               :: fgorb,zeta
+    !complex(8),dimension(size(x))                       :: fg,ff
+    complex(8),dimension(:,:),allocatable               :: zeta!,fgorb
     !
     G0and = zero
     !
@@ -2286,7 +2263,6 @@ contains
     complex(8),dimension(Norb,Norb,size(x)) :: G0out
     real(8),dimension(:)                    :: bath_
     logical                                 :: check
-    integer                                 :: iorb,jorb
     check= check_bath_dimension(bath_)
     if(.not.check)stop "invg0_bath_real_ error: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath_)
@@ -2326,7 +2302,7 @@ contains
     complex(8),dimension(:),intent(in)                  :: x
     type(effective_bath)                                :: dmft_bath_
     complex(8),dimension(Nspin,Nspin,Norb,Norb,size(x)) :: F0and,Fdelta
-    integer                                             :: iorb,jorb,ispin,jspin
+    integer                                             :: iorb,jorb,ispin
     !
     F0and=zero
     !
@@ -2410,7 +2386,6 @@ contains
     complex(8),dimension(Norb,Norb,size(x)) :: F0out
     real(8),dimension(:)                    :: bath_
     logical                                 :: check
-    integer                                 :: iorb,jorb
     check= check_bath_dimension(bath_)
     if(.not.check)stop "invf0_bath_real_ispin_jspin_ error: wrong bath dimensions"
     call allocate_dmft_bath(dmft_bath_)

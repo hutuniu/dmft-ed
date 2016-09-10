@@ -1,4 +1,43 @@
-  states: do i=first_state,last_state
+  !=============================================
+  !          NORMAL HAMILTONIAN ONLY           !
+  !=============================================
+  do idw=first_state_dw, last_state_dw
+     mdw = Hdw%map(idw)
+     ibdw= bdecomp(mdw,Ns)
+     htmpdw=0.d0
+     do iorb=1,Norb
+        ndw(iorb)=dble(ibdw(iorb))
+     enddo
+
+     htmpdw = htmpdw - xmu*sum(ndw)
+
+     do iup=first_state_up, last_state_up
+        mup = Hup%map(iup)
+        ibup= bdecomp(mup,Ns)
+
+        i = iup + idw*dimdw
+
+        htmpup=0.d0
+        do iorb=1,Norb
+           nup(iorb)=dble(ibup(iorb))
+        enddo
+
+        htmpup = htmpup - xmu*sum(nup)
+
+
+
+
+     enddo
+  enddo
+
+
+
+
+
+
+
+
+  do i=first_state,last_state
      m = H%map(i)
      impi = i-ishift
      ib = bdecomp(m,2*Ns)
@@ -339,6 +378,5 @@
         enddo
      endif
 
-
-  enddo states
+  enddo
 

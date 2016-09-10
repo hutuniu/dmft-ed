@@ -9,7 +9,7 @@ MODULE ED_VARS_GLOBAL
 #endif
   implicit none
 
-
+  !-------------------- EFFECTIVE BATH STRUCTURE ----------------------!
   type effective_bath
      real(8),dimension(:,:,:),allocatable        :: e     !local energies [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
      real(8),dimension(:,:,:),allocatable        :: d     !SC amplitues   [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
@@ -24,6 +24,7 @@ MODULE ED_VARS_GLOBAL
 
 
 
+  !---------------- SECTOR-TO-FOCK SPACE STRUCTURE -------------------!
   type sector_map
      integer,dimension(:),allocatable :: map
   end type sector_map
@@ -34,8 +35,55 @@ MODULE ED_VARS_GLOBAL
   end interface map_allocate
 
 
-  !-------------------- ED  VARIABLES ----------------------!
+  !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
+  abstract interface
+     !HAMILTONIAN CONSTUCTORS
+     subroutine d_build_hamiltonian(isector,Hmat)
+       integer                         :: isector
+       real(8),dimension(:,:),optional :: Hmat
+     end subroutine d_build_hamiltonian
 
+     subroutine c_build_hamiltonian(isector,Hmat)
+       integer                            :: isector
+       complex(8),dimension(:,:),optional :: Hmat
+     end subroutine c_build_hamiltonian
+
+
+     !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
+     subroutine dd_sparse_HxV(sparse,Nin,vin,Nout,vout)
+       USE MATRIX_SPARSE
+       type(sparse_matrix),intent(in)           :: sparse
+       integer                                  :: Nin
+       real(8),dimension(Nin),intent(in)        :: vin
+       integer                                  :: Nout
+       real(8),dimension(Nout),intent(inout)    :: vout
+     end subroutine dd_sparse_HxV
+
+     subroutine dc_sparse_HxV(sparse,Nin,vin,Nout,vout)
+       USE MATRIX_SPARSE
+       type(sparse_matrix),intent(in)           :: sparse
+       integer                                  :: Nin
+       complex(8),dimension(Nin),intent(in)        :: vin
+       integer                                  :: Nout
+       complex(8),dimension(Nout),intent(inout)    :: vout
+     end subroutine dc_sparse_HxV
+
+     subroutine cc_sparse_HxV(sparse,Nin,vin,Nout,vout)
+       USE MATRIX_SPARSE
+       type(sparse_matrix),intent(in)           :: sparse
+       integer                                  :: Nin
+       complex(8),dimension(Nin),intent(in)        :: vin
+       integer                                  :: Nout
+       complex(8),dimension(Nout),intent(inout)    :: vout
+     end subroutine cc_sparse_HxV
+
+
+  end interface
+
+
+
+
+  !-------------------------- ED  VARIABLES --------------------------!
   !SIZE OF THE PROBLEM
   !Ns       =              Number of levels per spin
   !Nlevels  = 2*Ns       = Total Number  of levels
@@ -60,7 +108,7 @@ MODULE ED_VARS_GLOBAL
   integer,allocatable,dimension(:,:)          :: getCDGsector
   integer,allocatable,dimension(:,:)          :: getBathStride
   integer,allocatable,dimension(:,:)          :: impIndex
-  integer,allocatable,dimension(:)            :: getdim
+  integer,allocatable,dimension(:)            :: getDim,getDimUp,getDimDw
   integer,allocatable,dimension(:)            :: getNup,getNdw
   integer,allocatable,dimension(:)            :: getSz
   integer,allocatable,dimension(:)            :: getN
@@ -75,6 +123,16 @@ MODULE ED_VARS_GLOBAL
   !PRIVATE
   !=========================================================  
   type(sparse_matrix)                         :: spH0
+  type(sparse_matrix)                         :: spH0up,spH0dw
+  procedure(d_build_hamiltonian),pointer      :: ed_buildH_d
+  procedure(c_build_hamiltonian),pointer      :: ed_buildH_c
+  procedure(dd_sparse_HxV),pointer            :: sp_matrix_vector_product_dd
+  procedure(dc_sparse_HxV),pointer            :: sp_matrix_vector_product_dc
+  procedure(cc_sparse_HxV),pointer            :: sp_matrix_vector_product_cc
+
+  !Variables for DIAGONALIZATION
+  !PRIVATE
+  !=========================================================  
   integer,allocatable,dimension(:)            :: neigen_sector
   logical                                     :: trim_state_list=.false.
 
@@ -112,11 +170,11 @@ MODULE ED_VARS_GLOBAL
   !Impurity operators
   !PRIVATE (now public but accessible thru routine)
   !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:)  :: imp_density_matrix
-  complex(8),allocatable,dimension(:,:,:)    :: impStot
-  complex(8),allocatable,dimension(:,:,:)    :: impLtot
-  complex(8),allocatable,dimension(:)        :: impj_aplha
-  complex(8)                                 :: impLdotS
+  complex(8),allocatable,dimension(:,:,:,:)   :: imp_density_matrix
+  complex(8),allocatable,dimension(:,:,:)     :: impStot
+  complex(8),allocatable,dimension(:,:,:)     :: impLtot
+  complex(8),allocatable,dimension(:)         :: impj_aplha
+  complex(8)                                  :: impLdotS
 
   !MPI Parallel environment variables
   !PUBLIC
@@ -137,8 +195,8 @@ MODULE ED_VARS_GLOBAL
   !Symmetry operations
   !=========================================================
   integer,allocatable,dimension(:)            :: indep_list
-  integer,dimension(:),allocatable   :: map_lat2ind
-  integer,dimension(:,:),allocatable :: map_ind2lat
+  integer,dimension(:),allocatable            :: map_lat2ind
+  integer,dimension(:,:),allocatable          :: map_ind2lat
 
 
 

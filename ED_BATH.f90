@@ -253,9 +253,9 @@ contains
   !
   subroutine assert_spin_orb_component_size_bath(array,itype,string1,string2)
     real(8),dimension(:) :: array
-    integer                  :: itype
-    character(len=*)         :: string1,string2
-    integer                  :: Ndim
+    integer              :: itype
+    character(len=*)     :: string1,string2
+    integer              :: Ndim
     Ndim=Nbath
     if(size(array)/=Nbath)stop "assert_spin_orb_component_size_bath error: size(array)!=Ndim"
   end subroutine assert_spin_orb_component_size_bath

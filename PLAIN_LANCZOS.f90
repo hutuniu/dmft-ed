@@ -1,5 +1,13 @@
-MODULE PLAIN_LANCZOS_HTIMESV_INTERFACE
+
+
+MODULE PLAIN_LANCZOS
+  USE SF_CONSTANTS, only:zero
+  USE SF_IOTOOLS,    only: reg
+  USE ED_VARS_GLOBAL
+  USE ED_INPUT_VARS , only:ed_file_suffix
   implicit none
+  private
+
   abstract interface 
      subroutine lanc_htimesv_d(n,nloc,vin,vout)
        integer :: n,nloc
@@ -13,17 +21,8 @@ MODULE PLAIN_LANCZOS_HTIMESV_INTERFACE
        complex(8) :: vout(n)
      end subroutine lanc_htimesv_c
   end interface
-END MODULE PLAIN_LANCZOS_HTIMESV_INTERFACE
 
 
-MODULE PLAIN_LANCZOS
-  USE SF_CONSTANTS, only:zero
-  USE SF_IOTOOLS,    only: reg
-  USE PLAIN_LANCZOS_HTIMESV_INTERFACE
-  USE ED_VARS_GLOBAL, only:ED_MPI_SIZE,ED_MPI_ID,ED_MPI_ERR
-  USE ED_INPUT_VARS , only:ed_file_suffix
-  implicit none
-  private
   procedure(lanc_htimesv_d),pointer     :: dp_hprod
   procedure(lanc_htimesv_c),pointer     :: cp_hprod
   logical                               :: verb=.false.

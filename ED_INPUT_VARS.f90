@@ -91,7 +91,6 @@ contains
   !+-------------------------------------------------------------------+
   subroutine ed_read_input(INPUTunit)
     character(len=*) :: INPUTunit
-    integer :: mpi_ierr
     !
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals.")

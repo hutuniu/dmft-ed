@@ -373,12 +373,35 @@ contains
        if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
        call save_dmft_bath(dmft_bath,used=.true.)
     endif
+    !ASSOCIATE THE GLOBAL PROCEDURES TO THE SPECIFIC ONES
+    !AS DICTATED BY THE INPUT 
+    if(associated(ed_buildh_d))nullify(ed_buildh_d)
+    if(associated(ed_buildh_c))nullify(ed_buildh_c)
+    if(associated(sp_matrix_vector_product_dd))nullify(sp_matrix_vector_product_dd)
+    if(associated(sp_matrix_vector_product_dc))nullify(sp_matrix_vector_product_dc)
+    if(associated(sp_matrix_vector_product_cc))nullify(sp_matrix_vector_product_cc)
+    select case(ed_mode)
+    case ('normal')
+       ed_buildh_d=>build_H_normal_d
+       ed_buildh_c=>build_H_normal_c
+       !
+       sp_matrix_vector_product_dd=>sp_MatVec_Prod_dd
+       sp_matrix_vector_product_dc=>sp_MatVec_Prod_dc
+       sp_matrix_vector_product_cc=>sp_MatVec_Prod_cc
+    case default
+       ed_buildh_d=>build_H_all_d
+       ed_buildh_c=>build_H_all_c
+       !
+       sp_matrix_vector_product_dd=>sp_MatVec_Prod_dd
+       sp_matrix_vector_product_dc=>sp_MatVec_Prod_dc
+       sp_matrix_vector_product_cc=>sp_MatVec_Prod_cc
+    end select
+    !>NEW
     !SOLVE THE QUANTUM IMPURITY PROBLEM:
     call diagonalize_impurity         !find target states by digonalization of Hamiltonian
     call observables_impurity         !obtain impurity observables as thermal averages.  
     call buildgf_impurity             !build the one-particle impurity Green's functions
     if(chiflag)call buildchi_impurity !build the local susceptibilities (spin [todo charge])
-    !call observables_impurity        !obtain impurity observables as thermal averages.  
     call local_energy_impurity        !obtain the local energy of the effective impurity problem.
     call deallocate_dmft_bath(dmft_bath)   
     call es_delete_espace(state_list) 

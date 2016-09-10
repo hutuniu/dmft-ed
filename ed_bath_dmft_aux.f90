@@ -88,8 +88,6 @@ subroutine init_dmft_bath(dmft_bath_,hwband_)
   logical              :: IOfile
   real(8)              :: de,noise_tot
   real(8),allocatable  :: noise_b(:),noise_s(:),noise_o(:)
-  real(8)              :: phi_i,phi_j,A_ij,B_ij
-  real(8)              :: Re1,Im1,Re2,Im2
   character(len=21)    :: space
   if(.not.dmft_bath_%status)stop "init_dmft_bath error: bath not allocated"
   allocate(noise_b(Nbath));noise_b=0.d0 
@@ -394,8 +392,8 @@ subroutine write_dmft_bath(dmft_bath_,unit)
   type(effective_bath) :: dmft_bath_
   integer,optional     :: unit
   integer              :: unit_
-  integer              :: i,flen,Nh
-  integer              :: io,jo,iorb,ispin,jorb,jspin
+  integer              :: i
+  integer              :: io,jo,iorb,ispin
   complex(8)           :: hybr_aux
   complex(8)           :: himp_aux(Nspin*Norb,Nspin*Norb)
   if(ED_MPI_ID==0)then
@@ -572,8 +570,6 @@ subroutine set_dmft_bath(bath_,dmft_bath_)
   integer                :: iorb,ispin,jorb,jspin,ibath
   logical                :: check
   real(8)                :: element_R,element_I
-  real(8)                :: phi_i,phi_j,A_ij,B_ij
-  complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: LSmatrix
   if(.not.dmft_bath_%status)stop "set_dmft_bath error: bath not allocated"
   check = check_bath_dimension(bath_)
   if(.not.check)stop "set_dmft_bath error: wrong bath dimensions"

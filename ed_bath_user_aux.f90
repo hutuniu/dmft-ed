@@ -1109,8 +1109,6 @@ subroutine spin_symmetrize_bath_site(bath_,save)
   type(effective_bath)   :: dmft_bath_
   logical,optional       :: save
   logical                :: save_
-  integer                :: bath_size,shift,ibath
-  complex(8),dimension(Norb):: dum
   save_=.true.;if(present(save))save_=save
   if(Nspin==1)then
      if(ED_MPI_ID==0)write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"

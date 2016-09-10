@@ -239,8 +239,8 @@ contains
     integer                                     :: Nlat,Nspin,Norb
     complex(8),dimension(size(Hk,1),size(Hk,2)) :: Hloc
     !
-    integer                                     :: i,iorb,ispin,ilat,is
-    integer                                     :: j,jorb,jspin,js
+    integer                                     :: iorb,ispin,ilat,is
+    integer                                     :: jorb,jspin,js
     Hloc = zero
     do ilat=1,Nlat
        do ispin=1,Nspin
@@ -385,7 +385,7 @@ contains
     integer                                            :: Nlat,Nspin,Norb
     real(8),dimension(Nlat,Nspin,Nspin,Norb,Norb)      :: Hnnn
     integer                                            :: iorb,ispin,ilat,is
-    integer                                            :: jorb,jspin,jlat,js
+    integer                                            :: jorb,jspin,js
     Hnnn=zero
     do ilat=1,Nlat
        do ispin=1,Nspin
@@ -406,7 +406,7 @@ contains
     integer                                               :: Nlat,Nspin,Norb
     complex(8),dimension(Nlat,Nspin,Nspin,Norb,Norb)      :: Hnnn
     integer                                               :: iorb,ispin,ilat,is
-    integer                                               :: jorb,jspin,jlat,js
+    integer                                               :: jorb,jspin,js
     Hnnn=zero
     do ilat=1,Nlat
        do ispin=1,Nspin
@@ -477,7 +477,7 @@ contains
     integer                                            :: Nlat,Nspin,Norb
     real(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hlso
     integer                                            :: iorb,ispin,ilat,is
-    integer                                            :: jorb,jspin,jlat,js
+    integer                                            :: jorb,jspin,js
     Hlso=zero
     do ilat=1,Nlat
        do ispin=1,Nspin
@@ -499,7 +499,7 @@ contains
     integer                                               :: Nlat,Nspin,Norb
     complex(8),dimension(Nlat*Nspin*Norb,Nlat*Nspin*Norb) :: Hlso
     integer                                               :: iorb,ispin,ilat,is
-    integer                                               :: jorb,jspin,jlat,js
+    integer                                               :: jorb,jspin,js
     Hlso=zero
     do ilat=1,Nlat
        do ispin=1,Nspin
@@ -561,7 +561,7 @@ contains
     integer                                     :: Nspin,Norb
     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: fg
     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: g
-    integer                                     :: i,j,iorb,jorb,ispin,jspin
+    integer                                     :: iorb,jorb,ispin,jspin
     integer                                     :: io1,jo1,io2,jo2
        g = zero
        do ispin=1,Nspin
@@ -587,7 +587,7 @@ contains
     integer                                     :: Nspin,Norb
     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: fg
     complex(8),dimension(Nspin*Norb,Nspin*Norb) :: g
-    integer                                     :: i,j,iorb,jorb,ispin,jspin
+    integer                                     :: iorb,jorb,ispin,jspin
     integer                                     :: io1,jo1,io2,jo2
        g = zero
        do ispin=1,Nspin
@@ -865,11 +865,10 @@ contains
 
 
 
-  subroutine search_chempot(xmu_tmp,dens_tmp,converged_,bath_) 
+  subroutine search_chempot(xmu_tmp,dens_tmp,converged_) 
     real(8),intent(in)    ::   dens_tmp
     real(8),intent(inout) ::   xmu_tmp
     logical,intent(inout) ::   converged_
-    real(8),allocatable,optional,intent(inout) :: bath_(:)
     !internal
     real(8)               ::   diffdens,delta_xmu,xmu_shift
     real(8)               ::   denslarge,denssmall
@@ -879,9 +878,8 @@ contains
     integer,save          ::   ilarge
     integer,save          ::   ismall
     integer,save          ::   inotbound
-    integer,save          ::   iattempt=1,iattemptm=1
-    integer               ::   unit,i_
-    logical,save          ::   bandmix=.true.
+    integer,save          ::   iattempt=1
+    integer               ::   unit
     !
     !if(ED_MPI_ID==0)then
        !
@@ -969,8 +967,8 @@ contains
     complex(8),allocatable,intent(inout)         ::  funct(:,:,:,:,:)
     complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:,:)
     complex(8),allocatable                       ::  a_funct(:),b_funct(:),c_funct(:),d_funct(:),e_funct(:),f_funct(:)
-    integer                                      ::  ispin,jspin,iorb,jorb,io,jo
-    integer                                      ::  ifreq,Lfreq
+    integer                                      ::  ispin,iorb
+    integer                                      ::  Lfreq
     if(size(funct,dim=1)/=Nspin)stop "wrong size 1 in SOC symmetrize input f"
     if(size(funct,dim=2)/=Nspin)stop "wrong size 2 in SOC symmetrize input f"
     if(size(funct,dim=3)/=Norb) stop "wrong size 3 in SOC symmetrize input f"

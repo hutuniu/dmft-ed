@@ -305,7 +305,6 @@ contains        !some routine to perform simple operation on the lists
     type(sparse_espace),intent(inout) :: space
     integer,optional,intent(in)       :: n
     integer                           :: i,pos
-    logical                           :: bool(2)
     type(sparse_estate),pointer       :: pp,p,c
     !
     pos= space%size ; if(present(n))pos=n

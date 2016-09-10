@@ -54,10 +54,9 @@ contains
        vtmp(i)=v(i-ED_MPI_ID*Q)
     enddo
     call MPI_AllReduce(vtmp,vin,N,MPI_Double_Precision,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
-    call sp_matrix_vector_product_mpi_dd(spH0,N,vin,Nloc,Hv)
+    call sp_matrix_vector_product_dd(spH0,N,vin,Nloc,Hv)
 #else
-    Hv=0.d0
-    call sp_matrix_vector_product_dd(spH0,Nloc,v,Hv)
+    call sp_matrix_vector_product_dd(spH0,Nloc,v,Nloc,Hv)
 #endif
   end subroutine spHtimesV_dd
 
@@ -79,10 +78,9 @@ contains
        vtmp(i)=v(i-ED_MPI_ID*Q)
     enddo
     call MPI_AllReduce(vtmp,vin,N,MPI_Double_Complex,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
-    call sp_matrix_vector_product_mpi_dc(spH0,N,vin,Nloc,Hv)
+    call sp_matrix_vector_product_dc(spH0,N,vin,Nloc,Hv)
 #else
-    Hv=zero
-    call sp_matrix_vector_product_dc(spH0,Nloc,v,Hv)
+    call sp_matrix_vector_product_dc(spH0,Nloc,v,Nloc,Hv)
 #endif
   end subroutine spHtimesV_dc
 
@@ -104,10 +102,9 @@ contains
        vtmp(i)=v(i-ED_MPI_ID*Q)
     enddo
     call MPI_AllReduce(vtmp,vin,N,MPI_Double_Complex,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
-    call sp_matrix_vector_product_mpi_cc(spH0,N,vin,Nloc,Hv)
+    call sp_matrix_vector_product_cc(spH0,N,vin,Nloc,Hv)
 #else
-    Hv=zero
-    call sp_matrix_vector_product_cc(spH0,Nloc,v,Hv)
+    call sp_matrix_vector_product_cc(spH0,Nloc,v,Nloc,Hv)
 #endif
   end subroutine spHtimesV_cc
 
@@ -136,16 +133,15 @@ contains
 #ifdef _MPI
     Q = N/ED_MPI_SIZE ; R = 0
     if(ED_MPI_ID==(ED_MPI_SIZE-1))R=mod(N,ED_MPI_SIZE)
-    call sp_matrix_vector_product_mpi_dd(spH0,N,v,Nloc,vout)
+    call sp_matrix_vector_product_dd(spH0,N,v,Nloc,vout)
     Hvtmp=0.d0
     do i=ED_MPI_ID*Q+1,(ED_MPI_ID+1)*Q+R
        Hvtmp(i)=vout(i-ED_MPI_ID*Q)
     enddo
-    Hv=0.d0
+    Hv=0d0
     call MPI_AllReduce(Hvtmp,Hv,N,MPI_Double_Precision,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
 #else
-    Hv=0.d0
-    call sp_matrix_vector_product_dd(spH0,N,v,Hv)
+    call sp_matrix_vector_product_dd(spH0,N,v,N,Hv)
 #endif
   end subroutine lanc_spHtimesV_dd
 
@@ -163,7 +159,7 @@ contains
 #ifdef _MPI
     Q = N/ED_MPI_SIZE ; R = 0
     if(ED_MPI_ID==(ED_MPI_SIZE-1))R=mod(N,ED_MPI_SIZE)
-    call sp_matrix_vector_product_mpi_dc(spH0,N,v,Nloc,vout)
+    call sp_matrix_vector_product_dc(spH0,N,v,Nloc,vout)
     Hvtmp=0.d0
     do i=ED_MPI_ID*Q+1,(ED_MPI_ID+1)*Q+R
        Hvtmp(i)=vout(i-ED_MPI_ID*Q)
@@ -171,8 +167,7 @@ contains
     Hv=zero
     call MPI_AllReduce(Hvtmp,Hv,N,MPI_Double_Complex,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
 #else
-    Hv=zero
-    call sp_matrix_vector_product_dc(spH0,N,v,Hv)
+    call sp_matrix_vector_product_dc(spH0,N,v,N,Hv)
 #endif
   end subroutine lanc_spHtimesV_dc
 
@@ -190,7 +185,7 @@ contains
 #ifdef _MPI
     Q = N/ED_MPI_SIZE ; R = 0
     if(ED_MPI_ID==(ED_MPI_SIZE-1))R=mod(N,ED_MPI_SIZE)
-    call sp_matrix_vector_product_mpi_cc(spH0,N,v,Nloc,vout)
+    call sp_matrix_vector_product_cc(spH0,N,v,Nloc,vout)
     Hvtmp=0.d0
     do i=ED_MPI_ID*Q+1,(ED_MPI_ID+1)*Q+R
        Hvtmp(i)=vout(i-ED_MPI_ID*Q)
@@ -198,8 +193,7 @@ contains
     Hv=zero
     call MPI_AllReduce(Hvtmp,Hv,N,MPI_Double_Complex,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
 #else
-    Hv=zero
-    call sp_matrix_vector_product_cc(spH0,N,v,Hv)
+    call sp_matrix_vector_product_cc(spH0,N,v,N,Hv)
 #endif
   end subroutine lanc_spHtimesV_cc
 

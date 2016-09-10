@@ -101,7 +101,7 @@ program ed_bhz
 
 
   !Setup solver
-  Nb=get_bath_size()
+  Nb=get_bath_dimension()
   allocate(Bath(Nb))
   allocate(Bath_(Nb))
   call ed_init_solver(bath)
@@ -173,7 +173,7 @@ contains
     integer                             :: unit
     complex(8),dimension(Nso,Nso,Lmats) :: Gmats
     complex(8),dimension(Nso,Nso,Lreal) :: Greal
-    real(8)                             :: wm(Lmats),wr(Lreal),dw,n0(Nso)
+    real(8)                             :: wm(Lmats),wr(Lreal),dw
     call build_hk_GXMG()
 
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for BHZ:"
@@ -218,7 +218,6 @@ contains
        call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_iw.ed",wm,Gmats(iorb,iorb,:))
        call splot("G0loc_l"//reg(txtfy(iorb))//"m"//reg(txtfy(iorb))//"_realw.ed",wr,&
             -dimag(Greal(iorb,iorb,:))/pi,dreal(Greal(iorb,iorb,:)))
-       n0(iorb) = fft_get_density(Gmats(iorb,iorb,:),beta)
     enddo
     !
   end subroutine build_hk
