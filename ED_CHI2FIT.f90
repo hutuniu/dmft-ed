@@ -232,17 +232,17 @@ contains
   !*****************************************************************************
   !*****************************************************************************
   !normal ED_bath
-  include "ed_chi2_fitgf_normal_normal.f90"
-  include "ed_chi2_fitgf_normal_superc.f90"
-  include "ed_chi2_fitgf_normal_nonsu2.f90"
+  include "ED_CHI2FIT/fitgf_normal_normal.f90"
+  include "ED_CHI2FIT/fitgf_normal_superc.f90"
+  include "ED_CHI2FIT/fitgf_normal_nonsu2.f90"
 
   !hybrid ED_bath
-  include "ed_chi2_fitgf_hybrid_normal.f90"  
-  include "ed_chi2_fitgf_hybrid_superc.f90"  
-  include "ed_chi2_fitgf_hybrid_nonsu2.f90"
+  include "ED_CHI2FIT/fitgf_hybrid_normal.f90"  
+  include "ED_CHI2FIT/fitgf_hybrid_superc.f90"  
+  include "ED_CHI2FIT/fitgf_hybrid_nonsu2.f90"
 
   !replica ED_bath
-  include "ed_chi2_fitgf_replica.f90"
+  include "ED_CHI2FIT/fitgf_replica.f90"
   !*****************************************************************************
   !*****************************************************************************
   !*****************************************************************************

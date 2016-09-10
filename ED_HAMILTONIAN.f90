@@ -92,7 +92,7 @@ contains
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
     !this part is identical between d_ and c_ codes.
-    include "ed_hamiltonian_build_h_normal.f90"
+    include "ED_HAMILTONIAN/build_h_normal.f90"
     !-----------------------------------------------!
     !
     deallocate(H%map)
@@ -179,7 +179,7 @@ contains
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
     !this part is identical between d_ and c_ codes.
-    include "ed_hamiltonian_build_h_all.f90"
+    include "ED_HAMILTONIAN/build_h_all.f90"
     !-----------------------------------------------!
     !
     deallocate(H%map)
@@ -286,7 +286,7 @@ contains
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
     !this part is identical between d_ and c_ codes.
-    include "ed_hamiltonian_build_h_normal.f90"
+    include "ED_HAMILTONIAN/build_h_normal.f90"
     !-----------------------------------------------!
     !
     deallocate(H%map)
@@ -380,7 +380,7 @@ contains
     !-----------------------------------------------!
     !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
     !this part is identical between d_ and c_ codes.
-    include "ed_hamiltonian_build_h_all.f90"
+    include "ED_HAMILTONIAN/build_h_all.f90"
     !-----------------------------------------------!
     !
     deallocate(H%map)

@@ -93,13 +93,13 @@ contains
     if(ED_MPI_ID==0)then
        write(LOGfile,"(A)")"Summary:"
        write(LOGfile,"(A)")"--------------------------------------------"
-       write(LOGfile,"(A,I)")'# of levels/spin      = ',Ns
-       write(LOGfile,"(A,I)")'Total size            = ',Nlevels
-       write(LOGfile,"(A,I)")'# of impurities       = ',Norb
-       write(LOGfile,"(A,I)")'# of bath/impurity    = ',Nbath
-       write(LOGfile,"(A,I)")'# of Bath levels/spin = ',Ns-Norb
-       write(LOGfile,"(A,2I)")'Largest Sector(s)     = ',dim_sector_max
-       write(LOGfile,"(A,I)")'Number of sectors     = ',Nsectors
+       write(LOGfile,"(A,I15)")'# of levels/spin      = ',Ns
+       write(LOGfile,"(A,I15)")'Total size            = ',Nlevels
+       write(LOGfile,"(A,I15)")'# of impurities       = ',Norb
+       write(LOGfile,"(A,I15)")'# of bath/impurity    = ',Nbath
+       write(LOGfile,"(A,I15)")'# of Bath levels/spin = ',Ns-Norb
+       write(LOGfile,"(A,2I15)")'Largest Sector(s)    = ',dim_sector_max
+       write(LOGfile,"(A,I15)")'Number of sectors     = ',Nsectors
        write(LOGfile,"(A)")"--------------------------------------------"
     endif
     !

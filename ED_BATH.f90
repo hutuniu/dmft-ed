@@ -116,7 +116,7 @@ contains
   !     USER BATH ROUTINES:
   !
   !##################################################################
-  include 'ed_bath_user_aux.f90'
+  include 'ED_BATH/user_aux.f90'
 
 
 
@@ -125,7 +125,7 @@ contains
   !     DMFT BATH ROUTINES:
   !
   !##################################################################
-  include 'ed_bath_dmft_aux.f90'
+  include 'ED_BATH/dmft_aux.f90'
 
 
 
