@@ -1,6 +1,6 @@
 MODULE ED_VARS_GLOBAL
   USE SF_CONSTANTS
-  USE MATRIX_SPARSE
+  USE ED_SPARSE_MATRIX
 #ifdef _MPI_INEQ
   USE MPI
 #endif
@@ -42,41 +42,42 @@ MODULE ED_VARS_GLOBAL
        integer                         :: isector
        real(8),dimension(:,:),optional :: Hmat
      end subroutine d_build_hamiltonian
-
+     !
      subroutine c_build_hamiltonian(isector,Hmat)
        integer                            :: isector
        complex(8),dimension(:,:),optional :: Hmat
      end subroutine c_build_hamiltonian
 
 
+
+
      !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
      subroutine dd_sparse_HxV(sparse,Nin,vin,Nout,vout)
-       USE MATRIX_SPARSE
+       USE ED_SPARSE_MATRIX
        type(sparse_matrix),intent(in)           :: sparse
        integer                                  :: Nin
        real(8),dimension(Nin),intent(in)        :: vin
        integer                                  :: Nout
        real(8),dimension(Nout),intent(inout)    :: vout
      end subroutine dd_sparse_HxV
-
+     !
      subroutine dc_sparse_HxV(sparse,Nin,vin,Nout,vout)
-       USE MATRIX_SPARSE
+       USE ED_SPARSE_MATRIX
        type(sparse_matrix),intent(in)           :: sparse
        integer                                  :: Nin
        complex(8),dimension(Nin),intent(in)        :: vin
        integer                                  :: Nout
        complex(8),dimension(Nout),intent(inout)    :: vout
      end subroutine dc_sparse_HxV
-
+     !
      subroutine cc_sparse_HxV(sparse,Nin,vin,Nout,vout)
-       USE MATRIX_SPARSE
+       USE ED_SPARSE_MATRIX
        type(sparse_matrix),intent(in)           :: sparse
        integer                                  :: Nin
        complex(8),dimension(Nin),intent(in)        :: vin
        integer                                  :: Nout
        complex(8),dimension(Nout),intent(inout)    :: vout
      end subroutine cc_sparse_HxV
-
 
   end interface
 

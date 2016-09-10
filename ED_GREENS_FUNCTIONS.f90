@@ -12,7 +12,7 @@ MODULE ED_GREENS_FUNCTIONS
   USE SF_IOTOOLS, only: free_unit,reg,free_units,txtfy,splot
   USE SF_ARRAYS,  only: arange,linspace
   USE SF_LINALG,  only: inv,inv_sym,inv_her
-  USE PLAIN_LANCZOS
+  USE SF_SP_LINALG, only: sp_lanc_tridiag
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
