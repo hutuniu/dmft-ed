@@ -5,7 +5,7 @@ FC=mpif90
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=gnu
+PLAT=intel
 
 ##$ PRECOMPILATION FLAGS
 ##$ Leave blank for SERIAL CODE

@@ -1,3 +1,18 @@
+  !
+  call build_sector(isector,H)
+  !
+  if(spH0%status)call sp_delete_matrix(spH0) 
+  !
+  dim=getdim(isector)
+  mpiQ = dim/ED_MPI_SIZE
+  mpiR = 0
+  if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE)
+  call sp_init_matrix(spH0,mpiQ+mpiR)
+  ishift      = ED_MPI_ID*mpiQ
+  first_state = ED_MPI_ID*mpiQ+1
+  last_state  = (ED_MPI_ID+1)*mpiQ+mpiR
+  !
+  !
   states: do i=first_state,last_state
      m = H%map(i)
      impi = i-ishift

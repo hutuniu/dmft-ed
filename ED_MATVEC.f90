@@ -61,11 +61,11 @@ contains
     integer                          :: Nloc
     real(8),dimension(Nloc)          :: v
     real(8),dimension(Nloc)          :: Hv
+#ifdef _MPI
     integer                          :: N
     real(8),dimension(:),allocatable :: vin
     integer                          :: i
     integer,allocatable,dimension(:) :: SendCounts,Displs
-#ifdef _MPI
     rank = MPI_Get_rank(ED_MPI_COMM)
     size = MPI_Get_size(ED_MPI_COMM)
     N=0
@@ -93,11 +93,11 @@ contains
     integer                             :: Nloc
     complex(8),dimension(Nloc)          :: v
     complex(8),dimension(Nloc)          :: Hv
+#ifdef _MPI
     integer                             :: N
     complex(8),dimension(:),allocatable :: vin
     integer                             :: i
     integer,allocatable,dimension(:)    :: SendCounts,Displs
-#ifdef _MPI
     rank = MPI_Get_rank(ED_MPI_COMM)
     size = MPI_Get_size(ED_MPI_COMM)
     N=0

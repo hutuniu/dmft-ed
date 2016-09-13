@@ -1,43 +1,19 @@
-  !=============================================
-  !          NORMAL HAMILTONIAN ONLY           !
-  !=============================================
-  do idw=first_state_dw, last_state_dw
-     mdw = Hdw%map(idw)
-     ibdw= bdecomp(mdw,Ns)
-     htmpdw=0.d0
-     do iorb=1,Norb
-        ndw(iorb)=dble(ibdw(iorb))
-     enddo
-
-     htmpdw = htmpdw - xmu*sum(ndw)
-
-     do iup=first_state_up, last_state_up
-        mup = Hup%map(iup)
-        ibup= bdecomp(mup,Ns)
-
-        i = iup + idw*dimdw
-
-        htmpup=0.d0
-        do iorb=1,Norb
-           nup(iorb)=dble(ibup(iorb))
-        enddo
-
-        htmpup = htmpup - xmu*sum(nup)
-
-
-
-
-     enddo
-  enddo
-
-
-
-
-
-
-
-
-  do i=first_state,last_state
+  !
+  call build_sector(isector,H)
+  !
+  if(spH0%status)call sp_delete_matrix(spH0) 
+  !
+  dim=getdim(isector)
+  mpiQ = dim/ED_MPI_SIZE
+  mpiR = 0
+  if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE)
+  call sp_init_matrix(spH0,mpiQ+mpiR)
+  ishift      = ED_MPI_ID*mpiQ
+  first_state = ED_MPI_ID*mpiQ+1
+  last_state  = (ED_MPI_ID+1)*mpiQ+mpiR
+  !
+  !
+  states: do i=first_state,last_state
      m = H%map(i)
      impi = i-ishift
      ib = bdecomp(m,2*Ns)
@@ -378,5 +354,6 @@
         enddo
      endif
 
-  enddo
+
+  enddo states
 

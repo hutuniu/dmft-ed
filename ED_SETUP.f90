@@ -51,6 +51,7 @@ contains
     case ('replica')
        Ns = Norb*(Nbath+1)
     end select
+    !
     Nlevels  = 2*Ns
     !
     select case(ed_mode)
@@ -98,8 +99,8 @@ contains
        write(LOGfile,"(A,I15)")'# of impurities       = ',Norb
        write(LOGfile,"(A,I15)")'# of bath/impurity    = ',Nbath
        write(LOGfile,"(A,I15)")'# of Bath levels/spin = ',Ns-Norb
+       write(LOGfile,"(A,I15)")'# of sectors          = ',Nsectors
        write(LOGfile,"(A,2I15)")'Largest Sector(s)    = ',dim_sector_max
-       write(LOGfile,"(A,I15)")'Number of sectors     = ',Nsectors
        write(LOGfile,"(A)")"--------------------------------------------"
     endif
     !
@@ -250,7 +251,7 @@ contains
   !NORMAL CASE
   !
   subroutine setup_pointers_normal
-    integer                          :: i,in,dim,isector,jsector
+    integer                          :: i,in,isector,jsector
     integer                          :: nup,ndw,jup,jdw,iorb
     integer                          :: unit,status,istate
     logical                          :: IOfile
@@ -267,10 +268,9 @@ contains
           getSector(nup,ndw)=isector
           getNup(isector)=nup
           getNdw(isector)=ndw
-          dim = get_normal_sector_dimension(nup,ndw)
-          getDim(isector)=dim
-          getDimUp(isector)=get_normal_sector_dimension(nup)
-          getDimDw(isector)=get_normal_sector_dimension(ndw)
+          getDim(isector)  = get_normal_sector_dimension(nup,ndw)
+          getDimUp(isector)= get_normal_sector_dimension(nup)
+          getDimDw(isector)= get_normal_sector_dimension(ndw)
        enddo
     enddo
     !
@@ -373,7 +373,7 @@ contains
   !SUPERCONDUCTING
   !
   subroutine setup_pointers_superc
-    integer                          :: i,isz,in,dim,isector,jsector
+    integer                          :: i,isz,in,isector,jsector
     integer                          :: sz,iorb,jsz
     integer                          :: unit,status,istate
     logical                          :: IOfile
@@ -389,8 +389,7 @@ contains
        isector=isector+1
        getSector(isz,1)=isector
        getSz(isector)=isz
-       dim = get_superc_sector_dimension(isz)
-       getDim(isector)=dim
+       getDim(isector)=get_superc_sector_dimension(isz)
     enddo
     inquire(file="state_list"//reg(ed_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
@@ -502,8 +501,7 @@ contains
        isector=isector+1
        getSector(in,1)=isector
        getN(isector)=in
-       dim = get_nonsu2_sector_dimension(in)
-       getDim(isector)=dim
+       getDim(isector)=get_nonsu2_sector_dimension(in)
        neigen_sector(isector) = min(dim,lanc_nstates_sector)
     enddo
     inquire(file="state_list"//reg(ed_file_suffix)//".restart",exist=IOfile)
@@ -654,8 +652,7 @@ contains
        ndw = getNdw(isector)
        if(present(Hdw))then
           !UP
-          dim = getDimUp(isector)
-          call map_allocate(Hup,dim)
+          call map_allocate(Hup,getDimUp(isector))
           dim=0
           do i=0,2**Ns-1
              ivec  = bdecomp(i,Ns)
@@ -665,8 +662,7 @@ contains
              Hup%map(dim) = i
           enddo
           !DW
-          dim = getDimDw(isector)
-          call map_allocate(Hdw,dim)
+          call map_allocate(Hdw,getDimDw(isector))
           dim=0
           do i=0,2**Ns-1
              ivec  = bdecomp(i,Ns)
@@ -678,8 +674,7 @@ contains
           !
        else
           !
-          dim = getDim(isector)
-          call map_allocate(Hup,dim)
+          call map_allocate(Hup,getDim(isector))
           dim=0
           do idw=0,2**Ns-1
              jvec  = bdecomp(idw,Ns)
@@ -699,8 +694,7 @@ contains
        !
     case ("superc")
        sz  = getSz(isector)
-       dim = getDim(isector)
-       call map_allocate(Hup,dim)
+       call map_allocate(Hup,getDim(isector))
        dim=0
        do idw=0,2**Ns-1
           jvec = bdecomp(idw,Ns)
@@ -719,8 +713,7 @@ contains
        !
     case ("nonsu2")
        nt  = getN(isector)
-       dim = getDim(isector)
-       call map_allocate(Hup,dim)
+       call map_allocate(Hup,getDim(isector))
        dim=0
        do idw=0,2**Ns-1
           jvec = bdecomp(idw,Ns)
