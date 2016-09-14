@@ -378,24 +378,13 @@ contains
     !AS DICTATED BY THE INPUT 
     if(associated(ed_buildh_d))nullify(ed_buildh_d)
     if(associated(ed_buildh_c))nullify(ed_buildh_c)
-    if(associated(sp_matrix_vector_product_dd))nullify(sp_matrix_vector_product_dd)
-    if(associated(sp_matrix_vector_product_dc))nullify(sp_matrix_vector_product_dc)
-    if(associated(sp_matrix_vector_product_cc))nullify(sp_matrix_vector_product_cc)
     select case(ed_mode)
     case ('normal')
        ed_buildh_d=>build_H_normal_d
        ed_buildh_c=>build_H_normal_c
-       !
-       sp_matrix_vector_product_dd=>sp_MatVec_Prod_dd
-       sp_matrix_vector_product_dc=>sp_MatVec_Prod_dc
-       sp_matrix_vector_product_cc=>sp_MatVec_Prod_cc
     case default
        ed_buildh_d=>build_H_all_d
        ed_buildh_c=>build_H_all_c
-       !
-       sp_matrix_vector_product_dd=>sp_MatVec_Prod_dd
-       sp_matrix_vector_product_dc=>sp_MatVec_Prod_dc
-       sp_matrix_vector_product_cc=>sp_MatVec_Prod_cc
     end select
     !>NEW
     !SOLVE THE QUANTUM IMPURITY PROBLEM:

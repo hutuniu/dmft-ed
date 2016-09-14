@@ -5,7 +5,7 @@ FC=mpif90
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=gnu
+PLAT=intel
 
 ##$ PRECOMPILATION FLAGS
 ##$ Leave blank for SERIAL CODE
@@ -14,7 +14,7 @@ PLAT=gnu
 #FPP_INEQ=MPI_INEQ
 
 ##$ parallelism on the ed code flag: MPI
-#FPP_ED=MPI
+FPP_ED=MPI
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below

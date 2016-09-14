@@ -47,38 +47,6 @@ MODULE ED_VARS_GLOBAL
        integer                            :: isector
        complex(8),dimension(:,:),optional :: Hmat
      end subroutine c_build_hamiltonian
-
-
-
-
-     !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
-     subroutine dd_sparse_HxV(sparse,Nin,vin,Nout,vout)
-       USE ED_SPARSE_MATRIX
-       type(sparse_matrix),intent(in)           :: sparse
-       integer                                  :: Nin
-       real(8),dimension(Nin),intent(in)        :: vin
-       integer                                  :: Nout
-       real(8),dimension(Nout),intent(inout)    :: vout
-     end subroutine dd_sparse_HxV
-     !
-     subroutine dc_sparse_HxV(sparse,Nin,vin,Nout,vout)
-       USE ED_SPARSE_MATRIX
-       type(sparse_matrix),intent(in)           :: sparse
-       integer                                  :: Nin
-       complex(8),dimension(Nin),intent(in)        :: vin
-       integer                                  :: Nout
-       complex(8),dimension(Nout),intent(inout)    :: vout
-     end subroutine dc_sparse_HxV
-     !
-     subroutine cc_sparse_HxV(sparse,Nin,vin,Nout,vout)
-       USE ED_SPARSE_MATRIX
-       type(sparse_matrix),intent(in)           :: sparse
-       integer                                  :: Nin
-       complex(8),dimension(Nin),intent(in)        :: vin
-       integer                                  :: Nout
-       complex(8),dimension(Nout),intent(inout)    :: vout
-     end subroutine cc_sparse_HxV
-
   end interface
 
 
@@ -127,9 +95,6 @@ MODULE ED_VARS_GLOBAL
   type(sparse_matrix)                         :: spH0up,spH0dw
   procedure(d_build_hamiltonian),pointer      :: ed_buildH_d
   procedure(c_build_hamiltonian),pointer      :: ed_buildH_c
-  procedure(dd_sparse_HxV),pointer            :: sp_matrix_vector_product_dd
-  procedure(dc_sparse_HxV),pointer            :: sp_matrix_vector_product_dc
-  procedure(cc_sparse_HxV),pointer            :: sp_matrix_vector_product_cc
 
   !Variables for DIAGONALIZATION
   !PRIVATE
