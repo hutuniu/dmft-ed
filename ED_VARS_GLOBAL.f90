@@ -39,8 +39,8 @@ MODULE ED_VARS_GLOBAL
   abstract interface
      !HAMILTONIAN CONSTUCTORS
      subroutine d_build_hamiltonian(isector,Hmat)
-       integer                         :: isector
-       real(8),dimension(:,:),optional :: Hmat
+       integer                            :: isector
+       real(8),dimension(:,:),optional    :: Hmat
      end subroutine d_build_hamiltonian
      !
      subroutine c_build_hamiltonian(isector,Hmat)
@@ -65,18 +65,18 @@ MODULE ED_VARS_GLOBAL
        USE ED_SPARSE_MATRIX
        type(sparse_matrix),intent(in)           :: sparse
        integer                                  :: Nin
-       complex(8),dimension(Nin),intent(in)        :: vin
+       complex(8),dimension(Nin),intent(in)     :: vin
        integer                                  :: Nout
-       complex(8),dimension(Nout),intent(inout)    :: vout
+       complex(8),dimension(Nout),intent(inout) :: vout
      end subroutine dc_sparse_HxV
      !
      subroutine cc_sparse_HxV(sparse,Nin,vin,Nout,vout)
        USE ED_SPARSE_MATRIX
        type(sparse_matrix),intent(in)           :: sparse
        integer                                  :: Nin
-       complex(8),dimension(Nin),intent(in)        :: vin
+       complex(8),dimension(Nin),intent(in)     :: vin
        integer                                  :: Nout
-       complex(8),dimension(Nout),intent(inout)    :: vout
+       complex(8),dimension(Nout),intent(inout) :: vout
      end subroutine cc_sparse_HxV
 
   end interface
@@ -125,6 +125,9 @@ MODULE ED_VARS_GLOBAL
   !=========================================================  
   type(sparse_matrix)                         :: spH0
   type(sparse_matrix)                         :: spH0up,spH0dw
+  real(8),dimension(:),allocatable            :: spH0v_d
+  complex(8),dimension(:),allocatable         :: spH0v_c
+  !
   procedure(d_build_hamiltonian),pointer      :: ed_buildH_d
   procedure(c_build_hamiltonian),pointer      :: ed_buildH_c
   procedure(dd_sparse_HxV),pointer            :: sp_matrix_vector_product_dd

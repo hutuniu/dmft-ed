@@ -4,6 +4,9 @@ MODULE ED_HAMILTONIAN
   USE ED_VARS_GLOBAL
   USE ED_BATH
   USE ED_SETUP
+#ifdef _MPI
+  USE SF_MPI
+#endif
   implicit none
   private
 
@@ -24,7 +27,12 @@ MODULE ED_HAMILTONIAN
   public :: build_H_superc_replica_c
   public :: build_H_nonsu2_replica_c
 
+
+
+
 contains
+
+
 
 
 
@@ -50,32 +58,21 @@ contains
     real(8),dimension(:,:),optional     :: Hmat
     real(8),dimension(:,:),allocatable  :: Hredux
     real(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    real(8)                             :: htmp
     !
-    type(sector_map)                    :: H
+    type(sector_map)                    :: H,Hup,Hdw
     integer,dimension(Nlevels)          :: ib
-    integer                             :: dim
-    integer                             :: i
-    integer                             :: j
-    integer                             :: m
-    integer                             :: mpiQ,mpiR
-    integer                             :: ishift
-    integer                             :: first_state,last_state
-    integer                             :: impi
-    real(8)                             :: htmp        
-    !
-    type(sector_map)                    :: Hup,Hdw
     integer,dimension(Ns)               :: nup,ndw
-    integer                             :: dimUp,dimDw
-    integer                             :: iup,idw
-    integer                             :: jup,jdw
-    integer                             :: mup,mdw
-    integer                             :: mpiQ_up,mpiR_up
-    integer                             :: mpiQ_dw,mpiR_dw
-    integer                             :: ishift_up,ishift_dw
-    integer                             :: first_state_up,last_state_up
-    integer                             :: first_state_dw,last_state_dw
-    integer                             :: impi_up,impi_dw
-    real(8)                             :: htmp_up,htmp_dw    
+    integer                             :: dim,dimUp,dimDw
+    integer                             :: i,iup,idw
+    integer                             :: j,jup,jdw
+    integer                             :: m, mup,mdw
+    integer                             :: mpiQ,mpiQ_up,mpiQ_dw
+    integer                             :: mpiR,mpiR_up,mpiR_dw
+    integer                             :: ishift,ishift_up,ishift_dw
+    integer                             :: first_state, first_state_up,first_state_dw
+    integer                             :: last_state,last_state_up,last_state_dw
+    integer                             :: impi,impi_up,impi_dw
     !
     integer                             :: ms
     integer                             :: iorb,jorb,ispin,jspin,ibath
@@ -124,32 +121,21 @@ contains
     complex(8),dimension(:,:),optional     :: Hmat
     complex(8),dimension(:,:),allocatable  :: Hredux
     complex(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    complex(8)                             :: htmp
     !
-    type(sector_map)                       :: H
+    type(sector_map)                       :: H,Hup,Hdw
     integer,dimension(Nlevels)             :: ib
-    integer                                :: dim
-    integer                                :: i
-    integer                                :: j
-    integer                                :: m
-    integer                                :: mpiQ,mpiR
-    integer                                :: ishift
-    integer                                :: first_state,last_state
-    integer                                :: impi
-    real(8)                                :: htmp        
-    !
-    type(sector_map)                       :: Hup,Hdw
     integer,dimension(Ns)                  :: nup,ndw
-    integer                                :: dimUp,dimDw
-    integer                                :: iup,idw
-    integer                                :: jup,jdw
-    integer                                :: mup,mdw
-    integer                                :: mpiQ_up,mpiR_up
-    integer                                :: mpiQ_dw,mpiR_dw
-    integer                                :: ishift_up,ishift_dw
-    integer                                :: first_state_up,last_state_up
-    integer                                :: first_state_dw,last_state_dw
-    integer                                :: impi_up,impi_dw
-    real(8)                                :: htmp_up,htmp_dw    
+    integer                                :: dim,dimUp,dimDw
+    integer                                :: i,iup,idw
+    integer                                :: j,jup,jdw
+    integer                                :: m, mup,mdw
+    integer                                :: mpiQ,mpiQ_up,mpiQ_dw
+    integer                                :: mpiR,mpiR_up,mpiR_dw
+    integer                                :: ishift,ishift_up,ishift_dw
+    integer                                :: first_state, first_state_up,first_state_dw
+    integer                                :: last_state,last_state_up,last_state_dw
+    integer                                :: impi,impi_up,impi_dw
     !
     integer                                :: ms
     integer                                :: iorb,jorb,ispin,jspin,ibath
@@ -222,6 +208,7 @@ contains
     real(8),dimension(:,:),optional     :: Hmat
     real(8),dimension(:,:),allocatable  :: Hredux
     real(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    real(8)                             :: htmp
     !
     type(sector_map)                    :: H
     integer,dimension(Nlevels)          :: ib
@@ -236,7 +223,6 @@ contains
     integer                             :: alfa,beta
     real(8)                             :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)             :: nup,ndw
-    real(8)                             :: htmp
     logical                             :: Jcondition
     integer                             :: first_state,last_state
     !
@@ -279,6 +265,7 @@ contains
     complex(8),dimension(:,:),optional     :: Hmat
     complex(8),dimension(:,:),allocatable  :: Hredux
     complex(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    complex(8)                             :: htmp
     !
     type(sector_map)                       :: H
     integer,dimension(Nlevels)             :: ib
@@ -293,7 +280,6 @@ contains
     integer                                :: alfa,beta
     real(8)                                :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)                :: nup,ndw
-    real(8)                                :: htmp
     logical                                :: Jcondition
     integer                                :: first_state,last_state
     !
@@ -356,6 +342,7 @@ contains
     real(8),dimension(:,:),optional     :: Hmat
     real(8),dimension(:,:),allocatable  :: Hredux
     real(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    real(8)                             :: htmp
     !
     type(sector_map)                    :: H
     integer,dimension(Nlevels)          :: ib
@@ -370,7 +357,6 @@ contains
     integer                             :: alfa,beta
     real(8)                             :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)             :: nup,ndw
-    real(8)                             :: htmp
     logical                             :: Jcondition
     integer                             :: first_state,last_state
     !
@@ -415,6 +401,7 @@ contains
     complex(8),dimension(:,:),optional     :: Hmat
     complex(8),dimension(:,:),allocatable  :: Hredux
     complex(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    complex(8)                             :: htmp
     !
     type(sector_map)                       :: H
     integer,dimension(Nlevels)             :: ib
@@ -429,7 +416,6 @@ contains
     integer                                :: alfa,beta
     real(8)                                :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)                :: nup,ndw
-    real(8)                                :: htmp
     logical                                :: Jcondition
     integer                                :: first_state,last_state
     !
@@ -501,6 +487,7 @@ contains
     real(8),dimension(:,:),optional     :: Hmat
     real(8),dimension(:,:),allocatable  :: Hredux
     real(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    real(8)                             :: htmp
     !
     type(sector_map)                    :: H
     integer,dimension(Nlevels)          :: ib
@@ -515,7 +502,6 @@ contains
     integer                             :: alfa,beta
     real(8)                             :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)             :: nup,ndw
-    real(8)                             :: htmp
     logical                             :: Jcondition
     integer                             :: first_state,last_state
     !
@@ -559,6 +545,7 @@ contains
     complex(8),dimension(:,:),optional     :: Hmat
     complex(8),dimension(:,:),allocatable  :: Hredux
     complex(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    complex(8)                             :: htmp
     !
     type(sector_map)                       :: H
     integer,dimension(Nlevels)             :: ib
@@ -573,7 +560,6 @@ contains
     integer                                :: alfa,beta
     real(8)                                :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)                :: nup,ndw
-    real(8)                                :: htmp
     logical                                :: Jcondition
     integer                                :: first_state,last_state
     !
@@ -638,6 +624,7 @@ contains
     real(8),dimension(:,:),optional     :: Hmat
     real(8),dimension(:,:),allocatable  :: Hredux
     real(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    real(8)                             :: htmp
     !
     type(sector_map)                    :: H
     integer,dimension(Nlevels)          :: ib
@@ -652,7 +639,6 @@ contains
     integer                             :: alfa,beta
     real(8)                             :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)             :: nup,ndw
-    real(8)                             :: htmp
     logical                             :: Jcondition
     integer                             :: first_state,last_state
     !
@@ -696,6 +682,7 @@ contains
     complex(8),dimension(:,:),optional     :: Hmat
     complex(8),dimension(:,:),allocatable  :: Hredux
     complex(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    complex(8)                             :: htmp
     !
     type(sector_map)                       :: H
     integer,dimension(Nlevels)             :: ib
@@ -710,7 +697,6 @@ contains
     integer                                :: alfa,beta
     real(8)                                :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)                :: nup,ndw
-    real(8)                                :: htmp
     logical                                :: Jcondition
     integer                                :: first_state,last_state
     !
@@ -782,6 +768,7 @@ contains
     real(8),dimension(:,:),optional     :: Hmat
     real(8),dimension(:,:),allocatable  :: Hredux
     real(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    real(8)                             :: htmp
     !
     type(sector_map)                    :: H
     integer,dimension(Nlevels)          :: ib
@@ -796,7 +783,6 @@ contains
     integer                             :: alfa,beta
     real(8)                             :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)             :: nup,ndw
-    real(8)                             :: htmp
     logical                             :: Jcondition
     integer                             :: first_state,last_state
     !
@@ -841,6 +827,7 @@ contains
     complex(8),dimension(:,:),optional     :: Hmat
     complex(8),dimension(:,:),allocatable  :: Hredux
     complex(8),dimension(Nspin,Norb,Nbath) :: diag_hybr
+    complex(8)                             :: htmp
     !
     type(sector_map)                       :: H
     integer,dimension(Nlevels)             :: ib
@@ -855,7 +842,6 @@ contains
     integer                                :: alfa,beta
     real(8)                                :: sg1,sg2,sg3,sg4
     real(8),dimension(Norb)                :: nup,ndw
-    real(8)                                :: htmp
     logical                                :: Jcondition
     integer                                :: first_state,last_state
     !
@@ -885,52 +871,6 @@ contains
     endif
   end subroutine build_H_nonsu2_replica_c
 #undef FNAME
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

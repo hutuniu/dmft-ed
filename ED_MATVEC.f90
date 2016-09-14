@@ -44,15 +44,22 @@ MODULE ED_MATVEC
   integer :: R
 
 
+  type(sparse_element),pointer             :: c
+
+
+
 contains
 
-  !**********************************************************************
-  !**********************************************************************
+
+
+
+  !*********************************************************************!
+  !*********************************************************************!
   !*                                                                   *!
   !*                   ARPACK LANCZOS PRODUCTS                         *!
   !*                                                                   *!
-  !**********************************************************************
-  !**********************************************************************
+  !*********************************************************************!
+  !*********************************************************************!
   !+------------------------------------------------------------------+
   !PURPOSE  : Perform the matrix-vector product H*v used in the
   ! P/ARPACK Lanczos algorithm using serial double real, complex (MPI)
@@ -61,31 +68,39 @@ contains
     integer                          :: Nloc
     real(8),dimension(Nloc)          :: v
     real(8),dimension(Nloc)          :: Hv
+    integer                          :: i
 #ifdef _MPI
     integer                          :: N
     real(8),dimension(:),allocatable :: vin
-    integer                          :: i
     integer,allocatable,dimension(:) :: SendCounts,Displs
-    rank = MPI_Get_rank(ED_MPI_COMM)
     size = MPI_Get_size(ED_MPI_COMM)
     N=0
     call MPI_AllReduce(Nloc,N,1,MPI_Integer,MPI_Sum,ED_MPI_COMM,ierr)
     Q = MPI_Get_Q(ED_MPI_COMM,N)
     R = MPI_Get_R(ED_MPI_COMM,N)
     !
-    allocate(vin(N));vin=0d0
+    allocate(vin(N))
+    vin=0d0
     allocate(SendCounts(0:size-1),displs(0:size-1))
     SendCounts(0:)     = Q
     SendCounts(size-1) = Q+mod(N,size)
     forall(i=0:size-1)Displs(i)=i*Q
     call MPI_Allgatherv(v(1:Nloc),Nloc,MPI_Double_Precision,vin,SendCounts,Displs,MPI_Double_Precision,ED_MPI_COMM,ierr)
     call MPI_Bcast(vin,N,MPI_Double_Precision,0,ED_MPI_COMM,ierr)
-    Hv=0d0
-    call sp_matrix_vector_product_dd(spH0,N,vin,Nloc,Hv)
-#else
-    Hv=0.d0
-    call sp_matrix_vector_product_dd(spH0,Nloc,v,Nloc,Hv)
 #endif
+    Hv=0d0
+    do i=1,Nloc
+       c => spH0%row(i)%root%next       
+       do while(associated(c))          
+#ifdef _MPI
+          Hv(i) = Hv(i) + c%val*Vin(c%col) !<== Vin
+#else
+          Hv(i) = Hv(i) + c%val*V(c%col)    !<== V
+#endif
+          c => c%next
+       end do
+    end do
+    nullify(c)
   end subroutine spHtimesV_dd
   !
   !
@@ -93,12 +108,11 @@ contains
     integer                             :: Nloc
     complex(8),dimension(Nloc)          :: v
     complex(8),dimension(Nloc)          :: Hv
+    integer                             :: i
 #ifdef _MPI
     integer                             :: N
     complex(8),dimension(:),allocatable :: vin
-    integer                             :: i
     integer,allocatable,dimension(:)    :: SendCounts,Displs
-    rank = MPI_Get_rank(ED_MPI_COMM)
     size = MPI_Get_size(ED_MPI_COMM)
     N=0
     call MPI_AllReduce(Nloc,N,1,MPI_Integer,MPI_Sum,ED_MPI_COMM,ierr)
@@ -113,13 +127,106 @@ contains
     forall(i=0:size-1)Displs(i)=i*Q
     call MPI_Allgatherv(v(1:Nloc),Nloc,MPI_Double_Complex,vin,SendCounts,Displs,MPI_Double_Complex,ED_MPI_COMM,ierr)
     call MPI_Bcast(vin,N,MPI_Double_Complex,0,ED_MPI_COMM,ierr)
-    Hv=zero
-    call sp_matrix_vector_product_cc(spH0,N,v,Nloc,Hv)
-#else
-    Hv=zero
-    call sp_matrix_vector_product_cc(spH0,Nloc,v,Nloc,Hv)
 #endif
+    Hv=zero
+    do i=1,Nloc
+       c => spH0%row(i)%root%next       
+       do while(associated(c))
+#ifdef _MPI
+          Hv(i) = Hv(i) + c%cval*Vin(c%col) !<== Vin
+#else
+          Hv(i) = Hv(i) + c%cval*V(c%col)   !<== V
+#endif
+          c => c%next
+       end do
+    end do
+    nullify(c)
   end subroutine spHtimesV_cc
+  !
+  !
+  !
+  !
+  !SERIAL ONLY FOR THE TIME BEING:
+  subroutine ud_spHtimesV_dd(Nloc,v,Hv)
+    integer                 :: Nloc
+    real(8),dimension(Nloc) :: v
+    real(8),dimension(Nloc) :: Hv
+    integer                 :: i,iup,idw,j
+    integer                 :: Dim,DimUp,DimDw
+    !
+    Dim = spH0%Nrow
+    DimUp = spH0up%Nrow
+    DimDw = spH0dw%Nrow
+    !
+    Hv=0d0
+    !
+    do idw=1,DimDw
+       do iup=1,DimUp
+          i = iup + (idw-1)*DimUp
+          !
+          c => spH0%row(i)%root%next
+          do while(associated(c))
+             Hv(i) = Hv(i) + c%val*V(c%col)    !<== V
+             c => c%next
+          enddo
+          nullify(c)
+          c => spH0up%row(iup)%root%next
+          do while(associated(c))
+             j = c%col + (idw-1)*DimUp
+             Hv(i) = Hv(i) + c%val*V(j)
+             c => c%next
+          enddo
+          nullify(c)
+          c => spH0dw%row(idw)%root%next
+          do while(associated(c))
+             j = iup +  (c%col-1)*DimUp
+             Hv(i) = Hv(i) + c%val*V(j)
+             c => c%next
+          enddo
+       enddo
+    enddo
+  end subroutine ud_spHtimesV_dd
+  !
+  !
+  subroutine ud_spHtimesV_cc(Nloc,v,Hv)
+    integer                    :: Nloc
+    complex(8),dimension(Nloc) :: v
+    complex(8),dimension(Nloc) :: Hv
+    integer                    :: i,iup,idw,j
+    integer                    :: Dim,DimUp,DimDw
+    !
+    Dim = spH0%Nrow
+    DimUp = spH0up%Nrow
+    DimDw = spH0dw%Nrow
+    !
+    Hv=zero
+    !
+    do idw=1,DimDw
+       do iup=1,DimUp
+          i = iup + (idw-1)*DimUp
+          !
+          c => spH0%row(i)%root%next
+          do while(associated(c))
+             Hv(i) = Hv(i) + c%cval*V(c%col)    !<== V
+             c => c%next
+          enddo
+          nullify(c)
+          c => spH0up%row(iup)%root%next
+          do while(associated(c))
+             j = c%col + (idw-1)*DimUp
+             Hv(i) = Hv(i) + c%cval*V(j)
+             c => c%next
+          enddo
+          nullify(c)
+          c => spH0dw%row(idw)%root%next
+          do while(associated(c))
+             j = iup +  (c%col-1)*DimUp
+             Hv(i) = Hv(i) + c%cval*V(j)
+             c => c%next
+          enddo
+       enddo
+    enddo
+  end subroutine ud_spHtimesV_cc
 
 
 
@@ -130,13 +237,17 @@ contains
 
 
 
-  !**********************************************************************
-  !**********************************************************************
+
+
+
+
+  !*********************************************************************!
+  !*********************************************************************!
   !*                                                                   *!
   !*                   PLAIN LANCZOS PRODUCTS                          *!
   !*                                                                   *!
-  !**********************************************************************
-  !**********************************************************************
+  !*********************************************************************!
+  !*********************************************************************!
   !+------------------------------------------------------------------+
   !PURPOSE  : Perform the matrix-vector product H*v used in the
   ! Plain Lanczos algorithm for GF using MPI
@@ -151,7 +262,6 @@ contains
     integer                          :: i,j
     integer,allocatable,dimension(:) :: SendCounts,Displs
     !
-    rank = MPI_Get_rank(ED_MPI_COMM)
     size = MPI_Get_size(ED_MPI_COMM)
     Q = MPI_Get_Q(ED_MPI_COMM,N)
     R = MPI_Get_R(ED_MPI_COMM,N)
@@ -169,7 +279,7 @@ contains
     call MPI_Allgatherv(vout(1:Nloc),Nloc,MPI_Double_Complex,Hv,SendCounts,Displs,MPI_Double_Complex,ED_MPI_COMM,ierr)
     call MPI_Bcast(Hv,N,MPI_Double_Complex,0,ED_MPI_COMM,ierr)
 #else
-    Hv=0.d0
+    Hv=0d0
     call sp_matrix_vector_product_dd(spH0,N,v,N,Hv)
 #endif
   end subroutine lanc_spHtimesV_dd
@@ -184,7 +294,6 @@ contains
     integer                             :: i,j
     integer,allocatable,dimension(:)    :: SendCounts,Displs
     !
-    rank = MPI_Get_rank(ED_MPI_COMM)
     size = MPI_Get_size(ED_MPI_COMM)
     Q = MPI_Get_Q(ED_MPI_COMM,N)
     R = MPI_Get_R(ED_MPI_COMM,N)
@@ -217,7 +326,6 @@ contains
     integer                             :: i,j
     integer,allocatable,dimension(:)    :: SendCounts,Displs
     !
-    rank = MPI_Get_rank(ED_MPI_COMM)
     size = MPI_Get_size(ED_MPI_COMM)
     Q = MPI_Get_Q(ED_MPI_COMM,N)
     R = MPI_Get_R(ED_MPI_COMM,N)
@@ -239,6 +347,129 @@ contains
     call sp_matrix_vector_product_cc(spH0,N,v,N,Hv)
 #endif
   end subroutine lanc_spHtimesV_cc
+  !
+  !
+  !
+  !
+  subroutine ud_lanc_spHtimesV_dd(N,v,Hv)
+    integer              :: N
+    real(8),dimension(N) :: v
+    real(8),dimension(N) :: Hv
+    integer              :: i,iup,idw,j
+    integer              :: Dim,DimUp,DimDw
+    !
+    Dim = spH0%Nrow             !==N
+    DimUp = spH0up%Nrow
+    DimDw = spH0dw%Nrow
+    !
+    Hv=0d0
+    !
+    do idw=1,DimDw
+       do iup=1,DimUp
+          i = iup + (idw-1)*DimUp
+          !
+          c => spH0%row(i)%root%next
+          do while(associated(c))
+             Hv(i) = Hv(i) + c%val*V(c%col)    !<== V
+             c => c%next
+          enddo
+          nullify(c)
+          c => spH0up%row(iup)%root%next
+          do while(associated(c))
+             j = c%col + (idw-1)*DimUp
+             Hv(i) = Hv(i) + c%val*V(j)
+             c => c%next
+          enddo
+          nullify(c)
+          c => spH0dw%row(idw)%root%next
+          do while(associated(c))
+             j = iup +  (c%col-1)*DimUp
+             Hv(i) = Hv(i) + c%val*V(j)
+             c => c%next
+          enddo
+       enddo
+    enddo
+  end subroutine ud_lanc_spHtimesV_dd
+  !
+  subroutine ud_lanc_spHtimesV_dc(N,v,Hv)
+    integer                 :: N
+    complex(8),dimension(N) :: v
+    complex(8),dimension(N) :: Hv
+    integer                 :: i,iup,idw,j
+    integer                 :: Dim,DimUp,DimDw
+    !
+    Dim = spH0%Nrow             !==N
+    DimUp = spH0up%Nrow
+    DimDw = spH0dw%Nrow
+    !
+    Hv=0d0
+    !
+    do idw=1,DimDw
+       do iup=1,DimUp
+          i = iup + (idw-1)*DimUp
+          !
+          c => spH0%row(i)%root%next
+          do while(associated(c))
+             Hv(i) = Hv(i) + c%val*V(c%col)    !<== V
+             c => c%next
+          enddo
+          nullify(c)
+          c => spH0up%row(iup)%root%next
+          do while(associated(c))
+             j = c%col + (idw-1)*DimUp
+             Hv(i) = Hv(i) + c%val*V(j)
+             c => c%next
+          enddo
+          nullify(c)
+          c => spH0dw%row(idw)%root%next
+          do while(associated(c))
+             j = iup +  (c%col-1)*DimUp
+             Hv(i) = Hv(i) + c%val*V(j)
+             c => c%next
+          enddo
+       enddo
+    enddo
+  end subroutine ud_lanc_spHtimesV_dc
+  !
+  subroutine ud_lanc_spHtimesV_cc(N,v,Hv)
+    integer                 :: N
+    complex(8),dimension(N) :: v
+    complex(8),dimension(N) :: Hv
+    integer                 :: i,iup,idw,j
+    integer                 :: Dim,DimUp,DimDw
+    !
+    Dim = spH0%Nrow             !==N
+    DimUp = spH0up%Nrow
+    DimDw = spH0dw%Nrow
+    !
+    Hv=0d0
+    !
+    do idw=1,DimDw
+       do iup=1,DimUp
+          i = iup + (idw-1)*DimUp
+          !
+          c => spH0%row(i)%root%next
+          do while(associated(c))
+             Hv(i) = Hv(i) + c%cval*V(c%col)    !<== V
+             c => c%next
+          enddo
+          nullify(c)
+          c => spH0up%row(iup)%root%next
+          do while(associated(c))
+             j = c%col + (idw-1)*DimUp
+             Hv(i) = Hv(i) + c%cval*V(j)
+             c => c%next
+          enddo
+          nullify(c)
+          c => spH0dw%row(idw)%root%next
+          do while(associated(c))
+             j = iup +  (c%col-1)*DimUp
+             Hv(i) = Hv(i) + c%cval*V(j)
+             c => c%next
+          enddo
+       enddo
+    enddo
+  end subroutine ud_lanc_spHtimesV_cc
 
 
 
@@ -247,13 +478,13 @@ contains
 
 
 
-  !**********************************************************************
-  !**********************************************************************
+  !*********************************************************************!
+  !*********************************************************************!
   !*                                                                   *!
   !*              SPARSE MATRIX - DENSE VECTOR PRODUCTS                *!
   !*                                                                   *!
-  !**********************************************************************
-  !**********************************************************************
+  !*********************************************************************!
+  !*********************************************************************!
   !+------------------------------------------------------------------+
   !PURPOSE: given a vector vin, perform the matrix-vector multiplication
   ! H_sparse * vin and put the result in vout.
@@ -266,7 +497,6 @@ contains
     real(8),dimension(Nout),intent(inout)    :: vout
     type(sparse_element),pointer             :: c
     integer                                  :: i
-    vout=0.d0
     do i=1,Nout                 !Ndim
        c => sparse%row(i)%root%next       
        matmul: do               !can this be do while(associated(c))?
@@ -285,7 +515,6 @@ contains
     complex(8),dimension(Nout),intent(inout) :: vout
     type(sparse_element),pointer             :: c
     integer                                  :: i
-    vout=cmplx(0d0,0d0,8)
     do i=1,Nout                 !Ndim
        c => sparse%row(i)%root%next       
        matmul: do
@@ -304,7 +533,6 @@ contains
     complex(8),dimension(Nout),intent(inout) :: vout
     type(sparse_element),pointer             :: c
     integer                                  :: i
-    vout=cmplx(0d0,0d0,8)
     do i=1,Nout                 !Ndim
        c => sparse%row(i)%root%next
        matmul: do  

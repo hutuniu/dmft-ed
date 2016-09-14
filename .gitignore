@@ -9,3 +9,5 @@ mc_EDsc/
 .repo
 drivers/SQUARE_LATTICE.f90
 README
+ED_HAMILTONIAN/unused/ED_HAMILTONIAN_master.f90
+ED_HAMILTONIAN/unused/ed_hamiltonian_build_h_master.f90
