@@ -118,7 +118,6 @@ program ed_bhz
      call ed_get_sigma_matsubara(Smats)
      call ed_get_sigma_real(Sreal)
      dens= ed_get_dens()
-     print*,dens
 
      call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
      call ed_get_weiss(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=1)
@@ -149,7 +148,6 @@ program ed_bhz
   enddo
 
   Eout = ed_kinetic_energy(Hk,Wtk,Smats)
-  print*,Eout
 
 #ifdef _MPI
   call MPI_FINALIZE(ED_MPI_ERR)

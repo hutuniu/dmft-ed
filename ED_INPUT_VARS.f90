@@ -22,6 +22,7 @@ MODULE ED_INPUT_VARS
   real(8)              :: eps                 !broadening
   real(8)              :: wini,wfin           !
   integer              :: Nsuccess            !
+  integer              :: mpi_colors          !
   logical              :: Jhflag              !spin-exchange and pair-hopping flag.
   logical              :: chiflag             !
   logical              :: HFmode              !flag for HF interaction form U(n-1/2)(n-1/2) VS Unn
@@ -89,8 +90,17 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : READ THE INPUT FILE AND SETUP GLOBAL VARIABLES
   !+-------------------------------------------------------------------+
-  subroutine ed_read_input(INPUTunit)
+  subroutine ed_read_input(INPUTunit,comm)
     character(len=*) :: INPUTunit
+    integer,optional :: comm
+    logical          :: master
+#ifdef _MPI
+    if(present(comm))then
+       master=get_Master_MPI(comm)
+    else
+       master=get_Master_MPI(MPI_COMM_WORLD)
+    endif
+#endif
     !
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals.")
@@ -107,6 +117,7 @@ contains
     call parse_input_variable(sb_field,"SB_FIELD",INPUTunit,default=0.1d0,comment="Value of a symmetry breaking field for magnetic solutions.")
     call parse_input_variable(ed_twin,"ED_TWIN",INPUTunit,default=.false.,comment="flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.")
     call parse_input_variable(nsuccess,"NSUCCESS",INPUTunit,default=1,comment="Number of successive iterations below threshold for convergence")
+    call parse_input_variable(mpi_colors,"MPI_COLORS",INPUTunit,default=1,comment="Number of color groups to divide the MPI Communicators into inequivalent sites")
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=5000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=5000,comment="Number of real-axis frequencies.")
     call parse_input_variable(Ltau,"LTAU",INPUTunit,default=1000,comment="Number of imaginary time points.")
@@ -154,7 +165,7 @@ contains
     call parse_input_variable(fileSelf,"FILESELF",INPUTunit,default="LSelf.data")
     call parse_input_variable(mix_type,"MIX_TYPE",INPUTunit,default=0)
     Ltau=max(int(beta),Ltau)
-    if(ED_MPI_ID==0.AND.mpiID==0)then
+    if(master)then
        call save_input_file(INPUTunit)
        call sf_version(revision)
     endif

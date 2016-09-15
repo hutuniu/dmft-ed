@@ -86,8 +86,8 @@ contains
     !
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     !
-    if(ED_MPI_ID==0)write(LOGfile,*)"Get local GF (id=0):"
-    if(ED_MPI_ID==0)write(LOGfile,*)"print in mode "//reg(txtfy(iprint))
+    if(ED_MPI_MASTER)write(LOGfile,*)"Get local GF (id=0):"
+    if(ED_MPI_MASTER)write(LOGfile,*)"print in mode "//reg(txtfy(iprint))
     !
     if(allocated(wm))deallocate(wm)
     if(allocated(wr))deallocate(wr)
@@ -108,7 +108,7 @@ contains
     enddo
 
     !pass each Z_site to the routines that invert (Z-Hk) for each k-point 
-    if(ED_MPI_ID==0)call start_timer
+    if(ED_MPI_MASTER)call start_timer
     Gmats=zero
     Greal=zero
     do ik=1,Lk
@@ -116,10 +116,10 @@ contains
        call add_to_gloc_normal(zeta_real,(Hk(:,:,ik)),hk_symm_(ik),Gkreal)
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
-       if(ED_MPI_ID==0)call eta(ik,Lk,unit=LOGfile)
+       if(ED_MPI_MASTER)call eta(ik,Lk,unit=LOGfile)
     end do
-    if(ED_MPI_ID==0)call stop_timer
-    if(ED_MPI_ID==0.AND.ed_verbose<4)call print_Gloc(Gmats,Greal,"Gloc",iprint)
+    if(ED_MPI_MASTER)call stop_timer
+    if(ED_MPI_MASTER.AND.ed_verbose<4)call print_Gloc(Gmats,Greal,"Gloc",iprint)
   end subroutine ed_get_gloc_normal_main
 
   subroutine ed_get_gloc_normal_lattice_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,&
@@ -178,9 +178,9 @@ contains
     if(present(Gamma_mats).AND.present(local_Gamma_mats))stop "ed_get_gloc_normal_lattice_main error: Gamma_mats & local_Gamma_mats present"
     if(present(Gamma_real).AND.present(local_Gamma_real))stop "ed_get_gloc_normal_lattice_main error: Gamma_real & local_Gamma_real present"
     if(tridiag_.AND.(present(Gamma_mats).OR.present(Gamma_real)))then
-       if(mpiID==0)write(LOGfile,"(A)")"ed_get_gloc_normal_lattice_main warning: called with tridiag=TRUE and Gamma Embded: Disreagarded."
+       if(ED_MPI_MASTER)write(LOGfile,"(A)")"ed_get_gloc_normal_lattice_main warning: called with tridiag=TRUE and Gamma Embded: Disreagarded."
     endif
-    if(mpiID==0)write(LOGfile,"(A)")"Get local GF (id=0):"
+    if(ED_MPI_MASTER)write(LOGfile,"(A)")"Get local GF (id=0):"
     !
     if(allocated(wm))deallocate(wm)
     if(allocated(wr))deallocate(wr)
@@ -203,12 +203,12 @@ contains
     enddo
     !
     !pass each Z_site to the routines that invert (Z-Hk) for each k-point 
-    if(mpiID==0)call start_timer
+    if(ED_MPI_MASTER)call start_timer
     Gmats=zero
     Greal=zero
     select case(tridiag_)
     case default
-       if(mpiID==0)write(LOGfile,"(A)")"Direct Inversion:"
+       if(ED_MPI_MASTER)write(LOGfile,"(A)")"Direct Inversion:"
        do ik=1,Lk
           if(present(Gamma_mats))then
              call add_to_gloc_normal_lattice(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=Gamma_mats)
@@ -222,10 +222,10 @@ contains
           endif
           Gmats = Gmats + Gkmats*Wtk(ik)
           Greal = Greal + Gkreal*Wtk(ik)
-          if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+          if(ED_MPI_MASTER)call eta(ik,Lk,unit=LOGfile)
        end do
     case(.true.)
-       if(mpiID==0)write(LOGfile,"(A)")"Tridiag Iterative Inversion:"
+       if(ED_MPI_MASTER)write(LOGfile,"(A)")"Tridiag Iterative Inversion:"
        do ik=1,Lk
           if(present(local_Gamma_mats))then
              call add_to_gloc_normal_tridiag(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=local_Gamma_mats)
@@ -239,99 +239,13 @@ contains
           endif
           Gmats = Gmats + Gkmats*Wtk(ik)
           Greal = Greal + Gkreal*Wtk(ik)
-          if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+          if(ED_MPI_MASTER)call eta(ik,Lk,unit=LOGfile)
        end do
     end select
-    if(mpiID==0)call stop_timer
-    if(mpiID==0)call print_gloc_lattice(Gmats,Greal,"LG",iprint)
+    if(ED_MPI_MASTER)call stop_timer
+    if(ED_MPI_MASTER)call print_gloc_lattice(Gmats,Greal,"LG",iprint)
   end subroutine ed_get_gloc_normal_lattice_main
 
-  ! subroutine ed_get_gloc_normal_lattice_main(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint,hk_symm,Gamma_mats,Gamma_real)
-  !   complex(8),dimension(:,:,:),intent(in)          :: Hk        ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk]
-  !   real(8),dimension(size(Hk,3)),intent(in)        :: Wtk       ![Nk]
-  !   complex(8),dimension(:,:,:,:,:,:),intent(in)    :: Smats     ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-  !   complex(8),dimension(:,:,:,:,:,:),intent(in)    :: Sreal     ![Nlat][Nspin][Nspin][Norb][Norb][Lmats]
-  !   complex(8),dimension(:,:,:,:,:,:),intent(inout) :: Gmats     !as Smats
-  !   complex(8),dimension(:,:,:,:,:,:),intent(inout) :: Greal     !as Sreal
-  !   integer,intent(in)                              :: iprint    !
-  !   logical,dimension(size(Hk,3)),optional          :: hk_symm
-  !   logical,dimension((size(Hk,3)))                 :: hk_symm_
-  !   complex(8),dimension(:,:,:),optional            :: Gamma_mats![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lmats]
-  !   complex(8),dimension(:,:,:),optional            :: Gamma_real![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lreal]
-  !   !allocatable arrays
-  !   complex(8),dimension(:,:,:,:,:,:),allocatable   :: Gkmats    !as Smats
-  !   complex(8),dimension(:,:,:,:,:,:),allocatable   :: Gkreal    !as Sreal
-  !   complex(8),dimension(:,:,:,:),allocatable       :: zeta_mats ![Nlat][Nspin*Norb][Nspin*Norb][Lmats]
-  !   complex(8),dimension(:,:,:,:),allocatable       :: zeta_real ![Nlat][Nspin*Norb][Nspin*Norb][Lreal]
-  !   !local integers
-  !   integer                                         :: Nlat,Nspin,Norb,Nso,Nlso,Lmats,Lreal,Lk
-  !   integer                                         :: i,ik,ilat,jlat,iorb,jorb,ispin,jspin,io,jo,js
-  !   !
-  !   !Testing part:
-  !   Nlat  = size(Smats,1)
-  !   Nspin = size(Smats,2)
-  !   Norb  = size(Smats,4)
-  !   Lmats = size(Smats,6)
-  !   Lreal = size(Sreal,6)
-  !   Lk    = size(Hk,3)
-  !   Nso   = Nspin*Norb
-  !   Nlso  = Nlat*Nspin*Norb
-  !   call assert_shape(Hk,[Nlso,Nlso,Lk],"ed_get_gloc_normal_lattice_main","Hk")
-  !   call assert_shape(Smats,[Nlat,Nspin,Nspin,Norb,Norb,Lmats],"ed_get_gloc_normal_lattice_main","Smats")
-  !   call assert_shape(Sreal,[Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_gloc_normal_lattice_main","Sreal")
-  !   call assert_shape(Gmats,[Nlat,Nspin,Nspin,Norb,Norb,Lmats],"ed_get_gloc_normal_lattice_main","Gmats")
-  !   call assert_shape(Greal,[Nlat,Nspin,Nspin,Norb,Norb,Lreal],"ed_get_gloc_normal_lattice_main","Greal")
-  !   if(present(Gamma_mats))&
-  !        call assert_shape(Gamma_mats,[Nlso,Nlso,Lmats],"ed_get_gloc_normal_lattice_main","Gamma_mats")         
-  !   if(present(Gamma_real))&
-  !        call assert_shape(Gamma_real,[Nlso,Nlso,Lreal],"ed_get_gloc_normal_lattice_main","Gamma_real")         
-  !   !
-  !   hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
-  !   !
-  !   if(mpiID==0)write(LOGfile,*)"Get local GF (id=0):"
-  !   !
-  !   if(allocated(wm))deallocate(wm)
-  !   if(allocated(wr))deallocate(wr)
-  !   allocate(wm(Lmats))
-  !   allocate(wr(Lreal))
-  !   allocate(Gkmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats))
-  !   allocate(Gkreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-  !   allocate(zeta_mats(Nlat,Nso,Nso,Lmats))
-  !   allocate(zeta_real(Nlat,Nso,Nso,Lreal))
-  !   !
-  !   wm = pi/beta*(2*arange(1,Lmats)-1)
-  !   wr = linspace(wini,wfin,Lreal)
-  !   do ilat=1,Nlat
-  !      do i=1,Lmats
-  !         zeta_mats(ilat,:,:,i) = (xi*wm(i)+xmu)*eye(Nso)     - nn2so_reshape(Smats(ilat,:,:,:,:,i),Nspin,Norb)
-  !      enddo
-  !      do i=1,Lreal
-  !         zeta_real(ilat,:,:,i) = (wr(i)+xi*eps+xmu)*eye(Nso) - nn2so_reshape(Sreal(ilat,:,:,:,:,i),NSpin,Norb)
-  !      enddo
-  !   enddo
-  !   !
-  !   !pass each Z_site to the routines that invert (Z-Hk) for each k-point 
-  !   if(mpiID==0)call start_timer
-  !   Gmats=zero
-  !   Greal=zero
-  !   do ik=1,Lk
-  !      if(present(Gamma_mats))then
-  !         call add_to_gloc_normal_lattice(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=Gamma_mats)
-  !      else
-  !         call add_to_gloc_normal_lattice(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats)
-  !      endif
-  !      if(present(Gamma_real))then
-  !         call add_to_gloc_normal_lattice(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal,Gembed=Gamma_real)
-  !      else
-  !         call add_to_gloc_normal_lattice(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
-  !      endif
-  !      Gmats = Gmats + Gkmats*Wtk(ik)
-  !      Greal = Greal + Gkreal*Wtk(ik)
-  !      if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
-  !   end do
-  !   if(mpiID==0)call stop_timer
-  !   if(mpiID==0)call print_gloc_lattice(Gmats,Greal,"LG",iprint)
-  ! end subroutine ed_get_gloc_normal_lattice_main
 
 
   !+-----------------------------------------------------------------------------+!
@@ -404,7 +318,7 @@ contains
     allocate(Gktmp(Nlat,Nspin,Nspin,Norb,Norb,Lfreq))
     allocate(Gmatrix(Nlso,Nlso))
     Gktmp=zero
-    do i=1+mpiID,Lfreq,mpiSIZE
+    do i=1+ED_MPI_ID,Lfreq,ED_MPI_SIZE
        Gmatrix  = blocks_to_matrix(zeta(:,:,:,i)) - Hk
        if(present(Gembed))Gmatrix = Gmatrix - Gembed(:,:,i)
        if(hk_symm) then
@@ -428,8 +342,9 @@ contains
        enddo
     enddo
     Gkout=zero
-#ifdef _MPI_INEQ
-    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+    call MPI_BARRIER(ED_MPI_COMM,ED_MPI_ERR)
+    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
 #else
     Gkout = Gktmp
 #endif
@@ -469,7 +384,7 @@ contains
     allocate(Gktmp(Nlat,Nspin,Nspin,Norb,Norb,Lfreq))
     allocate(Gmatrix(Nlat,Nso,Nso))
     Gktmp=zero
-    do i=1+mpiID,Lfreq,mpiSIZE
+    do i=1+ED_MPI_ID,Lfreq,ED_MPI_SIZE
        call get_tridiag(Nlat,Nso,Hk,Sub,Diag,Over)
        Diag = zeta(:,:,:,i) - Diag
        if(present(Gembed))Diag = Diag - Gembed(:,:,:,i)
@@ -490,8 +405,8 @@ contains
        enddo
     enddo
     Gkout=zero
-#ifdef _MPI_INEQ
-    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
 #else
     Gkout = Gktmp
 #endif
@@ -686,8 +601,8 @@ contains
     !
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     !
-    if(ED_MPI_ID==0)write(LOGfile,*)"Get local GF (id=0):"
-    if(ED_MPI_ID==0)write(LOGfile,*)"print in mode "//reg(txtfy(iprint))
+    if(ED_MPI_MASTER)write(LOGfile,*)"Get local GF (id=0):"
+    if(ED_MPI_MASTER)write(LOGfile,*)"print in mode "//reg(txtfy(iprint))
     if(allocated(wm))deallocate(wm)
     if(allocated(wr))deallocate(wr)
     allocate(wm(Lmats))
@@ -712,7 +627,7 @@ contains
        zeta_real(2,2,:,:,i) = -conjg( dcmplx(wr(Lreal+1-i),eps)+xmu )*eye(Nso) + conjg( nn2so_reshape(Sreal(1,:,:,:,:,Lreal+1-i),Nspin,Norb) )
     enddo
     !
-    if(ED_MPI_ID==0)call start_timer
+    if(ED_MPI_MASTER)call start_timer
     Gmats=zero
     Greal=zero
     do ik=1,Lk
@@ -720,10 +635,10 @@ contains
        call add_to_gloc_superc(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
-       if(ED_MPI_ID==0)call eta(ik,Lk,unit=LOGfile)
+       if(ED_MPI_MASTER)call eta(ik,Lk,unit=LOGfile)
     end do
-    if(ED_MPI_ID==0)call stop_timer
-    if(ED_MPI_ID==0.AND.ed_verbose<4)then
+    if(ED_MPI_MASTER)call stop_timer
+    if(ED_MPI_MASTER.AND.ed_verbose<4)then
        call print_Gloc(Gmats(1,:,:,:,:,:),Greal(1,:,:,:,:,:),"Gloc",iprint)
        call print_Gloc(Gmats(2,:,:,:,:,:),Greal(2,:,:,:,:,:),"Floc",iprint)
     endif
@@ -765,8 +680,8 @@ contains
     !
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     !
-    if(mpiID==0)write(LOGfile,*)"Get local GF (id=0):"
-    if(mpiID==0)write(LOGfile,*)"print in mode "//reg(txtfy(iprint))
+    if(ED_MPI_MASTER)write(LOGfile,*)"Get local GF (id=0):"
+    if(ED_MPI_MASTER)write(LOGfile,*)"print in mode "//reg(txtfy(iprint))
     if(allocated(wm))deallocate(wm)
     if(allocated(wr))deallocate(wr)
     allocate(wm(Lmats))
@@ -799,7 +714,7 @@ contains
        enddo
     enddo
     !
-    if(mpiID==0)call start_timer
+    if(ED_MPI_MASTER)call start_timer
     Gmats=zero
     Greal=zero
     do ik=1,Lk
@@ -807,10 +722,10 @@ contains
        call add_to_gloc_superc_lattice(zeta_real,Hk(:,:,ik),hk_symm_(ik),Gkreal)
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
-       if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+       if(ED_MPI_MASTER)call eta(ik,Lk,unit=LOGfile)
     end do
-    if(mpiID==0)call stop_timer
-    if(mpiID==0)then
+    if(ED_MPI_MASTER)call stop_timer
+    if(ED_MPI_MASTER)then
        call print_gloc_lattice(Gmats(1,:,:,:,:,:,:),Greal(1,:,:,:,:,:,:),"LG",iprint)
        call print_gloc_lattice(Gmats(2,:,:,:,:,:,:),Greal(2,:,:,:,:,:,:),"LF",iprint)
     endif
@@ -896,7 +811,7 @@ contains
     allocate(Gmatrix(2*Nlso,2*Nlso))
     Gkout = zero
     Gktmp = zero
-    do i=1+mpiID,Lfreq,mpiSIZE
+    do i=1+ED_MPI_ID,Lfreq,ED_MPI_SIZE
        Gmatrix  = zero
        Gmatrix(1:Nlso,1:Nlso)        = blocks_to_matrix(zeta(1,1,:,:,:,i)) - Hk
        Gmatrix(1:Nlso,Nlso+1:2*Nlso) = blocks_to_matrix(zeta(1,2,:,:,:,i))
@@ -923,8 +838,8 @@ contains
           enddo
        enddo
     enddo
-#ifdef _MPI_INEQ
-    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
 #else
     Gkout = Gktmp
 #endif
@@ -1131,8 +1046,8 @@ contains
     !
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
     !
-    if(mpiID==0)write(LOGfile,*)"Get local GF (id=0):"
-    if(mpiID==0)write(*,*)"Get local GF FULL (id=0):"
+    if(ED_MPI_MASTER)write(LOGfile,*)"Get local GF (id=0):"
+    if(ED_MPI_MASTER)write(*,*)"Get local GF FULL (id=0):"
     !
     if(allocated(wm))deallocate(wm)
     if(allocated(wr))deallocate(wr)
@@ -1156,11 +1071,11 @@ contains
     enddo
     !
     !pass each Z_site to the routines that invert (Z-Hk) for each k-point 
-    if(mpiID==0)call start_timer
+    if(ED_MPI_MASTER)call start_timer
     Gmats=zero
     Greal=zero
     do ik=1,Lk
-    !if(mpiID==0)write(*,*)ik
+       !if(ED_MPI_MASTER)write(*,*)ik
        if(present(Gamma_mats))then
           call add_to_gij_normal(zeta_mats,Hk(:,:,ik),hk_symm_(ik),Gkmats,Gembed=Gamma_mats)
        else
@@ -1173,10 +1088,10 @@ contains
        endif
        Gmats = Gmats + Gkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
-       if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+       if(ED_MPI_MASTER)call eta(ik,Lk,unit=LOGfile)
     end do
-    if(mpiID==0)call stop_timer
-    if(mpiID==0)call print_gij_lattice(Gmats,Greal,"Gij",iprint)
+    if(ED_MPI_MASTER)call stop_timer
+    if(ED_MPI_MASTER)call print_gij_lattice(Gmats,Greal,"Gij",iprint)
   end subroutine ed_get_gij_normal_main
 
   subroutine add_to_gij_normal(zeta,Hk,hk_symm,Gkout,Gembed)
@@ -1205,7 +1120,7 @@ contains
     allocate(Gktmp(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lfreq))
     allocate(Gmatrix(Nlso,Nlso))
     Gktmp=zero
-    do i=1+mpiID,Lfreq,mpiSIZE
+    do i=1+ED_MPI_ID,Lfreq,ED_MPI_SIZE
        Gmatrix  = blocks_to_matrix(zeta(:,:,:,i)) - Hk
        if(present(Gembed))Gmatrix = Gmatrix - Gembed(:,:,i)
        if(hk_symm) then
@@ -1231,8 +1146,8 @@ contains
        enddo
     enddo
     Gkout=zero
-#ifdef _MPI_INEQ
-    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
 #else
     Gkout = Gktmp
 #endif
@@ -1268,7 +1183,7 @@ contains
     Nlso=Nlat*Norb*Nspin
     if(size(Hk,1)/=Nlso.OR.size(Hk,2)/=Nlso) stop "rdmft_get_gloc_normal error: wrong dimensions of Hk"
     hk_symm_=.false.;if(present(hk_symm)) hk_symm_=hk_symm
-    if(mpiID==0)write(LOGfile,*)"Get local GF (id=0):"
+    if(ED_MPI_MASTER)write(LOGfile,*)"Get local GF (id=0):"
     if(allocated(wm))deallocate(wm)
     if(allocated(wr))deallocate(wr)
     allocate(wm(Lmats))
@@ -1316,7 +1231,7 @@ contains
        enddo
     enddo
     !
-    if(mpiID==0)call start_timer
+    if(ED_MPI_MASTER)call start_timer
     Gmats=zero
     Greal=zero
     do ik=1,Lk
@@ -1326,10 +1241,10 @@ contains
        Fmats = Fmats + Fkmats*Wtk(ik)
        Greal = Greal + Gkreal*Wtk(ik)
        Freal = Freal + Fkreal*Wtk(ik)
-       if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+       if(ED_MPI_MASTER)call eta(ik,Lk,unit=LOGfile)
     end do
-    if(mpiID==0)call stop_timer
-    if(mpiID==0)then
+    if(ED_MPI_MASTER)call stop_timer
+    if(ED_MPI_MASTER)then
        call print_gij_lattice(Gmats,Greal,"Gij",iprint)
        call print_gij_lattice(Fmats,Freal,"Fij",iprint)
     endif
@@ -1359,7 +1274,7 @@ contains
     Nlso  = Nlat*Nspin*Norb
     Gkout = zero
     Gktmp = zero
-    do i=1+mpiID,Lfreq,mpiSIZE
+    do i=1+ED_MPI_ID,Lfreq,ED_MPI_SIZE
        Gmatrix  = zero
        Gmatrix(1:Nlso,1:Nlso)        = blocks_to_matrix(zeta(1,1,:,:,:,i)) - Hk
        Gmatrix(1:Nlso,Nlso+1:2*Nlso) = blocks_to_matrix(zeta(1,2,:,:,:,i))
@@ -1389,9 +1304,9 @@ contains
        enddo
        !
     enddo
-#ifdef _MPI_INEQ
-    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
-    call MPI_ALLREDUCE(Fktmp,Fkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+    call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
+    call MPI_ALLREDUCE(Fktmp,Fkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
 #else
     Gkout = Gktmp
     Fkout = Fktmp
@@ -1414,9 +1329,9 @@ contains
     !
     select case(iprint)
     case (0)
-       if(ED_MPI_ID==0)write(LOGfile,*)"Gloc not written to file."
+       if(ED_MPI_MASTER)write(LOGfile,*)"Gloc not written to file."
     case(1)                  !print only diagonal elements
-       if(ED_MPI_ID==0)write(LOGfile,*)"write spin-orbital diagonal elements:"
+       if(ED_MPI_MASTER)write(LOGfile,*)"write spin-orbital diagonal elements:"
        do ispin=1,Nspin
           do iorb=1,Norb
              suffix=reg(fname)//"_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)//"_iw.ed"
@@ -1426,7 +1341,7 @@ contains
           enddo
        enddo
     case(2)                  !print spin-diagonal, all orbitals 
-       if(ED_MPI_ID==0)write(LOGfile,*)"write spin diagonal and all orbitals elements:"
+       if(ED_MPI_MASTER)write(LOGfile,*)"write spin diagonal and all orbitals elements:"
        do ispin=1,Nspin
           do iorb=1,Norb
              do jorb=1,Norb
@@ -1438,7 +1353,7 @@ contains
           enddo
        enddo
     case default                  !print all off-diagonals
-       if(ED_MPI_ID==0)write(LOGfile,*)"write all elements:"
+       if(ED_MPI_MASTER)write(LOGfile,*)"write all elements:"
        do ispin=1,Nspin
           do jspin=1,Nspin
              do iorb=1,Norb
@@ -1576,795 +1491,795 @@ contains
 
 
 
-!***************************************************************
-        SUBROUTINE INV1(je,A,NP)
-!***************************************************************
+  !***************************************************************
+  SUBROUTINE INV1(je,A,NP)
+    !***************************************************************
 
-	INTEGER,PARAMETER::NNP=100,nrhs=1
-        complex (kind=8) :: A(NP,NP)
-        COMPLEX*16 det(2)
-        COMPLEX*16 AA(NP,NP),WORK(NP)
-        INTEGER*4 IPVT(NP),LDA,NN,job,NP,JE,M,N
-        REAL*8 RCOND
-        
-        NN=NP   ! dimension of the matrix AA
-        LDA=NP ! dimension of the matrix to be inverted
-        job=1   ! option flag
-        DO M=1,NP
-            DO N=1,NP
-                AA(N,M)=DCMPLX(A(N,M))
-            ENDDO
-        ENDDO
+    INTEGER,PARAMETER::NNP=100,nrhs=1
+    complex (kind=8) :: A(NP,NP)
+    COMPLEX*16 det(2)
+    COMPLEX*16 AA(NP,NP),WORK(NP)
+    INTEGER*4 IPVT(NP),LDA,NN,job,NP,JE,M,N
+    REAL*8 RCOND
 
-        CALL ZGECO(AA,LDA,NN,IPVT,RCOND,WORK)
+    NN=NP   ! dimension of the matrix AA
+    LDA=NP ! dimension of the matrix to be inverted
+    job=1   ! option flag
+    DO M=1,NP
+       DO N=1,NP
+          AA(N,M)=DCMPLX(A(N,M))
+       ENDDO
+    ENDDO
 
-        IF (1.0D0+RCOND .EQ. 1.0D0) THEN
-            WRITE(6,*) ' STOP FOR JE=',je
-            WRITE(6,*) '*******************'
-            WRITE(6,*) '*******************'
-            WRITE(6,*) ' SINGULAR MATRIX !'
-            WRITE(6,*) '*******************'
-            WRITE(6,*) '*******************'
-	    DO N=1,NP
-	    WRITE(6,*) '-------------ROW  ',N
-	    WRITE(6,100) (REAL(AA(N,M)),AIMAG(AA(N,M)),M=1,NP)
-	    ENDDO
-            STOP 
-        ENDIF
+    CALL ZGECO(AA,LDA,NN,IPVT,RCOND,WORK)
 
-
-     	call zgedi(aa,lda,nn,ipvt,det,work,job)
+    IF (1.0D0+RCOND .EQ. 1.0D0) THEN
+       WRITE(6,*) ' STOP FOR JE=',je
+       WRITE(6,*) '*******************'
+       WRITE(6,*) '*******************'
+       WRITE(6,*) ' SINGULAR MATRIX !'
+       WRITE(6,*) '*******************'
+       WRITE(6,*) '*******************'
+       DO N=1,NP
+          WRITE(6,*) '-------------ROW  ',N
+          WRITE(6,100) (REAL(AA(N,M)),AIMAG(AA(N,M)),M=1,NP)
+       ENDDO
+       STOP 
+    ENDIF
 
 
-        DO M=1,NP
-        DO N=1,NP
-        A(N,M)=AA(N,M)
-        ENDDO
-        ENDDO
- 
-  100	FORMAT(30F7.3)	
-        RETURN
-        END subroutine
-        
-
-!****************************************************************
-      subroutine zgeco(a,lda,n,ipvt,rcond,z)
-!****************************************************************
-      integer lda,n,ipvt(1)
-      complex*16 a(lda,1),z(1)
-      double precision rcond
-!
-!     zgeco factors a complex*16 matrix by gaussian elimination
-!     and estimates the condition of the matrix.
-!
-!     if  rcond  is not needed, zgefa is slightly faster.
-!     to solve  a*x = b , follow zgeco by zgesl.
-!     to compute  inverse(a)*c , follow zgeco by zgesl.
-!     to compute  determinant(a) , follow zgeco by zgedi.
-!     to compute  inverse(a) , follow zgeco by zgedi.
-!
-!     on entry
-!
-!        a       complex*16(lda, n)
-!                the matrix to be factored.
-!
-!        lda     integer
-!                the leading dimension of the array  a .
-!
-!        n       integer
-!                the order of the matrix  a .
-!
-!     on return
-!
-!        a       an upper triangular matrix and the multipliers
-!                which were used to obtain it.
-!                the factorization can be written  a = l*u  where
-!                l  is a product of permutation and unit lower
-!                triangular matrices and  u  is upper triangular.
-!
-!        ipvt    integer(n)
-!                an integer vector of pivot indices.
-!
-!        rcond   double precision
-!                an estimate of the reciprocal condition of  a .
-!                for the system  a*x = b , relative perturbations
-!                in  a  and  b  of size  epsilon  may cause
-!                relative perturbations in  x  of size  epsilon/rcond .
-!                if  rcond  is so small that the logical expression
-!                           1.0 + rcond .eq. 1.0
-!                is true, then  a  may be singular to working
-!                precision.  in particular,  rcond  is zero  if
-!                exact singularity is detected or the estimate
-!                underflows.
-!
-!        z       complex*16(n)
-!                a work vector whose contents are usually unimportant.
-!                if  a  is close to a singular matrix, then  z  is
-!                an approximate null vector in the sense that
-!                norm(a*z) = rcond*norm(a)*norm(z) .
-!
-!     linpack. this version dated 08/14/78 .
-!     cleve moler, university of new mexico, argonne national lab.
-!
-!     subroutines and functions
-!
-!     linpack zgefa
-!     blas zaxpy,zdotc,zdscal,dzasum
-!     fortran dabs,dmax1,dcmplx,dconjg
-!
-!     internal variables
-!
-      complex*16 ek,t,wk,wkm!zdotc
-      double precision anorm,s,sm,ynorm!,dzasum
-      integer info,j,k,kb,kp1,l
-!
-      complex*16 zdum,zdum1,zdum2,csign1
-      double precision cabs1
-      double precision dreal,dimag
-      complex*16 zdumr,zdumi
-      dreal(zdumr) = zdumr
-      dimag(zdumi) = (0.0d0,-1.0d0)*zdumi
-      cabs1(zdum) = dabs(dreal(zdum)) + dabs(dimag(zdum))
-      csign1(zdum1,zdum2) = cabs1(zdum1)*(zdum2/cabs1(zdum2))
-!
-!     compute 1-norm of a
-!
-      anorm = 0.0d0
-      do 10 j = 1, n
-         anorm = dmax1(anorm,dzasum(n,a(1,j),1))
-   10 continue
-!
-!     factor
-!
-      call zgefa(a,lda,n,ipvt,info)
-!
-!     rcond = 1/(norm(a)*(estimate of norm(inverse(a)))) .
-!     estimate = norm(z)/norm(y) where  a*z = y  and  ctrans(a)*y = e .
-!     ctrans(a)  is the conjugate transpose of a .
-!     the components of  e  are chosen to cause maximum local
-!     growth in the elements of w  where  ctrans(u)*w = e .
-!     the vectors are frequently rescaled to avoid overflow.
-!
-!     solve ctrans(u)*w = e
-!
-      ek = (1.0d0,0.0d0)
-      do 20 j = 1, n
-         z(j) = (0.0d0,0.0d0)
-   20 continue
-      do 100 k = 1, n
-         if (cabs1(z(k)) .ne. 0.0d0) ek = csign1(ek,-z(k))
-         if (cabs1(ek-z(k)) .le. cabs1(a(k,k))) go to 30
-            s = cabs1(a(k,k))/cabs1(ek-z(k))
-            call zdscal(n,s,z,1)
-            ek = dcmplx(s,0.0d0)*ek
-   30    continue
-         wk = ek - z(k)
-         wkm = -ek - z(k)
-         s = cabs1(wk)
-         sm = cabs1(wkm)
-         if (cabs1(a(k,k)) .eq. 0.0d0) go to 40
-            wk = wk/dconjg(a(k,k))
-            wkm = wkm/dconjg(a(k,k))
-         go to 50
-   40    continue
-            wk = (1.0d0,0.0d0)
-            wkm = (1.0d0,0.0d0)
-   50    continue
-         kp1 = k + 1
-         if (kp1 .gt. n) go to 90
-            do 60 j = kp1, n
-               sm = sm + cabs1(z(j)+wkm*dconjg(a(k,j)))
-               z(j) = z(j) + wk*dconjg(a(k,j))
-               s = s + cabs1(z(j))
-   60       continue
-            if (s .ge. sm) go to 80
-               t = wkm - wk
-               wk = wkm
-               do 70 j = kp1, n
-                  z(j) = z(j) + t*dconjg(a(k,j))
-   70          continue
-   80       continue
-   90    continue
-         z(k) = wk
-  100 continue
-      s = 1.0d0/dzasum(n,z,1)
-      call zdscal(n,s,z,1)
-!
-!     solve ctrans(l)*y = w
-!
-      do 120 kb = 1, n
-         k = n + 1 - kb
-         if (k .lt. n) z(k) = z(k) + zdotc(n-k,a(k+1,k),1,z(k+1),1)
-         if (cabs1(z(k)) .le. 1.0d0) go to 110
-            s = 1.0d0/cabs1(z(k))
-            call zdscal(n,s,z,1)
-  110    continue
-         l = ipvt(k)
-         t = z(l)
-         z(l) = z(k)
-         z(k) = t
-  120 continue
-      s = 1.0d0/dzasum(n,z,1)
-      call zdscal(n,s,z,1)
-!
-      ynorm = 1.0d0
-!
-!     solve l*v = y
-!
-      do 140 k = 1, n
-         l = ipvt(k)
-         t = z(l)
-         z(l) = z(k)
-         z(k) = t
-         if (k .lt. n) call zaxpy(n-k,t,a(k+1,k),1,z(k+1),1)
-         if (cabs1(z(k)) .le. 1.0d0) go to 130
-            s = 1.0d0/cabs1(z(k))
-            call zdscal(n,s,z,1)
-            ynorm = s*ynorm
-  130    continue
-  140 continue
-      s = 1.0d0/dzasum(n,z,1)
-      call zdscal(n,s,z,1)
-      ynorm = s*ynorm
-!
-!     solve  u*z = v
-!
-      do 160 kb = 1, n
-         k = n + 1 - kb
-         if (cabs1(z(k)) .le. cabs1(a(k,k))) go to 150
-            s = cabs1(a(k,k))/cabs1(z(k))
-            call zdscal(n,s,z,1)
-            ynorm = s*ynorm
-  150    continue
-         if (cabs1(a(k,k)) .ne. 0.0d0) z(k) = z(k)/a(k,k)
-         if (cabs1(a(k,k)) .eq. 0.0d0) z(k) = (1.0d0,0.0d0)
-         t = -z(k)
-         call zaxpy(k-1,t,a(1,k),1,z(1),1)
-  160 continue
-!     make znorm = 1.0
-      s = 1.0d0/dzasum(n,z,1)
-      call zdscal(n,s,z,1)
-      ynorm = s*ynorm
-!
-      if (anorm .ne. 0.0d0) rcond = ynorm/anorm
-      if (anorm .eq. 0.0d0) rcond = 0.0d0
-      return
-      end subroutine
+    call zgedi(aa,lda,nn,ipvt,det,work,job)
 
 
-     
-!*******************************************************************
-      subroutine zgefa(a,lda,n,ipvt,info)
-!*******************************************************************
-      integer lda,n,ipvt(1),info
-      complex*16 a(lda,1)
-!
-!     zgefa factors a complex*16 matrix by gaussian elimination.
-!
-!     zgefa is usually called by zgeco, but it can be called
-!     directly with a saving in time if  rcond  is not needed.
-!     (time for zgeco) = (1 + 9/n)*(time for zgefa) .
-!
-!     on entry
-!
-!        a       complex*16(lda, n)
-!                the matrix to be factored.
-!
-!        lda     integer
-!                the leading dimension of the array  a .
-!
-!        n       integer
-!                the order of the matrix  a .
-!
-!     on return
-!
-!        a       an upper triangular matrix and the multipliers
-!                which were used to obtain it.
-!                the factorization can be written  a = l*u  where
-!                l  is a product of permutation and unit lower
-!                triangular matrices and  u  is upper triangular.
-!
-!        ipvt    integer(n)
-!                an integer vector of pivot indices.
-!
-!        info    integer
-!                = 0  normal value.
-!                = k  if  u(k,k) .eq. 0.0 .  this is not an error
-!                     condition for this subroutine, but it does
-!                     indicate that zgesl or zgedi will divide by zero
-!                     if called.  use  rcond  in zgeco for a reliable
-!                     indication of singularity.
-!
-!     linpack. this version dated 08/14/78 .
-!     cleve moler, university of new mexico, argonne national lab.
-!
-!     subroutines and functions
-!
-!     blas zaxpy,zscal,izamax
-!     fortran dabs
-!
-!     internal variables
-!
-      complex*16 t
-      integer j,k,kp1,l,nm1!izamax
-!
-      complex*16 zdum
-      double precision cabs1
-      double precision dreal,dimag
-      complex*16 zdumr,zdumi
-      dreal(zdumr) = zdumr
-      dimag(zdumi) = (0.0d0,-1.0d0)*zdumi
-      cabs1(zdum) = dabs(dreal(zdum)) + dabs(dimag(zdum))
-!
-!     gaussian elimination with partial pivoting
-!
-      info = 0
-      nm1 = n - 1
-      if (nm1 .lt. 1) go to 70
-      do 60 k = 1, nm1
-         kp1 = k + 1
-!
-!        find l = pivot index
-!
-         l = izamax(n-k+1,a(k,k),1) + k - 1
-         ipvt(k) = l
-!
-!        zero pivot implies this column already triangularized
-!
-         if (cabs1(a(l,k)) .eq. 0.0d0) go to 40
-!
-!           interchange if necessary
-!
-            if (l .eq. k) go to 10
-               t = a(l,k)
-               a(l,k) = a(k,k)
-               a(k,k) = t
-   10       continue
-!
-!           compute multipliers
-!
-            t = -(1.0d0,0.0d0)/a(k,k)
-            call zscal(n-k,t,a(k+1,k),1)
-!
-!           row elimination with column indexing
-!
-            do 30 j = kp1, n
-               t = a(l,j)
-               if (l .eq. k) go to 20
-                  a(l,j) = a(k,j)
-                  a(k,j) = t
-   20          continue
-               call zaxpy(n-k,t,a(k+1,k),1,a(k+1,j),1)
-   30       continue
-         go to 50
-   40    continue
-            info = k
-   50    continue
-   60 continue
-   70 continue
-      ipvt(n) = n
-      if (cabs1(a(n,n)) .eq. 0.0d0) info = n
-      return
-      end subroutine
+    DO M=1,NP
+       DO N=1,NP
+          A(N,M)=AA(N,M)
+       ENDDO
+    ENDDO
 
-      double complex function zdotc(n,zx,incx,zy,incy)
-!c
-!c     forms the dot product of a vector.
-!c     jack dongarra, 3/11/78.
-!c     modified 12/3/93, array(1) declarations changed to array(*)
-!c
-      double complex zx(*),zy(*),ztemp
-      integer i,incx,incy,ix,iy,n
-      ztemp = (0.0d0,0.0d0)
-      zdotc = (0.0d0,0.0d0)
-      if(n.le.0)return
-      if(incx.eq.1.and.incy.eq.1)go to 20
-!c
-!c        code for unequal increments or equal increments
-!c          not equal to 1
-!c
-      ix = 1
-      iy = 1
-      if(incx.lt.0)ix = (-n+1)*incx + 1
-      if(incy.lt.0)iy = (-n+1)*incy + 1
-      do 10 i = 1,n
-        ztemp = ztemp + dconjg(zx(ix))*zy(iy)
-        ix = ix + incx
-        iy = iy + incy
-   10 continue
-      zdotc = ztemp
-      return
-!c
-!c        code for both increments equal to 1
-!c
-   20 do 30 i = 1,n
-        ztemp = ztemp + dconjg(zx(i))*zy(i)
-   30 continue
-      zdotc = ztemp
-      return
-      end function
-
-      subroutine  zdscal(n,da,zx,incx)
-!c
-!c     scales a vector by a constant.
-!c     jack dongarra, 3/11/78.
-!c     modified 3/93 to return if incx .le. 0.
-!c     modified 12/3/93, array(1) declarations changed to array(*)
-!c
-      double complex zx(*)
-      double precision da
-      integer i,incx,ix,n
-!c
-      if( n.le.0 .or. incx.le.0 )return
-      if(incx.eq.1)go to 20
-!c
-!c        code for increment not equal to 1
-!c
-      ix = 1
-      do 10 i = 1,n
-        zx(ix) = dcmplx(da,0.0d0)*zx(ix)
-        ix = ix + incx
-   10 continue
-      return
-!c
-!c        code for increment equal to 1
-!c
-   20 do 30 i = 1,n
-        zx(i) = dcmplx(da,0.0d0)*zx(i)
-   30 continue
-      return
-      end subroutine
-
-      subroutine zaxpy(n,za,zx,incx,zy,incy)
-!c
-!c     constant times a vector plus a vector.
-!c     jack dongarra, 3/11/78.
-!c     modified 12/3/93, array(1) declarations changed to array(*)
-!c
-      double complex zx(*),zy(*),za
-      integer i,incx,incy,ix,iy,n
-      !double precision dcabs1
-      if(n.le.0)return
-      if (dcabs1(za) .eq. 0.0d0) return
-      if (incx.eq.1.and.incy.eq.1)go to 20
-!c
-!c        code for unequal increments or equal increments
-!c          not equal to 1
-!c
-      ix = 1
-      iy = 1
-      if(incx.lt.0)ix = (-n+1)*incx + 1
-      if(incy.lt.0)iy = (-n+1)*incy + 1
-      do 10 i = 1,n
-        zy(iy) = zy(iy) + za*zx(ix)
-        ix = ix + incx
-        iy = iy + incy
-   10 continue
-      return
-!c
-!c        code for both increments equal to 1
-!c
-   20 do 30 i = 1,n
-        zy(i) = zy(i) + za*zx(i)
-   30 continue
-      return
-      end subroutine
+100 FORMAT(30F7.3)	
+    RETURN
+  END subroutine INV1
 
 
-      integer function izamax(n,zx,incx)
-!c
-!c     finds the index of element having max. absolute value.
-!c     jack dongarra, 1/15/85.
-!c     modified 3/93 to return if incx .le. 0.
-!c     modified 12/3/93, array(1) declarations changed to array(*)
-!c
-      double complex zx(*)
-      double precision smax
-      integer i,incx,ix,n
-      !double precision dcabs1
-!c
-      izamax = 0
-      if( n.lt.1 .or. incx.le.0 )return
-      izamax = 1
-      if(n.eq.1)return
-      if(incx.eq.1)go to 20
-!c
-!c        code for increment not equal to 1
-!c
-      ix = 1
-      smax = dcabs1(zx(1))
-      ix = ix + incx
-      do 10 i = 2,n
-         if(dcabs1(zx(ix)).le.smax) go to 5
-         izamax = i
-         smax = dcabs1(zx(ix))
-    5    ix = ix + incx
-   10 continue
-      return
-!!c
-!c        code for increment equal to 1
-!c
-   20 smax = dcabs1(zx(1))
-      do 30 i = 2,n
-         if(dcabs1(zx(i)).le.smax) go to 30
-         izamax = i
-         smax = dcabs1(zx(i))
-   30 continue
-      return
-      end function
-
-      subroutine  zscal(n,za,zx,incx)
-!c
-!c     scales a vector by a constant.
-!    jack dongarra, 3/11/78.
-!c     modified 3/93 to return if incx .le. 0.
-!c     modified 12/3/93, array(1) declarations changed to array(*)
-!c
-      double complex za,zx(*)
-      integer i,incx,ix,n
-!c
-      if( n.le.0 .or. incx.le.0 )return
-      if(incx.eq.1)go to 20
-!c
-!c        code for increment not equal to 1
-!c
-      ix = 1
-      do 10 i = 1,n
-        zx(ix) = za*zx(ix)
-        ix = ix + incx
-   10 continue
-      return
-!c
-!c        code for increment equal to 1
-!c
-   20 do 30 i = 1,n
-        zx(i) = za*zx(i)
-   30 continue
-      return
-      end subroutine
-
-      double precision function dcabs1(z)
-      double complex z,zz
-      double precision t(2)
-      equivalence (zz,t(1))
-      zz = z
-      dcabs1 = dabs(t(1)) + dabs(t(2))
-      return
-      end function
-
-      double precision function dzasum(n,zx,incx)
-!c
-!c     takes the sum of the absolute values.
-!c     jack dongarra, 3/11/78.
-!!c     modified 3/93 to return if incx .le. 0.
-!c     modified 12/3/93, array(1) declarations changed to array(*)
-!c
-      double complex zx(*)
-      double precision stemp!,dcabs1
-      integer i,incx,ix,n
-!c
-      dzasum = 0.0d0
-      stemp = 0.0d0
-      if( n.le.0 .or. incx.le.0 )return
-      if(incx.eq.1)go to 20
-!c
-!c        code for increment not equal to 1
-!c
-      ix = 1
-      do 10 i = 1,n
-        stemp = stemp + dcabs1(zx(ix))
-        ix = ix + incx
-   10 continue
-      dzasum = stemp
-      return
-!c
-!c        code for increment equal to 1
-!c
-   20 do 30 i = 1,n
-        stemp = stemp + dcabs1(zx(i))
-   30 continue
-      dzasum = stemp
-      return
-      end function
-
-!c***************************************************
-      subroutine zgedi(a,lda,n,ipvt,det,work,job)
-!c***************************************************
-      integer lda,ipvt(1),job
-      integer*4 n
-      complex*16 a(lda,1),det(2),work(1)
-!c
-!c     zgedi computes the determinant and inverse of a matrix
-!c     using the factors computed by zgeco or zgefa.
-!c
-!c     on entry
-!c
-!c        a       complex*16(lda, n)
-!c                the output from zgeco or zgefa.
-!c
-!c        lda     integer
-!c                the leading dimension of the array  a .
-!c
-!c        n       integer
-!c                the order of the matrix  a .
-!c
-!c        ipvt    integer(n)
-!c                the pivot vector from zgeco or zgefa.
-!c
-!c        work    complex*16(n)
-!c                work vector.  contents destroyed.
-!c
-!c        job     integer
-!c                = 11   both determinant and inverse.
-!c                = 01   inverse only.
-!c                = 10   determinant only.
-!c
-!c     on return
-!c
-!c        a       inverse of original matrix if requested.
-!c                otherwise unchanged.
-!c
-!c        det     complex*16(2)
-!c                determinant of original matrix if requested.
-!c                otherwise not referenced.
-!c                determinant = det(1) * 10.0**det(2)
-!c                with  1.0 .le. cabs1(det(1)) .lt. 10.0
-!c                or  det(1) .eq. 0.0 .
-!c
-!c     error condition
-!c
-!c        a division by zero will occur if the input factor contains
-!c        a zero on the diagonal and the inverse is requested.
-!c        it will not occur if the subroutines are called correctly
-!c        and if zgeco has set rcond .gt. 0.0 or zgefa has set
-!c        info .eq. 0 .
-!
-!c     linpack. this version dated 08/14/78 .
-!c     cleve moler, university of new mexico, argonne national lab.
-!c
-!c     subroutines and functions
-!c
-!c     blas zaxpy,zscal,zswap
-!c     fortran dabs,dcmplx,mod
-!c
-!c     internal variables
-!c
-      complex*16 t
-      double precision ten
-      integer i,j,k,kb,kp1,l,nm1
-!c
-      complex*16 zdum
-      double precision cabs1
-      double precision dreal,dimag
-      complex*16 zdumr,zdumi
-      dreal(zdumr) = zdumr
-      dimag(zdumi) = (0.0d0,-1.0d0)*zdumi
-      cabs1(zdum) = dabs(dreal(zdum)) + dabs(dimag(zdum))
-!c
-!c     compute determinant
-!c
-      if (job/10 .eq. 0) go to 70
-         det(1) = (1.0d0,0.0d0)
-         det(2) = (0.0d0,0.0d0)
-         ten = 10.0d0
-         do 50 i = 1, n
-            if (ipvt(i) .ne. i) det(1) = -det(1)
-            det(1) = a(i,i)*det(1)
-!c        ...exit
-            if (cabs1(det(1)) .eq. 0.0d0) go to 60
-   10       if (cabs1(det(1)) .ge. 1.0d0) go to 20
-               det(1) = dcmplx(ten,0.0d0)*det(1)
-               det(2) = det(2) - (1.0d0,0.0d0)
-            go to 10
-   20       continue
-   30       if (cabs1(det(1)) .lt. ten) go to 40
-               det(1) = det(1)/dcmplx(ten,0.0d0)
-               det(2) = det(2) + (1.0d0,0.0d0)
-            go to 30
-   40       continue
-   50    continue
-   60    continue
-   70 continue
-!c
-!c     compute inverse(u)
-!c
-      if (mod(job,10) .eq. 0) go to 150
-         do 100 k = 1, n
-            a(k,k) = (1.0d0,0.0d0)/a(k,k)
-            t = -a(k,k)
-            call zscal(k-1,t,a(1,k),1)
-            kp1 = k + 1
-            if (n .lt. kp1) go to 90
-            do 80 j = kp1, n
-               t = a(k,j)
-               a(k,j) = (0.0d0,0.0d0)
-               call zaxpy(k,t,a(1,k),1,a(1,j),1)
-   80       continue
-   90       continue
-  100    continue
-!c
-!c        form inverse(u)*inverse(l)
-!c
-         nm1 = n - 1
-         if (nm1 .lt. 1) go to 140
-         do 130 kb = 1, nm1
-            k = n - kb
-            kp1 = k + 1
-            do 110 i = kp1, n
-               work(i) = a(i,k)
-               a(i,k) = (0.0d0,0.0d0)
-  110       continue
-            do 120 j = kp1, n
-               t = work(j)
-               call zaxpy(n,t,a(1,j),1,a(1,k),1)
-  120       continue
-            l = ipvt(k)
-            if (l .ne. k) call zswap(n,a(1,k),1,a(1,l),1)
-  130    continue
-  140    continue
-  150 continue
-      return
-      end subroutine
-
-      SUBROUTINE ZSWAP(N,ZX,INCX,ZY,INCY)
-!*     .. Scalar Arguments ..
-      INTEGER INCX,INCY,N
-!*     ..
-!*     .. Array Arguments ..
-      DOUBLE COMPLEX ZX(*),ZY(*)
-!*     ..
-!*
-!*  Purpose
-!*  =======
-!*
-!*     ZSWAP interchanges two vectors.
-!*
-!*  Further Details
-!*  ===============
-!*
-!*     jack dongarra, 3/11/78.
-!*     modified 12/3/93, array(1) declarations changed to array(*)
-!*
-!*  =====================================================================
-!*
-!*     .. Local Scalars ..
-      DOUBLE COMPLEX ZTEMP
-      INTEGER I,IX,IY
-!*     ..
-      IF (N.LE.0) RETURN
-      IF (INCX.EQ.1 .AND. INCY.EQ.1) THEN
-!*
-!*       code for both increments equal to 1
-         DO I = 1,N
-            ZTEMP = ZX(I)
-            ZX(I) = ZY(I)
-            ZY(I) = ZTEMP
-         END DO
-      ELSE
-!*
-!*       code for unequal increments or equal increments not equal
-!*         to 1
-!*
-         IX = 1
-         IY = 1
-         IF (INCX.LT.0) IX = (-N+1)*INCX + 1
-         IF (INCY.LT.0) IY = (-N+1)*INCY + 1
-         DO I = 1,N
-            ZTEMP = ZX(IX)
-            ZX(IX) = ZY(IY)
-            ZY(IY) = ZTEMP
-            IX = IX + INCX
-            IY = IY + INCY
-         END DO
-      END IF
-      RETURN
-      END subroutine
+  !****************************************************************
+  subroutine zgeco(a,lda,n,ipvt,rcond,z)
+    !****************************************************************
+    integer lda,n,ipvt(1)
+    complex*16 a(lda,1),z(1)
+    double precision rcond
+    !
+    !     zgeco factors a complex*16 matrix by gaussian elimination
+    !     and estimates the condition of the matrix.
+    !
+    !     if  rcond  is not needed, zgefa is slightly faster.
+    !     to solve  a*x = b , follow zgeco by zgesl.
+    !     to compute  inverse(a)*c , follow zgeco by zgesl.
+    !     to compute  determinant(a) , follow zgeco by zgedi.
+    !     to compute  inverse(a) , follow zgeco by zgedi.
+    !
+    !     on entry
+    !
+    !        a       complex*16(lda, n)
+    !                the matrix to be factored.
+    !
+    !        lda     integer
+    !                the leading dimension of the array  a .
+    !
+    !        n       integer
+    !                the order of the matrix  a .
+    !
+    !     on return
+    !
+    !        a       an upper triangular matrix and the multipliers
+    !                which were used to obtain it.
+    !                the factorization can be written  a = l*u  where
+    !                l  is a product of permutation and unit lower
+    !                triangular matrices and  u  is upper triangular.
+    !
+    !        ipvt    integer(n)
+    !                an integer vector of pivot indices.
+    !
+    !        rcond   double precision
+    !                an estimate of the reciprocal condition of  a .
+    !                for the system  a*x = b , relative perturbations
+    !                in  a  and  b  of size  epsilon  may cause
+    !                relative perturbations in  x  of size  epsilon/rcond .
+    !                if  rcond  is so small that the logical expression
+    !                           1.0 + rcond .eq. 1.0
+    !                is true, then  a  may be singular to working
+    !                precision.  in particular,  rcond  is zero  if
+    !                exact singularity is detected or the estimate
+    !                underflows.
+    !
+    !        z       complex*16(n)
+    !                a work vector whose contents are usually unimportant.
+    !                if  a  is close to a singular matrix, then  z  is
+    !                an approximate null vector in the sense that
+    !                norm(a*z) = rcond*norm(a)*norm(z) .
+    !
+    !     linpack. this version dated 08/14/78 .
+    !     cleve moler, university of new mexico, argonne national lab.
+    !
+    !     subroutines and functions
+    !
+    !     linpack zgefa
+    !     blas zaxpy,zdotc,zdscal,dzasum
+    !     fortran dabs,dmax1,dcmplx,dconjg
+    !
+    !     internal variables
+    !
+    complex*16 ek,t,wk,wkm!zdotc
+    double precision anorm,s,sm,ynorm!,dzasum
+    integer info,j,k,kb,kp1,l
+    !
+    complex*16 zdum,zdum1,zdum2,csign1
+    double precision cabs1
+    double precision dreal,dimag
+    complex*16 zdumr,zdumi
+    dreal(zdumr) = zdumr
+    dimag(zdumi) = (0.0d0,-1.0d0)*zdumi
+    cabs1(zdum) = dabs(dreal(zdum)) + dabs(dimag(zdum))
+    csign1(zdum1,zdum2) = cabs1(zdum1)*(zdum2/cabs1(zdum2))
+    !
+    !     compute 1-norm of a
+    !
+    anorm = 0.0d0
+    do 10 j = 1, n
+       anorm = dmax1(anorm,dzasum(n,a(1,j),1))
+10     continue
+       !
+       !     factor
+       !
+       call zgefa(a,lda,n,ipvt,info)
+       !
+       !     rcond = 1/(norm(a)*(estimate of norm(inverse(a)))) .
+       !     estimate = norm(z)/norm(y) where  a*z = y  and  ctrans(a)*y = e .
+       !     ctrans(a)  is the conjugate transpose of a .
+       !     the components of  e  are chosen to cause maximum local
+       !     growth in the elements of w  where  ctrans(u)*w = e .
+       !     the vectors are frequently rescaled to avoid overflow.
+       !
+       !     solve ctrans(u)*w = e
+       !
+       ek = (1.0d0,0.0d0)
+       do 20 j = 1, n
+          z(j) = (0.0d0,0.0d0)
+20        continue
+          do 100 k = 1, n
+             if (cabs1(z(k)) .ne. 0.0d0) ek = csign1(ek,-z(k))
+             if (cabs1(ek-z(k)) .le. cabs1(a(k,k))) go to 30
+             s = cabs1(a(k,k))/cabs1(ek-z(k))
+             call zdscal(n,s,z,1)
+             ek = dcmplx(s,0.0d0)*ek
+30           continue
+             wk = ek - z(k)
+             wkm = -ek - z(k)
+             s = cabs1(wk)
+             sm = cabs1(wkm)
+             if (cabs1(a(k,k)) .eq. 0.0d0) go to 40
+             wk = wk/dconjg(a(k,k))
+             wkm = wkm/dconjg(a(k,k))
+             go to 50
+40           continue
+             wk = (1.0d0,0.0d0)
+             wkm = (1.0d0,0.0d0)
+50           continue
+             kp1 = k + 1
+             if (kp1 .gt. n) go to 90
+             do 60 j = kp1, n
+                sm = sm + cabs1(z(j)+wkm*dconjg(a(k,j)))
+                z(j) = z(j) + wk*dconjg(a(k,j))
+                s = s + cabs1(z(j))
+60              continue
+                if (s .ge. sm) go to 80
+                t = wkm - wk
+                wk = wkm
+                do 70 j = kp1, n
+                   z(j) = z(j) + t*dconjg(a(k,j))
+70                 continue
+80                 continue
+90                 continue
+                   z(k) = wk
+100                continue
+                   s = 1.0d0/dzasum(n,z,1)
+                   call zdscal(n,s,z,1)
+                   !
+                   !     solve ctrans(l)*y = w
+                   !
+                   do 120 kb = 1, n
+                      k = n + 1 - kb
+                      if (k .lt. n) z(k) = z(k) + zdotc(n-k,a(k+1,k),1,z(k+1),1)
+                      if (cabs1(z(k)) .le. 1.0d0) go to 110
+                      s = 1.0d0/cabs1(z(k))
+                      call zdscal(n,s,z,1)
+110                   continue
+                      l = ipvt(k)
+                      t = z(l)
+                      z(l) = z(k)
+                      z(k) = t
+120                   continue
+                      s = 1.0d0/dzasum(n,z,1)
+                      call zdscal(n,s,z,1)
+                      !
+                      ynorm = 1.0d0
+                      !
+                      !     solve l*v = y
+                      !
+                      do 140 k = 1, n
+                         l = ipvt(k)
+                         t = z(l)
+                         z(l) = z(k)
+                         z(k) = t
+                         if (k .lt. n) call zaxpy(n-k,t,a(k+1,k),1,z(k+1),1)
+                         if (cabs1(z(k)) .le. 1.0d0) go to 130
+                         s = 1.0d0/cabs1(z(k))
+                         call zdscal(n,s,z,1)
+                         ynorm = s*ynorm
+130                      continue
+140                      continue
+                         s = 1.0d0/dzasum(n,z,1)
+                         call zdscal(n,s,z,1)
+                         ynorm = s*ynorm
+                         !
+                         !     solve  u*z = v
+                         !
+                         do 160 kb = 1, n
+                            k = n + 1 - kb
+                            if (cabs1(z(k)) .le. cabs1(a(k,k))) go to 150
+                            s = cabs1(a(k,k))/cabs1(z(k))
+                            call zdscal(n,s,z,1)
+                            ynorm = s*ynorm
+150                         continue
+                            if (cabs1(a(k,k)) .ne. 0.0d0) z(k) = z(k)/a(k,k)
+                            if (cabs1(a(k,k)) .eq. 0.0d0) z(k) = (1.0d0,0.0d0)
+                            t = -z(k)
+                            call zaxpy(k-1,t,a(1,k),1,z(1),1)
+160                         continue
+                            !     make znorm = 1.0
+                            s = 1.0d0/dzasum(n,z,1)
+                            call zdscal(n,s,z,1)
+                            ynorm = s*ynorm
+                            !
+                            if (anorm .ne. 0.0d0) rcond = ynorm/anorm
+                            if (anorm .eq. 0.0d0) rcond = 0.0d0
+                            return
+                          end subroutine
 
 
+
+                          !*******************************************************************
+                          subroutine zgefa(a,lda,n,ipvt,info)
+                            !*******************************************************************
+                            integer lda,n,ipvt(1),info
+                            complex*16 a(lda,1)
+                            !
+                            !     zgefa factors a complex*16 matrix by gaussian elimination.
+                            !
+                            !     zgefa is usually called by zgeco, but it can be called
+                            !     directly with a saving in time if  rcond  is not needed.
+                            !     (time for zgeco) = (1 + 9/n)*(time for zgefa) .
+                            !
+                            !     on entry
+                            !
+                            !        a       complex*16(lda, n)
+                            !                the matrix to be factored.
+                            !
+                            !        lda     integer
+                            !                the leading dimension of the array  a .
+                            !
+                            !        n       integer
+                            !                the order of the matrix  a .
+                            !
+                            !     on return
+                            !
+                            !        a       an upper triangular matrix and the multipliers
+                            !                which were used to obtain it.
+                            !                the factorization can be written  a = l*u  where
+                            !                l  is a product of permutation and unit lower
+                            !                triangular matrices and  u  is upper triangular.
+                            !
+                            !        ipvt    integer(n)
+                            !                an integer vector of pivot indices.
+                            !
+                            !        info    integer
+                            !                = 0  normal value.
+                            !                = k  if  u(k,k) .eq. 0.0 .  this is not an error
+                            !                     condition for this subroutine, but it does
+                            !                     indicate that zgesl or zgedi will divide by zero
+                            !                     if called.  use  rcond  in zgeco for a reliable
+                            !                     indication of singularity.
+                            !
+                            !     linpack. this version dated 08/14/78 .
+                            !     cleve moler, university of new mexico, argonne national lab.
+                            !
+                            !     subroutines and functions
+                            !
+                            !     blas zaxpy,zscal,izamax
+                            !     fortran dabs
+                            !
+                            !     internal variables
+                            !
+                            complex*16 t
+                            integer j,k,kp1,l,nm1!izamax
+                            !
+                            complex*16 zdum
+                            double precision cabs1
+                            double precision dreal,dimag
+                            complex*16 zdumr,zdumi
+                            dreal(zdumr) = zdumr
+                            dimag(zdumi) = (0.0d0,-1.0d0)*zdumi
+                            cabs1(zdum) = dabs(dreal(zdum)) + dabs(dimag(zdum))
+                            !
+                            !     gaussian elimination with partial pivoting
+                            !
+                            info = 0
+                            nm1 = n - 1
+                            if (nm1 .lt. 1) go to 70
+                            do 60 k = 1, nm1
+                               kp1 = k + 1
+                               !
+                               !        find l = pivot index
+                               !
+                               l = izamax(n-k+1,a(k,k),1) + k - 1
+                               ipvt(k) = l
+                               !
+                               !        zero pivot implies this column already triangularized
+                               !
+                               if (cabs1(a(l,k)) .eq. 0.0d0) go to 40
+                               !
+                               !           interchange if necessary
+                               !
+                               if (l .eq. k) go to 10
+                               t = a(l,k)
+                               a(l,k) = a(k,k)
+                               a(k,k) = t
+10                             continue
+                               !
+                               !           compute multipliers
+                               !
+                               t = -(1.0d0,0.0d0)/a(k,k)
+                               call zscal(n-k,t,a(k+1,k),1)
+                               !
+                               !           row elimination with column indexing
+                               !
+                               do 30 j = kp1, n
+                                  t = a(l,j)
+                                  if (l .eq. k) go to 20
+                                  a(l,j) = a(k,j)
+                                  a(k,j) = t
+20                                continue
+                                  call zaxpy(n-k,t,a(k+1,k),1,a(k+1,j),1)
+30                                continue
+                                  go to 50
+40                                continue
+                                  info = k
+50                                continue
+60                                continue
+70                                continue
+                                  ipvt(n) = n
+                                  if (cabs1(a(n,n)) .eq. 0.0d0) info = n
+                                  return
+                                end subroutine
+
+                                double complex function zdotc(n,zx,incx,zy,incy)
+                                  !c
+                                  !c     forms the dot product of a vector.
+                                  !c     jack dongarra, 3/11/78.
+                                  !c     modified 12/3/93, array(1) declarations changed to array(*)
+                                  !c
+                                  double complex zx(*),zy(*),ztemp
+                                  integer i,incx,incy,ix,iy,n
+                                  ztemp = (0.0d0,0.0d0)
+                                  zdotc = (0.0d0,0.0d0)
+                                  if(n.le.0)return
+                                  if(incx.eq.1.and.incy.eq.1)go to 20
+                                  !c
+                                  !c        code for unequal increments or equal increments
+                                  !c          not equal to 1
+                                  !c
+                                  ix = 1
+                                  iy = 1
+                                  if(incx.lt.0)ix = (-n+1)*incx + 1
+                                  if(incy.lt.0)iy = (-n+1)*incy + 1
+                                  do 10 i = 1,n
+                                     ztemp = ztemp + dconjg(zx(ix))*zy(iy)
+                                     ix = ix + incx
+                                     iy = iy + incy
+10                                   continue
+                                     zdotc = ztemp
+                                     return
+                                     !c
+                                     !c        code for both increments equal to 1
+                                     !c
+20                                   do 30 i = 1,n
+                                        ztemp = ztemp + dconjg(zx(i))*zy(i)
+30                                      continue
+                                        zdotc = ztemp
+                                        return
+                                      end function
+
+                                      subroutine  zdscal(n,da,zx,incx)
+                                        !c
+                                        !c     scales a vector by a constant.
+                                        !c     jack dongarra, 3/11/78.
+                                        !c     modified 3/93 to return if incx .le. 0.
+                                        !c     modified 12/3/93, array(1) declarations changed to array(*)
+                                        !c
+                                        double complex zx(*)
+                                        double precision da
+                                        integer i,incx,ix,n
+                                        !c
+                                        if( n.le.0 .or. incx.le.0 )return
+                                        if(incx.eq.1)go to 20
+                                        !c
+                                        !c        code for increment not equal to 1
+                                        !c
+                                        ix = 1
+                                        do 10 i = 1,n
+                                           zx(ix) = dcmplx(da,0.0d0)*zx(ix)
+                                           ix = ix + incx
+10                                         continue
+                                           return
+                                           !c
+                                           !c        code for increment equal to 1
+                                           !c
+20                                         do 30 i = 1,n
+                                              zx(i) = dcmplx(da,0.0d0)*zx(i)
+30                                            continue
+                                              return
+                                            end subroutine
+
+                                            subroutine zaxpy(n,za,zx,incx,zy,incy)
+                                              !c
+                                              !c     constant times a vector plus a vector.
+                                              !c     jack dongarra, 3/11/78.
+                                              !c     modified 12/3/93, array(1) declarations changed to array(*)
+                                              !c
+                                              double complex zx(*),zy(*),za
+                                              integer i,incx,incy,ix,iy,n
+                                              !double precision dcabs1
+                                              if(n.le.0)return
+                                              if (dcabs1(za) .eq. 0.0d0) return
+                                              if (incx.eq.1.and.incy.eq.1)go to 20
+                                              !c
+                                              !c        code for unequal increments or equal increments
+                                              !c          not equal to 1
+                                              !c
+                                              ix = 1
+                                              iy = 1
+                                              if(incx.lt.0)ix = (-n+1)*incx + 1
+                                              if(incy.lt.0)iy = (-n+1)*incy + 1
+                                              do 10 i = 1,n
+                                                 zy(iy) = zy(iy) + za*zx(ix)
+                                                 ix = ix + incx
+                                                 iy = iy + incy
+10                                               continue
+                                                 return
+                                                 !c
+                                                 !c        code for both increments equal to 1
+                                                 !c
+20                                               do 30 i = 1,n
+                                                    zy(i) = zy(i) + za*zx(i)
+30                                                  continue
+                                                    return
+                                                  end subroutine
+
+
+                                                  integer function izamax(n,zx,incx)
+                                                    !c
+                                                    !c     finds the index of element having max. absolute value.
+                                                    !c     jack dongarra, 1/15/85.
+                                                    !c     modified 3/93 to return if incx .le. 0.
+                                                    !c     modified 12/3/93, array(1) declarations changed to array(*)
+                                                    !c
+                                                    double complex zx(*)
+                                                    double precision smax
+                                                    integer i,incx,ix,n
+                                                    !double precision dcabs1
+                                                    !c
+                                                    izamax = 0
+                                                    if( n.lt.1 .or. incx.le.0 )return
+                                                    izamax = 1
+                                                    if(n.eq.1)return
+                                                    if(incx.eq.1)go to 20
+                                                    !c
+                                                    !c        code for increment not equal to 1
+                                                    !c
+                                                    ix = 1
+                                                    smax = dcabs1(zx(1))
+                                                    ix = ix + incx
+                                                    do 10 i = 2,n
+                                                       if(dcabs1(zx(ix)).le.smax) go to 5
+                                                       izamax = i
+                                                       smax = dcabs1(zx(ix))
+5                                                      ix = ix + incx
+10                                                     continue
+                                                       return
+                                                       !!c
+                                                       !c        code for increment equal to 1
+                                                       !c
+20                                                     smax = dcabs1(zx(1))
+                                                       do 30 i = 2,n
+                                                          if(dcabs1(zx(i)).le.smax) go to 30
+                                                          izamax = i
+                                                          smax = dcabs1(zx(i))
+30                                                        continue
+                                                          return
+                                                        end function
+
+                                                        subroutine  zscal(n,za,zx,incx)
+                                                          !c
+                                                          !c     scales a vector by a constant.
+                                                          !    jack dongarra, 3/11/78.
+                                                          !c     modified 3/93 to return if incx .le. 0.
+                                                          !c     modified 12/3/93, array(1) declarations changed to array(*)
+                                                          !c
+                                                          double complex za,zx(*)
+                                                          integer i,incx,ix,n
+                                                          !c
+                                                          if( n.le.0 .or. incx.le.0 )return
+                                                          if(incx.eq.1)go to 20
+                                                          !c
+                                                          !c        code for increment not equal to 1
+                                                          !c
+                                                          ix = 1
+                                                          do 10 i = 1,n
+                                                             zx(ix) = za*zx(ix)
+                                                             ix = ix + incx
+10                                                           continue
+                                                             return
+                                                             !c
+                                                             !c        code for increment equal to 1
+                                                             !c
+20                                                           do 30 i = 1,n
+                                                                zx(i) = za*zx(i)
+30                                                              continue
+                                                                return
+                                                              end subroutine
+
+                                                              double precision function dcabs1(z)
+                                                                double complex z,zz
+                                                                double precision t(2)
+                                                                equivalence (zz,t(1))
+                                                                zz = z
+                                                                dcabs1 = dabs(t(1)) + dabs(t(2))
+                                                                return
+                                                              end function dcabs1
+
+                                                              double precision function dzasum(n,zx,incx)
+                                                                !c
+                                                                !c     takes the sum of the absolute values.
+                                                                !c     jack dongarra, 3/11/78.
+                                                                !!c     modified 3/93 to return if incx .le. 0.
+                                                                !c     modified 12/3/93, array(1) declarations changed to array(*)
+                                                                !c
+                                                                double complex zx(*)
+                                                                double precision stemp!,dcabs1
+                                                                integer i,incx,ix,n
+                                                                !c
+                                                                dzasum = 0.0d0
+                                                                stemp = 0.0d0
+                                                                if( n.le.0 .or. incx.le.0 )return
+                                                                if(incx.eq.1)go to 20
+                                                                !c
+                                                                !c        code for increment not equal to 1
+                                                                !c
+                                                                ix = 1
+                                                                do 10 i = 1,n
+                                                                   stemp = stemp + dcabs1(zx(ix))
+                                                                   ix = ix + incx
+10                                                                 continue
+                                                                   dzasum = stemp
+                                                                   return
+                                                                   !c
+                                                                   !c        code for increment equal to 1
+                                                                   !c
+20                                                                 do 30 i = 1,n
+                                                                      stemp = stemp + dcabs1(zx(i))
+30                                                                    continue
+                                                                      dzasum = stemp
+                                                                      return
+                                                                    end function
+
+                                                                    !c***************************************************
+                                                                    subroutine zgedi(a,lda,n,ipvt,det,work,job)
+                                                                      !c***************************************************
+                                                                      integer lda,ipvt(1),job
+                                                                      integer*4 n
+                                                                      complex*16 a(lda,1),det(2),work(1)
+                                                                      !c
+                                                                      !c     zgedi computes the determinant and inverse of a matrix
+                                                                      !c     using the factors computed by zgeco or zgefa.
+                                                                      !c
+                                                                      !c     on entry
+                                                                      !c
+                                                                      !c        a       complex*16(lda, n)
+                                                                      !c                the output from zgeco or zgefa.
+                                                                      !c
+                                                                      !c        lda     integer
+                                                                      !c                the leading dimension of the array  a .
+                                                                      !c
+                                                                      !c        n       integer
+                                                                      !c                the order of the matrix  a .
+                                                                      !c
+                                                                      !c        ipvt    integer(n)
+                                                                      !c                the pivot vector from zgeco or zgefa.
+                                                                      !c
+                                                                      !c        work    complex*16(n)
+                                                                      !c                work vector.  contents destroyed.
+                                                                      !c
+                                                                      !c        job     integer
+                                                                      !c                = 11   both determinant and inverse.
+                                                                      !c                = 01   inverse only.
+                                                                      !c                = 10   determinant only.
+                                                                      !c
+                                                                      !c     on return
+                                                                      !c
+                                                                      !c        a       inverse of original matrix if requested.
+                                                                      !c                otherwise unchanged.
+                                                                      !c
+                                                                      !c        det     complex*16(2)
+                                                                      !c                determinant of original matrix if requested.
+                                                                      !c                otherwise not referenced.
+                                                                      !c                determinant = det(1) * 10.0**det(2)
+                                                                      !c                with  1.0 .le. cabs1(det(1)) .lt. 10.0
+                                                                      !c                or  det(1) .eq. 0.0 .
+                                                                      !c
+                                                                      !c     error condition
+                                                                      !c
+                                                                      !c        a division by zero will occur if the input factor contains
+                                                                      !c        a zero on the diagonal and the inverse is requested.
+                                                                      !c        it will not occur if the subroutines are called correctly
+                                                                      !c        and if zgeco has set rcond .gt. 0.0 or zgefa has set
+                                                                      !c        info .eq. 0 .
+                                                                      !
+                                                                      !c     linpack. this version dated 08/14/78 .
+                                                                      !c     cleve moler, university of new mexico, argonne national lab.
+                                                                      !c
+                                                                      !c     subroutines and functions
+                                                                      !c
+                                                                      !c     blas zaxpy,zscal,zswap
+                                                                      !c     fortran dabs,dcmplx,mod
+                                                                      !c
+                                                                      !c     internal variables
+                                                                      !c
+                                                                      complex*16 t
+                                                                      double precision ten
+                                                                      integer i,j,k,kb,kp1,l,nm1
+                                                                      !c
+                                                                      complex*16 zdum
+                                                                      double precision cabs1
+                                                                      double precision dreal,dimag
+                                                                      complex*16 zdumr,zdumi
+                                                                      dreal(zdumr) = zdumr
+                                                                      dimag(zdumi) = (0.0d0,-1.0d0)*zdumi
+                                                                      cabs1(zdum) = dabs(dreal(zdum)) + dabs(dimag(zdum))
+                                                                      !c
+                                                                      !c     compute determinant
+                                                                      !c
+                                                                      if (job/10 .eq. 0) go to 70
+                                                                      det(1) = (1.0d0,0.0d0)
+                                                                      det(2) = (0.0d0,0.0d0)
+                                                                      ten = 10.0d0
+                                                                      do 50 i = 1, n
+                                                                         if (ipvt(i) .ne. i) det(1) = -det(1)
+                                                                         det(1) = a(i,i)*det(1)
+                                                                         !c        ...exit
+                                                                         if (cabs1(det(1)) .eq. 0.0d0) go to 60
+10                                                                       if (cabs1(det(1)) .ge. 1.0d0) go to 20
+                                                                         det(1) = dcmplx(ten,0.0d0)*det(1)
+                                                                         det(2) = det(2) - (1.0d0,0.0d0)
+                                                                         go to 10
+20                                                                       continue
+30                                                                       if (cabs1(det(1)) .lt. ten) go to 40
+                                                                         det(1) = det(1)/dcmplx(ten,0.0d0)
+                                                                         det(2) = det(2) + (1.0d0,0.0d0)
+                                                                         go to 30
+40                                                                       continue
+50                                                                       continue
+60                                                                       continue
+70                                                                       continue
+                                                                         !c
+                                                                         !c     compute inverse(u)
+                                                                         !c
+                                                                         if (mod(job,10) .eq. 0) go to 150
+                                                                         do 100 k = 1, n
+                                                                            a(k,k) = (1.0d0,0.0d0)/a(k,k)
+                                                                            t = -a(k,k)
+                                                                            call zscal(k-1,t,a(1,k),1)
+                                                                            kp1 = k + 1
+                                                                            if (n .lt. kp1) go to 90
+                                                                            do 80 j = kp1, n
+                                                                               t = a(k,j)
+                                                                               a(k,j) = (0.0d0,0.0d0)
+                                                                               call zaxpy(k,t,a(1,k),1,a(1,j),1)
+80                                                                             continue
+90                                                                             continue
+100                                                                            continue
+                                                                               !c
+                                                                               !c        form inverse(u)*inverse(l)
+                                                                               !c
+                                                                               nm1 = n - 1
+                                                                               if (nm1 .lt. 1) go to 140
+                                                                               do 130 kb = 1, nm1
+                                                                                  k = n - kb
+                                                                                  kp1 = k + 1
+                                                                                  do 110 i = kp1, n
+                                                                                     work(i) = a(i,k)
+                                                                                     a(i,k) = (0.0d0,0.0d0)
+110                                                                                  continue
+                                                                                     do 120 j = kp1, n
+                                                                                        t = work(j)
+                                                                                        call zaxpy(n,t,a(1,j),1,a(1,k),1)
+120                                                                                     continue
+                                                                                        l = ipvt(k)
+                                                                                        if (l .ne. k) call zswap(n,a(1,k),1,a(1,l),1)
+130                                                                                     continue
+140                                                                                     continue
+150                                                                                     continue
+                                                                                        return
+                                                                                      end subroutine
+
+                                                                                      SUBROUTINE ZSWAP(N,ZX,INCX,ZY,INCY)
+                                                                                        !*     .. Scalar Arguments ..
+                                                                                        INTEGER INCX,INCY,N
+                                                                                        !*     ..
+                                                                                        !*     .. Array Arguments ..
+                                                                                        DOUBLE COMPLEX ZX(*),ZY(*)
+                                                                                        !*     ..
+                                                                                        !*
+                                                                                        !*  Purpose
+                                                                                        !*  =======
+                                                                                        !*
+                                                                                        !*     ZSWAP interchanges two vectors.
+                                                                                        !*
+                                                                                        !*  Further Details
+                                                                                        !*  ===============
+                                                                                        !*
+                                                                                        !*     jack dongarra, 3/11/78.
+                                                                                        !*     modified 12/3/93, array(1) declarations changed to array(*)
+                                                                                        !*
+                                                                                        !*  =====================================================================
+                                                                                        !*
+                                                                                        !*     .. Local Scalars ..
+                                                                                        DOUBLE COMPLEX ZTEMP
+                                                                                        INTEGER I,IX,IY
+                                                                                        !*     ..
+                                                                                        IF (N.LE.0) RETURN
+                                                                                        IF (INCX.EQ.1 .AND. INCY.EQ.1) THEN
+                                                                                           !*
+                                                                                           !*       code for both increments equal to 1
+                                                                                           DO I = 1,N
+                                                                                              ZTEMP = ZX(I)
+                                                                                              ZX(I) = ZY(I)
+                                                                                              ZY(I) = ZTEMP
+                                                                                           END DO
+                                                                                        ELSE
+                                                                                           !*
+                                                                                           !*       code for unequal increments or equal increments not equal
+                                                                                           !*         to 1
+                                                                                           !*
+                                                                                           IX = 1
+                                                                                           IY = 1
+                                                                                           IF (INCX.LT.0) IX = (-N+1)*INCX + 1
+                                                                                           IF (INCY.LT.0) IY = (-N+1)*INCY + 1
+                                                                                           DO I = 1,N
+                                                                                              ZTEMP = ZX(IX)
+                                                                                              ZX(IX) = ZY(IY)
+                                                                                              ZY(IY) = ZTEMP
+                                                                                              IX = IX + INCX
+                                                                                              IY = IY + INCY
+                                                                                           END DO
+                                                                                        END IF
+                                                                                        RETURN
+                                                                                      END subroutine ZSWAP
 
 
 
 
 
 
-end module ED_GLOC
+
+
+                                                                                    end module ED_GLOC

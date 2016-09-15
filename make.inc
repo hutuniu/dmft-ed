@@ -7,15 +7,6 @@ FC=mpif90
 ##$ platform first using the cmd: $mpif90 -show
 PLAT=intel
 
-##$ PRECOMPILATION FLAGS
-##$ Leave blank for SERIAL CODE
-##$
-##$ parallelism on the inequivalent parallelism flag: MPI_INEQ
-#FPP_INEQ=MPI_INEQ
-
-##$ parallelism on the ed code flag: MPI
-FPP_ED=MPI
-
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
 LIBDIR=/opt
@@ -68,22 +59,19 @@ DIR =./drivers
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
 DIREXE=$(HOME)/.bin
 
-
 ifeq ($(PLAT),intel)
-FFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
-DFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
-OFLAG +=-fpp -D_$(FPP_INEQ) -D_$(FPP_ED) 
+#define suitable options here
+FPPFLAG =-fpp
 endif
 
 ifeq ($(PLAT),gnu)
 INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib
 INCARGS+=-I$(LIBDIR)/dmft_tools/gnu/include -L$(LIBDIR)/dmft_tools/gnu/lib
-FFLAG = -O2 -funroll-all-loops -ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS) 
-DFLAG = -O0 -p -g -fimplicit-none -fcheck=all  -pedantic  -fbacktrace  -ffpe-trap=zero,overflow,underflow  -Wall -fwhole-file -ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
-#-fcheck=bounds -Wline-truncation  -Wcharacter-truncation  -Wsurprising  -Waliasing  -Wimplicit-interface  -Wunused-parameter
-OFLAG = -O3 -ffast-math -march=native -funroll-all-loops -fno-protect-parens -flto -ffree-line-length-none -cpp -D_$(FPP_INEQ) -D_$(FPP_ED) $(INCARGS)
+FFLAG = -O2 -funroll-all-loops -ffree-line-length-none $(INCARGS) 
+DFLAG = -O0 -p -g -Wall -fimplicit-none -ffpe-trap=zero,overflow,underflow  -Wall  -Wline-truncation  -Wcharacter-truncation  -Wsurprising  -Waliasing  -Wimplicit-interface  -Wunused-parameter  -fwhole-file  -fcheck=all  -pedantic  -fbacktrace -fcheck=bounds -ffree-line-length-none  $(INCARGS)
+OFLAG = -O3 -ffast-math -march=native -funroll-all-loops -fno-protect-parens -flto -ffree-line-length-none $(INCARGS)
+FPPFLAG =-cpp
 endif
-
 
 
 

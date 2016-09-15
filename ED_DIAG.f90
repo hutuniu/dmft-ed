@@ -10,7 +10,6 @@ module ED_DIAG
   USE SF_STAT
   USE SF_SP_LINALG
   !
-  !USE ARPACK_LANCZOS
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_EIGENSPACE
@@ -118,7 +117,7 @@ contains
           eig_values=0d0 ; eig_basis=0d0
           call ed_buildH_d(isector)
 #ifdef _MPI
-          call sp_peigh(ED_MPI_COMM,spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+          call sp_eigh(ED_MPI_COMM,spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
           !call lanczos_parpack(Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,lanc_verbose)
 #else
           call sp_eigh(spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
@@ -236,10 +235,10 @@ contains
           eig_values=0d0 ; eig_basis=0d0
           call ed_buildH_c(isector)
 #ifdef _MPI
-          call sp_peigh(ED_MPI_COMM,spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis)
+          call sp_eigh(ED_MPI_COMM,spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
           !call lanczos_parpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
 #else
-          call sp_eigh(spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis)
+          call sp_eigh(spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
           !call lanczos_arpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
 #endif
        else

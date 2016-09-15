@@ -137,17 +137,6 @@ contains
           enddo
           s2tot = s2tot  + (sum(sz))**2*gs_weight
        enddo
-       !!<DEBUG  comment
-       !print*,"sectors contribution to dens:"
-       !select case(ed_mode)
-       !case default
-       !   print*,isector,getnup(isector),getndw(isector),pdens       
-       !case ("superc")
-       !   print*,isector,getsz(isector),pdens       
-       !case("nonsu2")
-       !   print*,isector,getn(isector),pdens       
-       !end select
-       !!>DEBUG
        if(associated(gsvec))nullify(gsvec)
        if(associated(gscvec))nullify(gscvec)
        deallocate(H%map)
@@ -241,7 +230,6 @@ contains
        peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
        peso = peso/zeta_function
        !
-
        call build_sector(isector,H)
        !Diagonal densities
        do ispin=1,Nspin
@@ -250,8 +238,10 @@ contains
              do m=1,idim
                 i=H%map(m)
                 ib = bdecomp(i,2*Ns)
-                if(ed_type=='d')imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + peso*ib(isite)*gsvec(m)*gsvec(m)
-                if(ed_type=='c')imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
+                if(ed_type=='d')imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + &
+                     peso*ib(isite)*gsvec(m)*gsvec(m)
+                if(ed_type=='c')imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + &
+                     peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
              enddo
           enddo
        enddo
@@ -271,8 +261,10 @@ contains
                          call c(isite,i,r,sgn1)
                          call cdg(jsite,r,k,sgn2)
                          j=binary_search(H%map,k)
-                         if(ed_type=='d')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + peso*sgn1*gsvec(m)*sgn2*gsvec(j)
-                         if(ed_type=='c')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                         if(ed_type=='d')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + &
+                              peso*sgn1*gsvec(m)*sgn2*gsvec(j)
+                         if(ed_type=='c')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + &
+                              peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
                       endif
                    enddo
                 enddo
@@ -281,7 +273,10 @@ contains
        enddo
        deallocate(H%map)
     enddo
+
     imp_density_matrix = imp_density_matrix/float(numstates)
+
+
     !IMPURITY DENSITY OPERATORS
     if((Nspin/=1).and.(Norb==3))then
        if(allocated(impStot))    deallocate(impStot);   allocate(impStot(3,Norb,Norb));  impStot=zero
@@ -386,6 +381,9 @@ contains
     deallocate(simp,zimp)    
   end subroutine observables_impurity
 
+
+
+
   !####################################################################
   !                    COMPUTATIONAL ROUTINES
   !####################################################################
@@ -395,7 +393,7 @@ contains
   subroutine get_szr()
     integer                  :: ispin,iorb
     real(8)                  :: wm1,wm2
-    wm1 = pi/beta ; wm2=3.d0*pi/beta
+    wm1 = pi/beta ; wm2=3d0*pi/beta
     do ispin=1,Nspin
        do iorb=1,Norb
           simp(iorb,ispin) = dimag(impSmats(ispin,ispin,iorb,iorb,1)) - &
@@ -403,6 +401,7 @@ contains
           zimp(iorb,ispin)   = 1.d0/( 1.d0 + abs( dimag(impSmats(ispin,ispin,iorb,iorb,1))/wm1 ))
        enddo
     enddo
+    print*,ED_MPI_ID,zimp(1,1)
   end subroutine get_szr
 
 

@@ -60,9 +60,9 @@ contains
     integer,allocatable,dimension(:) :: SendCounts,Displs
     N=0
     call MPI_AllReduce(Nloc,N,1,MPI_Integer,MPI_Sum,ED_MPI_COMM,ierr)
-    size = MPI_Get_size(ED_MPI_COMM)
-    Q = MPI_Get_Q(ED_MPI_COMM,N)
-    R = MPI_Get_R(ED_MPI_COMM,N)
+    size = get_size_MPI(ED_MPI_COMM)
+    Q = get_Q_MPI(ED_MPI_COMM,N)
+    R = get_R_MPI(ED_MPI_COMM,N)
     allocate(vin(N))
     vin=0d0
     allocate(SendCounts(0:size-1),displs(0:size-1))
@@ -93,9 +93,9 @@ contains
     integer,allocatable,dimension(:)    :: SendCounts,Displs
     N=0
     call MPI_AllReduce(Nloc,N,1,MPI_Integer,MPI_Sum,ED_MPI_COMM,ierr)
-    size = MPI_Get_size(ED_MPI_COMM)
-    Q = MPI_Get_Q(ED_MPI_COMM,N)
-    R = MPI_Get_R(ED_MPI_COMM,N)
+    size = get_size_MPI(ED_MPI_COMM)
+    Q = get_Q_MPI(ED_MPI_COMM,N)
+    R = get_R_MPI(ED_MPI_COMM,N)
     allocate(vin(N))
     vin=dcmplx(0d0,0d0)
     allocate(SendCounts(0:size-1),displs(0:size-1))
@@ -178,9 +178,9 @@ contains
     integer                          :: Nloc
     real(8),dimension(:),allocatable :: vout
     integer,allocatable,dimension(:) :: SendCounts,Displs
-    size = MPI_Get_size(ED_MPI_COMM)
-    Q = MPI_Get_Q(ED_MPI_COMM,N)
-    R = MPI_Get_R(ED_MPI_COMM,N)
+    size = get_size_MPI(ED_MPI_COMM)
+    Q = get_Q_MPI(ED_MPI_COMM,N)
+    R = get_R_MPI(ED_MPI_COMM,N)
     Nloc = Q+R
     allocate(vout(Nloc))
     vout=0d0
@@ -197,8 +197,8 @@ contains
     SendCounts(size-1) = Q+mod(N,size)
     forall(i=0:size-1)Displs(i)=i*Q
     Hv=0d0
-    call MPI_Allgatherv(vout(1:Nloc),Nloc,MPI_Double_Complex,Hv,SendCounts,Displs,MPI_Double_Complex,ED_MPI_COMM,ierr)
-    call MPI_Bcast(Hv,N,MPI_Double_Complex,0,ED_MPI_COMM,ierr)
+    call MPI_Allgatherv(vout(1:Nloc),Nloc,MPI_Double_Precision,Hv,SendCounts,Displs,MPI_Double_Precision,ED_MPI_COMM,ierr)
+    call MPI_Bcast(Hv,N,MPI_Double_Precision,0,ED_MPI_COMM,ierr)
   end subroutine lanc_spHtimesV_dd
   !
   subroutine lanc_spHtimesV_dc(N,v,Hv)
@@ -209,9 +209,9 @@ contains
     integer                             :: Nloc
     complex(8),dimension(:),allocatable :: vout
     integer,allocatable,dimension(:)    :: SendCounts,Displs
-    size = MPI_Get_size(ED_MPI_COMM)
-    Q = MPI_Get_Q(ED_MPI_COMM,N)
-    R = MPI_Get_R(ED_MPI_COMM,N)
+    size = get_size_MPI(ED_MPI_COMM)
+    Q = get_Q_MPI(ED_MPI_COMM,N)
+    R = get_R_MPI(ED_MPI_COMM,N)
     Nloc = Q+R
     allocate(vout(Nloc))
     vout=zero
@@ -239,11 +239,10 @@ contains
     integer                             :: i,j
     integer                             :: Nloc
     complex(8),dimension(:),allocatable :: vout
-    integer                             :: i,j
     integer,allocatable,dimension(:)    :: SendCounts,Displs
-    size = MPI_Get_size(ED_MPI_COMM)
-    Q = MPI_Get_Q(ED_MPI_COMM,N)
-    R = MPI_Get_R(ED_MPI_COMM,N)
+    size = get_size_MPI(ED_MPI_COMM)
+    Q = get_Q_MPI(ED_MPI_COMM,N)
+    R = get_R_MPI(ED_MPI_COMM,N)
     Nloc = Q+R
     allocate(vout(Nloc))
     vout=zero

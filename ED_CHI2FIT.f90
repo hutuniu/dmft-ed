@@ -126,9 +126,9 @@ contains
        call chi2_fitgf_replica(fg,bath)
        !
     end select
-#ifdef _MPI
-    call MPI_BCAST(bath,size(bath),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
+    ! #ifdef _MPI
+    !     call MPI_BCAST(bath,size(bath),MPI_DOUBLE_PRECISION,0,ED_MPI_COMM,ED_MPI_ERR)
+    ! #endif
     !set trim_state_list to true after the first fit has been done: this 
     !marks the ends of the cycle of the 1st DMFT loop.
     trim_state_list=.true.
@@ -199,9 +199,9 @@ contains
           !
        end select
     end select
-#ifdef _MPI
-    call MPI_BCAST(bath,size(bath),MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
+    ! #ifdef _MPI
+    !     call MPI_BCAST(bath,size(bath),MPI_DOUBLE_PRECISION,0,ED_MPI_COMM,ED_MPI_ERR)
+    ! #endif
     !set trim_state_list to true after the first fit has been done: this 
     !marks the ends of the cycle of the 1st DMFT loop.
     trim_state_list=.true.
@@ -258,7 +258,8 @@ contains
   ! functions and fit them to update the effective baths for ED.
   ! - NORMAL
   !+-----------------------------------------------------------------------------+!
-  subroutine ed_fit_bath_sites_normal(bath,Delta,Hloc,ispin)
+  subroutine ed_fit_bath_sites_normal(bath,Delta,Hloc,ispin)!,mpicomm)
+    ! integer,optional :: mpicomm
     real(8),intent(inout)    :: bath(:,:)
     complex(8),intent(inout) :: Delta(size(bath,1),Nspin,Nspin,Norb,Norb,Lmats)
     complex(8)               :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
@@ -269,20 +270,28 @@ contains
     integer                  :: Nsites
     logical                  :: check_dim
     character(len=5)         :: tmp_suffix
-    !
+    ! #ifdef _MPI
+    !     if(present(mpicomm))then
+    !        ED_MPI_COMM=mpicomm
+    !     else
+    !        ED_MPI_COMM=MPI_COMM_WORLD
+    !     endif
+    !     ED_MPI_ID=get_Rank_MPI(ED_MPI_COMM)
+    !     ED_MPI_SIZE=get_Size_MPI(ED_MPI_COMM)
+    ! #endif
     ! Check dimensions !
     Nsites=size(bath,1)
     !
-    do ilat=1+mpiID,Nsites,mpiSIZE
+    do ilat=1+ED_MPI_ID,Nsites,ED_MPI_SIZE
+       print*,"check bath",ilat
        check_dim = check_bath_dimension(bath(ilat,:))
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
     end do
     !
     bath_tmp=0d0
-    do ilat=1+mpiID,Nsites,mpiSIZE
+    do ilat=1+ED_MPI_ID,Nsites,ED_MPI_SIZE
        bath_tmp(ilat,:)=bath(ilat,:)
        call set_Hloc(Hloc(ilat,:,:,:,:))
-       !write(tmp_suffix,'(I4.4)') ilat
        ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))!trim(tmp_suffix)
        if(present(ispin))then
           ispin_=ispin
@@ -295,11 +304,14 @@ contains
           call ed_chi2_fitgf(Delta(ilat,:,:,:,:,:),bath_tmp(ilat,:))
        end if
     end do
-#ifdef _MPI_INEQ
-    call MPI_ALLREDUCE(bath_tmp,bath,size(bath),MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+    bath=0d0
+    call MPI_ALLREDUCE(bath_tmp(:,:),bath(:,:),size(bath),MPI_DOUBLE_PRECISION,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
+    call Error_MPI(ED_MPI_ERR,'ed_fit_bath_sites_normal')
 #else
     bath = bath_tmp
 #endif
+
     ed_file_suffix=""
   end subroutine ed_fit_bath_sites_normal
 
@@ -358,14 +370,14 @@ contains
     !
     Nsites=size(bath,1)
     !
-    do ilat=1+mpiID,Nsites,mpiSIZE
+    do ilat=1+ED_MPI_ID,Nsites,ED_MPI_SIZE
        check_dim = check_bath_dimension(bath(ilat,:))
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
     end do
     !
     bath_tmp=0.d0
     !
-    do ilat=1+mpiID,Nsites,mpiSIZE
+    do ilat=1+ED_MPI_ID,Nsites,ED_MPI_SIZE
        !
        bath_tmp(ilat,:) = bath(ilat,:)
        !
@@ -382,8 +394,8 @@ contains
           enddo
        endif
     end do
-#ifdef _MPI_INEQ
-    call MPI_ALLREDUCE(bath_tmp,bath,size(bath),MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+    call MPI_ALLREDUCE(bath_tmp,bath,size(bath),MPI_DOUBLE_PRECISION,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
 #else
     bath = bath_tmp
 #endif

@@ -141,10 +141,10 @@ contains
   !PURPOSE  : Check if the dimension of the bath array are consistent
   !+-------------------------------------------------------------------+
   function check_bath_dimension(bath_,Hloc_nn) result(bool)
-    real(8),dimension(:) :: bath_
-    integer              :: Ntrue
-    logical              :: bool
-    complex(8),optional,allocatable,intent(in) :: Hloc_nn(:,:,:,:)
+    real(8),dimension(:)           :: bath_
+    integer                        :: Ntrue
+    logical                        :: bool
+    complex(8),optional,intent(in) :: Hloc_nn(:,:,:,:)
     if (present(Hloc_nn))then
        Ntrue = get_bath_dimension(Hloc_nn)
     else

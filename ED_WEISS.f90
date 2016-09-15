@@ -109,7 +109,7 @@ contains
     do i=1,Lmats
        Weiss(:,:,:,:,i) = so2nn_reshape(calG0_site(:,:,i),Nspin,Norb)
     enddo
-    if(ED_MPI_ID==0.AND.ed_verbose<4)then
+    if(ED_MPI_MASTER.AND.ed_verbose<4)then
        call print_weiss(Weiss,iprint)
     endif
   end subroutine ed_get_weiss_field_normal_main
@@ -265,7 +265,7 @@ contains
           enddo
        enddo
     enddo
-    if(ED_MPI_ID==0.AND.ed_verbose<4)then
+    if(ED_MPI_MASTER.AND.ed_verbose<4)then
        call print_weiss(Weiss(1,:,:,:,:,:),iprint,"_normal")
        call print_weiss(Weiss(2,:,:,:,:,:),iprint,"_anomal")
     endif
@@ -368,7 +368,7 @@ contains
     wm = pi/beta*(2*arange(1,Lmats)-1)
     Weiss_tmp = zero
     Weiss     = zero
-    mpi_site_loop: do ilat=1+mpiID,Nlat,mpiSIZE
+    mpi_site_loop: do ilat=1+ED_MPI_ID,Nlat,ED_MPI_SIZE
        !Dump the Gloc and the Smats for the ilat-th site into a [Norb*Nspin]^2 matrix and create the zeta_site
        do i=1,Lmats
           zeta_site(:,:,i)    = (xi*wm(i)+xmu)*eye(Nso) - nn2so_reshape(Hloc(ilat,:,:,:,:),Nspin,Norb) - nn2so_reshape(Smats(ilat,:,:,:,:,i),Nspin,Norb)
@@ -405,8 +405,8 @@ contains
           enddo
        enddo
     end do mpi_site_loop
-#ifdef _MPI_INEQ
-    call MPI_ALLREDUCE(Weiss_tmp,Weiss,size(Weiss),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+    call MPI_ALLREDUCE(Weiss_tmp,Weiss,size(Weiss),MPI_DOUBLE_COMPLEX,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
 #else
     Weiss = Weiss_tmp
 #endif
@@ -512,7 +512,7 @@ contains
     wm = pi/beta*(2*arange(1,Lmats)-1)
     Weiss_tmp   = zero
     Weiss       = zero
-    mpi_site_loop: do ilat=1+mpiID,Nlat,mpiSIZE
+    mpi_site_loop: do ilat=1+ED_MPI_ID,Nlat,ED_MPI_SIZE
        !Dump the Gloc and the Smats for the ilat-th site into a [Norb*Nspin]^2 matrix and create the zeta_site
        zeta_site=zero
        do ispin=1,Nspin
@@ -578,8 +578,8 @@ contains
           enddo
        enddo
     end do mpi_site_loop
-#ifdef _MPI_INEQ
-    call MPI_ALLREDUCE(Weiss_tmp,Weiss,size(Weiss),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+    call MPI_ALLREDUCE(Weiss_tmp,Weiss,size(Weiss),MPI_DOUBLE_COMPLEX,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
 #else
     Weiss = Weiss_tmp
 #endif

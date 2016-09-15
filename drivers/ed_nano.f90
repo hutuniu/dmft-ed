@@ -2,7 +2,7 @@ program ed_nano
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
-#ifdef _MPI_INEQ
+#ifdef _MPI
   USE MPI
 #endif
   implicit none
@@ -40,9 +40,9 @@ program ed_nano
   complex(8),allocatable,dimension(:,:,:,:,:,:,:) :: Gijmats,Gijreal
   !hybridization function to environment
   complex(8),dimension(:,:,:),allocatable         :: Hyb_mats,Hyb_real ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Lmats/Lreal]
+  integer :: mpiID,mpiERR,mpiSIZE
 
-
-#ifdef _MPI_INEQ
+#ifdef _MPI
   ! START MPI !
   call MPI_INIT(mpiERR)
   call MPI_COMM_RANK(MPI_COMM_WORLD,mpiID,mpiERR)
@@ -104,17 +104,17 @@ program ed_nano
 
   ! evaluates the kinetic energy
   if(kinetic)then
-    ! read converged self-energy
-    call read_sigma(Smats_ineq,Sreal_ineq)
-    do ilat=1,Nlat
-       ineq = lat2ineq(ilat)
-       Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
-       Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
-    enddo
-    !
-    ! computes the kinetic energy
-    Eout = ed_kinetic_energy_lattice(Hij,[1d0],Smats)
-    stop
+     ! read converged self-energy
+     call read_sigma(Smats_ineq,Sreal_ineq)
+     do ilat=1,Nlat
+        ineq = lat2ineq(ilat)
+        Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
+        Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
+     enddo
+     !
+     ! computes the kinetic energy
+     Eout = ed_kinetic_energy_lattice(Hij,[1d0],Smats)
+     stop
   endif
 
 
@@ -208,11 +208,11 @@ program ed_nano
 
 
   ! setup solver
-  Nb=get_bath_size()
+  Nb=get_bath_dimension()
 
   allocate(Bath_ineq(Nineq,Nb))
   allocate(Bath_prev(Nineq,Nb))
-  call ed_init_solver_lattice(Bath_ineq)
+  call ed_init_solver(Bath_ineq)
 
   do ineq=1,Nineq
      ilat = ineq2lat(ineq)
@@ -229,13 +229,14 @@ program ed_nano
      bath_prev=bath_ineq
 
      ! solve impurities on each inequivalent site:
-     call ed_solve_lattice(bath_ineq,Hloc_ineq,iprint=0)
+     call ed_solve(bath_ineq,Hloc_ineq,iprint=0)
 
      ! retrieve self-energies and occupations(Nineq,Norb=1)
      call ed_get_sigma_matsubara_lattice(Smats_ineq,Nineq)
      call ed_get_sigma_real_lattice(Sreal_ineq,Nineq)
      dens_ineq = ed_get_dens_lattice(Nineq,1)
      docc_ineq = ed_get_docc_lattice(Nineq,1)
+
      !  
      ! spread self-energies and occupation to all lattice sites
      do ilat=1,Nlat
@@ -256,6 +257,9 @@ program ed_nano
         ilat = ineq2lat(ineq)
         Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
      enddo
+
+
+
      ! compute the Weiss field
      call ed_get_weiss_lattice(Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=0)
 
@@ -263,6 +267,7 @@ program ed_nano
      do ispin=1,Nspin
         call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin)
      enddo
+
      if(phsym)then
         do ineq=1,Nineq
            call ph_symmetrize_bath(bath_ineq(ineq,:),save=.true.)
@@ -275,7 +280,7 @@ program ed_nano
         !converged = check_convergence_local(docc_ineq,dmft_error,nsuccess,nloop)
         if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
      endif
-#ifdef _MPI_INEQ
+#ifdef _MPI
      call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
      call MPI_BCAST(xmu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
 #endif
@@ -288,7 +293,7 @@ program ed_nano
   Eout = ed_kinetic_energy_lattice(Hij,[1d0],Smats)
 
 
-#ifdef _MPI_INEQ
+#ifdef _MPI
   call MPI_FINALIZE(mpiERR)
 #endif
 
@@ -654,7 +659,7 @@ contains
   !          enddo
   !       enddo
   !       Gkout=zero
-  ! #ifdef _MPI_INEQ
+  ! #ifdef _MPI
   !       call MPI_ALLREDUCE(Gktmp,Gkout,size(Gkout),MPI_DOUBLE_COMPLEX,MPI_SUM,MPI_COMM_WORLD,MPIerr)
   ! #else
   !       Gkout = Gktmp
@@ -1020,7 +1025,7 @@ contains
        enddo
     enddo
     close(unit)
- 
+
     deallocate(Saux,jeff,wr) 
 
   end subroutine ed_get_jeff
@@ -1081,7 +1086,7 @@ contains
        enddo
     enddo
     close(unit)
- 
+
     deallocate(jeff,wr) 
 
   end subroutine ed_get_chi0ij

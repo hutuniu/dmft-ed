@@ -40,7 +40,6 @@ contains
   ! Nbath   = # of bath levels (depending on bath_type)
   ! Ns      = # of levels (per spin)
   ! Nlevels = 2*Ns = Total # of levels (counting spin degeneracy 2) 
-  !  
   !+------------------------------------------------------------------+
   subroutine setup_ed_dimensions()
     select case(bath_type)
@@ -90,7 +89,7 @@ contains
        dim_sector_max(1)=get_nonsu2_sector_dimension(Ns)
     end select
     !
-    if(ED_MPI_ID==0)then
+    if(ED_MPI_MASTER)then
        write(LOGfile,"(A)")"Summary:"
        write(LOGfile,"(A)")"--------------------------------------------"
        write(LOGfile,"(A,I15)")'# of levels/spin      = ',Ns
@@ -109,7 +108,7 @@ contains
     !Search and read impHloc
     inquire(file=Hunit,exist=control)
     if(control)then
-       if(ED_MPI_ID==0)write(LOGfile,*)"Reading impHloc from file: "//Hunit
+       if(ED_MPI_MASTER)write(LOGfile,*)"Reading impHloc from file: "//Hunit
        open(50,file=Hunit,status='old')
        do ispin=1,Nspin
           do iorb=1,Norb
@@ -123,7 +122,7 @@ contains
        enddo
        close(50)
     else
-       if(ED_MPI_ID==0)then
+       if(ED_MPI_MASTER)then
           write(LOGfile,*)"impHloc file not found."
           write(LOGfile,*)"impHloc should be defined elsewhere..."
           call sleep(2)
@@ -137,12 +136,12 @@ contains
     !
     !
     !Allocate indexing arrays
-    allocate(impIndex(Norb,2))
-    allocate(getDim(Nsectors))
-    allocate(getDimUp(Nsectors),getDimDw(Nsectors))
-    allocate(getNup(Nsectors),getNdw(Nsectors)) !normal
-    allocate(getSz(Nsectors))                   !superc
-    allocate(getN(Nsectors))                    !nonsu2
+    allocate(impIndex(Norb,2));impIndex=0
+    allocate(getDim(Nsectors));getDim=0
+    allocate(getDimUp(Nsectors),getDimDw(Nsectors));getDimUp=0;getDimDw=0
+    allocate(getNup(Nsectors),getNdw(Nsectors));getNup=0;getNdw=0
+    allocate(getSz(Nsectors));getSz=0
+    allocate(getN(Nsectors));getN=0
     select case(ed_mode)
     case default
        allocate(getSector(0:Ns,0:Ns))
@@ -151,10 +150,11 @@ contains
     case ("nonsu2")
        allocate(getSector(0:Nlevels,1))
     end select
-    allocate(getCsector(2,Nsectors))
-    allocate(getCDGsector(2,Nsectors))
-    allocate(getBathStride(Norb,Nbath))
-    allocate(twin_mask(Nsectors))
+    getSector=0
+    allocate(getCsector(2,Nsectors));getCsector=0
+    allocate(getCDGsector(2,Nsectors));getCDGsector=0
+    allocate(getBathStride(Norb,Nbath));getBathStride=0
+    allocate(twin_mask(Nsectors));
     allocate(neigen_sector(Nsectors))
     !
     !
@@ -162,7 +162,7 @@ contains
     finiteT=.true.              !assume doing finite T per default
     if(lanc_nstates_total==1)then     !is you only want to keep 1 state
        finiteT=.false.          !set to do zero temperature calculations
-       if(ED_MPI_ID==0)write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
+       if(ED_MPI_MASTER)write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
     endif
     !
     !
@@ -231,12 +231,65 @@ contains
     allocate(impSreal(Nspin,Nspin,Norb,Norb,Lreal))
     allocate(impSAmats(Nspin,Nspin,Norb,Norb,Lmats)) !THIS SHOULD NOT DEPEND ON SPIN: NSPIN=>1
     allocate(impSAreal(Nspin,Nspin,Norb,Norb,Lreal)) !THIS SHOULD NOT DEPEND ON SPIN: NSPIN=>1
+    impSmats=zero
+    impSreal=zero
+    impSAmats=zero
+    impSAreal=zero
+
     allocate(impGmats(Nspin,Nspin,Norb,Norb,Lmats))
     allocate(impGreal(Nspin,Nspin,Norb,Norb,Lreal))
     allocate(impFmats(Nspin,Nspin,Norb,Norb,Lmats)) !THIS SHOULD NOT DEPEND ON SPIN: NSPIN=>1
     allocate(impFreal(Nspin,Nspin,Norb,Norb,Lreal)) !THIS SHOULD NOT DEPEND ON SPIN: NSPIN=>1
+    impGmats=zero
+    impGreal=zero
+    impFmats=zero
+    impFreal=zero
+
+    allocate(impG0mats(Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(impG0real(Nspin,Nspin,Norb,Norb,Lreal))
+    allocate(impF0mats(Nspin,Nspin,Norb,Norb,Lmats)) !THIS SHOULD NOT DEPEND ON SPIN: NSPIN=>1
+    allocate(impF0real(Nspin,Nspin,Norb,Norb,Lreal)) !THIS SHOULD NOT DEPEND ON SPIN: NSPIN=>1
+    impG0mats=zero
+    impG0real=zero
+    impF0mats=zero
+    impF0real=zero
+
+    allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+    allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+    GFpoles=0d0
+    GFweights=0d0
+
+
     !allocate observables
     allocate(ed_dens(Norb),ed_docc(Norb),ed_phisc(Norb),ed_dens_up(Norb),ed_dens_dw(Norb))
+    ed_dens=0d0
+    ed_docc=0d0
+    ed_phisc=0d0
+    ed_dens_up=0d0
+    ed_dens_dw=0d0
+
+    if(chiflag)then
+       allocate(spinChi_tau(Norb+1,0:Ltau))
+       allocate(spinChi_w(Norb+1,Lreal))
+       allocate(spinChi_iv(Norb+1,0:Lmats))
+
+       allocate(densChi_tau(Norb,Norb,0:Ltau))
+       allocate(densChi_w(Norb,Norb,Lreal))
+       allocate(densChi_iv(Norb,Norb,0:Lmats))
+       allocate(densChi_mix_tau(Norb,Norb,0:Ltau))
+       allocate(densChi_mix_w(Norb,Norb,Lreal))
+       allocate(densChi_mix_iv(Norb,Norb,0:Lmats))
+       allocate(densChi_tot_tau(0:Ltau))
+       allocate(densChi_tot_w(Lreal))
+       allocate(densChi_tot_iv(0:Lmats))
+
+       allocate(pairChi_tau(Norb,0:Ltau))
+       allocate(pairChi_w(Norb,Lreal))
+       allocate(pairChi_iv(Norb,0:Lmats))
+    endif
+
+
+
   end subroutine init_ed_structure
 
 
@@ -303,7 +356,7 @@ contains
 
     twin_mask=.true.
     if(ed_twin)then
-       stop "WARNING: In this updated version with Nup-Ndw factorization the twin-sectors have not been tested!!"
+       ! stop "WARNING: In this updated version with Nup-Ndw factorization the twin-sectors have not been tested!!"
        do isector=1,Nsectors
           nup=getnup(isector)
           ndw=getndw(isector)
@@ -638,10 +691,10 @@ contains
   !states i\in Hilbert_space from the states count in H_sector.
   !|ImpUP,BathUP>|ImpDW,BathDW >
   !+------------------------------------------------------------------+
-  subroutine build_sector(isector,Hup,Hdw)
+  subroutine build_sector(isector,Hup)!,Hdw)
     integer                   :: isector
     type(sector_map)          :: Hup
-    type(sector_map),optional :: Hdw
+    ! type(sector_map),optional :: Hdw
     integer                   :: nup,ndw,sz,nt
     integer                   :: nup_,ndw_,sz_,nt_
     integer                   :: i
@@ -652,49 +705,49 @@ contains
     case default
        nup = getNup(isector)
        ndw = getNdw(isector)
-       if(present(Hdw))then
-          !UP
-          dim = getDimUp(isector)
-          call map_allocate(Hup,dim)
-          dim=0
-          do i=0,2**Ns-1
-             ivec  = bdecomp(i,Ns)
-             nup_  = sum(ivec) 
+       ! if(present(Hdw))then
+       !    !UP
+       !    dim = getDimUp(isector)
+       !    call map_allocate(Hup,dim)
+       !    dim=0
+       !    do i=0,2**Ns-1
+       !       ivec  = bdecomp(i,Ns)
+       !       nup_  = sum(ivec) 
+       !       if(nup_ /= nup)cycle
+       !       dim       = dim+1
+       !       Hup%map(dim) = i
+       !    enddo
+       !    !DW
+       !    dim = getDimDw(isector)
+       !    call map_allocate(Hdw,dim)
+       !    dim=0
+       !    do i=0,2**Ns-1
+       !       ivec  = bdecomp(i,Ns)
+       !       ndw_  = sum(ivec) 
+       !       if(ndw_ /= ndw)cycle
+       !       dim       = dim+1
+       !       Hdw%map(dim) = i
+       !    enddo
+       !    !
+       ! else
+       !    !
+       dim = getDim(isector)
+       call map_allocate(Hup,dim)
+       dim=0
+       do idw=0,2**Ns-1
+          jvec  = bdecomp(idw,Ns)
+          ndw_  = sum(jvec)
+          if(ndw_ /= ndw)cycle
+          do iup=0,2**Ns-1
+             ivec  = bdecomp(iup,Ns)
+             nup_  = sum(ivec)
              if(nup_ /= nup)cycle
-             dim       = dim+1
-             Hup%map(dim) = i
+             dim      = dim+1
+             Hup%map(dim) = iup + idw*2**Ns
           enddo
-          !DW
-          dim = getDimDw(isector)
-          call map_allocate(Hdw,dim)
-          dim=0
-          do i=0,2**Ns-1
-             ivec  = bdecomp(i,Ns)
-             ndw_  = sum(ivec) 
-             if(ndw_ /= ndw)cycle
-             dim       = dim+1
-             Hdw%map(dim) = i
-          enddo
-          !
-       else
-          !
-          dim = getDim(isector)
-          call map_allocate(Hup,dim)
-          dim=0
-          do idw=0,2**Ns-1
-             jvec  = bdecomp(idw,Ns)
-             ndw_  = sum(jvec)
-             if(ndw_ /= ndw)cycle
-             do iup=0,2**Ns-1
-                ivec  = bdecomp(iup,Ns)
-                nup_  = sum(ivec)
-                if(nup_ /= nup)cycle
-                dim      = dim+1
-                Hup%map(dim) = iup + idw*2**Ns
-             enddo
-          enddo
-          !
-       endif
+       enddo
+       !    !
+       ! endif
        !
        !
     case ("superc")
@@ -809,12 +862,12 @@ contains
        deallocate(H%map)
        !
     case('normal')
-       call build_sector(isector,Hup,Hdw)
+       call build_sector(isector,H)!up,Hdw)
        do i=1,dim
-          Order(i)=flip_state(Hup%map(i),Hdw%map(i)) 
+          Order(i)=flip_state(H%map(i))!flip_state(Hup%map(i),Hdw%map(i))
        enddo
        call sort_array(Order)
-       deallocate(Hup%map,Hdw%map)
+       deallocate(H%map)!deallocate(Hup%map,Hdw%map)
        !
     end select
   end subroutine twin_sector_order
@@ -835,10 +888,11 @@ contains
     integer          :: ivec(2*Ns),foo(2*Ns),ivup(Ns),ivdw(Ns)
     select case(ed_mode)
     case default    !Exchange UP-config |{up}> with DW-config |{dw}>
-       Ivup = bdecomp(m,Ns)
-       Ivdw = bdecomp(n,Ns)
-       foo(1:Ns)     =Ivdw      !Ivec(Ns+1:2*Ns)
-       foo(Ns+1:2*Ns)=Ivup      !Ivec(1:Ns)
+       ! Ivup = bdecomp(m,Ns)
+       ! Ivdw = bdecomp(n,Ns)
+       Ivec = bdecomp(m,2*Ns)
+       foo(1:Ns)     =Ivec(Ns+1:2*Ns)!Ivdw
+       foo(Ns+1:2*Ns)=Ivec(1:Ns)     !Ivup
     case("superc")  !Invert the overall spin sign: |{up}> <---> |{dw}>
        Ivec = bdecomp(m,2*Ns)
        foo(1:Ns)     =Ivec(Ns+1:2*Ns)

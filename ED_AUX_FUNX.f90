@@ -684,15 +684,15 @@ contains
     !+- get list of independent sites -+!
     i_ind=0
     unit=free_unit()    
-    if(mpiID==0) open(unit,file='independent_sites.lattice')
+    if(ED_MPI_MASTER) open(unit,file='independent_sites.lattice')
     do i=1,Nlat
        if(tmp_search(i).ge.0) then
           i_ind=i_ind+1
           indep_list(i_ind) = tmp_search(i)
-          if(mpiID==0) write(unit,*) dble(icol(indep_list(i_ind))),dble(irow(indep_list(i_ind))),dble(indep_list(i_ind)) 
+          if(ED_MPI_MASTER) write(unit,*) dble(icol(indep_list(i_ind))),dble(irow(indep_list(i_ind))),dble(indep_list(i_ind)) 
        end if
     end do
-    if(mpiID==0) close(unit)
+    if(ED_MPI_MASTER) close(unit)
     !+-  build maps -+!
     !
     write(LOGfile,*) "NINDEP",Nindep
@@ -708,14 +708,14 @@ contains
        unit=free_unit()
        !write(tmp_suffix,'(I4.4)') i_ind
        ed_file_suffix="_site"//reg(txtfy(i_ind,Npad=4))!trim(tmp_suffix)
-       if(mpiID==0) open(unit,file='equivalents'//trim(tmp_suffix)//'.lattice')
+       if(ED_MPI_MASTER) open(unit,file='equivalents'//trim(tmp_suffix)//'.lattice')
        map_ind2lat(i_ind,1) = indep_list(i_ind)
-       if(mpiID==0) write(unit,*) icol(indep_list(i_ind)),irow(indep_list(i_ind))
+       if(ED_MPI_MASTER) write(unit,*) icol(indep_list(i_ind)),irow(indep_list(i_ind))
        do isymm=1,Nsymm
           map_ind2lat(i_ind,isymm+1) = tmp_map(indep_list(i_ind),isymm)
-          if(mpiID==0) write(unit,*) icol(tmp_map(indep_list(i_ind),isymm)),irow(tmp_map(indep_list(i_ind),isymm))
+          if(ED_MPI_MASTER) write(unit,*) icol(tmp_map(indep_list(i_ind),isymm)),irow(tmp_map(indep_list(i_ind),isymm))
        end do
-       if(mpiID==0) close(unit)
+       if(ED_MPI_MASTER) close(unit)
     end do
     !+- check maps +-!
     do i_ind=1,Nindep

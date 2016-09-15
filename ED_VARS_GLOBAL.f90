@@ -1,11 +1,9 @@
 MODULE ED_VARS_GLOBAL
   USE SF_CONSTANTS
   USE ED_SPARSE_MATRIX
-#ifdef _MPI_INEQ
-  USE MPI
-#endif
 #ifdef _MPI
   USE MPI
+  USE SF_MPI
 #endif
   implicit none
 
@@ -56,113 +54,169 @@ MODULE ED_VARS_GLOBAL
   !SIZE OF THE PROBLEM
   !Ns       =              Number of levels per spin
   !Nlevels  = 2*Ns       = Total Number  of levels
-  !Nhilbert = 2**Nlevels = Max size of the Hilbert space
   !Nsectors =              Number of sectors
   !=========================================================
-  integer                                     :: Ns
-  integer                                     :: Nlevels
-  integer                                     :: Nsectors
-  integer                                     :: Nhel
+  integer                                            :: Ns
+  integer                                            :: Nlevels
+  integer                                            :: Nsectors
+  integer                                            :: Nhel
 
   !local part of the Hamiltonian
   !INTERNAL USE (accessed thru functions)
   !=========================================================
-  complex(8),dimension(:,:,:,:),allocatable   :: impHloc           !local hamiltonian
+  complex(8),dimension(:,:,:,:),allocatable          :: impHloc           !local hamiltonian
 
   !Some maps between sectors and full Hilbert space (pointers)
   !PRIVATE:
   !=========================================================
-  integer,allocatable,dimension(:,:)          :: getsector
-  integer,allocatable,dimension(:,:)          :: getCsector
-  integer,allocatable,dimension(:,:)          :: getCDGsector
-  integer,allocatable,dimension(:,:)          :: getBathStride
-  integer,allocatable,dimension(:,:)          :: impIndex
-  integer,allocatable,dimension(:)            :: getDim,getDimUp,getDimDw
-  integer,allocatable,dimension(:)            :: getNup,getNdw
-  integer,allocatable,dimension(:)            :: getSz
-  integer,allocatable,dimension(:)            :: getN
-  logical,allocatable,dimension(:)            :: twin_mask
+  integer,allocatable,dimension(:,:)                 :: getsector
+  integer,allocatable,dimension(:,:)                 :: getCsector
+  integer,allocatable,dimension(:,:)                 :: getCDGsector
+  integer,allocatable,dimension(:,:)                 :: getBathStride
+  integer,allocatable,dimension(:,:)                 :: impIndex
+  integer,allocatable,dimension(:)                   :: getDim,getDimUp,getDimDw
+  integer,allocatable,dimension(:)                   :: getNup,getNdw
+  integer,allocatable,dimension(:)                   :: getSz
+  integer,allocatable,dimension(:)                   :: getN
+  logical,allocatable,dimension(:)                   :: twin_mask
 
   !Effective Bath used in the ED code (this is opaque to user)
   !PRIVATE
   !=========================================================
-  type(effective_bath)                        :: dmft_bath
+  type(effective_bath)                               :: dmft_bath
 
   !Variables for DIAGONALIZATION
   !PRIVATE
   !=========================================================  
-  type(sparse_matrix)                         :: spH0
-  type(sparse_matrix)                         :: spH0up,spH0dw
-  procedure(d_build_hamiltonian),pointer      :: ed_buildH_d
-  procedure(c_build_hamiltonian),pointer      :: ed_buildH_c
+  type(sparse_matrix)                                :: spH0
+  type(sparse_matrix)                                :: spH0up,spH0dw
+  procedure(d_build_hamiltonian),pointer             :: ed_buildH_d
+  procedure(c_build_hamiltonian),pointer             :: ed_buildH_c
 
   !Variables for DIAGONALIZATION
   !PRIVATE
   !=========================================================  
-  integer,allocatable,dimension(:)            :: neigen_sector
-  logical                                     :: trim_state_list=.false.
+  integer,allocatable,dimension(:)                   :: neigen_sector
+  !--------------- LATTICE WRAP VARIABLES -----------------!  
+  integer,allocatable,dimension(:,:)                 :: neigen_sectorii
+  integer,allocatable,dimension(:)                   :: neigen_totalii
+  logical                                            :: trim_state_list=.false.
 
   !Partition function
   !PRIVATE
   !=========================================================
-  real(8)                                     :: zeta_function
+  real(8)                                            :: zeta_function
 
   !Impurity Green's function and Self-Energies: (Nspin,Nspin,Norb,Norb,:)
   !PRIVATE (now public but accessible thru routine)
   !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:,:) :: impSmats,impSAmats
-  complex(8),allocatable,dimension(:,:,:,:,:) :: impSreal,impSAreal
-  complex(8),allocatable,dimension(:,:,:,:,:) :: impGmats,impFmats
-  complex(8),allocatable,dimension(:,:,:,:,:) :: impGreal,impFreal
+  complex(8),allocatable,dimension(:,:,:,:,:)        :: impSmats,impSAmats
+  complex(8),allocatable,dimension(:,:,:,:,:)        :: impSreal,impSAreal
+  complex(8),allocatable,dimension(:,:,:,:,:)        :: impGmats,impFmats
+  complex(8),allocatable,dimension(:,:,:,:,:)        :: impGreal,impFreal
+  complex(8),allocatable,dimension(:,:,:,:,:)        :: impG0mats,impF0mats
+  complex(8),allocatable,dimension(:,:,:,:,:)        :: impG0real,impF0real
+
+  !--------------- LATTICE WRAP VARIABLES -----------------!
+  complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Smatsii,Srealii          ![Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),dimension(:,:,:,:,:,:),allocatable,save :: SAmatsii,SArealii        ![Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Gmatsii,Grealii          ![Nlat][Nspin][Nspin][Norb][Norb][L]
+  complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Fmatsii,Frealii          ![Nlat][Nspin][Nspin][Norb][Norb][L]
+
+  !Poles & Weights 
+  !=========================================================
+  real(8),allocatable,dimension(:,:,:,:,:,:)         :: GFpoles,GFweights
+
+
+  !Spin Susceptibilities
+  !=========================================================
+  real(8),allocatable,dimension(:,:)                 :: spinChi_tau
+  complex(8),allocatable,dimension(:,:)              :: spinChi_w
+  complex(8),allocatable,dimension(:,:)              :: spinChi_iv
+
+
+  !Diagonal/Off-diagonal charge-charge Susceptibilities
+  !=========================================================  
+  real(8),allocatable,dimension(:,:,:)               :: densChi_tau
+  complex(8),allocatable,dimension(:,:,:)            :: densChi_w
+  complex(8),allocatable,dimension(:,:,:)            :: densChi_iv
+
+  !Mixed inter-orbital charge-charge Susceptibilities
+  !=========================================================
+  real(8),allocatable,dimension(:,:,:)               :: densChi_mix_tau
+  complex(8),allocatable,dimension(:,:,:)            :: densChi_mix_w
+  complex(8),allocatable,dimension(:,:,:)            :: densChi_mix_iv
+
+  !Total (orbital-sum) Density-density Susceptibilities
+  !=========================================================
+  real(8),allocatable,dimension(:)                   :: densChi_tot_tau
+  complex(8),allocatable,dimension(:)                :: densChi_tot_w
+  complex(8),allocatable,dimension(:)                :: densChi_tot_iv
+
+  !Pair-Pair Susceptibilities
+  !=========================================================
+  real(8),allocatable,dimension(:,:)                 :: pairChi_tau
+  complex(8),allocatable,dimension(:,:)              :: pairChi_w
+  complex(8),allocatable,dimension(:,:)              :: pairChi_iv
+
+
 
   !Density and double occupancy
   !PRIVATE (now public but accessible thru routines)
   !=========================================================
-  real(8),dimension(:),allocatable            ::  ed_dens
-  real(8),dimension(:),allocatable            ::  ed_dens_up,ed_dens_dw
-  real(8),dimension(:),allocatable            ::  ed_docc
-  real(8),dimension(:),allocatable            ::  ed_phisc
+  real(8),dimension(:),allocatable                   ::  ed_dens
+  real(8),dimension(:),allocatable                   ::  ed_dens_up,ed_dens_dw
+  real(8),dimension(:),allocatable                   ::  ed_docc
+  real(8),dimension(:),allocatable                   ::  ed_phisc
+
+  !--------------- LATTICE WRAP VARIABLES -----------------!
+  real(8),dimension(:,:),allocatable,save            :: nii,dii,mii,pii
+
 
   !Local energies and generalized double occupancies
   !PRIVATE (now public but accessible thru routine)
   !=========================================================
-  real(8)                                     :: ed_Ekin
-  real(8)                                     :: ed_Epot
-  real(8)                                     :: ed_Eint
-  real(8)                                     :: ed_Ehartree
-  real(8)                                     :: ed_Eknot
-  real(8)                                     :: ed_Dust,ed_Dund,ed_Dse,ed_Dph
+  real(8)                                            :: ed_Ekin
+  real(8)                                            :: ed_Epot
+  real(8)                                            :: ed_Eint
+  real(8)                                            :: ed_Ehartree
+  real(8)                                            :: ed_Eknot
+  real(8)                                            :: ed_Dust,ed_Dund,ed_Dse,ed_Dph
+  !--------------- LATTICE WRAP VARIABLES -----------------!
+  real(8),dimension(:,:),allocatable,save            :: ddii,eii
+
 
   !Impurity operators
   !PRIVATE (now public but accessible thru routine)
   !=========================================================
-  complex(8),allocatable,dimension(:,:,:,:)   :: imp_density_matrix
-  complex(8),allocatable,dimension(:,:,:)     :: impStot
-  complex(8),allocatable,dimension(:,:,:)     :: impLtot
-  complex(8),allocatable,dimension(:)         :: impj_aplha
-  complex(8)                                  :: impLdotS
+  complex(8),allocatable,dimension(:,:,:,:)          :: imp_density_matrix
+  complex(8),allocatable,dimension(:,:,:)            :: impStot
+  complex(8),allocatable,dimension(:,:,:)            :: impLtot
+  complex(8),allocatable,dimension(:)                :: impj_aplha
+  complex(8)                                         :: impLdotS
 
   !MPI Parallel environment variables
   !PUBLIC
   !=========================================================
-  integer                                     :: ED_MPI_ID=0
-  integer                                     :: ED_MPI_SIZE=1
-  integer                                     :: ED_MPI_ERR
+  integer                                            :: ED_MPI_COMM
+  integer                                            :: ED_MPI_ID=0
+  integer                                            :: ED_MPI_SIZE=1
+  integer                                            :: ED_MPI_ERR
+  logical                                            :: ED_MPI_MASTER=.true.
 
-
-
+  
 
   !--------------- LATTICE WRAP VARIABLES -----------------!
   !Lattice size:
   !PUBLIC USE: (should be set by routine)
   !=========================================================
-  integer                                     :: Nlat
+  integer                                            :: Nlat
 
   !Symmetry operations
   !=========================================================
-  integer,allocatable,dimension(:)            :: indep_list
-  integer,dimension(:),allocatable            :: map_lat2ind
-  integer,dimension(:,:),allocatable          :: map_ind2lat
+  integer,allocatable,dimension(:)                   :: indep_list
+  integer,dimension(:),allocatable                   :: map_lat2ind
+  integer,dimension(:,:),allocatable                 :: map_ind2lat
 
 
 
@@ -170,9 +224,9 @@ MODULE ED_VARS_GLOBAL
   !Large matrices for Lattice Hamiltonian/GF
   !PUBLIC
   !=========================================================
-  integer,dimension(:),allocatable            :: icol,irow
-  integer,dimension(:,:),allocatable          :: ij2site
-  ! real(8),dimension(:,:),allocatable          :: H0
+  integer,dimension(:),allocatable                   :: icol,irow
+  integer,dimension(:,:),allocatable                 :: ij2site
+  ! real(8),dimension(:,:),allocatable               :: H0
 
 
 

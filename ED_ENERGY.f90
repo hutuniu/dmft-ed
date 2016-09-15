@@ -663,7 +663,7 @@ contains
     Lk   = size(Hk,3)
     Nlat = size(Sigma,1)
     Nso  = size(Sigma,2)
-    Liw  = size(Sigma,3)
+    Liw  = size(Sigma,4)
     call assert_shape(Hk,[Nlat*Nso,Nlso,Lk],"kinetic_energy_lattice_normal_main","Hk") !implcitly test that Nlat*Nso=Nlso
     call assert_shape(Sigma,[Nlat,Nso,Nso,Liw],"kinetic_energy_lattice_normal_main","Sigma")
     !
@@ -689,7 +689,7 @@ contains
     enddo
     !
     where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
-    if(mpiID==0)then
+    if(ED_MPI_MASTER)then
        if(size(Hloc,1)<16)then
           call print_hloc(Hloc)
        else
@@ -701,8 +701,8 @@ contains
     Sigma_HF(:,:,:) = dreal(Sigma(:,:,:,Liw))
     !
     !Start the timer:
-    if(mpiID==0) write(LOGfile,*) "Kinetic energy computation"
-    if(mpiID==0)call start_timer
+    if(ED_MPI_MASTER) write(LOGfile,*) "Kinetic energy computation"
+    if(ED_MPI_MASTER)call start_timer
     ed_Ekin_lattice = 0d0
     ed_Eloc_lattice = 0d0
     H0              = 0d0
@@ -715,7 +715,7 @@ contains
        Hlktmp= 0d0
        H0k   = 0d0
        Hlk   = 0d0
-       do i=1+mpiID,Lmats,mpiSIZE
+       do i=1+ED_MPI_ID,Lmats,ED_MPI_SIZE
           Gk = (xi*wm(i)+xmu)*eye(Nlso) - blocks_to_matrix(Sigma(:,:,:,i)) - Hk(:,:,ik) !Sigma [Nlat,Nso,Nso,*]--> [Nlso,Nslo]
           call inv(Gk(:,:))
           Tk = zeye(Nlso)/(xi*wm(i)) - Bk/(xi*wm(i))**2
@@ -724,18 +724,18 @@ contains
           H0ktmp = H0ktmp + Wtk(ik)*trace_matrix(Ck,Nlso)
           Hlktmp = Hlktmp + Wtk(ik)*trace_matrix(Dk,Nlso)
        enddo
-#ifdef _MPI_INEQ
-       call MPI_ALLREDUCE(H0ktmp,H0k,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
-       call MPI_ALLREDUCE(Hlktmp,Hlk,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+       call MPI_ALLREDUCE(H0ktmp,H0k,1,MPI_DOUBLE_PRECISION,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
+       call MPI_ALLREDUCE(Hlktmp,Hlk,1,MPI_DOUBLE_PRECISION,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
 #else
        H0k=H0ktmp
        Hlk=Hlktmp
 #endif
        H0 = H0 + H0k
        Hl = Hl + Hlk
-       if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+       if(ED_MPI_MASTER)call eta(ik,Lk,unit=LOGfile)
     enddo
-    if(mpiID==0)call stop_timer
+    if(ED_MPI_MASTER)call stop_timer
     spin_degeneracy=3.d0-Nspin !2 if Nspin=1, 1 if Nspin=2
     H0 = H0/beta*2d0*spin_degeneracy
     Hl = Hl/beta*2d0*spin_degeneracy
@@ -765,7 +765,7 @@ contains
     ed_Eloc_lattice=ed_Eloc_lattice/dble(Nlat)
     Eout = [ed_Ekin_lattice,ed_Eloc_lattice]
     deallocate(wm)
-    if(mpiID==0)then
+    if(ED_MPI_MASTER)then
        call write_kinetic_info()
        call write_kinetic(Eout)
     endif
@@ -908,7 +908,7 @@ contains
        enddo
     enddo
     where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
-    if(mpiID==0)then
+    if(ED_MPI_MASTER)then
        if(size(Hloc,1)<16)then
           call print_hloc(Hloc)
        else
@@ -921,8 +921,8 @@ contains
     Self_HF  = dreal(Self(:,:,:,Liw)) ![Nlat,Nso,Nso]
     !
     !Start the timer:
-    if(mpiID==0) write(LOGfile,*) "Kinetic energy computation"
-    if(mpiID==0)call start_timer
+    if(ED_MPI_MASTER) write(LOGfile,*) "Kinetic energy computation"
+    if(ED_MPI_MASTER)call start_timer
     ed_Ekin_lattice = 0d0
     ed_Eloc_lattice = 0d0
     H0              = 0d0
@@ -935,7 +935,7 @@ contains
        Hlktmp= 0d0
        Hlk   = 0d0
        !
-       do i=1+mpiID,Lmats,mpiSIZE
+       do i=1+ED_MPI_ID,Lmats,ED_MPI_SIZE
           Gknambu=zero
           Gknambu(1:Nlso,1:Nlso)               = (xi*wm(i) + xmu)*eye(Nlso) -       blocks_to_matrix(Sigma(:,:,:,i))  - Hk(:,:,ik)
           Gknambu(1:Nlso,Nlso+1:2*Nlso)        =                            -       blocks_to_matrix(Self(:,:,:,i))
@@ -957,18 +957,18 @@ contains
           Ck = matmul(Hloc, Gk - Tk)
           Hlktmp = Hlktmp + Wtk(ik)*trace_matrix(Ck,Nlso)
        enddo
-#ifdef _MPI_INEQ
-       call MPI_ALLREDUCE(H0ktmp,H0k,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
-       call MPI_ALLREDUCE(Hlktmp,Hlk,1,MPI_DOUBLE_PRECISION,MPI_SUM,MPI_COMM_WORLD,MPIerr)
+#ifdef _MPI
+       call MPI_ALLREDUCE(H0ktmp,H0k,1,MPI_DOUBLE_PRECISION,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
+       call MPI_ALLREDUCE(Hlktmp,Hlk,1,MPI_DOUBLE_PRECISION,MPI_SUM,ED_MPI_COMM,ED_MPI_ERR)
 #else
        H0k = H0ktmp
        Hlk = Hlktmp
 #endif
        H0 = H0 + H0k
        Hl = Hl + Hlk
-       if(mpiID==0)call eta(ik,Lk,unit=LOGfile)
+       if(ED_MPI_MASTER)call eta(ik,Lk,unit=LOGfile)
     enddo
-    if(mpiID==0)call stop_timer
+    if(ED_MPI_MASTER)call stop_timer
     spin_degeneracy=3.d0-dble(Nspin) !2 if Nspin=1, 1 if Nspin=2
     H0 = H0/beta*2d0*spin_degeneracy;print*,"Ekin_=",H0/Nlat
     Hl = Hl/beta*2d0*spin_degeneracy;print*,"Eloc_=",Hl/Nlat
@@ -1007,7 +1007,7 @@ contains
     ed_Eloc_lattice=ed_Eloc_lattice/dble(Nlat)
     Eout = [ed_Ekin_lattice,ed_Eloc_lattice]
     deallocate(wm)
-    if(mpiID==0)then
+    if(ED_MPI_MASTER)then
        call write_kinetic_info()
        call write_kinetic(Eout)
     endif
@@ -1199,7 +1199,7 @@ end MODULE ED_ENERGY
 !   !    
 !   Hloc = sum(Hk(:,:,:),dim=3)/Lk
 !   where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
-!   if(mpiID==0.AND.size(Hloc,1)<64)call print_hloc(Hloc)
+!   if(ED_MPI_MASTER.AND.size(Hloc,1)<64)call print_hloc(Hloc)
 !   !
 !   H0=0d0
 !   do ik=1,Lk

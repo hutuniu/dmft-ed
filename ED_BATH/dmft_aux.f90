@@ -396,131 +396,131 @@ subroutine write_dmft_bath(dmft_bath_,unit)
   integer              :: io,jo,iorb,ispin
   complex(8)           :: hybr_aux
   complex(8)           :: himp_aux(Nspin*Norb,Nspin*Norb)
-  if(ED_MPI_ID==0)then
-     unit_=LOGfile;if(present(unit))unit_=unit
-     if(.not.dmft_bath_%status)stop "write_dmft_bath error: bath not allocated"
-     select case(bath_type)
+  ! if(ED_MPI_ID==0)then
+  unit_=LOGfile;if(present(unit))unit_=unit
+  if(.not.dmft_bath_%status)stop "write_dmft_bath error: bath not allocated"
+  select case(bath_type)
+  case default
+     !
+     select case(ed_mode)
      case default
-        !
-        select case(ed_mode)
-        case default
-           write(unit_,"(90(A21,1X))")&
-                ((&
-                "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-                "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+        write(unit_,"(90(A21,1X))")&
+             ((&
+             "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+             "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+             iorb=1,Norb),ispin=1,Nspin)
+        do i=1,Nbath
+           write(unit_,"(90(F21.12,1X))")((&
+                dmft_bath_%e(ispin,iorb,i),&
+                dmft_bath_%v(ispin,iorb,i),&
                 iorb=1,Norb),ispin=1,Nspin)
-           do i=1,Nbath
-              write(unit_,"(90(F21.12,1X))")((&
-                   dmft_bath_%e(ispin,iorb,i),&
-                   dmft_bath_%v(ispin,iorb,i),&
-                   iorb=1,Norb),ispin=1,Nspin)
-           enddo
-        case ("superc")
-           write(unit_,"(90(A21,1X))")&
-                ((&
-                "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-                "Dk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)) ,&
-                "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+        enddo
+     case ("superc")
+        write(unit_,"(90(A21,1X))")&
+             ((&
+             "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+             "Dk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)) ,&
+             "Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+             iorb=1,Norb),ispin=1,Nspin)
+        do i=1,Nbath
+           write(unit_,"(90(F21.12,1X))")((&
+                dmft_bath_%e(ispin,iorb,i),&
+                dmft_bath_%d(ispin,iorb,i),&
+                dmft_bath_%v(ispin,iorb,i),&
                 iorb=1,Norb),ispin=1,Nspin)
-           do i=1,Nbath
-              write(unit_,"(90(F21.12,1X))")((&
-                   dmft_bath_%e(ispin,iorb,i),&
-                   dmft_bath_%d(ispin,iorb,i),&
-                   dmft_bath_%v(ispin,iorb,i),&
-                   iorb=1,Norb),ispin=1,Nspin)
-           enddo
-        case ("nonsu2")
-           write(unit_,"(90(A21,1X))")&
-                ((&
-                "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-                "Vak_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-                "Vbk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-                iorb=1,Norb), ispin=1,Nspin)
-           do i=1,Nbath
-              write(unit,"(90(F21.12,1X))")((&
-                   dmft_bath_%e(ispin,iorb,i),&
-                   dmft_bath_%v(ispin,iorb,i),&
-                   dmft_bath_%u(ispin,iorb,i),&
-                   iorb=1,Norb),ispin=1,Nspin)
-           enddo
-        end select
-        !
-     case('hybrid')
-        !
-        select case(ed_mode)
-        case default
-           write(unit_,"(90(A21,1X))")(&
-                "#Ek_s"//reg(txtfy(ispin)),&
-                ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),&
+        enddo
+     case ("nonsu2")
+        write(unit_,"(90(A21,1X))")&
+             ((&
+             "#Ek_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+             "Vak_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+             "Vbk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+             iorb=1,Norb), ispin=1,Nspin)
+        do i=1,Nbath
+           write(unit,"(90(F21.12,1X))")((&
+                dmft_bath_%e(ispin,iorb,i),&
+                dmft_bath_%v(ispin,iorb,i),&
+                dmft_bath_%u(ispin,iorb,i),&
+                iorb=1,Norb),ispin=1,Nspin)
+        enddo
+     end select
+     !
+  case('hybrid')
+     !
+     select case(ed_mode)
+     case default
+        write(unit_,"(90(A21,1X))")(&
+             "#Ek_s"//reg(txtfy(ispin)),&
+             ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),&
+             ispin=1,Nspin)
+        do i=1,Nbath
+           write(unit_,"(90(F21.12,1X))")(&
+                dmft_bath_%e(ispin,1,i),&
+                (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),&
                 ispin=1,Nspin)
-           do i=1,Nbath
-              write(unit_,"(90(F21.12,1X))")(&
-                   dmft_bath_%e(ispin,1,i),&
-                   (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),&
-                   ispin=1,Nspin)
-           enddo
-        case ("superc")
-           write(unit_,"(90(A21,1X))")(&
-                "#Ek_s"//reg(txtfy(ispin)),&
-                "Dk_s"//reg(txtfy(ispin)) ,&
-                ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),&
+        enddo
+     case ("superc")
+        write(unit_,"(90(A21,1X))")(&
+             "#Ek_s"//reg(txtfy(ispin)),&
+             "Dk_s"//reg(txtfy(ispin)) ,&
+             ("Vk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),iorb=1,Norb),&
+             ispin=1,Nspin)
+        do i=1,Nbath
+           write(unit_,"(90(F21.12,1X))")(&
+                dmft_bath_%e(ispin,1,i),&
+                dmft_bath_%d(ispin,1,i),&
+                (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),&
                 ispin=1,Nspin)
-           do i=1,Nbath
-              write(unit_,"(90(F21.12,1X))")(&
-                   dmft_bath_%e(ispin,1,i),&
-                   dmft_bath_%d(ispin,1,i),&
-                   (dmft_bath_%v(ispin,iorb,i),iorb=1,Norb),&
-                   ispin=1,Nspin)
-           enddo
-        case ("nonsu2")
-           write(unit_,"(90(A21,1X))")(&
-                "#Ek_s"//reg(txtfy(ispin)),&
-                (&
-                "Vak_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-                "Vbk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
-                iorb=1,Norb),&
+        enddo
+     case ("nonsu2")
+        write(unit_,"(90(A21,1X))")(&
+             "#Ek_s"//reg(txtfy(ispin)),&
+             (&
+             "Vak_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+             "Vbk_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin)),&
+             iorb=1,Norb),&
+             ispin=1,Nspin)
+        do i=1,Nbath
+           write(unit_,"(90(F21.12,1X))")(&
+                dmft_bath_%e(ispin,1,i),    &
+                (dmft_bath_%v(ispin,iorb,i),dmft_bath_%u(ispin,iorb,i),iorb=1,Norb),&
                 ispin=1,Nspin)
-           do i=1,Nbath
-              write(unit_,"(90(F21.12,1X))")(&
-                   dmft_bath_%e(ispin,1,i),    &
-                   (dmft_bath_%v(ispin,iorb,i),dmft_bath_%u(ispin,iorb,i),iorb=1,Norb),&
-                   ispin=1,Nspin)
-           enddo
-        end select
-        !
-     case ('replica')
-        !
-        select case(ed_mode)
-        case ("normal","nonsu2")
-           do i=1,Nbath
-              himp_aux=zero;himp_aux=nn2so_reshape(dmft_bath_%h(:,:,:,:,i),Nspin,Norb)
-              hybr_aux=dmft_bath_%vr(i)
-              do io=1,Nspin*Norb
-                 if(unit_==LOGfile)then
-                    if(ed_type=="d") then
-                       if(io==1)write(unit_,"(F8.3,a5,90(F8.3,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                       if(io/=1)write(unit_,"(a8,a5,90(F8.3,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                    endif
-                    if(ed_type=="c") then
-                       if(io==1) write(unit_,"(2F8.3,a5,90(F8.3,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
-                            (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                       if(io/=1) write(unit_,"(2a8,a5,90(F8.3,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
-                            (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                    endif
-                 else
-                    if(io==1)write(unit_,"(90(F21.12,1X))")      real(hybr_aux),aimag(hybr_aux),(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                    if(io/=1)write(unit_,"(2a21,90(F21.12,1X))")      "  "     ,     "  "      ,(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+        enddo
+     end select
+     !
+  case ('replica')
+     !
+     select case(ed_mode)
+     case ("normal","nonsu2")
+        do i=1,Nbath
+           himp_aux=zero;himp_aux=nn2so_reshape(dmft_bath_%h(:,:,:,:,i),Nspin,Norb)
+           hybr_aux=dmft_bath_%vr(i)
+           do io=1,Nspin*Norb
+              if(unit_==LOGfile)then
+                 if(ed_type=="d") then
+                    if(io==1)write(unit_,"(F8.3,a5,90(F8.3,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                    if(io/=1)write(unit_,"(a8,a5,90(F8.3,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
                  endif
-              enddo
-              write(unit_,*)
+                 if(ed_type=="c") then
+                    if(io==1) write(unit_,"(2F8.3,a5,90(F8.3,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
+                         (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                    if(io/=1) write(unit_,"(2a8,a5,90(F8.3,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
+                         (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                 endif
+              else
+                 if(io==1)write(unit_,"(90(F21.12,1X))")      real(hybr_aux),aimag(hybr_aux),(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                 if(io/=1)write(unit_,"(2a21,90(F21.12,1X))")      "  "     ,     "  "      ,(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+              endif
            enddo
-           !
-        case ("superc")
-           !
-        end select
+           write(unit_,*)
+        enddo
+        !
+     case ("superc")
         !
      end select
-  endif
+     !
+  end select
+  ! endif
 end subroutine write_dmft_bath
 
 
@@ -540,20 +540,20 @@ subroutine save_dmft_bath(dmft_bath_,file,used)
   logical                   :: used_
   character(len=16)         :: extension
   integer                   :: unit_
-  if(ED_MPI_ID==0)then
-     if(.not.dmft_bath_%status)stop "save_dmft_bath error: bath is not allocated"
-     used_=.false.;if(present(used))used_=used
-     extension=".restart";if(used_)extension=".used"
-     file_=reg(reg(Hfile)//reg(ed_file_suffix)//reg(extension))
-     if(present(file))file_=reg(file)
-     unit_=free_unit()
-     open(unit_,file=reg(file_))
-     !<DEBUG
-     write(*,*) reg(file_)
-     !DEBUG>
-     call write_dmft_bath(dmft_bath_,unit_)
-     close(unit_)
-  endif
+  ! if(ED_MPI_ID==0)then
+  if(.not.dmft_bath_%status)stop "save_dmft_bath error: bath is not allocated"
+  used_=.false.;if(present(used))used_=used
+  extension=".restart";if(used_)extension=".used"
+  file_=reg(reg(Hfile)//reg(ed_file_suffix)//reg(extension))
+  if(present(file))file_=reg(file)
+  unit_=free_unit()
+  open(unit_,file=reg(file_))
+  !<DEBUG
+  write(*,*) reg(file_)
+  !DEBUG>
+  call write_dmft_bath(dmft_bath_,unit_)
+  close(unit_)
+  ! endif
 end subroutine save_dmft_bath
 
 

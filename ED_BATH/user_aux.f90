@@ -9,10 +9,10 @@
 ! 1 for get_spin_orb_component_size_bath
 !+-------------------------------------------------------------------+
 function get_bath_dimension(Hloc_nn,ispin_) result(bath_size)
-  complex(8),allocatable,optional,intent(in) :: Hloc_nn(:,:,:,:)
-  integer,optional                           :: ispin_
-  integer                                    :: bath_size,ndx,ispin,iorb,jspin,jorb,io,jo
-  complex(8),allocatable                     :: Hloc(:,:,:,:)
+  complex(8),optional,intent(in) :: Hloc_nn(:,:,:,:)
+  integer,optional               :: ispin_
+  integer                        :: bath_size,ndx,ispin,iorb,jspin,jorb,io,jo
+  complex(8),allocatable         :: Hloc(:,:,:,:)
 
   select case(bath_type)
   case default
