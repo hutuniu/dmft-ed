@@ -9,6 +9,10 @@ MODULE ED_HAMILTONIAN
   USE ED_VARS_GLOBAL
   USE ED_BATH
   USE ED_SETUP
+#ifdef _MPI
+  USE MPI
+  USE SF_MPI
+#endif
   implicit none
   private
 
@@ -18,8 +22,40 @@ MODULE ED_HAMILTONIAN
   public :: build_H_all_d
   public :: build_H_all_c
 
+  public :: ed_hamiltonian_set_MPI
+  public :: ed_hamiltonian_del_MPI
+
+#ifdef _MPI
+  integer                      :: MpiComm=MPI_UNDEFINED
+#endif
+  logical                      :: MpiStatus=.false.
+  integer                      :: MpiIerr
+  integer                      :: MpiRank=0
+  integer                      :: MpiSize=1
+  integer                      :: mpiQ=1
+  integer                      :: mpiR=0
+
 
 contains
+
+
+  subroutine ed_hamiltonian_set_MPI(comm_)
+#ifdef _MPI
+    integer :: comm_
+    MpiComm = comm_
+    MpiStatus=.true.
+#else
+    integer,optional :: comm_
+#endif
+  end subroutine ed_hamiltonian_set_MPI
+
+
+  subroutine ed_hamiltonian_del_MPI()
+#ifdef _MPI
+    MpiComm = MPI_UNDEFINED
+    MpiStatus=.false.
+#endif
+  end subroutine ed_hamiltonian_del_MPI
 
 
   !+------------------------------------------------------------------+
@@ -27,16 +63,11 @@ contains
   !+------------------------------------------------------------------+
   subroutine build_H_normal_d(isector,Hmat)
     real(8),dimension(:,:),optional     :: Hmat
-#ifdef _MPI
     real(8),dimension(:,:),allocatable  :: Hredux
-#endif
     integer                             :: isector
     type(sector_map)                    :: H,Hup,Hdw
     integer,dimension(Nlevels)          :: ib
     integer,dimension(Ns)               :: ibup,ibdw
-    integer                             :: mpiQ,mpiR
-    integer                             :: mpiQup,mpiRup
-    integer                             :: mpiQdw,mpiRdw
     integer                             :: dim,dimUp,dimDw
     integer                             :: i,iup,idw
     integer                             :: m,mup,mdw
@@ -54,19 +85,26 @@ contains
     integer                             :: first_state_up,last_state_up
     integer                             :: first_state_dw,last_state_dw
     !
+    !This is because you may want to run serial although you compiled in parallel:
+    ! if the communicator is set, then setup rank and size, otherwise (comm not set)
+    ! keep the default (1 cpu) values.
+    if(MpiStatus)then
+       MpiRank = get_Rank_MPI(MpiComm)
+       MpiSize = get_Size_MPI(MpiComm)
+    endif
     !
     call build_sector(isector,H)
     !
     if(spH0%status)call sp_delete_matrix(spH0) 
     !
     dim=getdim(isector)
-    mpiQ = dim/ED_MPI_SIZE
+    mpiQ = dim/MpiSize
     mpiR = 0
-    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE)
-    call sp_init_matrix(spH0,mpiQ+mpiR)
-    ishift      = ED_MPI_ID*mpiQ
-    first_state = ED_MPI_ID*mpiQ+1
-    last_state  = (ED_MPI_ID+1)*mpiQ+mpiR
+    if(MpiRank==(MpiSize-1))mpiR=mod(dim,MpiSize)
+    call sp_init_matrix(spH0,mpiQ + mpiR)
+    ishift      = MpiRank*mpiQ
+    first_state = MpiRank*mpiQ + 1
+    last_state  = (MpiRank+1)*mpiQ + mpiR
     !
     !
     !Get diagonal hybridization
@@ -90,40 +128,36 @@ contains
     endif
     !
     !-----------------------------------------------!
-    !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
-    !this part is identical between d_ and c_ codes.
     include "ED_HAMILTONIAN/build_h_normal.f90"
     !-----------------------------------------------!
     !
     deallocate(H%map)
     !
-    !<DEBUG
     if(present(Hmat))then
        if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "build_H_normal_d ERROR: size(Hmat) != dim**2"
-#ifdef _MPI
-       allocate(Hredux(dim,dim));Hredux=0d0
-       call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
-       call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Precision,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
-#else
-       call sp_dump_matrix(spH0,Hmat)
-#endif
+       if(MpiStatus)then
+          allocate(Hredux(dim,dim));Hredux=0d0
+          call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
+          call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Precision,MPI_Sum,MpiComm,MpiIerr)
+       else
+          call sp_dump_matrix(spH0,Hmat)
+       endif
     endif
     !
   end subroutine build_H_normal_d
 
 
+
+
+
+
   subroutine build_H_all_d(isector,Hmat)
     real(8),dimension(:,:),optional     :: Hmat
-#ifdef _MPI
     real(8),dimension(:,:),allocatable  :: Hredux
-#endif
     integer                             :: isector
     type(sector_map)                    :: H,Hup,Hdw
     integer,dimension(Nlevels)          :: ib
     integer,dimension(Ns)               :: ibup,ibdw
-    integer                             :: mpiQ,mpiR
-    integer                             :: mpiQup,mpiRup
-    integer                             :: mpiQdw,mpiRdw
     integer                             :: dim,dimUp,dimDw
     integer                             :: i,iup,idw
     integer                             :: m,mup,mdw
@@ -139,21 +173,25 @@ contains
     logical                             :: Jcondition
     integer                             :: first_state,last_state
     integer                             :: first_state_up,last_state_up
-    integer                             :: first_state_dw,last_state_dw
+    integer                             :: first_state_dw,last_state_dw    
     !
+    if(MpiStatus)then
+       MpiRank = get_Rank_MPI(MpiComm)
+       MpiSize = get_Size_MPI(MpiComm)
+    endif
     !
     call build_sector(isector,H)
     !
     if(spH0%status)call sp_delete_matrix(spH0) 
     !
     dim=getdim(isector)
-    mpiQ = dim/ED_MPI_SIZE
+    mpiQ = dim/MpiSize
     mpiR = 0
-    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE)
-    call sp_init_matrix(spH0,mpiQ+mpiR)
-    ishift      = ED_MPI_ID*mpiQ
-    first_state = ED_MPI_ID*mpiQ+1
-    last_state  = (ED_MPI_ID+1)*mpiQ+mpiR
+    if(MpiRank==(MpiSize-1))mpiR=mod(dim,MpiSize)
+    call sp_init_matrix(spH0,mpiQ + mpiR)
+    ishift      = MpiRank*mpiQ
+    first_state = MpiRank*mpiQ + 1
+    last_state  = (MpiRank+1)*mpiQ + mpiR
     !
     !
     !Get diagonal hybridization
@@ -177,23 +215,20 @@ contains
     endif
     !
     !-----------------------------------------------!
-    !BUILD ED HAMILTONIAN AS A SPARSE MATRIX
-    !this part is identical between d_ and c_ codes.
     include "ED_HAMILTONIAN/build_h_all.f90"
     !-----------------------------------------------!
     !
     deallocate(H%map)
     !
-    !<DEBUG
     if(present(Hmat))then
        if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "build_H_all_d ERROR: size(Hmat) != dim**2"
-#ifdef _MPI
-       allocate(Hredux(dim,dim));Hredux=0d0
-       call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
-       call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Precision,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
-#else
-       call sp_dump_matrix(spH0,Hmat)
-#endif
+       if(MpiStatus)then
+          allocate(Hredux(dim,dim));Hredux=0d0
+          call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
+          call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Precision,MPI_Sum,MpiComm,MpiIerr)
+       else
+          call sp_dump_matrix(spH0,Hmat)
+       endif
     endif
     !
   end subroutine build_H_all_d
@@ -212,13 +247,10 @@ contains
   !+------------------------------------------------------------------+
   subroutine build_H_normal_c(isector,Hmat)
     complex(8),dimension(:,:),optional    :: Hmat
-#ifdef _MPI
     complex(8),dimension(:,:),allocatable :: Hredux
-#endif
     integer                               :: isector
     type(sector_map)                      :: H,Hup,Hdw
     integer,dimension(Nlevels)            :: ib
-    integer                               :: mpiQ,mpiR                
     integer                               :: dim
     integer                               :: i,j,m,ms,impi,ishift
     integer                               :: iorb,jorb,ispin,jspin,ibath
@@ -232,30 +264,23 @@ contains
     logical                               :: Jcondition
     integer                               :: first_state,last_state
     !
+    if(MpiStatus)then
+       MpiRank = get_Rank_MPI(MpiComm)
+       MpiSize = get_Size_MPI(MpiComm)
+    endif
+    !
     call build_sector(isector,H)
     !
+    if(spH0%status)call sp_delete_matrix(spH0)
+    !
     dim=getdim(isector)
-    !
-    first_state= 1
-    last_state = dim
-    !
-    if(spH0%status)call sp_delete_matrix(spH0) 
-#ifdef _MPI
-    mpiQ = dim/ED_MPI_SIZE
+    mpiQ = dim/MpiSize
     mpiR = 0
-    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE) 
-    call sp_init_matrix(spH0,mpiQ+mpiR)
-    ishift     = ED_MPI_ID*mpiQ
-    first_state= ED_MPI_ID*mpiQ+1
-    last_state = (ED_MPI_ID+1)*mpiQ+mpiR
-#else
-    mpiQ=0
-    mpiR=0
-    call sp_init_matrix(spH0,dim)
-    ishift     = 0
-    first_state= 1
-    last_state = dim
-#endif
+    if(MpiRank==(MpiSize-1))mpiR=mod(dim,MpiSize)
+    call sp_init_matrix(spH0,mpiQ + mpiR)
+    ishift      = MpiRank*mpiQ
+    first_state = MpiRank*mpiQ + 1
+    last_state  = (MpiRank+1)*mpiQ + mpiR
     !
     !Get diagonal part of Hloc
     do ispin=1,Nspin
@@ -293,26 +318,24 @@ contains
     !
     if(present(Hmat))then
        if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "build_H_normal_c ERROR: size(Hmat) != dim**2"
-#ifdef _MPI
-       allocate(Hredux(dim,dim));Hredux=zero
-       call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
-       call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Complex,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
-#else
-       call sp_dump_matrix(spH0,Hmat)
-#endif
+       if(MpiStatus)then
+          allocate(Hredux(dim,dim));Hredux=zero
+          call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
+          call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Complex,MPI_Sum,MpiComm,MpiIerr)
+       else
+          call sp_dump_matrix(spH0,Hmat)
+       endif
     endif
     !
   end subroutine build_H_normal_c
 
+
   subroutine build_H_all_c(isector,Hmat)
     complex(8),dimension(:,:),optional    :: Hmat
-#ifdef _MPI
     complex(8),dimension(:,:),allocatable :: Hredux
-#endif
     integer                               :: isector
     type(sector_map)                      :: H,Hup,Hdw
     integer,dimension(Nlevels)            :: ib
-    integer                               :: mpiQ,mpiR                
     integer                               :: dim
     integer                               :: i,j,m,ms,impi,ishift
     integer                               :: iorb,jorb,ispin,jspin,ibath
@@ -326,30 +349,23 @@ contains
     logical                               :: Jcondition
     integer                               :: first_state,last_state
     !
+    if(MpiStatus)then
+       MpiRank = get_Rank_MPI(MpiComm)
+       MpiSize = get_Size_MPI(MpiComm)
+    endif
+    !
     call build_sector(isector,H)
     !
+    if(spH0%status)call sp_delete_matrix(spH0)
+    !
     dim=getdim(isector)
-    !
-    first_state= 1
-    last_state = dim
-    !
-    if(spH0%status)call sp_delete_matrix(spH0) 
-#ifdef _MPI
-    mpiQ = dim/ED_MPI_SIZE
+    mpiQ = dim/MpiSize
     mpiR = 0
-    if(ED_MPI_ID==(ED_MPI_SIZE-1))mpiR=mod(dim,ED_MPI_SIZE) 
-    call sp_init_matrix(spH0,mpiQ+mpiR)
-    ishift     = ED_MPI_ID*mpiQ
-    first_state= ED_MPI_ID*mpiQ+1
-    last_state = (ED_MPI_ID+1)*mpiQ+mpiR
-#else
-    mpiQ=0
-    mpiR=0
-    call sp_init_matrix(spH0,dim)
-    ishift     = 0
-    first_state= 1
-    last_state = dim
-#endif
+    if(MpiRank==(MpiSize-1))mpiR=mod(dim,MpiSize)
+    call sp_init_matrix(spH0,mpiQ + mpiR)
+    ishift      = MpiRank*mpiQ
+    first_state = MpiRank*mpiQ + 1
+    last_state  = (MpiRank+1)*mpiQ + mpiR
     !
     !Get diagonal part of Hloc
     do ispin=1,Nspin
@@ -387,13 +403,13 @@ contains
     !
     if(present(Hmat))then
        if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "build_H_all_c ERROR: size(Hmat) != dim**2"
-#ifdef _MPI
-       allocate(Hredux(dim,dim));Hredux=zero
-       call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
-       call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Complex,MPI_Sum,MPI_Comm_World,ED_MPI_ERR)
-#else
-       call sp_dump_matrix(spH0,Hmat)
-#endif
+       if(MpiStatus)then
+          allocate(Hredux(dim,dim));Hredux=zero
+          call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
+          call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Complex,MPI_Sum,MpiComm,MpiIerr)
+       else
+          call sp_dump_matrix(spH0,Hmat)
+       endif
     endif
     !
   end subroutine build_H_all_c

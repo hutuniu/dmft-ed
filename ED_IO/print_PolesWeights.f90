@@ -30,20 +30,18 @@ subroutine print_poles_weights_normal
   if(l/=totNorb)stop "print_gf_normal error counting the orbitals"
   !!
   !Print the impurity functions:
-  if(ED_MPI_ID==0)then
-     do l=1,totNorb
-        iorb=getIorb(l)
-        jorb=getJorb(l)
-        suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
-        call open_units(reg(suffix))
-        do isign=1,2
-           do i=1,lanc_nGFiter
-              write(unit(1),"(6(F20.12,1x))")(GFpoles(ispin,ispin,iorb,jorb,isign,i),GFweights(ispin,ispin,iorb,jorb,isign,i),ispin=1,Nspin)
-           enddo
+  do l=1,totNorb
+     iorb=getIorb(l)
+     jorb=getJorb(l)
+     suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
+     call open_units(reg(suffix))
+     do isign=1,2
+        do i=1,lanc_nGFiter
+           write(unit(1),"(6(F20.12,1x))")(GFpoles(ispin,ispin,iorb,jorb,isign,i),GFweights(ispin,ispin,iorb,jorb,isign,i),ispin=1,Nspin)
         enddo
-        call close_units()
      enddo
-  endif
+     call close_units()
+  enddo
   !
 contains
   !
@@ -90,20 +88,18 @@ subroutine print_poles_weights_superc
   if(l/=totNorb)stop "print_gf_superc error counting the orbitals"
   !!
   !!PRINT OUT GF:
-  if(ED_MPI_ID==0)then
-     do l=1,totNorb
-        iorb=getIorb(l)
-        jorb=getJorb(l)
-        suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
-        call open_units(reg(suffix))
-        do isign=1,2
-           do i=1,lanc_nGFiter
-              write(unit(1),"(6(F20.12,1x))")(GFpoles(ispin,ispin,iorb,jorb,isign,i),GFweights(ispin,ispin,iorb,jorb,isign,i),ispin=1,Nspin)
-           enddo
+  do l=1,totNorb
+     iorb=getIorb(l)
+     jorb=getJorb(l)
+     suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
+     call open_units(reg(suffix))
+     do isign=1,2
+        do i=1,lanc_nGFiter
+           write(unit(1),"(6(F20.12,1x))")(GFpoles(ispin,ispin,iorb,jorb,isign,i),GFweights(ispin,ispin,iorb,jorb,isign,i),ispin=1,Nspin)
         enddo
-        call close_units
      enddo
-  endif
+     call close_units
+  enddo
   !
 contains
   subroutine open_units(string)
@@ -198,25 +194,23 @@ subroutine print_poles_weights_nonsu2
   if(l/=totNso)stop "print_gf_nonsu2 error counting the spin-orbitals"
   !!
   !!PRINT OUT GF:
-  if(ED_MPI_ID==0)then
-     do l=1,totNso
-        iorb=getIorb(l)
-        jorb=getJorb(l)
-        ispin=getIspin(l)
-        jspin=getJspin(l)
-        !
-        suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
-        call open_units(reg(suffix))
-        !
-        do isign=1,2
-           do i=1,lanc_nGFiter
-              write(unit(1),"(2(F20.12,1x))")GFpoles(ispin,jspin,iorb,iorb,isign,i),GFweights(ispin,jspin,iorb,iorb,isign,i)
-           enddo
+  do l=1,totNso
+     iorb=getIorb(l)
+     jorb=getJorb(l)
+     ispin=getIspin(l)
+     jspin=getJspin(l)
+     !
+     suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+     call open_units(reg(suffix))
+     !
+     do isign=1,2
+        do i=1,lanc_nGFiter
+           write(unit(1),"(2(F20.12,1x))")GFpoles(ispin,jspin,iorb,iorb,isign,i),GFweights(ispin,jspin,iorb,iorb,isign,i)
         enddo
-        !
-        call close_units()
      enddo
-  endif
+     !
+     call close_units()
+  enddo
   !
 contains
   subroutine open_units(string)

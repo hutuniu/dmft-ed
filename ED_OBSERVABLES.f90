@@ -12,11 +12,20 @@ MODULE ED_OBSERVABLES
   USE ED_SETUP
   USE ED_MATVEC
   USE ED_BATH
+#ifdef _MPI
+  USE MPI
+  USE SF_MPI
+#endif
+
   implicit none
   private
   !
-  public                             :: observables_impurity
-  !
+  public :: observables_impurity
+  public :: local_energy_impurity
+  public :: ed_observables_set_MPI
+  public :: ed_observables_del_MPI
+
+  
   logical,save                       :: iolegend=.true.
   real(8),dimension(:),allocatable   :: dens,dens_up,dens_dw
   real(8),dimension(:),allocatable   :: docc
@@ -26,9 +35,36 @@ MODULE ED_OBSERVABLES
   real(8),dimensioN(:,:),allocatable :: zimp,simp
   real(8)                            :: s2tot
   real(8)                            :: Egs
+  !
+
+#ifdef _MPI
+  integer                            :: MpiComm=MPI_UNDEFINED
+#endif
+  logical                            :: MpiStatus=.false.
+  logical                            :: MPI_MASTER=.true.  !
 
 
 contains 
+
+  subroutine ed_observables_set_MPI(comm)
+#ifdef _MPI
+    integer :: comm
+    MpiComm  = comm
+    MpiStatus = .true.
+    MPI_MASTER= get_Master_MPI(MpiComm)
+#else
+    integer,optional :: comm
+#endif
+  end subroutine ed_observables_set_MPI
+
+
+  subroutine ed_observables_del_MPI()
+#ifdef _MPI
+    MpiComm  = MPI_UNDEFINED
+    MpiStatus = .false.
+#endif
+  end subroutine ed_observables_del_MPI
+
 
 
   !+-------------------------------------------------------------------+
@@ -96,7 +132,6 @@ contains
        peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
        peso = peso/zeta_function
        !
-
        call build_sector(isector,H)
        !
        !pdens=0d0
@@ -164,7 +199,6 @@ contains
                 peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
                 peso = peso/zeta_function
                 !
-
                 call build_sector(isector,H)
                 !GET <(C_UP + CDG_DW)(CDG_UP + C_DW)> = 
                 !<C_UP*CDG_UP> + <CDG_DW*C_DW> + <C_UP*C_DW> + <CDG_DW*CDG_UP> = 
@@ -273,10 +307,9 @@ contains
        enddo
        deallocate(H%map)
     enddo
-
+    !
     imp_density_matrix = imp_density_matrix/float(numstates)
-
-
+    !
     !IMPURITY DENSITY OPERATORS
     if((Nspin/=1).and.(Norb==3))then
        if(allocated(impStot))    deallocate(impStot);   allocate(impStot(3,Norb,Norb));  impStot=zero
@@ -351,7 +384,7 @@ contains
     !<<DEBUG
     !
     call get_szr
-    if(ED_MPI_ID==0)then
+    if(MPI_MASTER)then
        if(iolegend)call write_legend
        call write_observables()
        write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(ed_file_suffix)//"=",(dens(iorb),iorb=1,Norb),sum(dens)
@@ -384,6 +417,250 @@ contains
 
 
 
+
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : Get internal energy from the Impurity problem.
+  !+-------------------------------------------------------------------+
+  subroutine local_energy_impurity(MpiComm)
+    integer,optional                :: MpiComm
+    integer,dimension(Nlevels)      :: ib
+    integer                         :: i,j
+    integer                         :: izero
+    integer                         :: isector
+    integer                         :: idim
+    integer                         :: iorb,jorb,ispin
+    integer                         :: numstates
+    integer                         :: m,k1,k2,k3,k4
+    real(8)                         :: sg1,sg2,sg3,sg4
+    real(8)                         :: Egs,gs_weight
+    real(8)                         :: Ei
+    real(8)                         :: peso
+    real(8)                         :: norm
+    real(8),dimension(Norb)         :: nup,ndw
+    real(8),dimension(Nspin,Norb)   :: eloc
+    real(8),dimension(:),pointer    :: gsvec
+    complex(8),dimension(:),pointer :: gscvec
+    type(sector_map)                :: H
+    logical                         :: Jcondition
+    !
+    Egs     = state_list%emin
+    ed_Ehartree= 0.d0
+    ed_Eknot   = 0.d0
+    ed_Epot    = 0.d0
+    ed_Dust    = 0.d0
+    ed_Dund    = 0.d0
+    ed_Dse     = 0.d0
+    ed_Dph     = 0.d0
+    !
+    !Get diagonal part of Hloc
+    do ispin=1,Nspin
+       do iorb=1,Norb
+          eloc(ispin,iorb)=impHloc(ispin,ispin,iorb,iorb)
+       enddo
+    enddo
+    !
+    numstates=state_list%size
+    do izero=1,numstates
+       isector = es_return_sector(state_list,izero)
+       Ei      = es_return_energy(state_list,izero)
+       idim    = getdim(isector)
+       !
+       if(ed_type=='d')then
+          gsvec  => es_return_vector(state_list,izero)
+          norm=sqrt(dot_product(gsvec,gsvec))
+       elseif(ed_type=='c')then
+          gscvec  => es_return_cvector(state_list,izero)
+          norm=sqrt(dot_product(gscvec,gscvec))
+       endif
+       if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
+       !
+       peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
+       peso = peso/zeta_function
+       !
+       call build_sector(isector,H)
+       !
+       do i=1,idim
+          m=H%map(i)
+          ib = bdecomp(m,2*Ns)
+          !
+          if(ed_type=='d')then
+             gs_weight=peso*gsvec(i)**2
+          elseif(ed_type=='c')then
+             gs_weight=peso*abs(gscvec(i))**2
+          endif
+          !
+          !Get operators:
+          do iorb=1,Norb
+             nup(iorb)= dble(ib(iorb))
+             ndw(iorb)= dble(ib(iorb+Ns))
+          enddo
+          !
+          !start evaluating the Tr(H_loc) to estimate potential energy
+          !
+          !LOCAL ENERGY
+          ed_Eknot = ed_Eknot + dot_product(eloc(1,:),nup)*gs_weight + dot_product(eloc(Nspin,:),ndw)*gs_weight
+          !==> HYBRIDIZATION TERMS I: same or different orbitals, same spins.
+          do iorb=1,Norb
+             do jorb=1,Norb
+                !SPIN UP
+                if((ib(iorb)==0).AND.(ib(jorb)==1))then
+                   call c(jorb,m,k1,sg1)
+                   call cdg(iorb,k1,k2,sg2)
+                   j=binary_search(H%map,k2)
+                   ed_Eknot = ed_Eknot + impHloc(1,1,iorb,jorb)*sg1*sg2*gs_weight
+                endif
+                !SPIN DW
+                if((ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
+                   call c(jorb+Ns,m,k1,sg1)
+                   call cdg(iorb+Ns,k1,k2,sg2)
+                   j=binary_search(H%map,k2)
+                   ed_Eknot = ed_Eknot + impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2*gs_weight
+                endif
+             enddo
+          enddo
+          !==> HYBRIDIZATION TERMS II: same or different orbitals, opposite spins.
+          if(ed_mode=="nonsu2")then
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   !UP-DW
+                   if((impHloc(1,Nspin,iorb,jorb)/=zero).AND.(ib(iorb)==0).AND.(ib(jorb+Ns)==1))then
+                      call c(jorb+Ns,m,k1,sg1)
+                      call cdg(iorb,k1,k2,sg2)
+                      j=binary_search(H%map,k2)
+                      ed_Eknot = ed_Eknot + impHloc(1,Nspin,iorb,jorb)*sg1*sg2*gs_weight
+                   endif
+                   !DW-UP
+                   if((impHloc(Nspin,1,iorb,jorb)/=zero).AND.(ib(iorb+Ns)==0).AND.(ib(jorb)==1))then
+                      call c(jorb,m,k1,sg1)
+                      call cdg(iorb+Ns,k1,k2,sg2)
+                      j=binary_search(H%map,k2)
+                      ed_Eknot = ed_Eknot + impHloc(Nspin,1,iorb,jorb)*sg1*sg2*gs_weight
+                   endif
+                enddo
+             enddo
+          endif
+          !
+          !DENSITY-DENSITY INTERACTION: SAME ORBITAL, OPPOSITE SPINS
+          !Euloc=\sum=i U_i*(n_u*n_d)_i
+          !ed_Epot = ed_Epot + dot_product(uloc,nup*ndw)*gs_weight
+          do iorb=1,Norb
+             ed_Epot = ed_Epot + Uloc(iorb)*nup(iorb)*ndw(iorb)*gs_weight
+          enddo
+          !
+          !DENSITY-DENSITY INTERACTION: DIFFERENT ORBITALS, OPPOSITE SPINS
+          !Eust=\sum_ij Ust*(n_up_i*n_dn_j + n_up_j*n_dn_i)
+          !    "="\sum_ij (Uloc - 2*Jh)*(n_up_i*n_dn_j + n_up_j*n_dn_i)
+          if(Norb>1)then
+             do iorb=1,Norb
+                do jorb=iorb+1,Norb
+                   ed_Epot = ed_Epot + Ust*(nup(iorb)*ndw(jorb) + nup(jorb)*ndw(iorb))*gs_weight
+                   ed_Dust = ed_Dust + (nup(iorb)*ndw(jorb) + nup(jorb)*ndw(iorb))*gs_weight
+                enddo
+             enddo
+          endif
+          !
+          !DENSITY-DENSITY INTERACTION: DIFFERENT ORBITALS, PARALLEL SPINS
+          !Eund = \sum_ij Und*(n_up_i*n_up_j + n_dn_i*n_dn_j)
+          !    "="\sum_ij (Ust-Jh)*(n_up_i*n_up_j + n_dn_i*n_dn_j)
+          !    "="\sum_ij (Uloc-3*Jh)*(n_up_i*n_up_j + n_dn_i*n_dn_j)
+          if(Norb>1)then
+             do iorb=1,Norb
+                do jorb=iorb+1,Norb
+                   ed_Epot = ed_Epot + (Ust-Jh)*(nup(iorb)*nup(jorb) + ndw(iorb)*ndw(jorb))*gs_weight
+                   ed_Dund = ed_Dund + (nup(iorb)*nup(jorb) + ndw(iorb)*ndw(jorb))*gs_weight
+                enddo
+             enddo
+          endif
+          !
+          !SPIN-EXCHANGE (S-E) TERMS
+          !S-E: Jh *( c^+_iorb_up c^+_jorb_dw c_iorb_dw c_jorb_up )  (i.ne.j) 
+          if(Norb>1.AND.Jhflag)then
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   Jcondition=((iorb/=jorb).AND.&
+                        (ib(jorb)==1)      .AND.&
+                        (ib(iorb+Ns)==1)   .AND.&
+                        (ib(jorb+Ns)==0)   .AND.&
+                        (ib(iorb)==0))
+                   if(Jcondition)then
+                      call c(jorb,m,k1,sg1)
+                      call c(iorb+Ns,k1,k2,sg2)
+                      call cdg(jorb+Ns,k2,k3,sg3)
+                      call cdg(iorb,k3,k4,sg4)
+                      j=binary_search(H%map,k4)
+                      ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gs_weight
+                      ed_Dse  = ed_Dse  + sg1*sg2*sg3*sg4*gs_weight
+                   endif
+                enddo
+             enddo
+          endif
+          !
+          !PAIR-HOPPING (P-H) TERMS
+          !P-H: J c^+_iorb_up c^+_iorb_dw   c_jorb_dw   c_jorb_up  (i.ne.j) 
+          !P-H: J c^+_{iorb}  c^+_{iorb+Ns} c_{jorb+Ns} c_{jorb}
+          if(Norb>1.AND.Jhflag)then
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   Jcondition=((iorb/=jorb).AND.&
+                        (ib(jorb)==1)      .AND.&
+                        (ib(jorb+Ns)==1)   .AND.&
+                        (ib(iorb+Ns)==0)   .AND.&
+                        (ib(iorb)==0))
+                   if(Jcondition)then
+                      call c(jorb,m,k1,sg1)
+                      call c(jorb+Ns,k1,k2,sg2)
+                      call cdg(iorb+Ns,k2,k3,sg3)
+                      call cdg(iorb,k3,k4,sg4)
+                      j=binary_search(H%map,k4)
+                      ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gs_weight
+                      ed_Dph  = ed_Dph  + sg1*sg2*sg3*sg4*gs_weight
+                   endif
+                enddo
+             enddo
+          endif
+          !
+          !HARTREE-TERMS CONTRIBUTION:
+          if(hfmode)then
+             !ed_Ehartree=ed_Ehartree - 0.5d0*dot_product(uloc,nup+ndw)*gs_weight + 0.25d0*sum(uloc)*gs_weight
+             do iorb=1,Norb
+                ed_Ehartree=ed_Ehartree - 0.5d0*uloc(iorb)*(nup(iorb)+ndw(iorb))*gs_weight + 0.25d0*uloc(iorb)*gs_weight
+             enddo
+             if(Norb>1)then
+                do iorb=1,Norb
+                   do jorb=iorb+1,Norb
+                      ed_Ehartree=ed_Ehartree - 0.5d0*Ust*(nup(iorb)+ndw(iorb)+nup(jorb)+ndw(jorb))*gs_weight + 0.25d0*Ust*gs_weight
+                      ed_Ehartree=ed_Ehartree - 0.5d0*(Ust-Jh)*(nup(iorb)+ndw(iorb)+nup(jorb)+ndw(jorb))*gs_weight + 0.25d0*(Ust-Jh)*gs_weight
+                   enddo
+                enddo
+             endif
+          endif
+       enddo
+       if(associated(gsvec))nullify(gsvec)
+       if(associated(gscvec))nullify(gscvec)
+       deallocate(H%map)
+    enddo
+    ed_Epot = ed_Epot + ed_Ehartree
+    !
+    if(MPI_MASTER)then
+       if(ed_verbose<0)then
+          write(LOGfile,"(A,10f18.12)")"<Hint>  =",ed_Epot
+          write(LOGfile,"(A,10f18.12)")"<V>     =",ed_Epot-ed_Ehartree
+          write(LOGfile,"(A,10f18.12)")"<E0>    =",ed_Eknot
+          write(LOGfile,"(A,10f18.12)")"<Ehf>   =",ed_Ehartree    
+          write(LOGfile,"(A,10f18.12)")"Dust    =",ed_Dust
+          write(LOGfile,"(A,10f18.12)")"Dund    =",ed_Dund
+          write(LOGfile,"(A,10f18.12)")"Dse     =",ed_Dse
+          write(LOGfile,"(A,10f18.12)")"Dph     =",ed_Dph
+       endif
+       call write_energy_info()
+       call write_energy()
+    endif
+    !
+    !
+  end subroutine local_energy_impurity
+
+
+
   !####################################################################
   !                    COMPUTATIONAL ROUTINES
   !####################################################################
@@ -401,7 +678,6 @@ contains
           zimp(iorb,ispin)   = 1.d0/( 1.d0 + abs( dimag(impSmats(ispin,ispin,iorb,iorb,1))/wm1 ))
        enddo
     enddo
-    print*,ED_MPI_ID,zimp(1,1)
   end subroutine get_szr
 
 
@@ -453,6 +729,22 @@ contains
     !
     iolegend=.false.
   end subroutine write_legend
+
+  subroutine write_energy_info()
+    integer :: unit
+    unit = free_unit()
+    open(unit,file="energy_info.ed")
+    write(unit,"(A1,90(A14,1X))")"#",&
+         reg(txtfy(1))//"<Hi>",&
+         reg(txtfy(2))//"<V>=<Hi-Ehf>",&
+         reg(txtfy(3))//"<Eloc>",&
+         reg(txtfy(4))//"<Ehf>",&
+         reg(txtfy(5))//"<Dst>",&
+         reg(txtfy(6))//"<Dnd>",&
+         reg(txtfy(7))//"<Dse>",&
+         reg(txtfy(8))//"<Dph>"
+    close(unit)
+  end subroutine write_energy_info
 
 
   !+-------------------------------------------------------------------+
@@ -531,6 +823,13 @@ contains
     close(unit)         
   end subroutine write_observables
 
+  subroutine write_energy()
+    integer :: unit
+    unit = free_unit()
+    open(unit,file="energy_last"//reg(ed_file_suffix)//".ed")
+    write(unit,"(90F15.9)")ed_Epot,ed_Epot-ed_Ehartree,ed_Eknot,ed_Ehartree,ed_Dust,ed_Dund,ed_Dse,ed_Dph
+    close(unit)
+  end subroutine write_energy
 
 
 

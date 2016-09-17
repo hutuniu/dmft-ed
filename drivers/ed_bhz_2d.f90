@@ -15,9 +15,10 @@ program ed_bhz
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
-#ifdef _MPI
+  ! #ifdef _MPI
   USE MPI
-#endif
+  USE SF_MPI
+  ! #endif
   implicit none
   integer                :: iloop,Lk,Nso
   logical                :: converged
@@ -42,14 +43,18 @@ program ed_bhz
   type(finter_type)      :: finter_func
   !
   real(8),dimension(2)   :: Eout
-  real(8),allocatable :: dens(:)
-#ifdef _MPI
-  call MPI_INIT(ED_MPI_ERR)
-  call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD,ED_MPI_SIZE,ED_MPI_ERR)
-  write(*,"(A,I4,A,I4,A)")'Processor ',ED_MPI_ID,' of ',ED_MPI_SIZE,' is alive'
-  call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
+  real(8),allocatable    :: dens(:)
+  !MPI Vars:
+  integer :: mpiRANK, mpiSIZE, mpiERR
+
+  ! #ifdef _MPI
+  call MPI_INIT(mpiERR)
+  ! call MPI_COMM_RANK(MPI_COMM_WORLD,mpiRANK,mpiERR)
+  ! call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
+  ! write(*,"(A,I4,A,I4,A)")'Processor ',mpiRANK,' of ',mpiSIZE,' is alive'
+  ! call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
+  call StartMsg_MPI(MPI_COMM_WORLD)
+  ! #endif
 
   !Parse additional variables && read Input && read H(k)^4x4
   call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ.in')
@@ -67,6 +72,7 @@ program ed_bhz
   call parse_input_variable(lambda,"LAMBDA",finput,default=0.d0)
   !
   call ed_read_input(trim(finput))
+
 
   if(Nspin/=2.OR.Norb/=2)stop "Wrong setup from input file: Nspin=Norb=2 -> 4Spin-Orbitals"
   Nso=Nspin*Norb
@@ -104,17 +110,17 @@ program ed_bhz
   Nb=get_bath_dimension()
   allocate(Bath(Nb))
   allocate(Bath_(Nb))
-  call ed_init_solver(bath)
+  call ed_init_solver(MPI_COMM_WORLD,bath)
   call set_hloc(j2so(bhzHloc))
 
   !DMFT loop
   iloop=0;converged=.false.
   do while(.not.converged.AND.iloop<nloop)
      iloop=iloop+1
-     if(ED_MPI_ID==0)call start_loop(iloop,nloop,"DMFT-loop")
+     if(mpiRANK==0)call start_loop(iloop,nloop,"DMFT-loop")
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
-     call ed_solve(bath)
+     call ed_solve(MPI_COMM_WORLD,bath)
      call ed_get_sigma_matsubara(Smats)
      call ed_get_sigma_real(Sreal)
      dens= ed_get_dens()
@@ -125,33 +131,51 @@ program ed_bhz
      ! call get_delta
 
      !Fit the new bath, starting from the old bath + the supplied delta
-     call ed_chi2_fitgf(delta(1,1,:,:,:),bath,ispin=1)
+     call ed_chi2_fitgf(MPI_COMM_WORLD,delta(1,1,:,:,:),bath,ispin=1)
      if(.not.spinsym)then
         call ed_chi2_fitgf(delta(2,2,:,:,:),bath,ispin=2)
      else
         call spin_symmetrize_bath(bath,save=.true.)
      endif
+     call Bcast_MPI(MPI_COMM_WORLD,bath)
 
      !MIXING:
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      Bath_=Bath
 
-     if(ED_MPI_ID==0)then
+     if(mpiRANK==0)then
         converged = check_convergence(delta(1,1,1,1,:),dmft_error,nsuccess,nloop)
         if(nread/=0.d0)call search_chemical_potential(xmu,sum(dens),converged)
      endif
-#ifdef _MPI
-     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
-     call MPI_BCAST(xmu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
-     if(ED_MPI_ID==0)call end_loop
+
+     ! #ifdef _MPI
+     call Bcast_MPI(MPI_COMM_WORLD,converged)
+     call Bcast_MPI(MPI_COMM_WORLD,xmu)
+     ! #endif
+
+     if(mpiRANK==0)call end_loop
   enddo
 
-  Eout = ed_kinetic_energy(Hk,Wtk,Smats)
 
-#ifdef _MPI
-  call MPI_FINALIZE(ED_MPI_ERR)
-#endif
+  ! if(mpiRANK==0)then
+  !    Eout = ed_kinetic_energy(Hk,Wtk,Smats)
+  !    print*,Eout
+  ! endif
+
+
+  call add_ctrl_var(Norb,"Norb")
+  call add_ctrl_var(Nspin,"Nspin")
+  call add_ctrl_var(beta,"beta")
+  call add_ctrl_var(xmu,"xmu")
+  call add_ctrl_var(wini,"wini")
+  call add_ctrl_var(wfin,"wfin")
+  Eout = dmft_kinetic_energy(MPI_COMM_WORLD,Hk,Wtk,Smats)
+  print*,Eout
+
+  ! #ifdef _MPI
+  call MPI_FINALIZE(mpiERR)
+  ! #endif
+
 contains
 
 
@@ -174,10 +198,10 @@ contains
     real(8)                             :: wm(Lmats),wr(Lreal),dw
     call build_hk_GXMG()
 
-    if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for BHZ:"
+    if(mpiRANK==0)write(LOGfile,*)"Build H(k) for BHZ:"
     Lk=Nk**2
-    if(ED_MPI_ID==0)write(*,*)"# of k-points     :",Lk
-    if(ED_MPI_ID==0)write(*,*)"# of SO-bands     :",Nso
+    if(mpiRANK==0)write(*,*)"# of k-points     :",Lk
+    if(mpiRANK==0)write(*,*)"# of SO-bands     :",Nso
     if(allocated(Hk))deallocate(Hk)
     if(allocated(wtk))deallocate(wtk)
     allocate(Hk(Nso,Nso,Lk))
@@ -187,7 +211,7 @@ contains
     kygrid = kgrid(Nk)
     Hk     = build_hk_model(hk_bhz,Nso,kxgrid,kygrid,[0d0])
     wtk = 1d0/Lk
-    if(ED_MPI_ID==0.AND.present(file))then
+    if(mpiRANK==0.AND.present(file))then
        call write_hk_w90(file,Nso,&
             Nd=Norb,&
             Np=1,   &
@@ -200,7 +224,7 @@ contains
     allocate(bhzHloc(Nso,Nso))
     bhzHloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs(dreal(bhzHloc))<1.d-9)bhzHloc=0d0
-    if(ED_MPI_ID==0)call write_Hloc(bhzHloc)
+    if(mpiRANK==0)call write_Hloc(bhzHloc)
     !Build the local GF:
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
     wr = linspace(wini,wfin,Lreal,mesh=dw)
@@ -235,14 +259,14 @@ contains
     !This routine build the H(k) along the GXMG path in BZ,
     !Hk(k) is constructed along this path.
     if(present(kpath_))then
-       if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) BHZ along a given path:"
+       if(mpiRANK==0)write(LOGfile,*)"Build H(k) BHZ along a given path:"
        Npts = size(kpath_,1)
        Lk=(Npts-1)*Nkpath
        allocate(kpath(Npts,size(kpath_,2)))
        kpath=kpath_
        file="Eig_path.nint"
     else
-       if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
+       if(mpiRANK==0)write(LOGfile,*)"Build H(k) BHZ along the path GXMG:"
        Npts = 4
        Lk=(Npts-1)*Nkpath
        allocate(kpath(Npts,3))
@@ -258,7 +282,7 @@ contains
     allocate(wtk(Lk))
     Hk     = build_hk_model(hk_bhz,Nso,kpath,Nkpath)
     wtk = 1d0/Lk
-    if(ED_MPI_ID==0)  call solve_Hk_along_BZpath(hk_bhz,Nso,kpath,Lk,&
+    if(mpiRANK==0)  call solve_Hk_along_BZpath(hk_bhz,Nso,kpath,Lk,&
          colors_name=[red1,blue1,red1,blue1],&
          points_name=[character(len=20) :: 'G', 'M', 'X', 'G'],&
          file=reg(file))
@@ -270,106 +294,106 @@ contains
 
 
 
-  !---------------------------------------------------------------------
-  !PURPOSE: GET DELTA FUNCTION
-  !---------------------------------------------------------------------
-  subroutine get_delta
-    integer                                     :: i,j,ik,iorb,jorb,ispin,jspin,iso,unit
-    complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta
-    complex(8),dimension(:,:,:),allocatable     :: Smats
-    complex(8),dimension(:,:,:,:,:),allocatable :: gloc
-    complex(8),dimension(:,:,:,:),allocatable   :: gk
-    complex(8)                                  :: iw
-    real(8)                                     :: wm(Lmats),wr(Lreal)
-    character(len=20)                           :: suffix
-    !
-    !
-    wm = pi/beta*real(2*arange(1,Lmats)-1,8)
-    wr = linspace(wini,wfin,Lreal)
-    delta = zero
-    !
-    !MATSUBARA AXIS
-    if(ED_MPI_ID==0)print*,"Get Gloc_iw:"
-    allocate(gloc(Nspin,Nspin,Norb,Norb,Lmats))
-    do i=1,Lmats
-       iw = xi*wm(i)
-       forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
-       zeta(:,:) = zeta(:,:) - so2j(impSmats(:,:,:,:,i),Nso)
-       fg=zero
-       if(lambda==0.d0)then
-          do ik=1,Lk
-             forall(iorb=1:Nso)&
-                  fg(iorb,iorb) = fg(iorb,iorb) + Wtk(ik)/(zeta(iorb,iorb)-Hk(iorb,iorb,ik))
-          enddo
-          gloc(:,:,:,:,i) = j2so(fg)
-          !Get Delta=\Delta or G_0
-          gdelta=zero
-          forall(iorb=1:Nso)fg(iorb,iorb)=one/fg(iorb,iorb)
-          if(cg_scheme=='weiss')then
-             gdelta = fg + so2j(impSmats(:,:,:,:,i),Nso)
-             forall(iorb=1:Nso)gdelta(iorb,iorb)=one/gdelta(iorb,iorb)
-          else
-             forall(iorb=1:Nso)gdelta(iorb,iorb) = zeta(iorb,iorb) - bhzHloc(iorb,iorb) - fg(iorb,iorb)
-          endif
-       else
-          do ik=1,Lk
-             fg = fg + inverse_gk(zeta,Hk(:,:,ik))*Wtk(ik)
-          enddo
-          gloc(:,:,:,:,i) = j2so(fg)
-          !Get Delta=\Delta or G_0
-          call matrix_inverse(fg)
-          if(cg_scheme=='weiss')then
-             gdelta = fg + so2j(impSmats(:,:,:,:,i),Nso)
-             call matrix_inverse(gdelta)
-          else
-             gdelta = zeta(:,:) - bhzHloc - fg(:,:)
-          endif
-       endif
-       !
-       delta(:,:,:,:,i) = j2so(gdelta(:,:))
-       !
-    enddo
-    if(ED_MPI_ID==0)then
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
-             call splot("Delta"//reg(suffix),wm,delta(ispin,ispin,iorb,iorb,:))
-             call splot("Gloc"//reg(suffix),wm,gloc(ispin,ispin,iorb,iorb,:))
-          enddo
-       enddo
-    endif
-    deallocate(gloc)
-    !
-    !REAL AXIS
-    allocate(gloc(Nspin,Nspin,Norb,Norb,Lreal))
-    if(ED_MPI_ID==0)print*,"Get Gloc_realw:"
-    do i=1,Lreal
-       iw=dcmplx(wr(i),eps)
-       forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
-       zeta(:,:) = zeta(:,:) - so2j(impSreal(:,:,:,:,i),Nso)
-       fg=zero
-       do ik=1,Lk         
-          fg = fg + inverse_gk(zeta,Hk(:,:,ik))*wtk(ik)
-       enddo
-       gloc(:,:,:,:,i) = j2so(fg)
-    enddo
-    if(ED_MPI_ID==0)then
-       do ispin=1,Nspin
-          do iorb=1,Norb
-             suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-             call splot("Gloc"//reg(suffix),wr,-dimag(gloc(ispin,ispin,iorb,iorb,:))/pi,dreal(gloc(ispin,ispin,iorb,iorb,:)))
-          enddo
-       enddo
-    endif
-    deallocate(gloc)
-    ! !Get Kinetic Energy too
-    ! allocate(Smats(Nso,Nso,Lmats))
-    ! do i=1,Lmats
-    !    Smats(:,:,i)=so2j(impSmats(:,:,:,:,i),Nso)
-    ! enddo
-    ! call ed_kinetic_energy(Hk,wtk,Smats)
-    ! deallocate(Smats)
-  end subroutine get_delta
+  ! !---------------------------------------------------------------------
+  ! !PURPOSE: GET DELTA FUNCTION
+  ! !---------------------------------------------------------------------
+  ! subroutine get_delta
+  !   integer                                     :: i,j,ik,iorb,jorb,ispin,jspin,iso,unit
+  !   complex(8),dimension(Nso,Nso)               :: zeta,fg,gdelta
+  !   complex(8),dimension(:,:,:),allocatable     :: Smats
+  !   complex(8),dimension(:,:,:,:,:),allocatable :: gloc
+  !   complex(8),dimension(:,:,:,:),allocatable   :: gk
+  !   complex(8)                                  :: iw
+  !   real(8)                                     :: wm(Lmats),wr(Lreal)
+  !   character(len=20)                           :: suffix
+  !   !
+  !   !
+  !   wm = pi/beta*real(2*arange(1,Lmats)-1,8)
+  !   wr = linspace(wini,wfin,Lreal)
+  !   delta = zero
+  !   !
+  !   !MATSUBARA AXIS
+  !   if(mpiRANK==0)print*,"Get Gloc_iw:"
+  !   allocate(gloc(Nspin,Nspin,Norb,Norb,Lmats))
+  !   do i=1,Lmats
+  !      iw = xi*wm(i)
+  !      forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
+  !      zeta(:,:) = zeta(:,:) - so2j(impSmats(:,:,:,:,i),Nso)
+  !      fg=zero
+  !      if(lambda==0.d0)then
+  !         do ik=1,Lk
+  !            forall(iorb=1:Nso)&
+  !                 fg(iorb,iorb) = fg(iorb,iorb) + Wtk(ik)/(zeta(iorb,iorb)-Hk(iorb,iorb,ik))
+  !         enddo
+  !         gloc(:,:,:,:,i) = j2so(fg)
+  !         !Get Delta=\Delta or G_0
+  !         gdelta=zero
+  !         forall(iorb=1:Nso)fg(iorb,iorb)=one/fg(iorb,iorb)
+  !         if(cg_scheme=='weiss')then
+  !            gdelta = fg + so2j(impSmats(:,:,:,:,i),Nso)
+  !            forall(iorb=1:Nso)gdelta(iorb,iorb)=one/gdelta(iorb,iorb)
+  !         else
+  !            forall(iorb=1:Nso)gdelta(iorb,iorb) = zeta(iorb,iorb) - bhzHloc(iorb,iorb) - fg(iorb,iorb)
+  !         endif
+  !      else
+  !         do ik=1,Lk
+  !            fg = fg + inverse_gk(zeta,Hk(:,:,ik))*Wtk(ik)
+  !         enddo
+  !         gloc(:,:,:,:,i) = j2so(fg)
+  !         !Get Delta=\Delta or G_0
+  !         call matrix_inverse(fg)
+  !         if(cg_scheme=='weiss')then
+  !            gdelta = fg + so2j(impSmats(:,:,:,:,i),Nso)
+  !            call matrix_inverse(gdelta)
+  !         else
+  !            gdelta = zeta(:,:) - bhzHloc - fg(:,:)
+  !         endif
+  !      endif
+  !      !
+  !      delta(:,:,:,:,i) = j2so(gdelta(:,:))
+  !      !
+  !   enddo
+  !   if(mpiRANK==0)then
+  !      do ispin=1,Nspin
+  !         do iorb=1,Norb
+  !            suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
+  !            call splot("Delta"//reg(suffix),wm,delta(ispin,ispin,iorb,iorb,:))
+  !            call splot("Gloc"//reg(suffix),wm,gloc(ispin,ispin,iorb,iorb,:))
+  !         enddo
+  !      enddo
+  !   endif
+  !   deallocate(gloc)
+  !   !
+  !   !REAL AXIS
+  !   allocate(gloc(Nspin,Nspin,Norb,Norb,Lreal))
+  !   if(mpiRANK==0)print*,"Get Gloc_realw:"
+  !   do i=1,Lreal
+  !      iw=dcmplx(wr(i),eps)
+  !      forall(iorb=1:Nso)zeta(iorb,iorb)=iw+xmu
+  !      zeta(:,:) = zeta(:,:) - so2j(impSreal(:,:,:,:,i),Nso)
+  !      fg=zero
+  !      do ik=1,Lk         
+  !         fg = fg + inverse_gk(zeta,Hk(:,:,ik))*wtk(ik)
+  !      enddo
+  !      gloc(:,:,:,:,i) = j2so(fg)
+  !   enddo
+  !   if(mpiRANK==0)then
+  !      do ispin=1,Nspin
+  !         do iorb=1,Norb
+  !            suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
+  !            call splot("Gloc"//reg(suffix),wr,-dimag(gloc(ispin,ispin,iorb,iorb,:))/pi,dreal(gloc(ispin,ispin,iorb,iorb,:)))
+  !         enddo
+  !      enddo
+  !   endif
+  !   deallocate(gloc)
+  !   ! !Get Kinetic Energy too
+  !   ! allocate(Smats(Nso,Nso,Lmats))
+  !   ! do i=1,Lmats
+  !   !    Smats(:,:,i)=so2j(impSmats(:,:,:,:,i),Nso)
+  !   ! enddo
+  !   ! call ed_kinetic_energy(Hk,wtk,Smats)
+  !   ! deallocate(Smats)
+  ! end subroutine get_delta
 
 
 
@@ -396,7 +420,7 @@ contains
     real(8)                                     :: wr_(Lreal),wr(Lw)
     real(8),dimension(:,:),allocatable          :: Kpath
     character(len=20)                           :: suffix
-    if(ED_MPI_ID==0)then
+    if(mpiRANK==0)then
        !
        wr_ = linspace(wini,wfin,Lreal)
        wr  = linspace(-akrange,akrange,Lw)

@@ -75,9 +75,8 @@ end subroutine deallocate_dmft_bath
 !PURPOSE  : Initialize the DMFT loop, builindg H parameters and/or 
 !reading previous (converged) solution
 !+------------------------------------------------------------------+
-subroutine init_dmft_bath(dmft_bath_,hwband_)
+subroutine init_dmft_bath(dmft_bath_)
   type(effective_bath) :: dmft_bath_
-  real(8)              :: hwband_
   complex(8)           :: himp_aux(Nspin*Norb,Nspin*Norb)
   real(8)              :: hybr_aux_R,hybr_aux_I
   real(8)              :: himp_aux_R(Nspin*Norb,Nspin*Norb)
@@ -103,23 +102,23 @@ subroutine init_dmft_bath(dmft_bath_,hwband_)
   select case(bath_type)
   case default
      !Get energies:
-     dmft_bath_%e(:,:,1)    =-hwband_ + noise_b(1)
-     dmft_bath_%e(:,:,Nbath)= hwband_ + noise_b(Nbath)
+     dmft_bath_%e(:,:,1)    =-hwband + noise_b(1)
+     dmft_bath_%e(:,:,Nbath)= hwband + noise_b(Nbath)
      Nh=Nbath/2
      if(mod(Nbath,2)==0.and.Nbath>=4)then
-        de=hwband_/max(Nh-1,1)
+        de=hwband/max(Nh-1,1)
         dmft_bath_%e(:,:,Nh)  = -1.d-3 + noise_b(Nh)
         dmft_bath_%e(:,:,Nh+1)=  1.d-3 + noise_b(Nh+1)
         do i=2,Nh-1
-           dmft_bath_%e(:,:,i)   =-hwband_ + (i-1)*de  + noise_b(i)
-           dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de + noise_b(Nbath-i+1)
+           dmft_bath_%e(:,:,i)   =-hwband + (i-1)*de  + noise_b(i)
+           dmft_bath_%e(:,:,Nbath-i+1)= hwband - (i-1)*de + noise_b(Nbath-i+1)
         enddo
      elseif(mod(Nbath,2)/=0.and.Nbath>=3)then
-        de=hwband_/Nh
+        de=hwband/Nh
         dmft_bath_%e(:,:,Nh+1)= 0.0d0 + noise_b(Nh+1)
         do i=2,Nh
-           dmft_bath_%e(:,:,i)        =-hwband_ + (i-1)*de + noise_b(i)
-           dmft_bath_%e(:,:,Nbath-i+1)= hwband_ - (i-1)*de + noise_b(Nbath-i+1)
+           dmft_bath_%e(:,:,i)        =-hwband + (i-1)*de + noise_b(i)
+           dmft_bath_%e(:,:,Nbath-i+1)= hwband - (i-1)*de + noise_b(Nbath-i+1)
         enddo
      endif
      !Get spin-keep yhbridizations
@@ -178,7 +177,7 @@ subroutine init_dmft_bath(dmft_bath_,hwband_)
   !
   inquire(file=trim(Hfile)//trim(ed_file_suffix)//".restart",exist=IOfile)
   if(IOfile)then
-     if(ED_MPI_ID==0)write(LOGfile,"(A)")'Reading bath from file'//trim(Hfile)//trim(ed_file_suffix)//".restart"
+     write(LOGfile,"(A)")'Reading bath from file'//trim(Hfile)//trim(ed_file_suffix)//".restart"
      unit = free_unit()
      flen = file_length(trim(Hfile)//trim(ed_file_suffix)//".restart")
      !

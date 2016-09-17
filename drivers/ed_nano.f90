@@ -65,7 +65,7 @@ program ed_nano
   call parse_input_variable(kinetic,"kinetic",finput,default=.false.)
 
   ! read input
-  call ed_read_input(trim(finput))
+  call ed_read_input(trim(finput),MPI_COMM_WORLD)
 
   ! set input structure hamiltonian
   call build_Hij([nfile,hijfile])
@@ -112,8 +112,25 @@ program ed_nano
         Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
      enddo
      !
-     ! computes the kinetic energy
-     Eout = ed_kinetic_energy_lattice(Hij,[1d0],Smats)
+
+     !THIS SETS THE COMMUNICATOR FOR THE MODULES NOT DIRECTLY INCLUDED IN ED (i.e.KineticEnergy,GetGloc,Weiss,etc)
+     call ed_set_MPI(MPI_COMM_WORLD)
+
+     ! ! computes the kinetic energy
+     ! Eout = ed_kinetic_energy(Hij,[1d0],Smats)
+     ! print*,Eout
+
+     call add_ctrl_var(Norb,"Norb")
+     call add_ctrl_var(Nspin,"Nspin")
+     call add_ctrl_var(beta,"beta")
+     call add_ctrl_var(xmu,"xmu")
+     call add_ctrl_var(wini,"wini")
+     call add_ctrl_var(wfin,"wfin")
+     print*,size(Smats,1)
+     print*,size(Smats,4),size(Smats,5)
+     print*,size(Smats,6)
+     Eout = dmft_kinetic_energy(MPI_COMM_WORLD,Hij,[1d0],Smats)
+     print*,Eout
      stop
   endif
 
@@ -206,13 +223,15 @@ program ed_nano
   endif
 
 
+  !###################################################################################################
+
 
   ! setup solver
   Nb=get_bath_dimension()
 
   allocate(Bath_ineq(Nineq,Nb))
   allocate(Bath_prev(Nineq,Nb))
-  call ed_init_solver(Bath_ineq)
+  call ed_init_solver(MPI_COMM_WORLD,Bath_ineq)
 
   do ineq=1,Nineq
      ilat = ineq2lat(ineq)
@@ -222,6 +241,9 @@ program ed_nano
   enddo
 
 
+  !THIS SETS THE COMMUNICATOR FOR THE MODULES NOT DIRECTLY INCLUDED IN ED (i.e.KineticEnergy,GetGloc,Weiss,etc)
+  call ed_set_MPI(MPI_COMM_WORLD)
+
   iloop=0 ; converged=.false.
   do while(.not.converged.AND.iloop<nloop) 
      iloop=iloop+1
@@ -229,7 +251,7 @@ program ed_nano
      bath_prev=bath_ineq
 
      ! solve impurities on each inequivalent site:
-     call ed_solve(bath_ineq,Hloc_ineq,iprint=0)
+     call ed_solve(MPI_COMM_WORLD,bath_ineq,Hloc_ineq,iprint=0)
 
      ! retrieve self-energies and occupations(Nineq,Norb=1)
      call ed_get_sigma_matsubara_lattice(Smats_ineq,Nineq)
@@ -251,7 +273,14 @@ program ed_nano
      if(leads)then
         call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
      else
-        call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
+        !call ed_get_gloc_lattice(Hij,[1d0],Gmats,Greal,Smats,Sreal,iprint=1)
+        call add_ctrl_var(Norb,"Norb")
+        call add_ctrl_var(Nspin,"Nspin")
+        call add_ctrl_var(beta,"beta")
+        call add_ctrl_var(xmu,"xmu")
+        call add_ctrl_var(wini,"wini")
+        call add_ctrl_var(wfin,"wfin")
+        call dmft_gloc_matsubara(Hij,[1d0],Gmats,Smats,iprint=1)
      endif
      do ineq=1,Nineq
         ilat = ineq2lat(ineq)
@@ -259,13 +288,12 @@ program ed_nano
      enddo
 
 
-
      ! compute the Weiss field
      call ed_get_weiss_lattice(Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=0)
 
      ! fit baths and mix result with old baths
      do ispin=1,Nspin
-        call ed_chi2_fitgf_lattice(bath_ineq,Weiss_ineq,Hloc_ineq,ispin)
+        call ed_chi2_fitgf(MPI_COMM_WORLD,bath_ineq,Weiss_ineq,Hloc_ineq,ispin)
      enddo
 
      if(phsym)then
@@ -281,8 +309,8 @@ program ed_nano
         if(NREAD/=0.d0) call search_chemical_potential(xmu,sum(dens)/Nlat,converged)
      endif
 #ifdef _MPI
-     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,ED_MPI_ERR)
-     call MPI_BCAST(xmu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,ED_MPI_ERR)
+     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
+     call MPI_BCAST(xmu,1,MPI_DOUBLE_PRECISION,0,MPI_COMM_WORLD,mpiERR)
 #endif
      if(mpiID==0) call end_loop()
   end do
@@ -290,7 +318,17 @@ program ed_nano
 
   call save_sigma(Smats_ineq,Sreal_ineq)
 
-  Eout = ed_kinetic_energy_lattice(Hij,[1d0],Smats)
+  ! Eout = ed_kinetic_energy(Hij,[1d0],Smats)
+  ! print*,Eout
+
+  call add_ctrl_var(Norb,"Norb")
+  call add_ctrl_var(Nspin,"Nspin")
+  call add_ctrl_var(beta,"beta")
+  call add_ctrl_var(xmu,"xmu")
+  call add_ctrl_var(wini,"wini")
+  call add_ctrl_var(wfin,"wfin")
+  Eout = dmft_kinetic_energy(MPI_COMM_WORLD,Hij,[1d0],Smats(:,1,1,1,1,:))
+  print*,Eout
 
 
 #ifdef _MPI
@@ -931,8 +969,8 @@ contains
     endif
     deallocate(lead_real,lead_mats,wr,wm)
     !
-    call MPI_Bcast(hyb_real,size(hyb_real),MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ED_MPI_ERR)
-    call MPI_Bcast(hyb_mats,size(hyb_mats),MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,ED_MPI_ERR)
+    call MPI_Bcast(hyb_real,size(hyb_real),MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,mpiERR)
+    call MPI_Bcast(hyb_mats,size(hyb_mats),MPI_DOUBLE_COMPLEX,0,MPI_COMM_WORLD,mpiERR)
     !
   end subroutine set_hyb
 

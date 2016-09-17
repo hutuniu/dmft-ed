@@ -5,7 +5,7 @@ subroutine build_chi_pair()
   integer :: iorb
   write(LOGfile,"(A)")"Get impurity pair Chi:"
   do iorb=1,Norb
-     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_pair_l"//reg(txtfy(iorb))
+     if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_pair_l"//reg(txtfy(iorb))
      select case(ed_type)
      case default
         call lanc_ed_build_pairChi_d(iorb)
@@ -43,7 +43,7 @@ subroutine lanc_ed_build_pairChi_d(iorb)
   !
   numstates=state_list%size
   !
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
   do izero=1,numstates
      isector    =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
@@ -54,7 +54,7 @@ subroutine lanc_ed_build_pairChi_d(iorb)
      
      call build_sector(isector,HI)
      !Build the C_{iorb,up}C_{iorb,dw}|eigvec> 
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector)
+     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector)
      allocate(vvinit(idim))
      vvinit=0.d0
      do m=1,idim
@@ -75,7 +75,7 @@ subroutine lanc_ed_build_pairChi_d(iorb)
      call add_to_lanczos_pairChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
      deallocate(vvinit)
      !Build the CDG_{iorb,dw}CDG_{iorb,up}|eigvec> 
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector)
+     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector)
      allocate(vvinit(idim))
      vvinit=0.d0
      do m=1,idim
@@ -99,7 +99,7 @@ subroutine lanc_ed_build_pairChi_d(iorb)
      deallocate(HI%map)
      nullify(state_vec)
   enddo
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_build_pairChi_d
 
@@ -121,7 +121,7 @@ subroutine lanc_ed_build_pairChi_c(iorb)
   !
   numstates=state_list%size
   !
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
   do izero=1,numstates
      isector    =  es_return_sector(state_list,izero)
      idim       =  getdim(isector)
@@ -133,7 +133,7 @@ subroutine lanc_ed_build_pairChi_c(iorb)
 
      call build_sector(isector,HI)
      !Build the C_{iorb,up}C_{iorb,dw}|eigvec> 
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector)
+     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector)
      allocate(vvinit(idim))
      vvinit=0.d0
      do m=1,idim
@@ -154,7 +154,7 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      call add_to_lanczos_pairChi(norm0,state_e,nitermax,alfa_,beta_,isign,iorb)
      deallocate(vvinit)
      !Build the CDG_{iorb,dw}CDG_{iorb,up}|eigvec> 
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector)
+     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector)
      allocate(vvinit(idim))
      vvinit=0.d0
      do m=1,idim
@@ -178,7 +178,7 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      deallocate(HI%map)
      nullify(state_cvec)
   enddo
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_build_pairChi_c
 

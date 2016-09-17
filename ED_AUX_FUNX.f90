@@ -170,11 +170,9 @@ contains
     integer                   :: ispin
     if(size(hloc,1)/=Norb.OR.size(hloc,2)/=Norb)stop "set_impHloc error: wrong dimensions of Hloc"
     impHloc(ispin,ispin,1:Norb,1:Norb) = Hloc
-    if(ED_MPI_ID==0)then
-       write(LOGfile,"(A)")""
-       write(LOGfile,"(A)")"Updated impHloc:"
-       if(ed_verbose<4)call print_Hloc(impHloc)
-    endif
+    write(LOGfile,"(A)")""
+    write(LOGfile,"(A)")"Updated impHloc:"
+    if(ed_verbose<4)call print_Hloc(impHloc)
   end subroutine set_Hloc_1
   !
   subroutine set_Hloc_2(hloc)
@@ -182,31 +180,25 @@ contains
     if(size(hloc,1)/=Nspin.OR.size(hloc,2)/=Nspin)stop "set_impHloc error: wrong Nspin dimensions of Hloc"
     if(size(hloc,3)/=Norb.OR.size(hloc,4)/=Norb)stop "set_impHloc error: wrong Norb dimensions of Hloc"
     impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = Hloc
-    if(ED_MPI_ID==0)then
-       write(LOGfile,"(A)")""
-       write(LOGfile,"(A)")"Updated impHloc:"
-       if(ed_verbose<4)call print_Hloc(impHloc)
-    endif
+    write(LOGfile,"(A)")""
+    write(LOGfile,"(A)")"Updated impHloc:"
+    if(ed_verbose<4)call print_Hloc(impHloc)
   end subroutine set_Hloc_2
   !
   subroutine set_Hloc_3d(hloc)
     real(8) :: hloc
     impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = hloc
-    if(ED_MPI_ID==0)then
-       write(LOGfile,"(A)")""
-       write(LOGfile,"(A)")"Updated impHloc:"
-       if(ed_verbose<4)call print_Hloc(impHloc)
-    endif
+    write(LOGfile,"(A)")""
+    write(LOGfile,"(A)")"Updated impHloc:"
+    if(ed_verbose<4)call print_Hloc(impHloc)
   end subroutine set_Hloc_3d
   !
   subroutine set_Hloc_3c(hloc)
     complex(8) :: hloc
     impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = hloc
-    if(ED_MPI_ID==0)then
-       write(LOGfile,"(A)")""
-       write(LOGfile,"(A)")"Updated impHloc:"
-       if(ed_verbose<4)call print_Hloc(impHloc)
-    endif
+    write(LOGfile,"(A)")""
+    write(LOGfile,"(A)")"Updated impHloc:"
+    if(ed_verbose<4)call print_Hloc(impHloc)
   end subroutine set_Hloc_3c
 
 
@@ -684,15 +676,15 @@ contains
     !+- get list of independent sites -+!
     i_ind=0
     unit=free_unit()    
-    if(ED_MPI_MASTER) open(unit,file='independent_sites.lattice')
+    open(unit,file='independent_sites.lattice')
     do i=1,Nlat
        if(tmp_search(i).ge.0) then
           i_ind=i_ind+1
           indep_list(i_ind) = tmp_search(i)
-          if(ED_MPI_MASTER) write(unit,*) dble(icol(indep_list(i_ind))),dble(irow(indep_list(i_ind))),dble(indep_list(i_ind)) 
+          write(unit,*) dble(icol(indep_list(i_ind))),dble(irow(indep_list(i_ind))),dble(indep_list(i_ind)) 
        end if
     end do
-    if(ED_MPI_MASTER) close(unit)
+    close(unit)
     !+-  build maps -+!
     !
     write(LOGfile,*) "NINDEP",Nindep
@@ -708,14 +700,14 @@ contains
        unit=free_unit()
        !write(tmp_suffix,'(I4.4)') i_ind
        ed_file_suffix="_site"//reg(txtfy(i_ind,Npad=4))!trim(tmp_suffix)
-       if(ED_MPI_MASTER) open(unit,file='equivalents'//trim(tmp_suffix)//'.lattice')
+       open(unit,file='equivalents'//trim(tmp_suffix)//'.lattice')
        map_ind2lat(i_ind,1) = indep_list(i_ind)
-       if(ED_MPI_MASTER) write(unit,*) icol(indep_list(i_ind)),irow(indep_list(i_ind))
+       write(unit,*) icol(indep_list(i_ind)),irow(indep_list(i_ind))
        do isymm=1,Nsymm
           map_ind2lat(i_ind,isymm+1) = tmp_map(indep_list(i_ind),isymm)
-          if(ED_MPI_MASTER) write(unit,*) icol(tmp_map(indep_list(i_ind),isymm)),irow(tmp_map(indep_list(i_ind),isymm))
+          write(unit,*) icol(tmp_map(indep_list(i_ind),isymm)),irow(tmp_map(indep_list(i_ind),isymm))
        end do
-       if(ED_MPI_MASTER) close(unit)
+       close(unit)
     end do
     !+- check maps +-!
     do i_ind=1,Nindep
@@ -762,101 +754,96 @@ contains
     logical,save          :: ireduce=.true.
     integer               :: unit
     !
-    if(ED_MPI_ID==0)then
-       ndiff=ntmp-nread
-       nratio = 0.5d0;!nratio = 1.d0/(6.d0/11.d0*pi)
-       !
-       !check actual value of the density *ntmp* with respect to goal value *nread*
-       count=count+1
-       totcount=totcount+1
-       if(count>2)then
-          do i=1,2
-             nindex_old(i+1)=nindex_old(i)
-          enddo
-       endif
-       nindex_old(1)=nindex
-       !
-       if(ndiff >= nth)then
-          nindex=-1
-       elseif(ndiff <= -nth)then
-          nindex=1
-       else
-          nindex=0
-       endif
-       !
-       ndelta_old=ndelta
-       bool=nindex/=0.AND.( (nindex+nindex_old(1)==0).OR.(nindex+sum(nindex_old(:))==0) )
-       !if(nindex_old(1)+nindex==0.AND.nindex/=0)then !avoid loop forth and back
-       if(bool)then
-          ndelta=ndelta_old*nratio !decreasing the step
-       else
-          ndelta=ndelta_old
-       endif
-       !
-       if(ndelta_old<1.d-9)then
-          ndelta_old=0.d0
-          nindex=0
-       endif
-       !update chemical potential
-       var=var+dble(nindex)*ndelta
-       !xmu=xmu+dble(nindex)*ndelta
-       !
-       !Print information
-       write(LOGfile,"(A,f16.9,A,f15.9)")"n    = ",ntmp," /",nread
-       if(nindex>0)then
-          write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," ==>"
-       elseif(nindex<0)then
-          write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," <=="
-       else
-          write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," == "
-       endif
-       write(LOGfile,"(A,f15.9)")"var  = ",var
-       write(LOGfile,"(A,ES16.9,A,ES16.9)")"dn   = ",ndiff,"/",nth
-       unit=free_unit()
-       open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-       write(unit,*)var,ntmp,ndiff
-       close(unit)
-       !
-       !check convergence within actual threshold
-       !if reduce is activetd
-       !if density is in the actual threshold
-       !if DMFT is converged
-       !if threshold is larger than nerror (i.e. this is not last loop)
-       bool=ireduce.AND.(abs(ndiff)<nth).AND.converged.AND.(nth>nerr)
-       if(bool)then
-          nth_magnitude_old=nth_magnitude        !save old threshold magnitude
-          nth_magnitude=nth_magnitude_old-1      !decrease threshold magnitude || floor(log10(abs(ntmp-nread)))
-          nth=max(nerr,10.d0**(nth_magnitude))   !set the new threshold 
-          count=0                                !reset the counter
-          converged=.false.                      !reset convergence
-          ndelta=ndelta_old*nratio                  !reduce the delta step
-          !
-       endif
-       !
-       !if density is not converged set convergence to .false.
-       if(abs(ntmp-nread)>nth)converged=.false.
-       !
-       !check convergence for this threshold
-       !!---if smallest threshold-- NO MORE
-       !if reduce is active (you reduced the treshold at least once)
-       !if # iterations > max number
-       !if not yet converged
-       !set threshold back to the previous larger one.
-       !bool=(nth==nerr).AND.ireduce.AND.(count>niter).AND.(.not.converged)
-       bool=ireduce.AND.(count>niter).AND.(.not.converged)
-       if(bool)then
-          ireduce=.false.
-          nth=10.d0**(nth_magnitude_old)
-       endif
-       !
-       write(LOGfile,"(A,I5)")"count= ",count
-       write(LOGfile,"(A,L2)"),"Converged=",converged
-       print*,""
+    ndiff=ntmp-nread
+    nratio = 0.5d0;!nratio = 1.d0/(6.d0/11.d0*pi)
+    !
+    !check actual value of the density *ntmp* with respect to goal value *nread*
+    count=count+1
+    totcount=totcount+1
+    if(count>2)then
+       do i=1,2
+          nindex_old(i+1)=nindex_old(i)
+       enddo
+    endif
+    nindex_old(1)=nindex
+    !
+    if(ndiff >= nth)then
+       nindex=-1
+    elseif(ndiff <= -nth)then
+       nindex=1
+    else
+       nindex=0
+    endif
+    !
+    ndelta_old=ndelta
+    bool=nindex/=0.AND.( (nindex+nindex_old(1)==0).OR.(nindex+sum(nindex_old(:))==0) )
+    !if(nindex_old(1)+nindex==0.AND.nindex/=0)then !avoid loop forth and back
+    if(bool)then
+       ndelta=ndelta_old*nratio !decreasing the step
+    else
+       ndelta=ndelta_old
+    endif
+    !
+    if(ndelta_old<1.d-9)then
+       ndelta_old=0.d0
+       nindex=0
+    endif
+    !update chemical potential
+    var=var+dble(nindex)*ndelta
+    !xmu=xmu+dble(nindex)*ndelta
+    !
+    !Print information
+    write(LOGfile,"(A,f16.9,A,f15.9)")"n    = ",ntmp," /",nread
+    if(nindex>0)then
+       write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," ==>"
+    elseif(nindex<0)then
+       write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," <=="
+    else
+       write(LOGfile,"(A,es16.9,A)")"shift= ",nindex*ndelta," == "
+    endif
+    write(LOGfile,"(A,f15.9)")"var  = ",var
+    write(LOGfile,"(A,ES16.9,A,ES16.9)")"dn   = ",ndiff,"/",nth
+    unit=free_unit()
+    open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+    write(unit,*)var,ntmp,ndiff
+    close(unit)
+    !
+    !check convergence within actual threshold
+    !if reduce is activetd
+    !if density is in the actual threshold
+    !if DMFT is converged
+    !if threshold is larger than nerror (i.e. this is not last loop)
+    bool=ireduce.AND.(abs(ndiff)<nth).AND.converged.AND.(nth>nerr)
+    if(bool)then
+       nth_magnitude_old=nth_magnitude        !save old threshold magnitude
+       nth_magnitude=nth_magnitude_old-1      !decrease threshold magnitude || floor(log10(abs(ntmp-nread)))
+       nth=max(nerr,10.d0**(nth_magnitude))   !set the new threshold 
+       count=0                                !reset the counter
+       converged=.false.                      !reset convergence
+       ndelta=ndelta_old*nratio                  !reduce the delta step
        !
     endif
-#ifdef _MPI
-    call MPI_BCAST(xmu,1,MPI_Double_Precision,0,MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
+    !
+    !if density is not converged set convergence to .false.
+    if(abs(ntmp-nread)>nth)converged=.false.
+    !
+    !check convergence for this threshold
+    !!---if smallest threshold-- NO MORE
+    !if reduce is active (you reduced the treshold at least once)
+    !if # iterations > max number
+    !if not yet converged
+    !set threshold back to the previous larger one.
+    !bool=(nth==nerr).AND.ireduce.AND.(count>niter).AND.(.not.converged)
+    bool=ireduce.AND.(count>niter).AND.(.not.converged)
+    if(bool)then
+       ireduce=.false.
+       nth=10.d0**(nth_magnitude_old)
+    endif
+    !
+    write(LOGfile,"(A,I5)")"count= ",count
+    write(LOGfile,"(A,L2)"),"Converged=",converged
+    print*,""
+    !
   end subroutine search_chemical_potential
 
 
@@ -881,38 +868,32 @@ contains
     integer,save          ::   iattempt=1
     integer               ::   unit
     !
-    !if(ED_MPI_ID==0)then
-    !
     diffdens=dens_tmp-nread
     delta_xmu=0.1d0
     !
     if ((dabs(diffdens)).le.nerr) then
        converged_=.TRUE.
        inotbound=0
-       if(ED_MPI_ID==0)then
-          write(LOGfile,*)
-          write(LOGfile,*) "   --------------------------------------------"
-          write(LOGfile,'(A30,I3)')    "   Density ok in attempt: ",iattempt
-          write(LOGfile,'(A30,F10.6)') "   tolerance: ",nerr
-          write(LOGfile,'(A30,F10.6)') "   density: ",dens_tmp
-          write(LOGfile,'(A30,F10.6)') "   target desity: ",nread
-          write(LOGfile,'(A30,F10.6)') "   xmu: ",xmu_tmp
-          write(LOGfile,"(A30,L3)")    "   Converged(n): ",converged_
-          write(LOGfile,*) "   --------------------------------------------"
-          write(LOGfile,*)
-          unit=free_unit()
-          open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-          write(unit,*)xmu_tmp,dens_tmp,diffdens
-          close(unit)
-       endif
+       write(LOGfile,*)
+       write(LOGfile,*) "   --------------------------------------------"
+       write(LOGfile,'(A30,I3)')    "   Density ok in attempt: ",iattempt
+       write(LOGfile,'(A30,F10.6)') "   tolerance: ",nerr
+       write(LOGfile,'(A30,F10.6)') "   density: ",dens_tmp
+       write(LOGfile,'(A30,F10.6)') "   target desity: ",nread
+       write(LOGfile,'(A30,F10.6)') "   xmu: ",xmu_tmp
+       write(LOGfile,"(A30,L3)")    "   Converged(n): ",converged_
+       write(LOGfile,*) "   --------------------------------------------"
+       write(LOGfile,*)
+       unit=free_unit()
+       open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+       write(unit,*)xmu_tmp,dens_tmp,diffdens
+       close(unit)
     else
        converged_=.FALSE.
-       if(ED_MPI_ID==0)then
-          write(LOGfile,*)
-          write(LOGfile,*) "   --------------------------------------------"
-          write(LOGfile,'(A30,2I5)')    "   Adjusting xmu #",iattempt,inotbound
-          write(LOGfile,'(A10,F10.6,A7,F10.6)') "    n:",dens_tmp,"!= n:",nread
-       endif
+       write(LOGfile,*)
+       write(LOGfile,*) "   --------------------------------------------"
+       write(LOGfile,'(A30,2I5)')    "   Adjusting xmu #",iattempt,inotbound
+       write(LOGfile,'(A10,F10.6,A7,F10.6)') "    n:",dens_tmp,"!= n:",nread
        !vedo se la densità è troppa o troppo poca
        if (diffdens.gt.0.d0) then  
           ilarge=1
@@ -931,29 +912,23 @@ contains
           if (inotbound>=15) delta_xmu = delta_xmu*4.0d0
           xmu_shift = delta_xmu * diffdens
           xmu_tmp = xmu_tmp - xmu_shift
-          if(ED_MPI_ID==0)then
-             write(LOGfile,*) "   Delta xmu: ",delta_xmu
-             write(LOGfile,*) "   Try xmu: ",xmu_tmp
-             write(LOGfile,*) "   --------------------------------------------"
-             write(LOGfile,*)
-          endif
+          write(LOGfile,*) "   Delta xmu: ",delta_xmu
+          write(LOGfile,*) "   Try xmu: ",xmu_tmp
+          write(LOGfile,*) "   --------------------------------------------"
+          write(LOGfile,*)
        else
           !ho trovato un xmu per cui diffdens cambia segno
-          if(ED_MPI_ID==0)then
-             write(LOGfile,*)"   xmu is bound",xmularge,"-",xmusmall
-             xmu_shift =  sign(1.0d0,diffdens)*abs((xmusmall-xmularge)/2.)
-             xmu_tmp = xmu_tmp - xmu_shift
-             write(LOGfile,*) "   Try xmu =",xmu_tmp
-             write(LOGfile,*) "   --------------------------------------------"
-             write(LOGfile,*)
-          endif
+          write(LOGfile,*)"   xmu is bound",xmularge,"-",xmusmall
+          xmu_shift =  sign(1.0d0,diffdens)*abs((xmusmall-xmularge)/2.)
+          xmu_tmp = xmu_tmp - xmu_shift
+          write(LOGfile,*) "   Try xmu =",xmu_tmp
+          write(LOGfile,*) "   --------------------------------------------"
+          write(LOGfile,*)
        endif
-       if(ED_MPI_ID==0)then
-          unit=free_unit()
-          open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-          write(unit,*)xmu_tmp,dens_tmp,diffdens,iattempt
-          close(unit)
-       endif
+       unit=free_unit()
+       open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+       write(unit,*)xmu_tmp,dens_tmp,diffdens,iattempt
+       close(unit)
     endif
     iattempt=iattempt+1
     diffdens_old=diffdens

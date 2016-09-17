@@ -2,6 +2,9 @@ module ED_GLOC
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_AUX_FUNX
+  !
+  USE ED_MPI2B
+  !
   USE SF_TIMER
   USE SF_IOTOOLS,   only: reg,txtfy,splot,store_data
   USE SF_LINALG,    only: eye,inv,inv_sym,inv_tridiag,get_tridiag

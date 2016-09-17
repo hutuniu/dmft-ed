@@ -4,6 +4,10 @@ MODULE ED_SETUP
   USE ED_AUX_FUNX
   USE SF_TIMER
   USE SF_IOTOOLS, only:free_unit,reg,file_length
+#ifdef _MPI
+  USE MPI
+  USE SF_MPI
+#endif
   implicit none
   private
 
@@ -13,7 +17,7 @@ MODULE ED_SETUP
      module procedure print_state_vector_int
   end interface print_state_vector
 
-
+  public :: get_Nsectors
   public :: setup_ed_dimensions
   public :: init_ed_structure
   public :: setup_pointers_normal
@@ -32,6 +36,37 @@ MODULE ED_SETUP
 
 
 contains
+
+
+  !+------------------------------------------------------------------+
+  !PURPOSE  : return the Number of sectors using local variables
+  ! This is similar to setup Dimensions but does only return Nsectors
+  ! It is used in initialization to allocate arrays which require 
+  ! to know Nsectors before really initializing ED
+  !+------------------------------------------------------------------+
+  function get_Nsectors() result(Nsectors)
+    integer :: Nsectors
+    integer :: Ns
+    !
+    select case(bath_type)
+    case default
+       Ns = (Nbath+1)*Norb
+    case ('hybrid')
+       Ns = Nbath+Norb
+    case ('replica')
+       Ns = Norb*(Nbath+1)
+    end select
+    !
+    select case(ed_mode)
+    case default
+       Nsectors = (Ns+1)*(Ns+1) !nup=0:Ns;ndw=0:Ns
+    case ("superc")
+       Nsectors = 2*Ns+1     !sz=-Ns:Ns=2*Ns+1=Nlevels+1
+    case("nonsu2")
+       Nsectors = 2*Ns+1     !n=0:2*Ns=2*Ns+1=Nlevels+1
+    end select
+  end function get_Nsectors
+
 
 
   !+------------------------------------------------------------------+
@@ -70,14 +105,20 @@ contains
   !+------------------------------------------------------------------+
   !PURPOSE  : Init ED structure and calculation
   !+------------------------------------------------------------------+
-  subroutine init_ed_structure(Hunit)
-    character(len=64)                        :: Hunit
+  subroutine init_ed_structure(MpiComm)
+    integer,optional                         :: MpiComm
     logical                                  :: control
     real(8),dimension(Nspin,Nspin,Norb,Norb) :: reHloc         !local hamiltonian, real part 
     real(8),dimension(Nspin,Nspin,Norb,Norb) :: imHloc         !local hamiltonian, imag part
     integer                                  :: i,dim_sector_max(2),iorb,jorb,ispin,jspin
+    logical                                  :: MPI_MASTER=.true.
+    !
+#ifdef _MPI
+    if(present(MpiComm))MPI_MASTER=get_Master_MPI(MpiComm)
+#endif
     !
     call setup_ed_dimensions()
+    !
     dim_sector_max=0
     select case(ed_mode)
     case default
@@ -89,7 +130,7 @@ contains
        dim_sector_max(1)=get_nonsu2_sector_dimension(Ns)
     end select
     !
-    if(ED_MPI_MASTER)then
+    if(MPI_MASTER)then
        write(LOGfile,"(A)")"Summary:"
        write(LOGfile,"(A)")"--------------------------------------------"
        write(LOGfile,"(A,I15)")'# of levels/spin      = ',Ns
@@ -106,10 +147,10 @@ contains
     reHloc = 0d0 ; imHloc = 0d0
     !
     !Search and read impHloc
-    inquire(file=Hunit,exist=control)
+    inquire(file=trim(HLOCfile),exist=control)
     if(control)then
-       if(ED_MPI_MASTER)write(LOGfile,*)"Reading impHloc from file: "//Hunit
-       open(50,file=Hunit,status='old')
+       if(MPI_MASTER)write(LOGfile,*)"Reading impHloc from file: "//reg(HLOCfile)
+       open(50,file=trim(HLOCfile),status='old')
        do ispin=1,Nspin
           do iorb=1,Norb
              read(50,*)((reHloc(ispin,jspin,iorb,jorb),jorb=1,Norb),jspin=1,Nspin)
@@ -122,14 +163,14 @@ contains
        enddo
        close(50)
     else
-       if(ED_MPI_MASTER)then
+       if(MPI_MASTER)then
           write(LOGfile,*)"impHloc file not found."
           write(LOGfile,*)"impHloc should be defined elsewhere..."
           call sleep(2)
        endif
     endif
     impHloc = dcmplx(reHloc,imHloc)
-    if(ED_MPI_ID==0)then
+    if(MPI_MASTER)then
        write(LOGfile,"(A)")"H_local:"
        call print_Hloc(impHloc)
     endif
@@ -162,7 +203,7 @@ contains
     finiteT=.true.              !assume doing finite T per default
     if(lanc_nstates_total==1)then     !is you only want to keep 1 state
        finiteT=.false.          !set to do zero temperature calculations
-       if(ED_MPI_MASTER)write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
+       if(MPI_MASTER)write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
     endif
     !
     !
@@ -170,16 +211,16 @@ contains
     if(finiteT)then
        if(mod(lanc_nstates_sector,2)/=0)then
           lanc_nstates_sector=lanc_nstates_sector+1
-          if(ED_MPI_ID==0)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_sector:",lanc_nstates_sector
+          if(MPI_MASTER)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_sector:",lanc_nstates_sector
        endif
        if(mod(lanc_nstates_total,2)/=0)then
           lanc_nstates_total=lanc_nstates_total+1
-          if(ED_MPI_ID==0)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_total:",lanc_nstates_total
+          if(MPI_MASTER)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_total:",lanc_nstates_total
        endif
     endif
     !
     !
-    if(ED_MPI_ID==0)then
+    if(MPI_MASTER)then
        if(finiteT)then
           write(LOGfile,"(A)")"Lanczos FINITE temperature calculation:"
           write(LOGfile,"(A,I3)")"Nstates x Sector = ", lanc_nstates_sector
@@ -235,7 +276,7 @@ contains
     impSreal=zero
     impSAmats=zero
     impSAreal=zero
-
+    !
     allocate(impGmats(Nspin,Nspin,Norb,Norb,Lmats))
     allocate(impGreal(Nspin,Nspin,Norb,Norb,Lreal))
     allocate(impFmats(Nspin,Nspin,Norb,Norb,Lmats)) !THIS SHOULD NOT DEPEND ON SPIN: NSPIN=>1
@@ -244,7 +285,7 @@ contains
     impGreal=zero
     impFmats=zero
     impFreal=zero
-
+    !
     allocate(impG0mats(Nspin,Nspin,Norb,Norb,Lmats))
     allocate(impG0real(Nspin,Nspin,Norb,Norb,Lreal))
     allocate(impF0mats(Nspin,Nspin,Norb,Norb,Lmats)) !THIS SHOULD NOT DEPEND ON SPIN: NSPIN=>1
@@ -253,13 +294,12 @@ contains
     impG0real=zero
     impF0mats=zero
     impF0real=zero
-
+    !
     allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
     allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
     GFpoles=0d0
     GFweights=0d0
-
-
+    !
     !allocate observables
     allocate(ed_dens(Norb),ed_docc(Norb),ed_phisc(Norb),ed_dens_up(Norb),ed_dens_dw(Norb))
     ed_dens=0d0
@@ -267,12 +307,12 @@ contains
     ed_phisc=0d0
     ed_dens_up=0d0
     ed_dens_dw=0d0
-
+    !
     if(chiflag)then
        allocate(spinChi_tau(Norb+1,0:Ltau))
        allocate(spinChi_w(Norb+1,Lreal))
        allocate(spinChi_iv(Norb+1,0:Lmats))
-
+       !
        allocate(densChi_tau(Norb,Norb,0:Ltau))
        allocate(densChi_w(Norb,Norb,Lreal))
        allocate(densChi_iv(Norb,Norb,0:Lmats))
@@ -282,14 +322,12 @@ contains
        allocate(densChi_tot_tau(0:Ltau))
        allocate(densChi_tot_w(Lreal))
        allocate(densChi_tot_iv(0:Lmats))
-
+       !
        allocate(pairChi_tau(Norb,0:Ltau))
        allocate(pairChi_w(Norb,Lreal))
        allocate(pairChi_iv(Norb,0:Lmats))
     endif
-
-
-
+    !
   end subroutine init_ed_structure
 
 
@@ -311,8 +349,6 @@ contains
     real(8)                          :: adouble
     integer                          :: list_len
     integer,dimension(:),allocatable :: list_sector
-    if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
-    if(ED_MPI_ID==0)call start_timer
     isector=0
     do nup=0,Ns
        do ndw=0,Ns
@@ -362,10 +398,8 @@ contains
           ndw=getndw(isector)
           if(nup<ndw)twin_mask(isector)=.false.
        enddo
-       if(ED_MPI_ID==0)write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
+       write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
     endif
-    !
-    if(ED_MPI_ID==0)call stop_timer
     !
     do in=1,Norb
        impIndex(in,1)=in
@@ -434,8 +468,6 @@ contains
     real(8)                          :: adouble
     integer                          :: list_len
     integer,dimension(:),allocatable :: list_sector
-    if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
-    if(ED_MPI_ID==0)call start_timer
     isector=0
     do isz=-Ns,Ns
        sz=abs(isz)
@@ -475,9 +507,8 @@ contains
           sz=getsz(isector)
           if(sz>0)twin_mask(isector)=.false.
        enddo
-       if(ED_MPI_ID==0)write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
+       write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
     endif
-    if(ED_MPI_ID==0)call stop_timer
     !
     do in=1,Norb
        impIndex(in,1)=in
@@ -548,8 +579,6 @@ contains
     real(8)                          :: adouble
     integer                          :: list_len
     integer,dimension(:),allocatable :: list_sector
-    if(ED_MPI_ID==0)write(LOGfile,"(A)")"Setting up pointers:"
-    if(ED_MPI_ID==0)call start_timer
     isector=0
     do in=0,Nlevels
        isector=isector+1
@@ -590,9 +619,8 @@ contains
           if(in>Ns)twin_mask(isector)=.false.
           print*,twin_mask(isector),in
        enddo
-       if(ED_MPI_ID==0)write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
+       write(LOGfile,"(A,I4,A,I4)")"Looking into ",count(twin_mask)," sectors out of ",Nsectors
     endif
-    if(ED_MPI_ID==0)call stop_timer
     !
     do in=1,Norb
        impIndex(in,1)=in
