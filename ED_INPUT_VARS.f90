@@ -1,7 +1,7 @@
 MODULE ED_INPUT_VARS
   USE SCIFOR_VERSION
   USE SF_PARSE_INPUT
-  USE ED_VARS_GLOBAL
+  
   implicit none
 
   !GIT VERSION
@@ -30,6 +30,7 @@ MODULE ED_INPUT_VARS
   real(8)              :: gs_threshold        !Energy threshold for ground state degeneracy loop up
   real(8)              :: dmft_error          !dmft convergence threshold
   real(8)              :: sb_field            !symmetry breaking field
+  real(8)              :: hwband              !half-bandwidth for the bath initialization: flat in -hwband:hwband
   real(8)              :: lanc_tolerance      !Tolerance for the Lanczos iterations as used in Arpack and plain lanczos. 
   integer              :: lanc_niter          !Max number of Lanczos iterations
   integer              :: lanc_ngfiter        !Max number of iteration in resolvant tri-diagonalization
@@ -70,7 +71,7 @@ MODULE ED_INPUT_VARS
 
   !LOG AND Hamiltonian UNITS
   !=========================================================
-  character(len=100)   :: Hfile
+  character(len=100)   :: Hfile,HLOCfile
   integer              :: LOGfile
 
   !RDMFT VARIABLES:
@@ -90,16 +91,21 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : READ THE INPUT FILE AND SETUP GLOBAL VARIABLES
   !+-------------------------------------------------------------------+
-  subroutine ed_read_input(INPUTunit,comm)
+#ifdef _MPI
+#define INPUT_LIST INPUTunit,comm
+#else
+#define INPUT_LIST INPUTunit
+#endif  
+  subroutine ed_read_input(INPUT_LIST)
+#ifdef _MPI
+    USE MPI
+    USE SF_MPI
+#endif
     character(len=*) :: INPUTunit
     integer,optional :: comm
-    logical          :: master
+    logical          :: master=.true.
 #ifdef _MPI
-    if(present(comm))then
-       master=get_Master_MPI(comm)
-    else
-       master=get_Master_MPI(MPI_COMM_WORLD)
-    endif
+    if(present(comm))master=get_Master_MPI(comm)
 #endif
     !
     !DEFAULT VALUES OF THE PARAMETERS:
@@ -133,6 +139,7 @@ contains
     call parse_input_variable(eps,"EPS",INPUTunit,default=0.01d0,comment="Broadening on the real-axis.")
     call parse_input_variable(cutoff,"CUTOFF",INPUTunit,default=1.d-9,comment="Spectrum cut-off, used to determine the number states to be retained.")
     call parse_input_variable(gs_threshold,"GS_THRESHOLD",INPUTunit,default=1.d-9,comment="Energy threshold for ground state degeneracy loop up")
+    call parse_input_variable(hwband,"HWBAND",INPUTunit,default=2d0,comment="half-bandwidth for the bath initialization: flat in -hwband:hwband")
     call parse_input_variable(lanc_nstates_sector,"LANC_NSTATES_SECTOR",INPUTunit,default=6,comment="Initial number of states per sector to be determined.")
     call parse_input_variable(lanc_nstates_total,"LANC_NSTATES_TOTAL",INPUTunit,default=1,comment="Initial number of total states to be determined.")
     call parse_input_variable(lanc_nstates_step,"LANC_NSTATES_STEP",INPUTunit,default=2,comment="Number of states added to the spectrum at each step.")
@@ -156,6 +163,7 @@ contains
     call parse_input_variable(ed_bath_noise_thr,"ED_BATH_NOISE_THR",INPUTunit,default=0.d0,comment="Noise added to the impurity hybridization")
     call parse_input_variable(bath_type,"BATH_TYPE",INPUTunit,default='normal',comment="flag to set bath type: normal (1bath/imp), hybrid(1bath), replica(1replica/imp)")
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
+    call parse_input_variable(HLOCfile,"impHfile",INPUTunit,default="inputHLOC.in",comment="File read the input local H.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
     call parse_input_variable(ed_verbose,"ED_VERBOSE",INPUTunit,default=0,comment="Verbosity level: 0=all --> 5:almost nothing on the screen.")
     call parse_input_variable(ed_file_suffix,"ED_FILE_SUFFIX",INPUTunit,default=".ed",comment="Suffix in the output files.")

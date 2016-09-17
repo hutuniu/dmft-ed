@@ -5,7 +5,7 @@ subroutine build_chi_spin()
   integer :: iorb
   write(LOGfile,"(A)")"Get impurity spin Chi:"
   do iorb=1,Norb
-     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_spin_l"//reg(txtfy(iorb))
+     if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_spin_l"//reg(txtfy(iorb))
      select case(ed_type)
      case default
         call lanc_ed_build_spinChi_d(iorb)
@@ -14,7 +14,7 @@ subroutine build_chi_spin()
      end select
   enddo
   if(Norb>1)then
-     if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Get Chi_spin_tot"
+     if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_spin_tot"
      select case(ed_type)
      case default
         call lanc_ed_build_spinChi_tot_d()
@@ -55,7 +55,7 @@ subroutine lanc_ed_build_spinChi_d(iorb)
   !
   numstates=state_list%size
   !
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
   do izero=1,numstates
      isector     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
@@ -64,7 +64,7 @@ subroutine lanc_ed_build_spinChi_d(iorb)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
      allocate(vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
@@ -89,7 +89,7 @@ subroutine lanc_ed_build_spinChi_d(iorb)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
   enddo
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_build_spinChi_d
 
@@ -111,7 +111,7 @@ subroutine lanc_ed_build_spinChi_c(iorb)
   !
   numstates=state_list%size
   !
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
   do izero=1,numstates
      isector     =  es_return_sector(state_list,izero)
      idim      =  getdim(isector)
@@ -121,7 +121,7 @@ subroutine lanc_ed_build_spinChi_c(iorb)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
      allocate(vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
@@ -146,7 +146,7 @@ subroutine lanc_ed_build_spinChi_c(iorb)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_build_spinChi_c
 
@@ -180,7 +180,7 @@ subroutine lanc_ed_build_spinChi_tot_d()
   !
   numstates=state_list%size
   !
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
   do izero=1,numstates
      isector     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
@@ -189,7 +189,7 @@ subroutine lanc_ed_build_spinChi_tot_d()
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
      allocate(vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim  
@@ -214,7 +214,7 @@ subroutine lanc_ed_build_spinChi_tot_d()
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
   enddo
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_build_spinChi_tot_d
 
@@ -236,7 +236,7 @@ subroutine lanc_ed_build_spinChi_tot_c()
   !
   numstates=state_list%size
   !
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
   do izero=1,numstates
      isector     =  es_return_sector(state_list,izero)
      idim       =  getdim(isector)
@@ -246,7 +246,7 @@ subroutine lanc_ed_build_spinChi_tot_c()
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
      allocate(vvinit(idim))
-     if(ed_verbose<1.AND.ED_MPI_ID==0)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
@@ -271,7 +271,7 @@ subroutine lanc_ed_build_spinChi_tot_c()
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_ed_build_spinChi_tot_c
 

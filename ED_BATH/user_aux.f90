@@ -1007,34 +1007,32 @@ end subroutine copy_spin_orb_component_bath
 
 
 
-!+-----------------------------------------------------------------------------+!
-!PURPOSE: save the user defined bath to a file
-!+-----------------------------------------------------------------------------+!
-subroutine save_bath(bath_,file,used)
-  real(8),dimension(:)      :: bath_
-  type(effective_bath)      :: dmft_bath_
-  character(len=*),optional :: file
-  character(len=256)        :: file_
-  logical,optional          :: used
-  logical                   :: used_,check
-  character(len=16)         :: extension
-  integer                   :: unit_
-  if(ED_MPI_ID==0)then
-     check= check_bath_dimension(bath_)
-     if(.not.check)stop "save_bath error: wrong bath dimensions"
-     call allocate_dmft_bath(dmft_bath_)
-     call set_dmft_bath(bath_,dmft_bath_)
-     used_=.false.;if(present(used))used_=used
-     extension=".restart";if(used_)extension=".used"
-     file_=reg(reg(Hfile)//reg(ed_file_suffix)//reg(extension))
-     if(present(file))file_=reg(file)
-     unit_=free_unit()
-     open(unit_,file=reg(file_))
-     call write_dmft_bath(dmft_bath_,unit_)
-     close(unit_)
-     call deallocate_dmft_bath(dmft_bath_)
-  endif
-end subroutine save_bath
+! !+-----------------------------------------------------------------------------+!
+! !PURPOSE: save the user defined bath to a file
+! !+-----------------------------------------------------------------------------+!
+! subroutine save_bath(bath_,file,used)
+!   real(8),dimension(:)      :: bath_
+!   type(effective_bath)      :: dmft_bath_
+!   character(len=*),optional :: file
+!   character(len=256)        :: file_
+!   logical,optional          :: used
+!   logical                   :: used_,check
+!   character(len=16)         :: extension
+!   integer                   :: unit_
+!   check= check_bath_dimension(bath_)
+!   if(.not.check)stop "save_bath error: wrong bath dimensions"
+!   call allocate_dmft_bath(dmft_bath_)
+!   call set_dmft_bath(bath_,dmft_bath_)
+!   used_=.false.;if(present(used))used_=used
+!   extension=".restart";if(used_)extension=".used"
+!   file_=reg(reg(Hfile)//reg(ed_file_suffix)//reg(extension))
+!   if(present(file))file_=reg(file)
+!   unit_=free_unit()
+!   open(unit_,file=reg(file_))
+!   call write_dmft_bath(dmft_bath_,unit_)
+!   close(unit_)
+!   call deallocate_dmft_bath(dmft_bath_)
+! end subroutine save_bath
 
 
 
@@ -1111,7 +1109,7 @@ subroutine spin_symmetrize_bath_site(bath_,save)
   logical                :: save_
   save_=.true.;if(present(save))save_=save
   if(Nspin==1)then
-     if(ED_MPI_ID==0)write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
+     write(LOGfile,"(A)")"spin_symmetrize_bath: Nspin=1 nothing to symmetrize"
      return
   endif
   !

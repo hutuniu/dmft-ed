@@ -1,10 +1,10 @@
 MODULE ED_VARS_GLOBAL
   USE SF_CONSTANTS
   USE ED_SPARSE_MATRIX
-#ifdef _MPI
-  USE MPI
-  USE SF_MPI
-#endif
+  ! #ifdef _MPI
+  !   USE MPI
+  !   USE SF_MPI
+  ! #endif
   implicit none
 
   !-------------------- EFFECTIVE BATH STRUCTURE ----------------------!
@@ -45,6 +45,27 @@ MODULE ED_VARS_GLOBAL
        integer                            :: isector
        complex(8),dimension(:,:),optional :: Hmat
      end subroutine c_build_hamiltonian
+
+
+     !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
+     subroutine dd_sparse_HxV(Nloc,v,Hv)
+       integer                 :: Nloc
+       real(8),dimension(Nloc) :: v
+       real(8),dimension(Nloc) :: Hv
+     end subroutine dd_sparse_HxV
+     !
+     subroutine dc_sparse_HxV(Nloc,v,Hv)
+       integer                    :: Nloc
+       complex(8),dimension(Nloc) :: v
+       complex(8),dimension(Nloc) :: Hv
+     end subroutine dc_sparse_HxV
+     !
+     subroutine cc_sparse_HxV(Nloc,v,Hv)
+       integer                    :: Nloc
+       complex(8),dimension(Nloc) :: v
+       complex(8),dimension(Nloc) :: Hv
+     end subroutine cc_sparse_HxV
+
   end interface
 
 
@@ -90,8 +111,14 @@ MODULE ED_VARS_GLOBAL
   !=========================================================  
   type(sparse_matrix)                                :: spH0
   type(sparse_matrix)                                :: spH0up,spH0dw
-  procedure(d_build_hamiltonian),pointer             :: ed_buildH_d
-  procedure(c_build_hamiltonian),pointer             :: ed_buildH_c
+  procedure(d_build_hamiltonian),pointer             :: ed_buildH_d=>null()
+  procedure(c_build_hamiltonian),pointer             :: ed_buildH_c=>null()
+  procedure(dd_sparse_HxV),pointer                   :: spHtimesV_dd=>null()
+  procedure(cc_sparse_HxV),pointer                   :: spHtimesV_cc=>null()
+  procedure(dd_sparse_HxV),pointer                   :: lanc_spHtimesV_dd=>null()
+  procedure(dc_sparse_HxV),pointer                   :: lanc_spHtimesV_dc=>null()
+  procedure(cc_sparse_HxV),pointer                   :: lanc_spHtimesV_cc=>null()
+
 
   !Variables for DIAGONALIZATION
   !PRIVATE
@@ -195,16 +222,16 @@ MODULE ED_VARS_GLOBAL
   complex(8),allocatable,dimension(:)                :: impj_aplha
   complex(8)                                         :: impLdotS
 
-  !MPI Parallel environment variables
-  !PUBLIC
-  !=========================================================
-  integer                                            :: ED_MPI_COMM
-  integer                                            :: ED_MPI_ID=0
-  integer                                            :: ED_MPI_SIZE=1
-  integer                                            :: ED_MPI_ERR
-  logical                                            :: ED_MPI_MASTER=.true.
+  ! !MPI Parallel environment variables
+  ! !PUBLIC
+  ! !=========================================================
+  ! integer                                            :: ED_MPI_COMM
+  ! integer                                            :: ED_MPI_ID=0
+  ! integer                                            :: ED_MPI_SIZE=1
+  ! integer                                            :: ED_MPI_ERR
+  ! logical                                            :: ED_MPI_MASTER=.true.
 
-  
+
 
   !--------------- LATTICE WRAP VARIABLES -----------------!
   !Lattice size:

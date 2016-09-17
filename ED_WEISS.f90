@@ -2,6 +2,9 @@ module ED_WEISS
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE ED_AUX_FUNX
+  !
+  USE ED_MPI2B
+  !
   USE SF_IOTOOLS,   only:reg,txtfy,splot,store_data
   USE SF_TIMER
   USE SF_ARRAYS,    only:arange

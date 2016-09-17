@@ -1,8 +1,5 @@
 MODULE ED_SPARSE_MATRIX
   USE SF_CONSTANTS, only:zero
-#ifdef _MPI
-  USE MPI
-#endif
   implicit none
   private
 
@@ -19,7 +16,7 @@ MODULE ED_SPARSE_MATRIX
      type(sparse_element),pointer          :: root    !head/root of the list\== list itself
   end type sparse_row
   public :: sparse_row
-  
+
   type sparse_matrix
      integer                               :: Nrow
      logical                               :: status=.false.
@@ -34,7 +31,7 @@ MODULE ED_SPARSE_MATRIX
   end interface sp_init_matrix
   public :: sp_init_matrix      !init the sparse matrix   !checked
 
-  
+
   !DELETE SPARSE MATRIX (LL) OR ONE OF ITS ELEMENTS (LL)
   interface sp_delete_matrix
      module procedure sp_delete_matrix_ll
@@ -97,7 +94,7 @@ MODULE ED_SPARSE_MATRIX
   end interface sp_print_matrix
   public :: sp_print_matrix     !print sparse             !checked
 
-  
+
   !TEST
   public :: sp_test_symmetric
 
@@ -112,12 +109,6 @@ MODULE ED_SPARSE_MATRIX
   public :: sp_inquire_element  !inquire an element       !checked
 
 
-
-  ! #ifdef _MPI
-  !   public :: sp_matrix_vector_product_mpi_dd
-  !   public :: sp_matrix_vector_product_mpi_dc
-  !   public :: sp_matrix_vector_product_mpi_cc
-  ! #endif
 
 
 

@@ -16,21 +16,63 @@ module ED_DIAG
   USE ED_SETUP
   USE ED_HAMILTONIAN
   USE ED_MATVEC
+  !
+#ifdef _MPI
+  USE MPI
+  USE SF_MPI
+#endif
   implicit none
   private
 
+
   public :: diagonalize_impurity
 
+  public :: ed_diag_set_MPI
+  
+  public :: ed_diag_del_MPI
+
+  
+#ifdef _MPI
+  integer :: MpiComm=MPI_UNDEFINED
+#endif
+  logical :: MpiStatus=.false.
+  integer :: MPI_SIZE=1
+  logical :: MPI_MASTER=.true.  !
   integer :: unit
+
 
 contains
 
-  !                    LANCZOS DIAGONALIZATION
+
+  subroutine ed_diag_set_MPI(comm)
+#ifdef _MPI
+    integer :: comm
+    MpiComm  = comm
+    MpiStatus = .true.
+    MPI_SIZE  = get_Size_MPI(MpiComm)
+    MPI_MASTER= get_Master_MPI(MpiComm)
+#else
+    integer,optional :: comm
+#endif
+  end subroutine ed_diag_set_MPI
+
+
+  subroutine ed_diag_del_MPI()
+#ifdef _MPI
+    MpiComm  = MPI_UNDEFINED
+    MpiStatus = .false.
+#endif
+  end subroutine ed_diag_del_MPI
+
+
+
+
+
   !+-------------------------------------------------------------------+
   !PURPOSE  : Setup the Hilbert space, create the Hamiltonian, get the
   ! GS, build the Green's functions calling all the necessary routines
   !+------------------------------------------------------------------+
-  subroutine diagonalize_impurity
+  subroutine diagonalize_impurity()
     select case(ed_type)
     case default
        call ed_diag_d
@@ -39,6 +81,35 @@ contains
     end select
     call ed_analysis
   end subroutine diagonalize_impurity
+
+  ! #ifdef _MPI
+  !   subroutine diagonalize_impurity_mpi(comm)
+  !     integer :: comm
+  !     !
+  !     MpiComm  = comm
+  !     MpiStatus = .true.
+  !     MPI_SIZE  = get_Size_MPI(MpiComm)
+  !     MPI_MASTER= get_Master_MPI(MpiComm)
+  !     call ed_matvec_set_MPI(comm)
+  !     call ed_hamiltonian_set_MPI(comm)
+  !     !
+  !     select case(ed_type)
+  !     case default
+  !        call ed_diag_d
+  !     case('c')
+  !        call ed_diag_c
+  !     end select
+  !     !
+  !     call ed_analysis
+  !     !
+  !     call ed_matvec_del_MPI()
+  !     call ed_hamiltonian_del_MPI()
+  !     MpiComm=MPI_UNDEFINED
+  !     MpiStatus=.false.
+  !     !
+  !   end subroutine diagonalize_impurity_mpi
+  ! #endif
+
 
 
 
@@ -59,8 +130,8 @@ contains
     if(state_list%status)call es_delete_espace(state_list)
     state_list=es_init_espace()
     oldzero=1000.d0
-    if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer()
-    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A)")"Diagonalize impurity H:"
+    if(ed_verbose<3.AND.MPI_MASTER)call start_timer()
+    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Diagonalize impurity H:"
     !
     lanc_verbose=.false.
     if(ed_verbose<0)lanc_verbose=.true.
@@ -86,9 +157,9 @@ contains
        !
        lanc_solve  = .true.
        if(Neigen==dim)lanc_solve=.false.
-       if(dim<=max(lanc_dim_threshold,ED_MPI_SIZE))lanc_solve=.false.
+       if(dim<=max(lanc_dim_threshold,MPI_SIZE))lanc_solve=.false.
        !
-       if(ED_MPI_ID==0)then
+       if(MPI_MASTER)then
           if(ed_verbose<=0)then
              select case(ed_mode)
              case default
@@ -116,13 +187,15 @@ contains
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
           eig_values=0d0 ; eig_basis=0d0
           call ed_buildH_d(isector)
-#ifdef _MPI
-          call sp_eigh(ED_MPI_COMM,spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
-          !call lanczos_parpack(Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,lanc_verbose)
-#else
-          call sp_eigh(spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
-          !call lanczos_arpack(Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_dd,lanc_verbose)
-#endif
+          ! #ifdef _MPI
+          if(MpiStatus)then
+             call sp_eigh(MpiComm,spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+          else
+             call sp_eigh(spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+          endif
+          ! #else
+          !           call sp_eigh(spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+          ! #endif
        else
           if(allocated(eig_values))deallocate(eig_values)
           if(allocated(eig_basis))deallocate(eig_basis)
@@ -161,7 +234,7 @@ contains
        if(allocated(eig_basis))deallocate(eig_basis)
        !
     enddo sector
-    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+    if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
   end subroutine ed_diag_d
 
 
@@ -183,7 +256,7 @@ contains
     if(state_list%status)call es_delete_espace(state_list)
     state_list=es_init_espace()
     oldzero=1000.d0
-    if(ed_verbose<3.AND.ED_MPI_ID==0)call start_timer()
+    if(ed_verbose<3.AND.MPI_MASTER)call start_timer()
     iter=0
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
@@ -204,9 +277,9 @@ contains
        !
        lanc_solve  = .true.
        if(Neigen==dim)lanc_solve=.false.
-       if(dim<=max(lanc_dim_threshold,ED_MPI_SIZE))lanc_solve=.false.
+       if(dim<=max(lanc_dim_threshold,MPI_SIZE))lanc_solve=.false.
        !
-       if(ED_MPI_ID==0)then
+       if(MPI_MASTER)then
           if(ed_verbose<=0)then
              select case(ed_mode)
              case default
@@ -234,13 +307,15 @@ contains
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
           eig_values=0d0 ; eig_basis=0d0
           call ed_buildH_c(isector)
-#ifdef _MPI
-          call sp_eigh(ED_MPI_COMM,spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
-          !call lanczos_parpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
-#else
-          call sp_eigh(spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
-          !call lanczos_arpack(dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,spHtimesV_cc)
-#endif
+          ! #ifdef _MPI
+          if(MpiStatus)then
+             call sp_eigh(MpiComm,spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+          else
+             call sp_eigh(spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+          endif
+          ! #else
+          !           call sp_eigh(spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+          ! #endif
        else
           allocate(eig_values(Dim),eig_basis(Dim,dim))
           eig_values=0.d0 ; eig_basis=zero
@@ -278,7 +353,7 @@ contains
        if(allocated(eig_basis))deallocate(eig_basis)
        !
     enddo sector
-    if(ed_verbose<3.AND.ED_MPI_ID==0)call stop_timer
+    if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
   end subroutine ed_diag_c
 
 
@@ -343,23 +418,23 @@ contains
        case default
           nup  = getnup(isector)
           ndw  = getndw(isector)
-          if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12,2I4)")'Egs =',Egs,nup,ndw
+          if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A,F20.12,2I4)")'Egs =',Egs,nup,ndw
        case("superc")
           sz  = getsz(isector)
-          if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12,I4)")'Egs =',Egs,sz
+          if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A,F20.12,I4)")'Egs =',Egs,sz
        case("nonsu2")
           n  = getn(isector)
-          if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12,I4)")'Egs =',Egs,n
+          if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A,F20.12,I4)")'Egs =',Egs,n
        end select
     enddo
-    if(ed_verbose<3.AND.ED_MPI_ID==0)write(LOGfile,"(A,F20.12)")'Z   =',zeta_function
+    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A,F20.12)")'Z   =',zeta_function
     !
     !
     !
     !get histogram distribution of the sector contributing to the evaluated spectrum:
     !go through states list and update the neigen_sector(isector) sector-by-sector
     if(finiteT)then
-       if(ED_MPI_ID==0)then
+       if(MPI_MASTER)then
           unit=free_unit()
           open(unit,file="histogram_states"//reg(ed_file_suffix)//".ed",position='append')
           hist_n = Nsectors
@@ -412,14 +487,14 @@ contains
        Nsize= state_list%size
        if(exp(-beta*(Ec-Egs)) > cutoff)then
           lanc_nstates_total=lanc_nstates_total + lanc_nstates_step
-          if(ED_MPI_ID==0)write(LOGfile,"(A,I4)")"Increasing lanc_nstates_total:",lanc_nstates_total
+          if(MPI_MASTER)write(LOGfile,"(A,I4)")"Increasing lanc_nstates_total:",lanc_nstates_total
        else
           ! !Find the energy level beyond which cutoff condition is verified & cut the list to that size
           write(LOGfile,*)
           isector = es_return_sector(state_list,state_list%size)
           Ei      = es_return_energy(state_list,state_list%size)
           do while ( exp(-beta*(Ei-Egs)) <= cutoff )
-             if(ed_verbose<4.AND.ED_MPI_ID==0)then
+             if(ed_verbose<4.AND.MPI_MASTER)then
                 select case(ed_mode)
                 case default
                    write(LOGfile,"(A,I4,2x,2I4,2x,I5)")"Trimming state:",isector,getnup(isector),getndw(isector),state_list%size
@@ -433,16 +508,16 @@ contains
              isector = es_return_sector(state_list,state_list%size)
              Ei      = es_return_energy(state_list,state_list%size)
           enddo
-          if(ed_verbose<4.AND.ED_MPI_ID==0)then
+          if(ed_verbose<4.AND.MPI_MASTER)then
              write(LOGfile,*)"Trimmed state list:"          
              call print_state_list(LOGfile)
           endif
           ! lanc_nstates_total=max(lanc_nstates_step,lanc_nstates_total-lanc_nstates_step)
-          ! if(ED_MPI_ID==0)write(LOGfile,"(A,I4)")"Decreasing lanc_nstates_total:",lanc_nstates_total
+          ! if(MPI_MASTER)write(LOGfile,"(A,I4)")"Decreasing lanc_nstates_total:",lanc_nstates_total
           !
           ! if(trim_state_list)then
           lanc_nstates_total=max(state_list%size,lanc_nstates_step)+lanc_nstates_step
-          if(ed_verbose<4.AND.ED_MPI_ID==0)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
+          if(ed_verbose<4.AND.MPI_MASTER)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
           ! endif
        endif
     endif
@@ -454,7 +529,7 @@ contains
     integer :: istate
     integer :: unit
     real(8) :: Estate
-    if(ED_MPI_ID==0)then
+    if(MPI_MASTER)then
        select case(ed_mode)
        case default
           write(unit,"(A)")"# i       E_i           exp(-(E-E0)/T)       nup ndw  Sect     Dim"
@@ -486,7 +561,7 @@ contains
     integer              :: isector
     real(8),dimension(:) :: eig_values
     integer              :: unit,i
-    if(ED_MPI_ID==0)then
+    if(MPI_MASTER)then
        select case(ed_mode)
        case default
           write(unit,"(A7,A3,A3)")" Sector","Nup","Ndw"

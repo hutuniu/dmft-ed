@@ -35,23 +35,21 @@ subroutine print_impG0_normal
   if(l/=totNorb)stop "print_gf_normal error counting the orbitals"
   !!
   !Print the impurity functions:
-  if(ED_MPI_ID==0)then
-     do l=1,totNorb
-        iorb=getIorb(l)
-        jorb=getJorb(l)
-        suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
-        call open_units(reg(suffix))
-        if(ed_verbose<1)then
-           do i=1,Lmats
-              write(unit(1),"(F20.12,6(F20.12))")wm(i),(dimag(impG0mats(ispin,ispin,iorb,jorb,i)),dreal(impG0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-           enddo
-           do i=1,Lreal
-              write(unit(2),"(F20.12,6(F20.12))")wr(i),(dimag(impG0real(ispin,ispin,iorb,jorb,i)),dreal(impG0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-           enddo
-        endif
-        call close_units()
-     enddo
-  endif
+  do l=1,totNorb
+     iorb=getIorb(l)
+     jorb=getJorb(l)
+     suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
+     call open_units(reg(suffix))
+     if(ed_verbose<1)then
+        do i=1,Lmats
+           write(unit(1),"(F20.12,6(F20.12))")wm(i),(dimag(impG0mats(ispin,ispin,iorb,jorb,i)),dreal(impG0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+        enddo
+        do i=1,Lreal
+           write(unit(2),"(F20.12,6(F20.12))")wr(i),(dimag(impG0real(ispin,ispin,iorb,jorb,i)),dreal(impG0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+        enddo
+     endif
+     call close_units()
+  enddo
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
@@ -118,33 +116,31 @@ subroutine print_impG0_superc
   !!
   !!
   !!PRINT OUT GF:
-  if(ED_MPI_ID==0)then
-     do l=1,totNorb
-        iorb=getIorb(l)
-        jorb=getJorb(l)
-        suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
-        call open_units(reg(suffix))
-        if(ed_verbose<1)then
-           do i=1,Lmats
-              write(unit(1),"(F20.12,6(F20.12))")wm(i),&
-                   (dimag(impG0mats(ispin,ispin,iorb,jorb,i)),dreal(impG0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-           enddo
-           do i=1,Lmats
-              write(unit(2),"(F20.12,6(F20.12))")wm(i),&
-                   (dimag(impF0mats(ispin,ispin,iorb,jorb,i)),dreal(impF0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-           enddo
-           do i=1,Lreal
-              write(unit(3),"(F20.12,6(F20.12))")wr(i),&
-                   (dimag(impG0real(ispin,ispin,iorb,jorb,i)),dreal(impG0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-           enddo
-           do i=1,Lreal
-              write(unit(4),"(F20.12,6(F20.12))")wr(i),&
-                   (dimag(impF0real(ispin,ispin,iorb,jorb,i)),dreal(impF0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-           enddo
-        endif
-        call close_units
-     enddo
-  endif
+  do l=1,totNorb
+     iorb=getIorb(l)
+     jorb=getJorb(l)
+     suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
+     call open_units(reg(suffix))
+     if(ed_verbose<1)then
+        do i=1,Lmats
+           write(unit(1),"(F20.12,6(F20.12))")wm(i),&
+                (dimag(impG0mats(ispin,ispin,iorb,jorb,i)),dreal(impG0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+        enddo
+        do i=1,Lmats
+           write(unit(2),"(F20.12,6(F20.12))")wm(i),&
+                (dimag(impF0mats(ispin,ispin,iorb,jorb,i)),dreal(impF0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+        enddo
+        do i=1,Lreal
+           write(unit(3),"(F20.12,6(F20.12))")wr(i),&
+                (dimag(impG0real(ispin,ispin,iorb,jorb,i)),dreal(impG0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+        enddo
+        do i=1,Lreal
+           write(unit(4),"(F20.12,6(F20.12))")wr(i),&
+                (dimag(impF0real(ispin,ispin,iorb,jorb,i)),dreal(impF0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
+        enddo
+     endif
+     call close_units
+  enddo
   !
   !
   if(allocated(wm))deallocate(wm)
@@ -270,27 +266,25 @@ subroutine print_impG0_nonsu2
   if(l/=totNso)stop "print_gf_nonsu2 error counting the spin-orbitals"
   !!
   !!PRINT OUT GF:
-  if(ED_MPI_ID==0)then
-     do l=1,totNso
-        iorb=getIorb(l)
-        jorb=getJorb(l)
-        ispin=getIspin(l)
-        jspin=getJspin(l)
-        !
-        suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
-        call open_units(reg(suffix))
-        !
-        if(ed_verbose<1)then
-           do i=1,Lmats
-              write(unit(1),"(F20.12,2(F20.12))")wm(i),dimag(impG0mats(ispin,jspin,iorb,jorb,i)),dreal(impG0mats(ispin,jspin,iorb,jorb,i))
-           enddo
-           do i=1,Lreal
-              write(unit(2),"(F20.12,2(F20.12))")wr(i),dimag(impG0real(ispin,jspin,iorb,jorb,i)),dreal(impG0real(ispin,jspin,iorb,jorb,i))
-           enddo
-        endif
-        call close_units()
-     enddo
-  endif
+  do l=1,totNso
+     iorb=getIorb(l)
+     jorb=getJorb(l)
+     ispin=getIspin(l)
+     jspin=getJspin(l)
+     !
+     suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+     call open_units(reg(suffix))
+     !
+     if(ed_verbose<1)then
+        do i=1,Lmats
+           write(unit(1),"(F20.12,2(F20.12))")wm(i),dimag(impG0mats(ispin,jspin,iorb,jorb,i)),dreal(impG0mats(ispin,jspin,iorb,jorb,i))
+        enddo
+        do i=1,Lreal
+           write(unit(2),"(F20.12,2(F20.12))")wr(i),dimag(impG0real(ispin,jspin,iorb,jorb,i)),dreal(impG0real(ispin,jspin,iorb,jorb,i))
+        enddo
+     endif
+     call close_units()
+  enddo
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)

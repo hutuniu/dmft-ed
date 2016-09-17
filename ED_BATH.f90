@@ -11,6 +11,7 @@ MODULE ED_BATH
   private
 
 
+
   !##################################################################
   !
   !     USER BATH ROUTINES:
@@ -45,7 +46,7 @@ MODULE ED_BATH
   public :: get_component_bath
   public :: set_component_bath
   public :: copy_component_bath
-  public :: save_bath
+  ! public :: save_bath
 
   !explicit symmetries:
   interface break_symmetry_bath
@@ -109,7 +110,11 @@ MODULE ED_BATH
 
 
 
+
+
+
 contains
+
 
   !##################################################################
   !

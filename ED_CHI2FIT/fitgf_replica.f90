@@ -94,9 +94,9 @@ subroutine chi2_fitgf_replica(fg,bath_)
      Wdelta=Xdelta
   end select
   !
-  if(ED_MPI_ID==0)write(LOGfile,*)"  fitted functions",totNso
+  write(LOGfile,*)"  fitted functions",totNso
   do i=1,totNso
-     if(ED_MPI_ID==0)write(LOGfile,*)"  s,s',a,b",getIspin(i),getJspin(i),getIorb(i),getJorb(i)
+     write(LOGfile,*)"  s,s',a,b",getIspin(i),getJspin(i),getIorb(i),getJorb(i)
      Gdelta(i,1:Ldelta) = fg(getIspin(i),getJspin(i),getIorb(i),getJorb(i),1:Ldelta)
   enddo
   !
@@ -133,7 +133,7 @@ subroutine chi2_fitgf_replica(fg,bath_)
      !
   end select
   !
-  if(ED_MPI_ID==0)write(LOGfile,"(A,ES18.9,A,I5,A)")"chi^2|iter"//reg(ed_file_suffix)//'= ',chi," | ",iter,"  <--  All Orbs, All Spins"
+  write(LOGfile,"(A,ES18.9,A,I5,A)")"chi^2|iter"//reg(ed_file_suffix)//'= ',chi," | ",iter,"  <--  All Orbs, All Spins"
   !
   if(ed_verbose<2)then
      suffix="_ALLorb_ALLspins"//reg(ed_file_suffix)
