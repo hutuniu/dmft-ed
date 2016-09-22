@@ -45,16 +45,10 @@ program ed_bhz
   real(8),dimension(2)   :: Eout
   real(8),allocatable    :: dens(:)
   !MPI Vars:
-  integer :: mpiRANK, mpiSIZE, mpiERR
+  integer                :: mpiRANK, mpiSIZE, mpiERR
 
-  ! #ifdef _MPI
   call MPI_INIT(mpiERR)
-  ! call MPI_COMM_RANK(MPI_COMM_WORLD,mpiRANK,mpiERR)
-  ! call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
-  ! write(*,"(A,I4,A,I4,A)")'Processor ',mpiRANK,' of ',mpiSIZE,' is alive'
-  ! call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
   call StartMsg_MPI(MPI_COMM_WORLD)
-  ! #endif
 
   !Parse additional variables && read Input && read H(k)^4x4
   call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ.in')
@@ -71,8 +65,16 @@ program ed_bhz
   call parse_input_variable(spinsym,"SPINSYM",finput,default=.true.)
   call parse_input_variable(lambda,"LAMBDA",finput,default=0.d0)
   !
-  call ed_read_input(trim(finput))
-
+  call ed_read_input(trim(finput),MPI_COMM_WORLD)
+  !
+  !Add DMFT CTRL Variables:
+  call add_ctrl_var(Norb,"norb")
+  call add_ctrl_var(Nspin,"nspin")
+  call add_ctrl_var(beta,"beta")
+  call add_ctrl_var(xmu,"xmu")
+  call add_ctrl_var(wini,'wini')
+  call add_ctrl_var(wfin,'wfin')
+  call add_ctrl_var(eps,"eps")
 
   if(Nspin/=2.OR.Norb/=2)stop "Wrong setup from input file: Nspin=Norb=2 -> 4Spin-Orbitals"
   Nso=Nspin*Norb
@@ -125,10 +127,11 @@ program ed_bhz
      call ed_get_sigma_real(Sreal)
      dens= ed_get_dens()
 
-     call ed_get_gloc(Hk,Wtk,Gmats,Greal,Smats,Sreal,iprint=1)
+
+     call dmft_gloc_matsubara(MPI_COMM_WORLD,Hk,Wtk,Gmats,Smats,iprint=1)
+     call dmft_gloc_realaxis(MPI_COMM_WORLD,Hk,Wtk,Greal,Sreal,iprint=1)
+
      call ed_get_weiss(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=1)
-     ! !Get the Weiss field/Delta function to be fitted (user defined)
-     ! call get_delta
 
      !Fit the new bath, starting from the old bath + the supplied delta
      call ed_chi2_fitgf(MPI_COMM_WORLD,delta(1,1,:,:,:),bath,ispin=1)
@@ -148,19 +151,11 @@ program ed_bhz
         if(nread/=0.d0)call search_chemical_potential(xmu,sum(dens),converged)
      endif
 
-     ! #ifdef _MPI
      call Bcast_MPI(MPI_COMM_WORLD,converged)
      call Bcast_MPI(MPI_COMM_WORLD,xmu)
-     ! #endif
 
      if(mpiRANK==0)call end_loop
   enddo
-
-
-  ! if(mpiRANK==0)then
-  !    Eout = ed_kinetic_energy(Hk,Wtk,Smats)
-  !    print*,Eout
-  ! endif
 
 
   call add_ctrl_var(Norb,"Norb")
@@ -170,11 +165,8 @@ program ed_bhz
   call add_ctrl_var(wini,"wini")
   call add_ctrl_var(wfin,"wfin")
   Eout = dmft_kinetic_energy(MPI_COMM_WORLD,Hk,Wtk,Smats)
-  print*,Eout
 
-  ! #ifdef _MPI
   call MPI_FINALIZE(mpiERR)
-  ! #endif
 
 contains
 
