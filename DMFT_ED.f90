@@ -88,7 +88,6 @@ MODULE DMFT_ED
        get_component_bath,               &
        set_component_bath,               &      
        copy_component_bath,              &
-                                ! save_bath,                        &
        spin_symmetrize_bath ,            &
        ph_symmetrize_bath   ,            &
        ph_trans_bath        ,            &
@@ -103,21 +102,8 @@ MODULE DMFT_ED
        ed_solve               ,&
        ed_rebuild_sigma       
 
-  USE ED_MPI2B, only: ed_set_MPI
 
-  ! USE ED_GLOC,     only:&
-  !      ed_get_gloc,&
-  !      ed_get_gloc_lattice,&
-  !      ed_get_gij_lattice
-
-
-  USE ED_WEISS,    only: ed_get_weiss,ed_get_weiss_lattice
-
-
-  ! USE ED_ENERGY,   only: ed_kinetic_energy!,ed_kinetic_energy_lattice
-
-
-  USE ED_CHI2FIT,  only: ed_chi2_fitgf!,ed_chi2_fitgf_lattice
+  USE ED_CHI2FIT,  only: ed_chi2_fitgf
 
 
 END MODULE DMFT_ED

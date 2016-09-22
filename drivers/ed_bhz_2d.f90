@@ -131,7 +131,12 @@ program ed_bhz
      call dmft_gloc_matsubara(MPI_COMM_WORLD,Hk,Wtk,Gmats,Smats,iprint=1)
      call dmft_gloc_realaxis(MPI_COMM_WORLD,Hk,Wtk,Greal,Sreal,iprint=1)
 
-     call ed_get_weiss(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=1)
+     !call ed_get_weiss(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=1)
+     if(cg_scheme=='weiss')then
+        call dmft_weiss(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=1)
+     else
+        call dmft_delta(Gmats,Smats,Delta,Hloc=j2so(bhzHloc),iprint=1)
+     endif
 
      !Fit the new bath, starting from the old bath + the supplied delta
      call ed_chi2_fitgf(MPI_COMM_WORLD,delta(1,1,:,:,:),bath,ispin=1)
