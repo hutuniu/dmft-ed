@@ -930,7 +930,7 @@ contains
              if (inotbound>=5)  delta_xmu = delta_xmu*2.0d0
              if (inotbound>=10) delta_xmu = delta_xmu*3.0d0
              if (inotbound>=15) delta_xmu = delta_xmu*4.0d0
-             xmu_shift = delta_xmu * diffdens
+             xmu_shift = delta_xmu !* diffdens
              xmu_tmp = xmu_tmp - xmu_shift
              if(ED_MPI_ID==0)then
                 write(LOGfile,*) "   Delta xmu: ",delta_xmu

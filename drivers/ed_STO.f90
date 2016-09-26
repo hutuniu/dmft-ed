@@ -152,7 +152,7 @@ program ed_TEST_REPLICA
      if(ED_MPI_ID==0)write(*,'(3(a10,F10.5))') "sumdens",sumdens,"diffdens",abs(nread-sumdens),"nread",nread
      if(nread/=0.d0)then
         converged_n=.false.
-        if(iloop>=3)call search_chempot(xmu,sumdens,converged_n,Bath)
+        if(iloop>1)call search_chempot(xmu,sumdens,converged_n,Bath)
         if(ED_MPI_ID==0)write(*,'(2(a10,F10.5))') "xmu_old",xmu_old,"xmu_new",xmu
      endif
      if(converged_n)then
