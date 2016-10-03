@@ -283,5 +283,43 @@
         enddo
      enddo
 
+
+
+     !##############################################
+     !#                                            #
+     !#    ANOMALOUS PAIR-CREATION/DESTRUCTION     #
+     !#                                            #
+     !##############################################
+     !
+     !
+     if(ed_mode=="superc")then
+        do iorb=1,size(dmft_bath%e,2)
+           do kp=1,Nbath
+              ms=getBathStride(iorb,kp)
+              !\Delta_l c_{\up,ms} c_{\dw,ms}
+              if( (dmft_bath%d(1,iorb,kp)/=0d0) .AND. (ib(ms)==1) .AND. (ib(ms+Ns)==1) )then
+                 call c(ms,m,k1,sg1)
+                 call c(ms+Ns,k1,k2,sg2)
+                 j=binary_search(H%map,k2)
+                 htmp=dmft_bath%d(1,iorb,kp)*sg1*sg2
+                 !
+                 call sp_insert_element(spH0,htmp,impi,j)
+                 !
+              endif
+              !\Delta_l cdg_{\up,ms} cdg_{\dw,ms}
+              if( (dmft_bath%d(1,iorb,kp)/=0d0) .AND. (ib(ms)==0) .AND. (ib(ms+Ns)==0) )then
+                 call cdg(ms+Ns,m,k1,sg1)
+                 call cdg(ms,k1,k2,sg2)
+                 j=binary_search(H%map,k2)
+                 htmp=dmft_bath%d(1,iorb,kp)*sg1*sg2 !
+                 !
+                 call sp_insert_element(spH0,htmp,impi,j)
+                 !
+              endif
+           enddo
+        enddo
+     endif
+
+
   enddo states
 

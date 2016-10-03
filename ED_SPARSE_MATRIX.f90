@@ -643,8 +643,7 @@ contains
     matrix=0.d0
     do i=1,Ndim1
        c => sparse%row(i)%root%next
-       do 
-          if(.not.associated(c))exit
+       do while(associated(c))
           matrix(i,c%col) = c%val
           c => c%next  !traverse list
        enddo
@@ -663,8 +662,7 @@ contains
     matrix=0.d0
     do i=1,Ndim1
        c => sparse%row(i)%root%next
-       do 
-          if(.not.associated(c))exit
+       do while(associated(c))
           matrix(i,c%col) = c%cval
           c => c%next  !traverse list
        enddo

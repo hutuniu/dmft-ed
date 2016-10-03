@@ -27,10 +27,10 @@ program ed_graphene
   real(8),dimension(2)                          :: d1,d2,d3
   real(8),dimension(2)                          :: a1,a2,a3
   real(8),dimension(2)                          :: bk1,bk2,pointK,pointKp,bklen
-
+  complex(8),dimension(4,4)                     :: GammaX,GammaY,GammaZ,Gamma0
   !variables for the model:
   integer                                       :: Nk,Nkpath
-  real(8)                                       :: ts,tsp,phi,delta,Mh,wmixing
+  real(8)                                       :: ts,Mh,wmixing
   character(len=32)                             :: finput
   character(len=32)                             :: hkfile
   logical                                       :: spinsym
@@ -55,10 +55,24 @@ program ed_graphene
   !
   call ed_read_input(trim(finput))
 
-  if(Norb/=1)stop "Wrong setup from input file: Norb=1"
+
+  call add_ctrl_var(Norb,"Norb")
+  call add_ctrl_var(Nspin,"Nspin")
+  call add_ctrl_var(beta,"beta")
+  call add_ctrl_var(xmu,"xmu")
+  call add_ctrl_var(wini,"wini")
+  call add_ctrl_var(wfin,"wfin")
+  call add_ctrl_var(eps,"eps")
+
+  if(Norb/=1.OR.Nspin/=2)stop "Wrong setup from input file: Norb!=1 OR Nspin!=2 (This is AFM!)"
   Nlat=2
   Nso=Nspin*Norb
   Nlso=Nlat*Nso
+
+  Gamma0 = kron_pauli(pauli_0,pauli_0)
+  GammaX = kron_pauli(pauli_0,pauli_x)
+  GammaY = kron_pauli(pauli_0,pauli_y)
+  GammaZ = kron_pauli(pauli_0,pauli_z)
 
   !FOLLOWING REV.MOD.PHYS.81.109(2009)
   !Lattice basis (a=1; a0=sqrt3*a) is:
@@ -105,6 +119,10 @@ program ed_graphene
   allocate(Bath(Nlat,Nb))
   allocate(Bath_prev(Nlat,Nb))
   call ed_init_solver(Bath)
+  ! break SU(2) symmetry for magnetic solutions
+  call break_symmetry_bath(Bath(1,:),sb_field, 1.d0)
+  call break_symmetry_bath(Bath(2,:),sb_field,-1.d0)
+
 
 
   !DMFT loop
@@ -115,8 +133,9 @@ program ed_graphene
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solve(Bath,Hloc,iprint=1)
-
      call ed_get_sigma_matsubara_lattice(Smats,Nlat)
+     Smats(2,1,1,:,:,:) = Smats(1,2,2,:,:,:)
+     Smats(2,2,2,:,:,:) = Smats(1,1,1,:,:,:)
 
      ! compute the local gf:
      call dmft_gloc_matsubara(Hk,Wtk,Gmats,Smats,iprint=4)
@@ -130,12 +149,13 @@ program ed_graphene
 
      !Fit the new bath, starting from the old bath + the supplied Weiss
      call ed_chi2_fitgf(Bath,Weiss,Hloc,ispin=1)
+     call ed_chi2_fitgf(Bath,Weiss,Hloc,ispin=2)
 
      !MIXING:
      if(iloop>1)Bath=wmixing*Bath + (1.d0-wmixing)*Bath_prev
      Bath_prev=Bath
 
-     converged = check_convergence(Weiss(:,1,1,1,1,:),dmft_error,nsuccess,nloop)
+     converged = check_convergence(Weiss(1,1,1,1,1,:),dmft_error,nsuccess,nloop)
 
      call end_loop
   enddo
@@ -152,7 +172,7 @@ contains
   !--------------------------------------------------------------------!
   !Graphene HAMILTONIAN:
   !--------------------------------------------------------------------!
-  function hk_graphene_model(kpoint,Nlso) result(hk)
+  function hk_graphene_afm_model(kpoint,Nlso) result(hk)
     real(8),dimension(:)          :: kpoint
     integer                       :: Nlso
     complex(8),dimension(Nlso,Nlso) :: hk
@@ -167,12 +187,12 @@ contains
     kdota(2) = dot_product(kpoint,a2)
     kdota(3) = dot_product(kpoint,a3)
     !
-    h0 = 2*tsp*cos(phi)*sum( cos(kdota(:)) )
+    h0 = 0d0!2*tsp*cos(phi)*sum( cos(kdota(:)) )
     hx =-ts*sum( cos(kdotd(:)) )
     hy =-ts*sum( sin(kdotd(:)) )
-    hz = 2*tsp*sin(phi)*sum( sin(kdota(:)) ) + Mh 
-    hk = h0*pauli_0 + hx*pauli_x + hy*pauli_y + hz*pauli_z
-  end function hk_graphene_model
+    hz = 0d0!2*tsp*sin(phi)*sum( sin(kdota(:)) ) + Mh 
+    hk = h0*Gamma0 + hx*GammaX + hy*GammaY + hz*GammaZ
+  end function hk_graphene_afm_model
 
 
 
@@ -217,7 +237,7 @@ contains
           kvec = kx*bk1 + ky*bk2
           kxgrid(ix) = kvec(1)
           kygrid(iy) = kvec(2)
-          Hk(:,:,ik) = hk_graphene_model(kvec,Nlso)
+          Hk(:,:,ik) = hk_graphene_afm_model(kvec,Nlso)
        enddo
     enddo
     Wtk = 1d0/Lk
@@ -247,8 +267,8 @@ contains
     KPath(2,:)=pointK
     Kpath(3,:)=pointKp
     KPath(4,:)=[0d0,0d0]
-    call TB_Solve_path(hk_graphene_model,Nlso,KPath,Nkpath,&
-         colors_name=[red1,blue1],&
+    call TB_Solve_path(hk_graphene_afm_model,Nlso,KPath,Nkpath,&
+         colors_name=[red1,blue1,green1,orange1],&
          points_name=[character(len=10) :: "G","K","K`","G"],&
          file="Eigenbands.nint")
 
@@ -259,11 +279,6 @@ contains
     Greal=zero
     fooSmats =zero
     fooSreal =zero
-    call add_ctrl_var(beta,"BETA")
-    call add_ctrl_var(xmu,"xmu")
-    call add_ctrl_var(wini,"wini")
-    call add_ctrl_var(wfin,"wfin")
-    call add_ctrl_var(eps,"eps")
     call dmft_gloc_matsubara(Hk,Wtk,Gmats,fooSmats,iprint=1)
     call dmft_gloc_realaxis(Hk,Wtk,Greal,fooSreal,iprint=1)
     !

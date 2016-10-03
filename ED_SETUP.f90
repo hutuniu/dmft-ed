@@ -420,7 +420,7 @@ contains
     case ('replica')
        do i=1,Nbath
           do iorb=1,Norb
-             getBathStride(iorb,i) = Norb + (i-1)*Norb + iorb
+             getBathStride(iorb,i) = iorb + i*Norb !Norb + (i-1)*Norb + iorb
           enddo
        enddo
     end select

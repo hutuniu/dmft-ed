@@ -28,12 +28,14 @@ module ED_DIAG
   public :: diagonalize_impurity
 
   public :: ed_diag_set_MPI
-  
+
   public :: ed_diag_del_MPI
 
-  
+
 #ifdef _MPI
   integer :: MpiComm=MPI_UNDEFINED
+#else
+  integer :: MpiComm=0
 #endif
   logical :: MpiStatus=.false.
   integer :: MPI_SIZE=1

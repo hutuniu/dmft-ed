@@ -102,7 +102,9 @@ contains
     USE SF_MPI
 #endif
     character(len=*) :: INPUTunit
+#ifdef _MPI
     integer,optional :: comm
+#endif
     logical          :: master=.true.
 #ifdef _MPI
     if(present(comm))master=get_Master_MPI(comm)

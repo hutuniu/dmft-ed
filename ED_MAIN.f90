@@ -294,9 +294,14 @@ contains
     case ('normal')
        ed_buildh_d=>build_H_normal_d
        ed_buildh_c=>build_H_normal_c       
+    case ('superc')
+       ed_buildh_d=>build_H_superc_d
+       ed_buildh_c=>build_H_superc_c       
+    case ('nonsu2')
+       ed_buildh_d=>build_H_nonsu2_d
+       ed_buildh_c=>build_H_nonsu2_c       
     case default
-       ed_buildh_d=>build_H_all_d
-       ed_buildh_c=>build_H_all_c
+       stop "ED_SOLVE_SINGLE ERROR: ed_mode not set: normal/superc/nonsu2"
     end select
     !
     spHtimesV_dd => spMatVec_dd
@@ -352,9 +357,14 @@ contains
     case ('normal')
        ed_buildh_d=>build_H_normal_d
        ed_buildh_c=>build_H_normal_c       
+    case ('superc')
+       ed_buildh_d=>build_H_superc_d
+       ed_buildh_c=>build_H_superc_c       
+    case ('nonsu2')
+       ed_buildh_d=>build_H_nonsu2_d
+       ed_buildh_c=>build_H_nonsu2_c       
     case default
-       ed_buildh_d=>build_H_all_d
-       ed_buildh_c=>build_H_all_c
+       stop "ED_SOLVE_SINGLE ERROR: ed_mode not set: normal/superc/nonsu2"
     end select
     !
     spHtimesV_dd => spMatVec_MPI_dd
