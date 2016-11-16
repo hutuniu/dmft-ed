@@ -15,43 +15,9 @@ LIBDIR=/opt
 
 ##$ CHOOSE THE MODEL BY SELECTING THE PROGRAM DRIVER
 ##$ if needed add yours to the list:
-##$ --> HUBBARD MODELS:
-#EXE=ed_hm_bethe
-#EXE=ed_ahm_bethe
-#EXE=ed_ahm_square
-#EXE=ed_hm_2dsquare
-#EXE=ed_hm_2b_cubic
-#EXE=ed_hm_bethe_afm
-#EXE=ed_hm_2bands_hyb_fcc3d
-#EXE=ed_hm_mpitest
-
-##$ --> PERIODIC ANDERSON & P-D MODELS
-#EXE=ed_pam_1b
-#EXE=ed_pam_2b
-#EXE=ed_lda1b
-#EXE=ed_lda
-#EXE=ed_tddpam_lattice
-#EXE=ed_tddpam_bethe
-
-##$ --> B-H-Z MODELS
-EXE=ed_bhz_2d
-#EXE=ed_bhz_3d
-#EXE=ed_bhz_2d_edge
-#EXE=ed_bhz_afm_2d
-#EXE=ed_bhz_afm_3d
-
-##$ --> INHOMOGENEOUS (RDMFT)
-#EXE=ed_ahm_disorder
-#EXE=ed_hm_slab_hyb
-#EXE=ed_ahm_stripe
-#EXE=ed_ahm_finite_stripe
-#EXE=ed_nano
-#EXE=ed_nano_sc
-#EXE=hartree_nano
-#EXE=ed_cdwhm_bethe
-
-##$ STO (nonSU2)
-#EXE=ed_STO
+EXE=ed_bhz_2d_edge_afm
+#EXE=ed_bhz_2d_afm4
+#EXE=ed_bhz_2d_afm2
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
 DIR =./drivers
