@@ -233,27 +233,27 @@ MODULE ED_VARS_GLOBAL
 
 
 
-  !--------------- LATTICE WRAP VARIABLES -----------------!
-  !Lattice size:
-  !PUBLIC USE: (should be set by routine)
-  !=========================================================
-  integer                                            :: Nlat
+  ! !--------------- LATTICE WRAP VARIABLES -----------------!
+  ! !Lattice size:
+  ! !PUBLIC USE: (should be set by routine)
+  ! !=========================================================
+  ! integer                                            :: Nlat
 
-  !Symmetry operations
-  !=========================================================
-  integer,allocatable,dimension(:)                   :: indep_list
-  integer,dimension(:),allocatable                   :: map_lat2ind
-  integer,dimension(:,:),allocatable                 :: map_ind2lat
+  ! !Symmetry operations
+  ! !=========================================================
+  ! integer,allocatable,dimension(:)                   :: indep_list
+  ! integer,dimension(:),allocatable                   :: map_lat2ind
+  ! integer,dimension(:,:),allocatable                 :: map_ind2lat
 
 
 
-  !OBSOLETE (to be removed associated to build_tight_binding_2dsquare)
-  !Large matrices for Lattice Hamiltonian/GF
-  !PUBLIC
-  !=========================================================
-  integer,dimension(:),allocatable                   :: icol,irow
-  integer,dimension(:,:),allocatable                 :: ij2site
-  ! real(8),dimension(:,:),allocatable               :: H0
+  ! !OBSOLETE (to be removed associated to build_tight_binding_2dsquare)
+  ! !Large matrices for Lattice Hamiltonian/GF
+  ! !PUBLIC
+  ! !=========================================================
+  ! integer,dimension(:),allocatable                   :: icol,irow
+  ! integer,dimension(:,:),allocatable                 :: ij2site
+  ! ! real(8),dimension(:,:),allocatable               :: H0
 
 
 

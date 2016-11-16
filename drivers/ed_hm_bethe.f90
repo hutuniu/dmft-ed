@@ -1,15 +1,8 @@
-!include "MIXING.f90"
-!###################################################################
-!PURPOSE  : LANCZOS ED solution of DMFT problem for Hubbard model.
-!AUTHORS  : A. Amaricci
-!###################################################################
 program lancED
   USE DMFT_ED
-  USE DMFT_TOOLS
   USE SCIFOR
-#ifdef _MPI
+  USE DMFT_TOOLS
   USE MPI
-#endif
   implicit none
   integer                                     :: iloop,Nb,Le
   logical                                     :: converged
@@ -18,30 +11,47 @@ program lancED
   real(8),allocatable                         :: Bath(:),Bath_(:)
   !The local hybridization function:
   complex(8),allocatable                      :: Hloc(:,:,:,:)
-  complex(8),allocatable,dimension(:,:,:,:,:) :: Delta,Smats,Sreal,Gmats,Greal
+  complex(8),allocatable,dimension(:,:,:,:,:) :: Weiss,Smats,Sreal,Gmats,Greal
   character(len=16)                           :: finput
-  real(8)                                     :: wmixing,Eout(2)
-  real(8),allocatable                         :: He(:),Wte(:)
+  real(8)                                     :: wmixing,Eout(2),de,dens
   real(8),allocatable                         :: Gtau(:)
+  real(8),dimension(:,:,:),allocatable        :: He
+  real(8),dimension(:),allocatable            :: Wte
+  integer                                     :: comm,rank
+  logical                                     :: master
 
-#ifdef _MPI
-  call MPI_INIT(ED_MPI_ERR)
-  call MPI_COMM_RANK(MPI_COMM_WORLD,ED_MPI_ID,ED_MPI_ERR)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD,ED_MPI_SIZE,ED_MPI_ERR)
-  write(*,"(A,I4,A,I4,A)")'Processor ',ED_MPI_ID,' of ',ED_MPI_SIZE,' is alive'
-  call MPI_BARRIER(MPI_COMM_WORLD,ED_MPI_ERR)
-#endif
+
+  call init_MPI()
+  comm = MPI_COMM_WORLD
+  call StartMsg_MPI(comm)
+  rank = get_Rank_MPI(comm)
+  master = get_Master_MPI(comm)
 
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
-  call parse_input_variable(wband,"wband",finput,default=1.d0)
+  call parse_input_variable(wband,"wband",finput,default=1d0)
   call parse_input_variable(Le,"LE",finput,default=500)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   !
-  call ed_read_input(trim(finput))
+  call ed_read_input(trim(finput),comm)
+
+  !Add DMFT CTRL Variables:
+  call add_ctrl_var(Norb,"norb")
+  call add_ctrl_var(Nspin,"nspin")
+  call add_ctrl_var(beta,"beta")
+  call add_ctrl_var(xmu,"xmu")
+  call add_ctrl_var(wini,'wini')
+  call add_ctrl_var(wfin,'wfin')
+  call add_ctrl_var(eps,"eps")
+
+
+  allocate(He(1,1,Le),Wte(Le))
+  He(1,1,:) = linspace(-Wband,Wband,Le,mesh=de)
+  Wte       = dens_bethe(He(1,1,:),wband)*de
+
 
   !Allocate Weiss Field:
-  allocate(Delta(Nspin,Nspin,Norb,Norb,Lmats))
+  allocate(Weiss(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Smats(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Gmats(Nspin,Nspin,Norb,Norb,Lmats))
   allocate(Sreal(Nspin,Nspin,Norb,Norb,Lreal))
@@ -50,45 +60,63 @@ program lancED
   Hloc=zero
 
   !setup solver
-  Nb=get_bath_size()
+  Nb=get_bath_dimension()
   allocate(bath(Nb))
   allocate(bath_(Nb))
-  call ed_init_solver(bath)
+  call ed_init_solver(comm,bath)
 
   !DMFT loop
   iloop=0;converged=.false.
   do while(.not.converged.AND.iloop<nloop)
      iloop=iloop+1
-     call start_loop(iloop,nloop,"DMFT-loop")
-
+     if(master)call start_loop(iloop,nloop,"DMFT-loop")
+     !
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
-     call ed_solve(bath) 
+     call ed_solve(comm,bath) 
      call ed_get_sigma_matsubara(Smats)
      call ed_get_sigma_real(Sreal)
-
+     !
+     ! compute the local gf:
+     call dmft_gloc_matsubara(Comm,one*He,Wte,Gmats,Smats,iprint=1)
+     !
      !Get the Weiss field/Delta function to be fitted
-     call ed_get_gloc(Gmats,Greal,Smats,Sreal,Hloc,iprint=3)
-     call ed_get_weiss(Gmats,Smats,Delta,Hloc,iprint=3)
-     !call get_delta_bethe() ! (user defined)
-
+     if(master)then
+        if(cg_scheme=='weiss')then
+           call dmft_weiss(Gmats,Smats,Weiss,Hloc,iprint=1)
+        else
+           call dmft_delta(Gmats,Smats,Weiss,Hloc,iprint=1)
+        endif
+     endif
+     call Bcast_MPI(comm,Weiss)
+     !
+     !
      !Perform the SELF-CONSISTENCY by fitting the new bath
-     call ed_chi2_fitgf(Delta,bath,ispin=1)
-     if(ed_mode=="normal")call spin_symmetrize_bath(bath,save=.true.)
-
+     call ed_chi2_fitgf(Weiss,bath,ispin=1)
+     !
      !MIXING:
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
      Bath_=Bath
 
      !Check convergence (if required change chemical potential)
-
-     converged = check_convergence(Delta(1,1,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
-     if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu,converged)
-     call end_loop
+     if(master)converged = check_convergence(Weiss(1,1,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
+     call Bcast_MPI(Comm,converged)
+     !
+     if(master)call end_loop
   enddo
+
+
+  call dmft_gloc_realaxis(Comm,one*He,Wte,Greal,Sreal,iprint=1)
+  Eout = dmft_kinetic_energy(Comm,one*He,Wte,Smats)
 
   ! allocate(Wte(Le),He(Le))
   ! call bethe_lattice(Wte,He,Le,wband)
   ! Eout = ed_kinetic_energy(one*He,Wte,Smats(1,1,1,1,:))
+
+
+
+  call finalize_MPI()
+
+
 
 contains
 
