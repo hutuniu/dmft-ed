@@ -1,26 +1,26 @@
 MODULE DMFT_ED
   USE ED_INPUT_VARS
 
-  USE ED_VARS_GLOBAL, only: &
-       Nlat        ,&
-       icol        ,&
-       irow        ,&
-       ij2site     ,&
-       indep_list  ,&
-       map_lat2ind ,&
-       map_ind2lat 
+  ! USE ED_VARS_GLOBAL, only: &
+  !      Nlat        ,&
+  !      icol        ,&
+  !      irow        ,&
+  !      ij2site     ,&
+  !      indep_list  ,&
+  !      map_lat2ind ,&
+  !      map_ind2lat 
 
-  USE ED_AUX_FUNX, only:&
+  use ED_AUX_FUNX, only:&
        set_Hloc,&
        get_Hloc,&
-       extract_Hloc          ,&
-       blocks_to_matrix      ,&
-       matrix_to_blocks      ,&
-       select_block          ,&
+       ! extract_Hloc          ,&
+       ! blocks_to_matrix      ,&
+       ! matrix_to_blocks      ,&
+       ! select_block          ,&
        stride_index          ,&       
        lso2nnn_reshape       ,&
        nnn2lso_reshape       ,&
-       get_independent_sites ,&  
+       ! get_independent_sites ,&  
        search_chemical_potential,&
        search_chempot
 
