@@ -27,6 +27,9 @@ DIREXE=$(HOME)/.bin
 
 ifeq ($(PLAT),intel)
 #define suitable options here
+FFLAG=-O2 -ftz
+OFLAG=-O3 -ftz -prof-gen -prof-use
+DFLAG=-p -O0 -g -fpe0 -warn -warn errors -debug extended -traceback -check all,noarg_temp_created
 FPPFLAG =-fpp
 endif
 
