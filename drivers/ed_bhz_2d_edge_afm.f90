@@ -28,6 +28,10 @@ program ed_bhz_2d_edge
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Smats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Gmats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Sreal_ineq
+ !
+  complex(8),allocatable,dimension(:,:,:,:,:)   :: S0
+  real(8),dimension(:,:),allocatable            :: Zmats
+  complex(8),dimension(:,:,:),allocatable       :: Zfoo
   !Hmiltonian input:
   complex(8),allocatable,dimension(:,:,:)       :: Hkr
   real(8),allocatable,dimension(:)              :: Wtk,sbpattern
@@ -131,6 +135,10 @@ program ed_bhz_2d_edge
   allocate(Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)) ;Gmats=zero
   allocate(Sreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal)) ;Sreal=zero
   allocate(Greal(Nlat,Nspin,Nspin,Norb,Norb,Lreal)) ;Greal=zero
+  !
+  allocate(S0(Nlat,Nspin,Nspin,Norb,Norb));S0=zero
+  allocate(Zfoo(Nlat,Nso,Nso));Zfoo=0d0
+  allocate(Zmats(Nlat*Nso,Nlat*Nso));Zmats=eye(Nlat*Nso)
 
 
 
@@ -191,6 +199,14 @@ program ed_bhz_2d_edge
            enddo
         enddo
      endif
+     S0 = Smats(:,:,:,:,:,1)![Nlat][Nspin][Nspin][Norb][Norb]
+     do ilat=1,Nlat
+        Zfoo(ilat,:,:) = select_block(ilat,S0)
+        do iorb=1,Nso
+           i = iorb + (ilat-1)*Nso
+           Zmats(i,i)  = 1.d0/( 1.d0 + abs( dimag(Zfoo(ilat,iorb,iorb))/(pi/beta) ))
+        enddo
+     enddo
      !
      !
      !
@@ -336,17 +352,18 @@ contains
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: the BHZ-edge model hamiltonian
   !+-----------------------------------------------------------------------------+!
-  function bhz_afm2_edge_model(kpoint,Nlat,N,pbc) result(Hrk)
-    real(8),dimension(:)                :: kpoint
-    real(8)                             :: kx
-    integer                             :: Nlat,N
-    complex(8),dimension(N,N)           :: Hmat,Tmat,TmatH
-    complex(8),dimension(Nlat*N,Nlat*N) :: Hrk
-    integer                             :: i,Idmin,Idmax,Itmin,Itmax
-    logical                             :: pbc
-    complex(8),dimension(Nso,Nso)       :: M
-    complex(8),dimension(Nso,Nso)       :: tx,ty,thx,thy
-    complex(8),dimension(Nso,Nso)       :: gamma1,gamma2,gamma5
+  function bhz_afm2_edge_model(kpoint,Ly,N,pbc) result(Hrk)
+    real(8),dimension(:)            :: kpoint
+    real(8)                         :: kx
+    integer                         :: Ly,N
+    complex(8),dimension(N,N)       :: Hmat,Tmat,TmatH
+    real(8),dimension(N,N)          :: Sh
+    complex(8),dimension(Ly*N,Ly*N) :: Hrk
+    integer                         :: i,Idmin,Idmax,Itmin,Itmax,indx1,indx2
+    logical                         :: pbc
+    complex(8),dimension(Nso,Nso)   :: M
+    complex(8),dimension(Nso,Nso)   :: tx,ty,thx,thy
+    complex(8),dimension(Nso,Nso)   :: gamma1,gamma2,gamma5
     !
     !SETUP THE GAMMA MATRICES:
     gamma1=kron_pauli( pauli_tau_z, pauli_sigma_x )
@@ -377,12 +394,17 @@ contains
     TmatH=conjg(transpose(Tmat))
     !
     Hrk=zero
-    do i=1,Nlat
-       Idmin=1+(i-1)*N
-       Idmax=      i*N
-       Hrk(Idmin:Idmax,Idmin:Idmax)=Hmat !+ dreal(select_block(i,S0)) 
+    do i=1,Ly
+       indx1 = 1 + (i-1)*Ncell
+       indx2 = 2 + (i-1)*Ncell
+       Sh    = zero
+       Sh(1:Nso,1:Nso)             = dreal(select_block(indx1,S0))
+       Sh(Nso+1:2*Nso,Nso+1:2*Nso) = dreal(select_block(indx2,S0))
+       Idmin = 1+(i-1)*N
+       Idmax =       i*N
+       Hrk(Idmin:Idmax,Idmin:Idmax)=Hmat + Sh
     enddo
-    do i=1,Nlat-1
+    do i=1,Ly-1
        Idmin=1 + (i-1)*N
        Idmax=        i*N
        Itmin=1 +     i*N
@@ -391,12 +413,12 @@ contains
        Hrk(Itmin:Itmax,Idmin:Idmax)=TmatH
     enddo
     if(pbc)then
-       Itmin=1+(Nlat-1)*N
-       Itmax=0+Nlat*N
+       Itmin=1+(Ly-1)*N
+       Itmax=0+Ly*N
        Hrk(1:N,Itmin:Itmax)=TmatH
        Hrk(Itmin:Itmax,1:N)=Tmat
     endif
-    !Hrk = matmul(Zmats,Hrk)
+    Hrk = matmul(Zmats,Hrk)
   end function bhz_afm2_edge_model
 
 
@@ -463,6 +485,27 @@ contains
     write(unit,"(A)")""
     if(present(file))close(unit)
   end subroutine print_structure
+
+
+
+  function select_block(ip,Matrix) result(Vblock)
+    integer                                          :: ip
+    complex(8),dimension(Nlat,Nspin,Nspin,Norb,Norb) :: Matrix
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)      :: Vblock
+    integer                                          :: is,js,ispin,jspin,iorb,jorb
+    Vblock=zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                is = iorb + (ispin-1)*Norb !spin-orbit stride
+                js = jorb + (jspin-1)*Norb !spin-orbit stride
+                Vblock(is,js) = Matrix(ip,ispin,jspin,iorb,jorb)
+             enddo
+          enddo
+       enddo
+    enddo
+  end function select_block
 
 
 
