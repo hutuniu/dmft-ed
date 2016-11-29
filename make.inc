@@ -40,8 +40,13 @@ LIBDIR=${HOME}/opt
 #EXE=ed_bhz_afm_2d
 #EXE=ed_bhz_afm_3d
 
-EXE=ed_graphene
+#EXE=ed_bhz_2d_edge_afm
+#EXE=ed_bhz_2d_afm4
+#EXE=ed_bhz_2d_afm2
+
+#EXE=ed_graphene
 #EXE=ed_haldane
+#EXE=ed_haldane_sc
 
 ##$ --> INHOMOGENEOUS (RDMFT)
 #EXE=ed_ahm_disorder
@@ -64,6 +69,9 @@ DIREXE=$(HOME)/.bin
 
 ifeq ($(PLAT),intel)
 #define suitable options here
+FFLAG=-O2 -ftz
+OFLAG=-O3 -ftz -prof-gen -prof-use
+DFLAG=-p -O0 -g -fpe0 -warn -warn errors -debug extended -traceback -check all,noarg_temp_created
 FPPFLAG =-fpp
 endif
 

@@ -2,15 +2,13 @@ program ed_bhz_2d_edge
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
-#ifdef _MPI_INEQ
   USE MPI
-#endif
   implicit none
 
   integer                                       :: iloop
   integer                                       :: Nlso
   integer                                       :: Nso
-  integer                                       :: Nineq
+  integer                                       :: Nineq,Nlat
   integer                                       :: ilat,iy,iorb,ispin,ineq,i
   logical                                       :: converged
   !Bath:
@@ -18,7 +16,7 @@ program ed_bhz_2d_edge
   real(8),allocatable,dimension(:,:)            :: Bath_ineq
   real(8),allocatable,dimension(:,:)            :: Bath_prev
   !The local hybridization function:
-  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Weiss
+  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Weiss_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Smats,Smats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Sreal,Sreal_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Gmats,Gmats_ineq
@@ -43,15 +41,15 @@ program ed_bhz_2d_edge
   real(8),dimension(:,:),allocatable            :: Zmats
   complex(8),dimension(:,:,:),allocatable       :: Zfoo
 
+  integer                                       :: comm,rank
+  logical                                       :: master
 
-#ifdef _MPI_INEQ
-  ! START MPI !
-  call MPI_INIT(mpiERR)
-  call MPI_COMM_RANK(MPI_COMM_WORLD,mpiID,mpiERR)
-  call MPI_COMM_SIZE(MPI_COMM_WORLD,mpiSIZE,mpiERR)
-  write(*,"(A,I4,A,I4,A)")'Processor ',mpiID,' of ',mpiSIZE,' is alive'
-  call MPI_BARRIER(MPI_COMM_WORLD,mpiERR)
-#endif
+
+  call init_MPI()
+  comm = MPI_COMM_WORLD
+  call StartMsg_MPI(comm)
+  rank = get_Rank_MPI(comm)
+  master = get_Master_MPI(comm)
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED_BHZ_EDGE.conf')
   call parse_input_variable(hkfile,"HKFILE",finput,default="hkfile.in")
@@ -67,7 +65,17 @@ program ed_bhz_2d_edge
   call parse_input_variable(rebuild_sigma,"REBUILD_SIGMA",finput,default=.false.)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   !
-  call ed_read_input(trim(finput))
+  call ed_read_input(trim(finput),comm)
+
+
+  !Add DMFT CTRL Variables:
+  call add_ctrl_var(Norb,"norb")
+  call add_ctrl_var(Nspin,"nspin")
+  call add_ctrl_var(beta,"beta")
+  call add_ctrl_var(xmu,"xmu")
+  call add_ctrl_var(wini,'wini')
+  call add_ctrl_var(wfin,'wfin')
+  call add_ctrl_var(eps,"eps")
 
   !set the global number of lattice sites equal to the number of layers along the y-axis
   Nlat = Ly
@@ -97,7 +105,7 @@ program ed_bhz_2d_edge
   allocate(S0(Nlat,Nspin,Nspin,Norb,Norb));S0=zero
   allocate(Zmats(Nlso,Nlso));Zmats=eye(Nlso)
   allocate(Zfoo(Nlat,Nso,Nso));Zfoo=0d0
-  allocate(Weiss(Nineq,Nspin,Nspin,Norb,Norb,Lmats));Weiss=zero
+  allocate(Weiss_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats));Weiss_ineq=zero
   allocate(Smats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats));Smats_ineq=zero
   allocate(Sreal_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lreal));Sreal_ineq=zero
   allocate(Gmats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats));Gmats_ineq=zero
@@ -117,11 +125,11 @@ program ed_bhz_2d_edge
   Nb=get_bath_dimension()
   allocate(Bath_ineq(Nineq,Nb) )
   allocate(Bath_prev(Nineq,Nb) )
-  call ed_init_solver_lattice(Bath_ineq)
+  call ed_init_solver(comm,Bath_ineq)
 
 
   if(rebuild_sigma)then
-     call ed_rebuild_sigma_lattice(Bath_ineq,Hloc_ineq,iprint=1)
+     call ed_rebuild_sigma(Bath_ineq,Hloc_ineq,iprint=1)
      call ed_get_sigma_matsubara_lattice(Smats_ineq,Nineq)
      do ilat=1,Nlat
         ineq = ilat2ineq(ilat)
@@ -134,7 +142,7 @@ program ed_bhz_2d_edge
            Zmats(i,i)  = 1.d0/( 1.d0 + abs( dimag(Zfoo(ilat,iorb,iorb))/(pi/beta) ))
         enddo
      enddo
-     if(mpiID==0)call build_eigenbands()
+     if(master)call build_eigenbands()
      stop
   endif
 
@@ -146,17 +154,15 @@ program ed_bhz_2d_edge
   iloop=0 ; converged=.false.
   do while(.not.converged.AND.iloop<nloop)
      iloop=iloop+1
-     if(mpiID==0) call start_loop(iloop,nloop,"DMFT-loop")   
+     if(master) call start_loop(iloop,nloop,"DMFT-loop")   
      ! solve the impurities on each inequivalent y-layer
-     call ed_solve_lattice(Bath_ineq,Hloc_ineq,iprint=1)
+     call ed_solve(comm,Bath_ineq,Hloc_ineq,iprint=1)
      ! retrieve the self-energies
      ! store the 1st Matsubara freq. into S0, used to get H_topological = Hk + S0
      call ed_get_sigma_matsubara_lattice(Smats_ineq,Nineq)
-     call ed_get_sigma_real_lattice(Sreal_ineq,Nineq)
      do ilat=1,Nlat
         ineq = ilat2ineq(ilat)
         Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
-        Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
         S0(ilat,:,:,:,:)      = Smats_ineq(ineq,:,:,:,:,1)
      enddo
      do ilat=1,Nlat
@@ -166,35 +172,45 @@ program ed_bhz_2d_edge
            Zmats(i,i)  = 1.d0/( 1.d0 + abs( dimag(Zfoo(ilat,iorb,iorb))/(pi/beta) ))
         enddo
      enddo
+     !
      ! compute the local gf:
-     call ed_get_gloc_lattice(Hkr,Wtk,Gmats,Greal,Smats,Sreal,iprint=1,tridiag=tridiag)
+     call dmft_gloc_matsubara(Comm,Hkr,Wtk,Gmats,Smats,iprint=4,tridiag=tridiag)
      do ineq=1,Nineq
         ilat = ineq2ilat(ineq)
         Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
      enddo
+     !
      ! compute the Weiss field (only the Nineq ones)
-     call ed_get_weiss_lattice(Gmats_ineq,Smats_ineq,Weiss,Hloc_ineq,iprint=1)
-     ! fit baths and mix result with old baths
-     call ed_chi2_fitgf_lattice(Bath_ineq,Weiss,Hloc_ineq,ispin=1)
-     if(spinsym)then
-        call spin_symmetrize_bath(Bath_ineq)
+     if(cg_scheme=='weiss')then
+        call dmft_weiss(Comm,Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=4)
      else
-        call ed_chi2_fitgf_lattice(Bath_ineq,Weiss,Hloc_ineq,ispin=2)
+        call dmft_delta(Comm,Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=4)
      endif
+     !
+     ! fit baths and mix result with old baths
+     call ed_chi2_fitgf(Comm,Bath_ineq,Weiss_ineq,Hloc_ineq,ispin=1)
+     call spin_symmetrize_bath(Bath_ineq,save=.true.)
+     !
      Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
      Bath_prev=Bath_ineq
-     if(mpiID==0)converged = check_convergence(Weiss(:,1,1,1,1,:),dmft_error,nsuccess,nloop)
-#ifdef _MPI_INEQ
-     call MPI_BCAST(converged,1,MPI_LOGICAL,0,MPI_COMM_WORLD,mpiERR)
-#endif
-     if(mpiID==0)call end_loop
+     if(master)converged = check_convergence(Weiss_ineq(:,1,1,1,1,:),dmft_error,nsuccess,nloop)
+     call bcast_MPI(comm,converged)
+     if(master)call end_loop
   enddo
 
-  if(mpiID==0)call build_eigenbands()
 
-#ifdef _MPI_INEQ
-  call MPI_FINALIZE(mpiERR)
-#endif
+  call ed_get_sigma_real_lattice(Sreal_ineq,Nineq)
+  do ilat=1,Nlat
+     ineq = ilat2ineq(ilat)
+     Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
+  enddo
+  call dmft_gloc_realaxis(Comm,Hkr,Wtk,Greal,Sreal,iprint=4)
+
+  if(master)call build_eigenbands()
+
+
+  call finalize_MPI()
+
 
 contains
 
@@ -214,7 +230,7 @@ contains
     gamma5=kron_pauli( pauli_tau_0, pauli_sigma_z )
     !
     !SETUP THE H(kx,Ry):
-    if(mpiID==0)then
+    if(master)then
        write(LOGfile,*)"Build H(kx,y) for BHZ-stripe:"
        write(*,*)"# of kx-points     :",Nk
        write(*,*)"# of y-layers      :",Nlat
@@ -226,7 +242,7 @@ contains
     allocate(Hkr(Nlso,Nlso,Nk))
     kxgrid = kgrid(Nk)
     Hkr    = TB_build_model(bhz_edge_model,Ly,Nso,kxgrid,[0d0],[0d0],pbc=.false.)
-    if(mpiID==0)call write_hk_w90("Hkrfile.in",&
+    if(master)call write_hk_w90("Hkrfile.in",&
          No=Nlso,&
          Nd=Norb,&
          Np=0,&
@@ -239,7 +255,7 @@ contains
     !
     !SETUP THE LOCAL PART Hloc(Ry)
     allocate(bhzHloc(Nlso,Nlso))
-    bhzHloc = extract_Hloc(Hkr,Nlat,Nspin,Norb)
+    bhzHloc = sum(Hkr,dim=3)/Nk
   end subroutine build_hkr
 
 
@@ -257,7 +273,7 @@ contains
     call assert_shape(Self,[Nineq,Nspin,Nspin,Norb,Norb,Lmats],"read_sigma_matsubara","Self_ineq")
     allocate(wm(Lmats))
     wm = pi/beta*(2*arange(1,Lmats)-1)
-    if(mpiID==0)then
+    if(master)then
        do ispin=1,Nspin
           do iorb=1,Norb
              suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
@@ -275,7 +291,7 @@ contains
     call assert_shape(Self,[Nineq,Nspin,Nspin,Norb,Norb,Lreal],"read_sigma_real","Self_ineq")
     allocate(wr(Lreal))
     wr = linspace(wini,wfin,Lreal)
-    if(mpiID==0)then
+    if(master)then
        do ispin=1,Nspin
           do iorb=1,Norb
              suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
@@ -299,14 +315,14 @@ contains
     integer                            :: Npts
     character(len=64)                  :: file
     if(present(kpath_))then
-       if(mpiID==0)write(LOGfile,*)"Solve H(kx,y) along a given path:"
+       if(master)write(LOGfile,*)"Solve H(kx,y) along a given path:"
        Npts = size(kpath_,1)
        allocate(kpath(Npts,size(kpath_,2)))
        kpath=kpath_
        file="Eigenbands_path.nint"
     else
        !PRINT H(kx,Ry) ALONG A -pi:pi PATH
-       if(mpiID==0)write(LOGfile,*)"Solve H(kx,y) along [-pi:pi]:"
+       if(master)write(LOGfile,*)"Solve H(kx,y) along [-pi:pi]:"
        Npts=3
        allocate(Kpath(Npts,1))
        kpath(1,:)=[-1]*pi
@@ -396,6 +412,28 @@ contains
     ilat=ineq
     if(ineq>Nineq)stop "ineq2ilat error: called with ineq > Nineq"
   end function ineq2ilat
+
+
+
+
+  function select_block(ip,Matrix) result(Vblock)
+    integer                                          :: ip
+    complex(8),dimension(Nlat,Nspin,Nspin,Norb,Norb) :: Matrix
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)      :: Vblock
+    integer                                          :: is,js,ispin,jspin,iorb,jorb
+    Vblock=zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                is = iorb + (ispin-1)*Norb !spin-orbit stride
+                js = jorb + (jspin-1)*Norb !spin-orbit stride
+                Vblock(is,js) = Matrix(ip,ispin,jspin,iorb,jorb)
+             enddo
+          enddo
+       enddo
+    enddo
+  end function select_block
 
 
 end program ed_bhz_2d_edge
