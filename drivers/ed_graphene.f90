@@ -4,7 +4,7 @@ program ed_graphene
   USE DMFT_TOOLS
   implicit none
 
-  integer                                       :: iloop,Lk,Nso,Nlso
+  integer                                       :: iloop,Lk,Nso,Nlso,Nlat
   logical                                       :: converged
   integer                                       :: ispin,ilat!,i,j
 
@@ -116,7 +116,7 @@ program ed_graphene
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solve(Bath,Hloc,iprint=1)
 
-     call ed_get_sigma_matsubara_lattice(Smats,Nlat)
+     call ed_get_sigma_matsubara(Smats,Nlat)
 
      ! compute the local gf:
      call dmft_gloc_matsubara(Hk,Wtk,Gmats,Smats,iprint=4)
@@ -140,7 +140,7 @@ program ed_graphene
      call end_loop
   enddo
 
-  call ed_get_sigma_real_lattice(Sreal,Nlat)
+  call ed_get_sigma_real(Sreal,Nlat)
   call dmft_gloc_realaxis(Hk,Wtk,Greal,Sreal,iprint=4)
 
 

@@ -1,4 +1,4 @@
-program ed_nano
+program ed_nano_isoc
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
@@ -21,7 +21,7 @@ program ed_nano
   !hamiltonian input:
   complex(8),allocatable                          :: Hij(:,:,:) ![Nlat*Nspin*Norb][Nlat*Nspin*Norb][Nk==1]
   complex(8),allocatable                          :: nanoHloc(:,:),Hloc(:,:,:,:,:),Hloc_ineq(:,:,:,:,:)
-  integer                                         :: Nk,Nlso,Nineq
+  integer                                         :: Nk,Nlso,Nineq,Nlat
   integer,dimension(:),allocatable                :: lat2ineq,ineq2lat
   integer,dimension(:),allocatable                :: sb_field_sign
   !
@@ -93,8 +93,9 @@ program ed_nano
   ! allocate hybridization matrix
   if(leads)then
      call set_hyb()
-     !call dmft_set_Gamma_matsubara(hyb_mats)
-     call dmft_set_Gamma_realaxis(hyb_real)
+     ! not both of them can be defined at the same time
+     call dmft_set_Gamma_matsubara(hyb_mats)
+     !call dmft_set_Gamma_realaxis(hyb_real)
   endif
 
 
@@ -110,7 +111,6 @@ program ed_nano
         Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
      enddo
      !
-
      print*,size(Smats,1)
      print*,size(Smats,4),size(Smats,5)
      print*,size(Smats,6)
@@ -234,8 +234,8 @@ program ed_nano
      ! retrieve self-energies and occupations(Nineq,Norb=1)
      call ed_get_sigma_matsubara(Smats_ineq,Nineq)
      call ed_get_sigma_real(Sreal_ineq,Nineq)
-     call ed_get_dens(dens_ineq,Nineq,Norb=1)
-     call ed_get_docc_lattice(docc_ineq,Nineq,Norb=1)
+     call ed_get_dens(dens_ineq,Nineq,iorb=1)
+     call ed_get_docc(docc_ineq,Nineq,iorb=1)
 
      ! spread self-energies and occupation to all lattice sites
      do ilat=1,Nlat
@@ -913,4 +913,33 @@ contains
 
 
 
-end program ed_nano
+
+
+  function extract_Hloc(Hk,Nlat,Nspin,Norb) result(Hloc)
+    complex(8),dimension(:,:,:)                 :: Hk
+    integer                                     :: Nlat,Nspin,Norb
+    complex(8),dimension(size(Hk,1),size(Hk,2)) :: Hloc
+    !
+    integer                                     :: iorb,ispin,ilat,is
+    integer                                     :: jorb,jspin,js
+    Hloc = zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   Hloc(is,js) = sum(Hk(is,js,:))/size(Hk,3)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
+  end function extract_Hloc
+
+
+
+
+end program ed_nano_isoc

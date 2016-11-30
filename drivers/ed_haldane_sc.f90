@@ -5,7 +5,7 @@ program ed_haldane
 
   implicit none
 
-  integer                                         :: iloop,Lk,Nso,Nlso
+  integer                                         :: iloop,Lk,Nso,Nlso,Nlat
   logical                                         :: converged
 
   !Bath:
@@ -126,10 +126,10 @@ program ed_haldane
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solve(bath,Hloc,iprint=1)
-     call ed_get_sigma_matsubara_lattice(Smats(1,:,:,:,:,:,:),Nlat)
-     call ed_get_sigma_real_lattice(Sreal(1,:,:,:,:,:,:),Nlat)
-     call ed_get_self_matsubara_lattice(Smats(2,:,:,:,:,:,:),Nlat)
-     call ed_get_self_real_lattice(Sreal(2,:,:,:,:,:,:),Nlat)
+     call ed_get_sigma_matsubara(Smats(1,:,:,:,:,:,:),Nlat)
+     call ed_get_sigma_real(Sreal(1,:,:,:,:,:,:),Nlat)
+     call ed_get_self_matsubara(Smats(2,:,:,:,:,:,:),Nlat)
+     call ed_get_self_real(Sreal(2,:,:,:,:,:,:),Nlat)
      S0 = dreal(Smats(1,:,:,:,:,:,1))
      call ChernNumber()
      call build_EigenBands()

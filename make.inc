@@ -44,7 +44,7 @@ LIBDIR=${HOME}/opt
 #EXE=ed_bhz_2d_afm4
 #EXE=ed_bhz_2d_afm2
 
-#EXE=ed_graphene
+EXE=ed_graphene
 #EXE=ed_haldane
 #EXE=ed_haldane_sc
 
