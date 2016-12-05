@@ -1,4 +1,4 @@
-program ed_nano
+program ed_nano_isoc
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
@@ -400,9 +400,9 @@ contains
        do ispin=1,Nspin
           is = iorb + (ispin-1)*Norb + (ilat-1)*Nspin*Norb
           js = jorb + (ispin-1)*Norb + (jlat-1)*Nspin*Norb
-          ! symmetric hopping
-          Hij(is,js,1)=dcmplx(ret,imt) 
-          Hij(js,is,1)=dcmplx(ret,imt) ! symmetrize hopping
+          ! hermitian hopping w/ spin-antisymmetric Rashba SOC
+          Hij(is,js,1)=dcmplx(ret,0.d0)+dcmplx(0.d0,imt)*(1-2*(ispin-1))
+          Hij(js,is,1)=dcmplx(ret,0.d0)-dcmplx(0.d0,imt)*(1-2*(ispin-1))
        enddo
     enddo
     close(unit)
@@ -615,29 +615,6 @@ contains
        suffix="_s"//reg(txtfy(ispin))//"_realw.ed"
        call store_data("Te"//trim(suffix),transe(ispin,:),wr)
     enddo
-
-
-    ! allocate spin-resolved current (transmission coefficient integrated)
-    allocate(jcurrs(Nspin));jcurrs=0.d0
-
-    ! evaluate spin-resolved current: 
-    ! actually this formula is wrong, because in the zero-bias limit the current should be zero 
-    ! what matters is the integral over the eenrgy window included 
-    ! between the chemical potentials of the L/R leads: i.e., the formula should be 
-    ! J = \int_{-\infty}^{\infty} de T(e)*(f_L(e)-f_R(e))
-    do ispin=1,Nspin
-       do i=1,Lreal
-          jcurrs(ispin) = jcurrs(ispin) + transe(ispin,i)*fermi(wr(i),beta)
-       enddo
-    enddo
-    !unit = free_unit()
-    !open(unit,file="Jcurrs.ed")
-    !do ispin=1,Nspin
-    !   write(unit,'(i3,1f16.9)')ispin,Jcurrs(ispin)
-    !enddo
-    !close(unit)
-
-
 
     deallocate(GR,HR,GA,HL,rmask,lmask,Re,Le,Te,jcurrs) 
 
@@ -965,4 +942,4 @@ contains
 
 
 
-end program ed_nano
+end program ed_nano_isoc

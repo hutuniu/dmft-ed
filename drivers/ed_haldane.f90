@@ -5,7 +5,7 @@ program ed_haldane
 
   implicit none
 
-  integer                                       :: iloop,Lk,Nso,Nlso
+  integer                                       :: iloop,Lk,Nso,Nlso,Nlat
   logical                                       :: converged
 
   !Bath:
@@ -130,8 +130,8 @@ program ed_haldane
 
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solve(bath,Hloc,iprint=1)
-     call ed_get_sigma_matsubara_lattice(Smats,Nlat)
-     call ed_get_sigma_real_lattice(Sreal,Nlat)
+     call ed_get_sigma_matsubara(Smats,Nlat)
+     call ed_get_sigma_real(Sreal,Nlat)
      S0 = dreal(Smats(:,:,:,:,:,1))
      call ChernNumber()
      call build_EigenBands()
@@ -188,7 +188,7 @@ contains
     hy =-ts*sum( sin(kdotd(:)) )
     hz = -2*tsp*sin(phi)*sum( sin(kdota(:)) ) + Mh 
     hk = h0*pauli_0 + hx*pauli_x + hy*pauli_y + hz*pauli_z
-    hk = hk  -  nnn2lso_reshape(S0,Nlat,Nspin,Norb)
+    hk = hk  +  nnn2lso_reshape(S0,Nlat,Nspin,Norb)
   end function hk_haldane_model
 
 
@@ -318,7 +318,7 @@ contains
     do ix=1,Nk
        do iy=1,Nk
           ik=ik+1
-          Eigvec = Hk(:,:,ik) -  nnn2lso_reshape(S0,Nlat,Nspin,Norb)
+          Eigvec = Hk(:,:,ik) +  nnn2lso_reshape(S0,Nlat,Nspin,Norb)
           call eigh(Eigvec,Eigval)
           BlochStates(:,ix,iy) = Eigvec(:,1)
        enddo
@@ -329,7 +329,7 @@ contains
     kxgrid=linspace(0d0,pi2,Nk)
     call splot3d("Berry_Curvature.nint",kxgrid,kxgrid,Berry_Curvature)
     open(10,file="ChernNumber.dat")
-    write(10,*)int(chern)
+    write(10,"(I3,F16.12)")nint(chern),chern
     close(10)
   end subroutine ChernNumber
 

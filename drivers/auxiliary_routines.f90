@@ -188,3 +188,58 @@ subroutine get_independent_sites(symmetry_operations,Nsymm,Nindep)
   ! allocate(Ineq_sites_list(Nindep))
   ! Ineq_sites_list = indep_list
 end subroutine get_independent_sites
+
+
+
+  !+-----------------------------------------------------------------------------+!
+  !PURPOSE:  
+  ! get the block diagonal local part of a given Hamiltonian H(k_\perp;Ri,Rj)
+  !+-----------------------------------------------------------------------------+!
+  function extract_Hloc_Nlso(Hk,Nlat,Nspin,Norb) result(Hloc)
+    complex(8),dimension(:,:,:)                 :: Hk
+    integer                                     :: Nlat,Nspin,Norb
+    complex(8),dimension(size(Hk,1),size(Hk,2)) :: Hloc
+    !
+    integer                                     :: iorb,ispin,ilat,is
+    integer                                     :: jorb,jspin,js
+    Hloc = zero
+    do ilat=1,Nlat
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   is = iorb + (ispin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   js = jorb + (jspin-1)*Norb + (ilat-1)*Norb*Nspin !lattice-spin-orbit stride
+                   Hloc(is,js) = sum(Hk(is,js,:))/size(Hk,3)
+                enddo
+             enddo
+          enddo
+       enddo
+    enddo
+    where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
+  end function extract_Hloc_Nlso
+
+  function extract_Hloc_Nso(Hk,Nspin,Norb) result(Hloc)
+    complex(8),dimension(:,:,:)                 :: Hk
+    integer                                     :: Nspin,Norb
+    complex(8),dimension(size(Hk,1),size(Hk,2)) :: Hloc
+    !
+    integer                                     :: i,iorb,ispin,is
+    integer                                     :: j,jorb,jspin,js
+    Hloc = zero
+    do ispin=1,Nspin
+       do jspin=1,Nspin
+          do iorb=1,Norb
+             do jorb=1,Norb
+                i = stride_index([iorb,ispin],[Norb,Nspin])
+                j = stride_index([jorb,jspin],[Norb,Nspin])
+                is = iorb + (ispin-1)*Norb !spin-orbit stride
+                js = jorb + (jspin-1)*Norb !spin-orbit stride
+                Hloc(is,js) = sum(Hk(is,js,:))/size(Hk,3)
+             enddo
+          enddo
+       enddo
+    enddo
+    where(abs(dreal(Hloc))<1.d-9)Hloc=0d0
+  end function extract_Hloc_Nso
+
