@@ -28,7 +28,7 @@ program ed_bhz_2d_edge
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Smats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Gmats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Sreal_ineq
- !
+  !
   complex(8),allocatable,dimension(:,:,:,:,:)   :: S0
   real(8),dimension(:,:),allocatable            :: Zmats
   complex(8),dimension(:,:,:),allocatable       :: Zfoo
@@ -41,7 +41,7 @@ program ed_bhz_2d_edge
   !
   integer                                       :: Nk,Nkpath                           
   real(8)                                       :: e0,mh,lambda,wmixing
-  logical                                       :: spinsym,lysym,neelsym
+  logical                                       :: spinsym,lysym,neelsym,rebuild_sigma
   character(len=60)                             :: finput
   character(len=32)                             :: hkfile
   !
@@ -68,6 +68,7 @@ program ed_bhz_2d_edge
   call parse_input_variable(lysym,"LYSYM",finput,default=.true.,comment="Enforce symmetry on half of the stripe")
   call parse_input_variable(spinsym,"SPINSYM",finput,default=.true.,comment="Enforce spin symmetry (PM solution)")
   call parse_input_variable(neelsym,"NEELSYM",finput,default=.false.,comment="Enforce Neel symmetry on ineq. atoms in the same cell")
+  call parse_input_variable(rebuild_sigma,"REBUILD_SIGMA",finput,default=.false.)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   !
   call ed_read_input(trim(finput),comm)
@@ -108,22 +109,6 @@ program ed_bhz_2d_edge
   call sleep(2)
 
 
-
-  !Buil the Hamiltonian on a grid or on  path
-  call build_hkr(trim(hkfile))
-  !allocate to Ncell[2] times the number of layers[Ly]:1A-1B,...,NA-NB
-  allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb));Hloc     =zero
-  !allocate to Nineq: only consider 1 per cell and half of the layers: 1A,...,NA
-  allocate(Hloc_ineq(Nineq,Nspin,Nspin,Norb,Norb));Hloc_ineq=zero
-  !spread the full local H0 to Ncell*Ly 4x4[Nso**2] hamiltonians:
-  Hloc = lso2nnn_reshape(bhzHloc,Ncell*Ly,Nspin,Norb)
-  !select only the inequivalent ones: 1,3,5,...,Ly-1
-  do ineq=1,Nineq
-     ilat = ineq2ilat(ineq)
-     Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
-  enddo
-
-
   !Allocate Full Functions:
   allocate(Weiss_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats));Weiss_ineq=zero
   allocate(Smats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats));Smats_ineq=zero
@@ -139,6 +124,21 @@ program ed_bhz_2d_edge
   allocate(S0(Nlat,Nspin,Nspin,Norb,Norb));S0=zero
   allocate(Zfoo(Nlat,Nso,Nso));Zfoo=0d0
   allocate(Zmats(Nlat*Nso,Nlat*Nso));Zmats=eye(Nlat*Nso)
+
+
+  !Buil the Hamiltonian on a grid or on  path
+  call build_hkr(trim(hkfile))
+  !allocate to Ncell[2] times the number of layers[Ly]:1A-1B,...,NA-NB
+  allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb));Hloc     =zero
+  !allocate to Nineq: only consider 1 per cell and half of the layers: 1A,...,NA
+  allocate(Hloc_ineq(Nineq,Nspin,Nspin,Norb,Norb));Hloc_ineq=zero
+  !spread the full local H0 to Ncell*Ly 4x4[Nso**2] hamiltonians:
+  Hloc = lso2nnn_reshape(bhzHloc,Ncell*Ly,Nspin,Norb)
+  !select only the inequivalent ones: 1,3,5,...,Ly-1
+  do ineq=1,Nineq
+     ilat = ineq2ilat(ineq)
+     Hloc_ineq(ineq,:,:,:,:) = Hloc(ilat,:,:,:,:)
+  enddo
 
 
 
@@ -173,6 +173,36 @@ program ed_bhz_2d_edge
      enddo
      close(10)
   endif
+
+
+  if(rebuild_sigma)then
+     if(master)then
+        call ed_rebuild_sigma(Bath_ineq,Hloc_ineq,iprint=1)
+        call ed_get_sigma_matsubara(Smats_ineq,Nineq)
+        do ilat=1,Nlat
+           Smats(ilat,:,:,:,:,:) = Smats_ineq(ilat2ineq(ilat),:,:,:,:,:)
+        enddo
+        if(neelsym)then
+           do ilat=2,Nlat,2
+              do ispin=1,2
+                 Smats(ilat,ispin,ispin,:,:,:)=Smats(ilat-1,3-ispin,3-ispin,:,:,:)
+              enddo
+           enddo
+        endif
+        S0 = Smats(:,:,:,:,:,1)![Nlat][Nspin][Nspin][Norb][Norb]
+        do ilat=1,Nlat
+           Zfoo(ilat,:,:) = select_block(ilat,S0)
+           do iorb=1,Nso
+              i = iorb + (ilat-1)*Nso
+              Zmats(i,i)  = 1.d0/( 1.d0 + abs( dimag(Zfoo(ilat,iorb,iorb))/(pi/beta) ))
+           enddo
+        enddo
+        call build_eigenbands()
+     endif
+     stop
+  endif
+
+
 
   !DMFT loop:
   iloop=0 ; converged=.false.
@@ -318,10 +348,11 @@ contains
   !PURPOSE: solve H_BHZ(k_x,R_y) along the 1d -pi:pi path in the BZ.
   !+-----------------------------------------------------------------------------+!  
   subroutine build_eigenbands(kpath_)
-    real(8),dimension(:,:),optional    :: kpath_
-    real(8),dimension(:,:),allocatable :: kpath
-    integer                            :: Npts
-    character(len=64)                  :: file
+    real(8),dimension(:,:),optional            :: kpath_
+    real(8),dimension(:,:),allocatable         :: kpath
+    integer                                    :: Npts
+    character(len=64)                          :: file
+    type(rgb_color),dimension(:,:),allocatable :: colors
     if(.not.present(kpath_))then
        write(LOGfile,*)"Solve H(kx,y) along [-pi:pi]:"
        Npts=3
@@ -337,11 +368,19 @@ contains
        kpath=kpath_
        file="Eigenbands_path.nint"
     endif
+    !
+    allocate(colors(Ly,Ncell*Nso))
+    colors = gray88
+    colors(1,:) = [red1,gray88,blue1,gray88,red1,gray88,blue1,gray88]
+    colors(Ly,:) =[blue1,gray88,red1,gray88,blue1,gray88,red1,gray88]
+    !
     call TB_solve_path(bhz_afm2_edge_model,Ly,Ncell*Nso,kpath,Nkpath,&
-         colors_name=[gray88,gray88,gray88,gray88,gray88,gray88,gray88,gray88],&
+         colors_name=colors,&
          points_name=[character(len=10) :: "-pi","0","pi"],&
          file=reg(file),pbc=.false.)
   end subroutine build_eigenbands
+
+
 
 
 
@@ -457,20 +496,20 @@ contains
     integer                               :: Nlayers
     character(len=*),optional             :: file
     integer                               :: unit,iy,ineq,ilat
-    character(len=2),dimension(Nlayers,2) :: str_spin
+    character(len=2),dimension(2) :: str_spin
     integer,dimension(Nlayers,2)          :: spin
     !
     unit=6;if(present(file))open(free_unit(unit),file=trim(file))
     !
     write(unit,"(A)")"Structure:"
+    str_spin(1)="up"
+    str_spin(2)="dw"
     do iy=1,Nlayers
-       spin(iy,1)=(-1)**(iy-1)
-       spin(iy,2)=(-1)**iy
-    enddo
-    where(spin==1)str_spin="up"
-    where(spin==-1)str_spin="dw"
-    do iy=1,Nlayers
-       write(unit,"(A1,I3,1X,A2,A7,I3,1X,A2,A1)")"|",1+(iy-1)*2,str_spin(iy,1)," <---->",2+(iy-1)*2,str_spin(iy,2),"|"
+       if(mod(iy,2)/=0)then
+          write(unit,"(A1,I3,1X,A2,A7,I3,1X,A2,A7)")"|",1+(iy-1)*2,str_spin(1)," ---- ",2+(iy-1)*2,str_spin(2),"      |"
+       else
+          write(unit,"(A7,I3,1X,A2,A7,I3,1X,A2,A1)")"      |",1+(iy-1)*2,str_spin(1)," ---- ",2+(iy-1)*2,str_spin(2),"|"
+       endif
     enddo
     write(unit,"(A)")""
     write(unit,"(A)")"Ineq2Ilat:"

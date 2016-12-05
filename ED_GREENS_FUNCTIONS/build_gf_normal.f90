@@ -174,7 +174,7 @@ contains
   subroutine open_units(string)
     character(len=*) :: string
     unit=free_units(1)
-    open(unit(1),file="Gpoles_weights"//string//reg(ed_file_suffix)//".ed")
+    open(unit(1),file="impGpoles_weights"//string//reg(ed_file_suffix)//".ed")
   end subroutine open_units
   subroutine close_units()
     close(unit(1))
