@@ -5,6 +5,8 @@ MODULE DMFT_ED
        stride_index          ,&       
        lso2nnn_reshape       ,&
        nnn2lso_reshape       ,&
+       so2nn_reshape       ,&
+       nn2so_reshape       ,&
        search_chemical_potential,&
        search_chempot
 
