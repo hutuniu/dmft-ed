@@ -126,6 +126,11 @@ program ed_SOC
   !#########        BUILD Hk        #########
   !
   call build_hk(trim(hkfile))
+  if(surface)then
+      allocate(Wtk(Nk*Nk));Wtk=1.d0/(Nk*Nk)
+  else
+      allocate(Wtk(Nk*Nk*Nk));Wtk=1.d0/(Nk*Nk*Nk)
+  endif
   !
   !#########          BATH          #########
   !
@@ -189,14 +194,17 @@ program ed_SOC
      endif
      !
      !each loop operations
-     if(bath_type=="replica")then
+     if(master.and.bath_type=="replica")then
         Alvl=0.8d0
         call ed_get_density_matrix(dm,dm_eig,dm_rot)
         call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
         call Jz_rotate(Greal,"Gloc","A","wr",bottom,top,pi*Alvl)
         call Jz_rotate(Smats,"impS","A","wm")
+        if(allocated(impG))deallocate(impG)
+        allocate(impG(Nspin,Nspin,Norb,Norb,Lmats));impG=zero
         call ed_get_gimp_matsubara(impG)
         call Jz_rotate(impG,"impG","A","wm")
+        deallocate(impG)
      endif
      !
      !chemical potential find
@@ -208,7 +216,7 @@ program ed_SOC
      if(master)write(*,'(3(a10,F10.5))') "sumdens",sumdens,"diffdens",abs(nread-sumdens),"nread",nread
      if(nread/=0.d0)then
         converged_n=.false.
-        if(iloop>=3)call search_chempot(xmu,sumdens,converged_n)
+        if(iloop>=3)call search_chempot(xmu,sumdens,converged_n,master)
         if(master)write(*,'(2(a10,F10.5))') "xmu_old",xmu_old,"xmu_new",xmu
      endif
      if(converged_n)then
@@ -298,9 +306,11 @@ contains
     complex(8),allocatable                       :: Gso(:,:,:,:,:)
     real(8)                                      :: wm(Lmats),wr(Lreal),dw
     !
-    write(LOGfile,*)"Build H(Nso,Nso,k)"
-    write(LOGfile,*)"# of k-points per direction :",Nk
-    write(LOGfile,*)"# of SO-bands               :",Nso
+    if(master)then
+       write(LOGfile,*)"Build H(Nso,Nso,k)"
+       write(LOGfile,*)"# of k-points per direction :",Nk
+       write(LOGfile,*)"# of SO-bands               :",Nso
+    endif
     if(allocated(Bath))stop" H(K) must be build before bath allocation, errors shall come otherwise"
     !
     bk_x = [1.d0,0.d0,0.d0]*2*pi
@@ -308,19 +318,20 @@ contains
     bk_z = [0.d0,0.d0,1.d0]*2*pi
     call TB_set_bk(bk_x,bk_y,bk_z)
     !
-    if(allocated(Wtk))deallocate(Wtk);Wtk = 1d0/Nk
     if(allocated(Hk))deallocate(Hk)
     !
     if(surface) then
        Lk=Nk*Nk
-       write(LOGfile,*)"surface tot k-points:",Lk
+       if(master)write(LOGfile,*)"surface tot k-points:",Lk
        allocate(Hk(Nso,Nso,Lk));Hk=zero
        call TB_build_model(Hk,hk_Ti3dt2g,Nso,[Nk,Nk,0])
+       if(master.AND.present(file)) call TB_write_hk(Hk,file,Nso,Norb,1,1,[Nk,Nk,0])
     else
        Lk=Nk*Nk*Nk
-       write(LOGfile,*)"bulk tot k-points:",Lk
+       if(master)write(LOGfile,*)"bulk tot k-points:",Lk
        allocate(Hk(Nso,Nso,Lk));Hk=zero
        call TB_build_model(Hk,hk_Ti3dt2g,Nso,[Nk,Nk,Nk])
+       if(master.AND.present(file)) call TB_write_hk(Hk,file,Nso,Norb,1,1,[Nk,Nk,Nk])
     endif
     !
     d_t2g_Hloc = sum(Hk(:,:,:),dim=3)/Lk
@@ -379,9 +390,9 @@ contains
   !+------------------------------------------------------------------------------------------+!
   function hk_Ti3dt2g(kvec,Nso_) result(hk)
     real(8),dimension(:)                         :: kvec
-    complex(8),dimension(Nso_,Nso_)              :: hk
     real(8)                                      :: kx,ky,kz
     integer                                      :: Nso_,ndx
+    complex(8),dimension(Nso_,Nso_)              :: hk
     real(8),allocatable                          :: HoppingMatrix(:,:)
     !
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
@@ -396,7 +407,7 @@ contains
     enddo
     !
     if(SOC/=zero.or.IVB/=zero)then
-       Hk = Hk + SOC*H_LS(kx,ky,kz) + IVB*H_IVB(kx,ky,kz)
+       Hk = Hk - SOC*H_LS(kx,ky,kz) + IVB*H_IVB(kx,ky,kz)
     endif
     !
     !correction with Sigma(iw=0)

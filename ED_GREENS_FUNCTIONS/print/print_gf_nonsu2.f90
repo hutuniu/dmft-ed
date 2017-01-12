@@ -212,7 +212,7 @@ subroutine print_sigma_nonsu2
               write(unit(1),"(F20.12,2(F20.12))")wm(i),dimag(impSmats(ispin,jspin,iorb,jorb,i)),dreal(impSmats(ispin,jspin,iorb,jorb,i))
            enddo
            do i=1,Lreal
-              write(unit(1),"(F20.12,2(F20.12))")wr(i),dimag(impSreal(ispin,jspin,iorb,jorb,i)),dreal(impSreal(ispin,jspin,iorb,jorb,i))
+              write(unit(2),"(F20.12,2(F20.12))")wr(i),dimag(impSreal(ispin,jspin,iorb,jorb,i)),dreal(impSreal(ispin,jspin,iorb,jorb,i))
            enddo
         endif
         !
