@@ -9,7 +9,7 @@ PLAT=intel
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=${HOME}/opt
+LIBDIR=/opt
 
 
 
@@ -24,6 +24,7 @@ LIBDIR=${HOME}/opt
 #EXE=ed_hm_bethe_afm
 #EXE=ed_hm_2bands_hyb_fcc3d
 #EXE=ed_hm_mpitest
+EXE=ed_hm_2bands_dos
 
 ##$ --> PERIODIC ANDERSON & P-D MODELS
 #EXE=ed_pam_1b
@@ -44,7 +45,7 @@ LIBDIR=${HOME}/opt
 #EXE=ed_bhz_2d_afm4
 #EXE=ed_bhz_2d_afm2
 
-EXE=ed_graphene
+#EXE=ed_graphene
 #EXE=ed_haldane
 #EXE=ed_haldane_sc
 
@@ -80,7 +81,6 @@ INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib
 INCARGS+=-I$(LIBDIR)/dmft_tools/gnu/include -L$(LIBDIR)/dmft_tools/gnu/lib
 FFLAG = -O2 -funroll-all-loops -ffree-line-length-none $(INCARGS) 
 DFLAG = -O0 -p -g -fimplicit-none -Wsurprising  -Waliasing -fwhole-file -fcheck=all -pedantic -fbacktrace -ffree-line-length-none  $(INCARGS)
-
 #DFLAG = -O0 -p -g -Wall -fimplicit-none -ffpe-trap=zero,overflow,underflow  -Wall  -Wline-truncation  -Wcharacter-truncation  -Wsurprising  -Waliasing  -Wimplicit-interface  -Wunused-parameter  -fwhole-file  -fcheck=all  -pedantic  -fbacktrace -fcheck=bounds -ffree-line-length-none  $(INCARGS)
 OFLAG = -O3 -ffast-math -march=native -funroll-all-loops -fno-protect-parens -flto -ffree-line-length-none $(INCARGS)
 FPPFLAG =-cpp
