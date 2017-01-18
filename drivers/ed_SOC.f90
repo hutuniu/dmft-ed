@@ -64,6 +64,8 @@ program ed_SOC
   complex(8),allocatable,dimension(:,:,:)        :: Stot
   complex(8),allocatable,dimension(:,:,:)        :: Ltot
   complex(8),allocatable,dimension(:)            :: jz
+  !non interacting analysis:
+  logical                                        :: nonint_mu_shift=.false.
   !
   !#########   MPI INITIALIZATION   #########
   !
@@ -131,6 +133,9 @@ program ed_SOC
   else
       allocate(Wtk(Nk*Nk*Nk));Wtk=1.d0/(Nk*Nk*Nk)
   endif
+
+  !stop
+
   !
   !#########          BATH          #########
   !
@@ -301,10 +306,12 @@ contains
     character(len=*),optional                    :: file
     real(8),dimension(3)                         :: bk_x,bk_y,bk_z
     integer                                      :: ik,Lk
+    integer                                      :: i_mu,max_mu=100
+    real(8)                                      :: mu_edge=2.0d0
     complex(8),dimension(Nso,Nso,Lmats)          :: Gmats
     complex(8),dimension(Nso,Nso,Lreal)          :: Greal
     complex(8),allocatable                       :: Gso(:,:,:,:,:)
-    real(8)                                      :: wm(Lmats),wr(Lreal),dw
+    real(8)                                      :: wm(Lmats),wr(Lreal),dw,mu
     !
     if(master)then
        write(LOGfile,*)"Build H(Nso,Nso,k)"
@@ -338,16 +345,14 @@ contains
     where(abs((d_t2g_Hloc))<1.d-9)d_t2g_Hloc=0d0
     d_t2g_Hloc_nn=so2nn_reshape(d_t2g_Hloc,Nspin,Norb)
     !
-    !Build the local GF in the spin-orbital Basis:
+    !-----  Build the local GF in the spin-orbital Basis   -----
     !
+    !matsu freq
     wm = pi/beta*real(2*arange(1,Lmats)-1,8)
-    wr = linspace(wini,wfin,Lreal,mesh=dw)
+    Gmats=zero
     do ik=1,Lk
        do i=1,Lmats
           Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i) , Hk(:,:,ik) )/Lk
-       enddo
-       do i=1,Lreal
-          Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps),Hk(:,:,ik))/Lk
        enddo
     enddo
     do ispin=1,Nspin
@@ -357,30 +362,60 @@ contains
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
                 call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
-                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
              enddo
           enddo
        enddo
     enddo
-    !
     if(rotateG0loc) then
        !
        allocate(Gso(Nspin,Nspin,Norb,Norb,Lmats));Gso=zero
        do i=1,Lmats
           Gso(:,:,:,:,i)=so2nn_reshape(Gmats(:,:,i),Nspin,Norb)
        enddo
-       call Jz_rotate(Gso,"G0lo","A","wm")
-       deallocate(Gso)
-       !
-       allocate(Gso(Nspin,Nspin,Norb,Norb,Lreal));Gso=zero
-       do i=1,Lreal
-          Gso(:,:,:,:,i)=so2nn_reshape(Greal(:,:,i),Nspin,Norb)
-       enddo
-       call Jz_rotate(Gso,"G0lo","A","wr")
+       call Jz_rotate(Gso,"G0lc","A","wm")
        deallocate(Gso)
        !
     endif
+    !
+    !real freq
+    if(.not.nonint_mu_shift)then
+      max_mu=1
+      mu_edge=0.d0
+    endif
+    wr = linspace(wini,wfin,Lreal,mesh=dw)
+    !
+    do i_mu=1,max_mu
+       mu=-mu_edge+(2*mu_edge/max_mu)*float(i_mu)
+       Greal=zero
+       do ik=1,Lk
+          do i=1,Lreal
+             Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps),Hk(:,:,ik),mu)/Lk
+          enddo
+       enddo
+       do ispin=1,Nspin
+          do jspin=1,Nspin
+             do iorb=1,Norb
+                do jorb=1,Norb
+                   io = iorb + (ispin-1)*Norb
+                   jo = jorb + (jspin-1)*Norb
+                   call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+                enddo
+             enddo
+          enddo
+       enddo
+       if(rotateG0loc) then
+          !
+          allocate(Gso(Nspin,Nspin,Norb,Norb,Lreal));Gso=zero
+          do i=1,Lreal
+             Gso(:,:,:,:,i)=so2nn_reshape(Greal(:,:,i),Nspin,Norb)
+          enddo
+          call Jz_rotate(Gso,"G0lc","A","wr")
+          deallocate(Gso)
+          !
+       endif
        !
+    enddo
+    !
   end subroutine build_hk
 
 
@@ -407,7 +442,7 @@ contains
     enddo
     !
     if(SOC/=zero.or.IVB/=zero)then
-       Hk = Hk - SOC*H_LS(kx,ky,kz) + IVB*H_IVB(kx,ky,kz)
+       Hk = Hk + SOC*H_LS() + IVB*H_IVB(kx,ky,kz)
     endif
     !
     !correction with Sigma(iw=0)
@@ -501,8 +536,7 @@ contains
   !+------------------------------------------------------------------------------------------+!
   !PURPOSE: (OFF DIAGONAL) build local SOC contribution in the Z formulation
   !+------------------------------------------------------------------------------------------+!
-  function H_LS(kx,ky,kz) result(hls)
-    real(8),intent(in)                           :: kx,ky,kz
+  function H_LS() result(hls)
     complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: hls
     hls=zero
     hls(1:2,3:4) = +Xi * pauli_z / 2.
@@ -741,6 +775,7 @@ contains
     theta_C_(3,6)=+1.0d0
     theta_C_(6,6)=+2.0d0*Xi
     theta_C_(:,6)=theta_C_(:,6)/sqrt(6.)
+    !
     theta_C_=Z2so_reshape(theta_C_)
     !
     impHloc_rot_=zero
@@ -769,12 +804,14 @@ contains
     real(8),               intent(in), optional  ::   lvl_
     complex(8),allocatable                       ::   f_in(:,:,:),f_out(:,:,:),Gimp(:,:,:,:,:)
     complex(8),allocatable,dimension(:)          ::   Luttinger,z_rot
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)  ::   theta_C,impHloc_rot
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)  ::   theta_C,impHloc_rot,rho_ab
+    real(8),dimension(Nspin*Norb,Nspin*Norb)     ::   dens_rot
     integer                                      ::   io,jo,ndx,Lfreq
     integer                                      ::   ispin,jspin,iorb,jorb
-    real(8)                                      ::   wr(Lreal),wm(Lmats),dw
-    real(8)                                      ::   bttm,tp,lvl
+    real(8),allocatable,dimension(:)             ::   w
+    real(8)                                      ::   bttm,tp,lvl,dw
     real(8)                                      ::   norm,fact
+    real(8)                                      ::   LS_0
     character(len=12)                            ::   file_rotation
     integer                                      ::   isetup=0
     !
@@ -786,8 +823,8 @@ contains
     !
     call build_rotation(theta_C,impHloc_rot)
     !
-    wr = linspace(wini,wfin,Lreal,mesh=dw)
-    wm = pi/beta*(2*arange(1,Lmats)-1)
+    !wr = linspace(wini,wfin,Lreal,mesh=dw)
+    !wm = pi/beta*(2*arange(1,Lmats)-1)
     Lfreq=size(Fso,dim=5)
     if(allocated( f_in))deallocate( f_in);allocate( f_in(Nspin*Norb,Nspin*Norb,Lfreq));f_in=zero
     if(allocated(f_out))deallocate(f_out);allocate(f_out(Nspin*Norb,Nspin*Norb,Lfreq));f_out=zero
@@ -806,11 +843,19 @@ contains
        call ed_get_gimp_matsubara(Gimp)
     endif
     if(type_freq=="wr")then
+       if(allocated(w))deallocate(w)
+       allocate(w(Lreal));w=0.d0
+       w = linspace(wini,wfin,Lreal,mesh=dw)
        norm=dw
        fact=-1.d0/pi
+       if(master)write(LOGfile,'(A11,2F9.4)') "  real freq",norm,fact
     elseif(type_freq=="wm")then
+       if(allocated(w))deallocate(w)
+       allocate(w(Lmats));w=0.d0
+       w = pi/beta*(2*arange(1,Lmats)-1)
        norm=1.d0/beta
        fact=1.d0
+       if(master)write(LOGfile,'(A11,2F9.4)') "  imag freq",norm,fact
     endif
     !
     !function intake
@@ -898,13 +943,13 @@ contains
              if(present(top_).and.present(bottom_))then
                 outerloop1:do i=1,Lfreq
                    if(abs(aimag(f_out(ndx,ndx,i))).gt.lvl)then
-                      bottom_=wr(i)
+                      bottom_=w(i)
                       exit outerloop1
                    endif
                 enddo outerloop1
                 outerloop2:do i=1,Lfreq
                    if(abs(aimag(f_out(ndx,ndx,Lfreq-i+1))).gt.lvl)then
-                      top_=wr(Lfreq-i+1)
+                      top_=w(Lfreq-i+1)
                       exit outerloop2
                    endif
                 enddo outerloop2
@@ -952,12 +997,35 @@ contains
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
                    call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_"//type_freq//".ed",&
-                              wr,fact*dimag(f_out(io,jo,:)),dreal(f_out(io,jo,:)))
+                              w,fact*dimag(f_out(io,jo,:)),dreal(f_out(io,jo,:)))
                 enddo
              enddo
           enddo
        enddo
        !
+       !DEBUG>>
+       if(isetup==1.and.type_freq=="wr")then
+          open(unit=106,file='nonint_dens_rot.dat',status='unknown',action='write',position='append')
+          dens_rot=0.d0
+          do io=1,Nspin*Norb
+             do i=1,Lmats
+                dens_rot(io,io)=dens_rot(io,io)+fact*dimag(f_out(io,io,i))*norm
+                if(abs(w(i))<dw) exit
+             enddo
+          enddo
+          !
+          rho_ab = matmul(theta_C,matmul(dens_rot,transpose(conjg(theta_C))))
+          LS_0=trace(matmul(rho_ab,Z2so_reshape(H_LS())))
+          !
+          write(LOGfile,*) "  J basis densities in the non interacting case:"
+          write(LOGfile,'(20F8.3)') (dens_rot(io,io),io=1,Nso),sum(dens_rot),LS_0
+          !
+          write(106,'(20F18.12)')   (dens_rot(io,io),io=1,Nso),LS_0
+          !
+          close(106)
+          !
+       endif
+       !!<<DEBUG
     endif
     !
     !
@@ -1009,13 +1077,13 @@ contains
              if(present(top_).and.present(bottom_))then
                 outerloop3:do i=1,Lfreq
                    if(abs(aimag(f_out(ndx,ndx,i))).gt.lvl)then
-                      bottom_=wr(i)
+                      bottom_=w(i)
                       exit outerloop3
                    endif
                 enddo outerloop3
                 outerloop4:do i=1,Lfreq
                    if(abs(aimag(f_out(ndx,ndx,Lfreq-i+1))).gt.lvl)then
-                      top_=wr(Lfreq-i+1)
+                      top_=w(Lfreq-i+1)
                       exit outerloop4
                    endif
                 enddo outerloop4
@@ -1063,7 +1131,7 @@ contains
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
                    call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_"//type_freq//".ed",&
-                              wr,fact*dimag(f_out(io,jo,:)),dreal(f_out(io,jo,:)))
+                              w,fact*dimag(f_out(io,jo,:)),dreal(f_out(io,jo,:)))
                 enddo
              enddo
           enddo
@@ -1081,10 +1149,12 @@ contains
   !+------------------------------------------------------------------------------------------+!
   !PURPOSE: G0_loc functions
   !+------------------------------------------------------------------------------------------+!
-  function inverse_g0k(iw,hk) result(g0k)
+  function inverse_g0k(iw,hk,mu_) result(g0k)
     implicit none
     complex(8)                                    :: iw
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: hk
+    real(8),intent(in),optional                   :: mu_
+    real(8)                                       :: mu
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: g0k,g0k_tmp
     integer                                       :: i,ndx
     integer (kind=4), dimension(6)                :: ipiv
@@ -1093,9 +1163,12 @@ contains
     complex (kind=8), dimension(lwork)            :: work
     real    (kind=8), dimension(lwork)            :: rwork
     !
+    mu=0.d0
+    if(present(mu_))mu=mu_
+    !
     g0k=zero;g0k_tmp=zero
     !
-    g0k=iw*eye(Nspin*Norb)-hk
+    g0k=(iw+mu)*eye(Nspin*Norb)-hk
     g0k_tmp=g0k
     !
     call inv(g0k)
