@@ -12,6 +12,7 @@ MODULE ED_OBSERVABLES
   USE ED_SETUP
   USE ED_MATVEC
   USE ED_BATH
+  USE ED_AUX_FUNX
 #ifdef _MPI
   USE MPI
   USE SF_MPI
@@ -312,9 +313,10 @@ contains
     !
     !IMPURITY DENSITY OPERATORS
     if((Nspin/=1).and.(Norb==3))then
-       if(allocated(impStot))    deallocate(impStot);   allocate(impStot(3,Norb,Norb));  impStot=zero
-       if(allocated(impLtot))    deallocate(impLtot);   allocate(impLtot(3,Nspin,Nspin));impLtot=zero
-       if(allocated(impj_aplha)) deallocate(impj_aplha);allocate(impj_aplha(3));         impj_aplha=zero
+       if(allocated(impStot))      deallocate(impStot);      allocate(impStot(3,Norb,Norb));  impStot=zero
+       if(allocated(impLtot))      deallocate(impLtot);      allocate(impLtot(3,Nspin,Nspin));impLtot=zero
+       if(allocated(impj_aplha))   deallocate(impj_aplha);   allocate(impj_aplha(3));         impj_aplha=zero
+       if(allocated(impj_aplha_sq))deallocate(impj_aplha_sq);allocate(impj_aplha_sq(3));      impj_aplha_sq=zero
        impLdotS=zero
        !
        !#####################################################
@@ -356,29 +358,24 @@ contains
        !#####################################################
        !#                        LdotS                      #
        !#####################################################
-       ! 1=yz 2=zx 3=xy
-       ! + xi*[ <c+_3up,c_1up> - <c+_1up,c_3up> ]  ==  spin - diagonal 1
-       ! + xi*[ <c+_2dw,c_1dw> - <c+_1dw,c_2dw> ]  ==  spin - diagonal 2
-       ! -    [ <c+_2up,c_2dw> + <c+_2dw,c_2up> ]  ==  orb  - diagonal 1
-       ! + xi*[ <c+_3dw,c_3up> - <c+_3up,c_3dw> ]  ==  orb  - diagonal 2
-       ! -    [ <c+_3dw,c_1up> + <c+_1up,c_3dw> ]  ==  full off - diagonal 1
-       ! + xi*[ <c+_2up,c_1dw> - <c+_1dw,c_2up> ]  ==  full off - diagonal 2
        !
-       impLdotS =  (imp_density_matrix(1,1,3,1)-imp_density_matrix(1,1,1,3))*xi &
-            +(imp_density_matrix(2,2,2,1)-imp_density_matrix(2,2,1,2))*xi &
-            -(imp_density_matrix(1,2,2,2)+imp_density_matrix(2,1,2,2))    &
-            +(imp_density_matrix(2,1,3,3)-imp_density_matrix(1,2,3,3))*xi &
-            -(imp_density_matrix(2,1,3,1)+imp_density_matrix(1,2,1,3))    &
-            +(imp_density_matrix(1,2,2,1)-imp_density_matrix(2,1,1,2))*xi
-       impLdotS = impLdotS/2.d0
+       impLdotS = trace(matmul(nn2so_reshape(imp_density_matrix,Nspin,Norb),atomic_SOC()))
        !
        !#####################################################
-       !#              ja=trace{La}+trace{Sa}               #
+       !#                         ja                        #
        !#####################################################
        !
-       impj_aplha(1)=trace(impStot(1,:,:))+trace(impLtot(1,:,:))
-       impj_aplha(2)=trace(impStot(2,:,:))+trace(impLtot(2,:,:))
-       impj_aplha(3)=trace(impStot(3,:,:))+trace(impLtot(3,:,:))
+       impj_aplha(1) = trace(matmul(nn2so_reshape(imp_density_matrix,Nspin,Norb),atomic_j("x")))
+       impj_aplha(2) = trace(matmul(nn2so_reshape(imp_density_matrix,Nspin,Norb),atomic_j("y")))
+       impj_aplha(3) = trace(matmul(nn2so_reshape(imp_density_matrix,Nspin,Norb),atomic_j("z")))
+       !
+       !#####################################################
+       !#                        (ja)^2                     #
+       !#####################################################
+       !
+       impj_aplha_sq(1) = trace(matmul(nn2so_reshape(imp_density_matrix,Nspin,Norb),matmul(atomic_j("x"),atomic_j("x"))))
+       impj_aplha_sq(2) = trace(matmul(nn2so_reshape(imp_density_matrix,Nspin,Norb),matmul(atomic_j("y"),atomic_j("y"))))
+       impj_aplha_sq(3) = trace(matmul(nn2so_reshape(imp_density_matrix,Nspin,Norb),matmul(atomic_j("z"),atomic_j("z"))))
        !
     endif
     !<<DEBUG
@@ -413,7 +410,6 @@ contains
     deallocate(dens,docc,phisc,dens_up,dens_dw,magz,sz2,n2)
     deallocate(simp,zimp)    
   end subroutine observables_impurity
-
 
 
 

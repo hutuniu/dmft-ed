@@ -138,35 +138,15 @@ subroutine init_dmft_bath(dmft_bath_)
      !BATH INITIALIZATION
      dmft_bath_%h=zero
      do i=1,Nbath
-        do ispin=1,Nspin
-           do jspin=1,Nspin
-              do iorb=1,Norb
-                 do jorb=1,Norb
-                    re=0.0d0;im=0.0d0
-                    noise_tot=noise_b(i)+noise_s(ispin)+noise_s(jspin)+noise_o(iorb)+noise_o(jorb)
-                    if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1))re=1.0d0+noise_tot
-                    if(dmft_bath_%mask(ispin,jspin,iorb,jorb,2))im=0.1d0+noise_tot
-                    io = iorb + (ispin-1)*Norb                           
-                    jo = jorb + (jspin-1)*Norb
-                    if(io==jo)then
-                       dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(re,im)
-                    else
-                       dmft_bath_%h(ispin,jspin,iorb,jorb,i)=cmplx(re,im)
-                    endif
-                 enddo
-              enddo
-           enddo
-        enddo
-        if(ed_para)then
-           dmft_bath_%h(:,:,:,:,i)=zero
-           dmft_bath_%h(:,:,:,:,i)=-0.6d0+noise_b(i)
-        endif
+        !
+        dmft_bath_%h(:,:,:,:,i)=so2nn_reshape((-0.1d0*eye(Nspin*Norb)+0.1d0*atomic_SOC()),Nspin,Norb)+noise_b(i)
+        !
      enddo
      !HYBR. INITIALIZATION
      dmft_bath_%vr=zero
      do i=1,Nbath
         noise_tot=noise_b(i)
-        dmft_bath_%vr(i)=cmplx(0.2d0+noise_tot,0.0d0)!*(-1)**(i-1)
+        dmft_bath_%vr(i)=cmplx(0.1d0+noise_tot,0.0d0)!*(-1)**(i-1)
      enddo
      !
      deallocate(noise_b,noise_s,noise_o)
@@ -323,9 +303,9 @@ subroutine init_dmft_bath_mask(dmft_bath_)
   ! LS
   !
   LS=zero
-  LS(1:2,3:4)= -Xi * pauli_z ! / 2.
-  LS(1:2,5:6)= +Xi * pauli_y ! / 2.
-  LS(3:4,5:6)= -Xi * pauli_x ! / 2.
+  LS(1:2,3:4)= +Xi * pauli_z !/ 2.d0
+  LS(1:2,5:6)= -Xi * pauli_y !/ 2.d0
+  LS(3:4,5:6)= +Xi * pauli_x !/ 2.d0
   do io=1,Nspin*Norb
      do jo=io+1,Nspin*Norb
         LS(jo,io)=conjg(LS(io,jo))
@@ -996,21 +976,9 @@ subroutine get_dmft_bath(dmft_bath_,bath_)
               !all diagonal per bath *all equal*
               i=i+1
               bath_(i)=real(dmft_bath_%h(1,1,1,1,ibath))
-              !search for first non-vanishing off-diagonal per bath *all equal*
-              loop1: do ispin=1,Nspin
-                 do jspin=1,Nspin
-                    do iorb=1,Norb
-                       do jorb=1,Norb
-                          io = iorb + (ispin-1)*Norb
-                          jo = jorb + (jspin-1)*Norb
-                          if(io>=jo)cycle!only upper triangular is checked
-                          if(dmft_bath_%mask(ispin,jspin,iorb,jorb,1)) exit loop1
-                       enddo
-                    enddo
-                 enddo
-              enddo loop1
+              !specific element for SOC
               i=i+1
-              bath_(i)=real(dmft_bath_%h(ispin,jspin,iorb,jorb,ibath))
+              bath_(i)=real(dmft_bath_%h(1,2,3,1,ibath))!*2.d0
            enddo
         else
            !all non-vanishing terms in imploc - all spin

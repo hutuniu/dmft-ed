@@ -5,7 +5,7 @@ MODULE ED_BATH
   USE SF_MISC, only: assert_shape
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
-  USE ED_AUX_FUNX, only: nn2so_reshape,so2nn_reshape,so2os_reshape
+  USE ED_AUX_FUNX
   implicit none
 
   private

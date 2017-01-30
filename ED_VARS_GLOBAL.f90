@@ -220,6 +220,7 @@ MODULE ED_VARS_GLOBAL
   complex(8),allocatable,dimension(:,:,:)            :: impStot
   complex(8),allocatable,dimension(:,:,:)            :: impLtot
   complex(8),allocatable,dimension(:)                :: impj_aplha
+  complex(8),allocatable,dimension(:)                :: impj_aplha_sq
   complex(8)                                         :: impLdotS
 
   ! !MPI Parallel environment variables

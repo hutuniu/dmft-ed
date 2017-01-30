@@ -59,12 +59,14 @@ program ed_SOC
   real(8),allocatable,dimension(:)               :: w,orb_dens
   !custom variables for density matrix:
   real(8),allocatable,dimension(:)               :: dm_eig
-  complex(8),allocatable,dimension(:,:)          :: dm,dm_rot
+  complex(8),allocatable,dimension(:,:)          :: dm
+  complex(8),allocatable,dimension(:,:)          :: dm_custom_rot,dm_rot
   !custom variables for SOC expectations:
   complex(8),allocatable,dimension(:,:,:)        :: Stot
   complex(8),allocatable,dimension(:,:,:)        :: Ltot
   complex(8),allocatable,dimension(:)            :: jz
   !non interacting analysis:
+  real(8)                                        :: mu
   logical                                        :: nonint_mu_shift=.false.
   !
   !#########   MPI INITIALIZATION   #########
@@ -120,6 +122,7 @@ program ed_SOC
   allocate(dm(Nspin*Norb,Nspin*Norb));                     dm=zero
   allocate(dm_eig(Nspin*Norb));                            dm_eig=zero
   allocate(dm_rot(Nspin*Norb,Nspin*Norb));                 dm_rot=zero
+  allocate(dm_custom_rot(Nspin*Norb,Nspin*Norb));          dm_custom_rot=zero
   !
   allocate(Stot(3,Norb,Norb));                             Stot=zero
   allocate(Ltot(3,Nspin,Nspin));                           Ltot=zero
@@ -133,9 +136,7 @@ program ed_SOC
   else
       allocate(Wtk(Nk*Nk*Nk));Wtk=1.d0/(Nk*Nk*Nk)
   endif
-
-  !stop
-
+  if(nonint_mu_shift)stop
   !
   !#########          BATH          #########
   !
@@ -201,7 +202,8 @@ program ed_SOC
      !each loop operations
      if(master.and.bath_type=="replica")then
         Alvl=0.8d0
-        call ed_get_density_matrix(dm,dm_eig,dm_rot)
+        call build_rotation(dm_custom_rot)
+        call ed_get_density_matrix(dm,dm_eig,dm_rot,dm_custom_rot)
         call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
         call Jz_rotate(Greal,"Gloc","A","wr",bottom,top,pi*Alvl)
         call Jz_rotate(Smats,"impS","A","wm")
@@ -361,7 +363,7 @@ contains
              do jorb=1,Norb
                 io = iorb + (ispin-1)*Norb
                 jo = jorb + (jspin-1)*Norb
-                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_iw.ed",wm,Gmats(io,jo,:))
+                call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_wm.dat",wm,Gmats(io,jo,:))
              enddo
           enddo
        enddo
@@ -398,7 +400,7 @@ contains
                 do jorb=1,Norb
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
-                   call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_realw.ed",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+                   call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_wr.dat",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
                 enddo
              enddo
           enddo
@@ -573,6 +575,39 @@ contains
 
 
   !+------------------------------------------------------------------------------------------+!
+  !PURPOSE: (OFF DIAGONAL) build local jz(p) moment matrix representation in the Z formulation
+  !+------------------------------------------------------------------------------------------+!
+  function j_a(component) result(ja)
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: ja
+    character(len=1)                             :: component
+    ja=zero
+    if    (component=="x")then
+       ja(1:2,1:2) = pauli_x / 2.
+       ja(3:4,3:4) = pauli_x / 2.
+       ja(5:6,5:6) = pauli_x / 2.
+       ja(3:4,5:6) = -Xi * eye(2)
+    elseif(component=="y")then
+       ja(1:2,1:2) = pauli_y / 2.
+       ja(3:4,3:4) = pauli_y / 2.
+       ja(5:6,5:6) = pauli_y / 2.
+       ja(1:2,5:6) = +Xi * eye(2)
+    elseif(component=="z")then
+       ja(1:2,1:2) = pauli_z / 2.
+       ja(3:4,3:4) = pauli_z / 2.
+       ja(5:6,5:6) = pauli_z / 2.
+       ja(1:2,3:4) = -Xi * eye(2)
+    endif
+    !hermiticity
+    do i=1,Nspin*Norb
+       do j=1,Nspin*Norb
+          ja(j,i)=conjg(ja(i,j))
+       enddo
+    enddo
+  end function j_a
+
+
+
+  !+------------------------------------------------------------------------------------------+!
   !PURPOSE: solve H(k) along path in the BZ.
   !+------------------------------------------------------------------------------------------+!
   subroutine build_eigenbands()
@@ -617,7 +652,7 @@ contains
        call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
             points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
             file="Eigenband_bulk.nint")
-       Sigma_correction=Smats
+       Sigma_correction=Sreal
        call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
             points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
             file="Eigenband_bulk.sigma")
@@ -743,9 +778,9 @@ contains
   !PURPOSE: Build the rotations
   !+------------------------------------------------------------------------------------------+!
   subroutine build_rotation(theta_C_,impHloc_rot_)
-    complex(8),dimension(6,6),intent(out)        ::   theta_C_
-    complex(8),dimension(6,6),intent(out)        ::   impHloc_rot_
-    real(8),dimension(6)                         ::   impHloc_eig
+    complex(8),dimension(6,6),intent(out)          ::   theta_C_
+    complex(8),dimension(6,6),intent(out),optional ::   impHloc_rot_
+    real(8),dimension(6)                           ::   impHloc_eig
     theta_C_=zero
     !J=1/2 jz=-1/2
     theta_C_(1,1)=-Xi
@@ -778,9 +813,11 @@ contains
     !
     theta_C_=Z2so_reshape(theta_C_)
     !
-    impHloc_rot_=zero
-    impHloc_rot_=d_t2g_Hloc
-    call matrix_diagonalize(impHloc_rot_,impHloc_eig,'V','U')
+    if(present(impHloc_rot_))then
+       impHloc_rot_=zero
+       impHloc_rot_=d_t2g_Hloc
+       call matrix_diagonalize(impHloc_rot_,impHloc_eig,'V','U')
+    endif
     !
   end subroutine build_rotation
 
@@ -811,7 +848,7 @@ contains
     real(8),allocatable,dimension(:)             ::   w
     real(8)                                      ::   bttm,tp,lvl,dw
     real(8)                                      ::   norm,fact
-    real(8)                                      ::   LS_0
+    real(8)                                      ::   LS_0,jz_0,jz_0_sq
     character(len=12)                            ::   file_rotation
     integer                                      ::   isetup=0
     !
@@ -996,7 +1033,7 @@ contains
                 do jorb=1,Norb
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
-                   call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_"//type_freq//".ed",&
+                   call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_"//type_freq//".dat",&
                               w,fact*dimag(f_out(io,jo,:)),dreal(f_out(io,jo,:)))
                 enddo
              enddo
@@ -1005,7 +1042,6 @@ contains
        !
        !DEBUG>>
        if(isetup==1.and.type_freq=="wr")then
-          open(unit=106,file='nonint_dens_rot.dat',status='unknown',action='write',position='append')
           dens_rot=0.d0
           do io=1,Nspin*Norb
              do i=1,Lmats
@@ -1016,12 +1052,34 @@ contains
           !
           rho_ab = matmul(theta_C,matmul(dens_rot,transpose(conjg(theta_C))))
           LS_0=trace(matmul(rho_ab,Z2so_reshape(H_LS())))
+          jz_0=trace(matmul(rho_ab,Z2so_reshape(j_a("z"))))
+          jz_0_sq=trace(matmul(rho_ab,Z2so_reshape(matmul(j_a("z"),j_a("z")))))
           !
           write(LOGfile,*) "  J basis densities in the non interacting case:"
-          write(LOGfile,'(20F8.3)') (dens_rot(io,io),io=1,Nso),sum(dens_rot),LS_0
+          write(LOGfile,'(20F8.3)') mu,(dens_rot(io,io),io=1,Nso)
+          write(LOGfile,'(20F8.3)') sum(dens_rot),LS_0,jz_0,jz_0_sq
           !
-          write(106,'(20F18.12)')   (dens_rot(io,io),io=1,Nso),LS_0
+          open(unit=106,file='nonint_dens_rot.dat',status='unknown',action='write',position='append')
+          write(106,'(20F18.12)')   mu,(dens_rot(io,io),io=1,Nso),LS_0,jz_0,jz_0_sq
+          close(106)
           !
+          open(106,file="nonint_density_matrix.dat",action="write",position="append",status='unknown')
+          write(106,*)
+          write(106,"(A10,F22.12)")"# mu:",mu
+          write(106,*)
+          write(106,"(A10)")"# Re{rho_nonint}: [Norb*Norb]*Nspin"
+          do io=1,Nspin*Norb
+             write(106,"(90(F15.9,1X))") (real(rho_ab(io,jo)),jo=1,Nspin*Norb)
+          enddo
+          write(106,"(A10)")
+          write(106,"(A10)")"# Im{rho_nonint}: [Norb*Norb]*Nspin"
+          do io=1,Nspin*Norb
+             write(106,"(90(F15.9,1X))") (aimag(rho_ab(io,jo)),jo=1,Nspin*Norb)
+          enddo
+          write(106,"(A10)")
+          write(106,"(4A22)")"#mu","rho_tilda","trace{rho_tilda}","LS_nonint"
+          write(106,'(10F22.12)')  mu,(dens_rot(io,io),io=1,Nso),sum(dens_rot),LS_0
+          write(106,"(A10)")
           close(106)
           !
        endif
@@ -1130,7 +1188,7 @@ contains
                 do jorb=1,Norb
                    io = iorb + (ispin-1)*Norb
                    jo = jorb + (jspin-1)*Norb
-                   call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_"//type_freq//".ed",&
+                   call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_"//type_freq//".dat",&
                               w,fact*dimag(f_out(io,jo,:)),dreal(f_out(io,jo,:)))
                 enddo
              enddo
@@ -1154,7 +1212,7 @@ contains
     complex(8)                                    :: iw
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: hk
     real(8),intent(in),optional                   :: mu_
-    real(8)                                       :: mu
+    !real(8)                                       :: mu
     complex(8),dimension(Nspin*Norb,Nspin*Norb)   :: g0k,g0k_tmp
     integer                                       :: i,ndx
     integer (kind=4), dimension(6)                :: ipiv

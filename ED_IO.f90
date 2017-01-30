@@ -567,15 +567,17 @@ contains
 
 
   !DEBUG>>
-  subroutine ed_get_density_matrix(dm_,dm_eig_,dm_rot_)
+  subroutine ed_get_density_matrix(dm_,dm_eig_,dm_rot_,dm_custom_rot_)
     !passed
     complex(8),allocatable,intent(out)           :: dm_(:,:)
     real(8),allocatable,intent(out),optional     :: dm_eig_(:)
     complex(8),allocatable,intent(out),optional  :: dm_rot_(:,:)
+    complex(8),allocatable,intent(in),optional   :: dm_custom_rot_(:,:)
     !internal
     integer                                      :: unit  
     integer                                      :: iorb,jorb,ispin,jspin,io,jo
     complex(8)                                   :: Tr
+    complex(8),allocatable                       :: dm_diag(:,:)
     !
     if (.not.allocated(imp_density_matrix)) then
        write(*,*) "imp_density_matrix is not allocated"
@@ -583,12 +585,15 @@ contains
     endif
     !
     if(present(dm_eig_))then
-       if(allocated(dm_eig_))deallocate(dm_eig_);allocate(dm_eig_(Nspin*Norb));dm_eig_ = 0.0d0
+       if(allocated(dm_eig_))deallocate(dm_eig_)
+       allocate(dm_eig_(Nspin*Norb));dm_eig_ = 0.0d0
     endif
     if(present(dm_rot_))then
-       if(allocated(dm_rot_))deallocate(dm_rot_);allocate(dm_rot_(Nspin*Norb,Nspin*Norb));dm_rot_ = zero
+       if(allocated(dm_rot_))deallocate(dm_rot_)
+       allocate(dm_rot_(Nspin*Norb,Nspin*Norb));dm_rot_ = zero
     endif
-    if(allocated(dm_))deallocate(dm_);allocate(dm_(Nspin*Norb,Nspin*Norb));dm_ = zero
+    if(allocated(dm_))    deallocate(dm_);    allocate(dm_(Nspin*Norb,Nspin*Norb));    dm_ = zero
+    if(allocated(dm_diag))deallocate(dm_diag);allocate(dm_diag(Nspin*Norb,Nspin*Norb));dm_diag = zero
     !
     do ispin=1,Nspin
        do jspin=1,Nspin
@@ -602,33 +607,59 @@ contains
        enddo
     enddo
     !
+    if(present(dm_custom_rot_))then
+       dm_diag=matmul(transpose(conjg(dm_custom_rot_)),matmul(dm_,dm_custom_rot_))
+    endif
+    !
     dm_eig_=0.0d0;dm_rot_=zero;dm_rot_=dm_
     call matrix_diagonalize(dm_rot_,dm_eig_,'V','U')
     !
     unit = free_unit()
     open(unit,file="imp_density_matrix.dat",action="write",position="rewind",status='unknown')
-    write(unit,"(A10)")"# Re{rho}: [Norb*Norb]*Nspin"
+    !
+    write(unit,"(A10)")"# Re{rho}:"
     do io=1,Nspin*Norb
        write(unit,"(90(F15.9,1X))") (real(dm_(io,jo)),jo=1,Nspin*Norb)
     enddo
     write(unit,"(A10)")
-    write(unit,"(A10)")"# Im{rho}: [Norb*Norb]*Nspin"
+    !
+    write(unit,"(A10)")"# Im{rho}:"
     do io=1,Nspin*Norb
        write(unit,"(90(F15.9,1X))") (aimag(dm_(io,jo)),jo=1,Nspin*Norb)
     enddo
     write(unit,"(A10)")
+    !
     write(unit,"(A10)")"# rho_tilda"
     write(unit,'(10F22.12)') dm_eig_
     write(unit,"(A10)")
-    write(unit,"(A100)")"# Re{theta}: [Norb*Norb]*Nspin"
+    !
+    write(unit,"(A100)")"# Re{theta}:"
     do io=1,Nspin*Norb
        write(unit,"(90(F15.9,1X))") (real(dm_rot_(io,jo)),jo=1,Nspin*Norb)
     enddo
     write(unit,"(A10)")
-    write(unit,"(A100)")"# Im{theta}: [Norb*Norb]*Nspin"
+    !
+    write(unit,"(A100)")"# Im{theta}:"
     do io=1,Nspin*Norb
        write(unit,"(90(F15.9,1X))") (aimag(dm_rot_(io,jo)),jo=1,Nspin*Norb)
     enddo
+    write(unit,"(A10)")
+    !
+    if(present(dm_custom_rot_))then
+       !
+       write(unit,"(A30)")"# Re{rho tilda CUSTOM}"
+       do io=1,Nspin*Norb
+          write(unit,"(90(F15.9,1X))") (real(dm_diag(io,jo)),jo=1,Nspin*Norb)
+       enddo
+       write(unit,"(A10)")
+       !
+       write(unit,"(A30)")"# Im{rho tilda CUSTOM}"
+       do io=1,Nspin*Norb
+          write(unit,"(90(F15.9,1X))") (aimag(dm_diag(io,jo)),jo=1,Nspin*Norb)
+       enddo
+       write(unit,"(A10)")
+       !
+    endif
     close(unit)
     !
     if(ed_verbose<1) then
@@ -648,8 +679,8 @@ contains
     complex(8),optional,intent(inout) ::  Jimp(:)
     integer                           ::  unit_
     integer                           ::  iorb,ispin,jorb,jspin
-    real(8)                           ::  Lxsq,Lysq,Lzsq,Lsq
-    real(8)                           ::  Sxsq,Sysq,Szsq,Ssq
+    !real(8)                           ::  Lxsq,Lysq,Lzsq,Lsq
+    !real(8)                           ::  Sxsq,Sysq,Szsq,Ssq
     real(8)                           ::  jxsq,jysq,jzsq,Jsq
     if(Norb/=3)stop"SOC_operators implemented for 3 orbitals"
     if(present(Simp).and.((size(Simp,dim=1)/=3).or.(size(Simp,dim=2)/=3).or.(size(Simp,dim=3)/=3)))stop"wrong S size (3,3,3)"
@@ -660,19 +691,19 @@ contains
     if(present(Limp))        Limp=impLtot
     if(present(jimp))        jimp=impj_aplha
     !
-    Sxsq = (trace(impStot(1,:,:)))*conjg(trace(impStot(1,:,:)))
-    Sysq = (trace(impStot(2,:,:)))*conjg(trace(impStot(2,:,:)))
-    Szsq = (trace(impStot(3,:,:)))*conjg(trace(impStot(3,:,:)))
-    Ssq  = Sxsq + Sysq + Szsq
+    !Sxsq = (trace(impStot(1,:,:)))*conjg(trace(impStot(1,:,:)))
+    !Sysq = (trace(impStot(2,:,:)))*conjg(trace(impStot(2,:,:)))
+    !Szsq = (trace(impStot(3,:,:)))*conjg(trace(impStot(3,:,:)))
+    !Ssq  = Sxsq + Sysq + Szsq
     !
-    Lxsq = (trace(impLtot(1,:,:)))*conjg(trace(impStot(1,:,:)))
-    Lysq = (trace(impLtot(2,:,:)))*conjg(trace(impLtot(2,:,:)))
-    Lzsq = (trace(impLtot(3,:,:)))*conjg(trace(impLtot(3,:,:)))
-    Lsq  = Lxsq + Lysq + Lzsq
+    !Lxsq = (trace(impLtot(1,:,:)))*conjg(trace(impStot(1,:,:)))
+    !Lysq = (trace(impLtot(2,:,:)))*conjg(trace(impLtot(2,:,:)))
+    !Lzsq = (trace(impLtot(3,:,:)))*conjg(trace(impLtot(3,:,:)))
+    !Lsq  = Lxsq + Lysq + Lzsq
     !
-    jxsq = (impj_aplha(1))*conjg(impj_aplha(1))
-    jysq = (impj_aplha(2))*conjg(impj_aplha(2))
-    jzsq = (impj_aplha(3))*conjg(impj_aplha(3))
+    jxsq = impj_aplha_sq(1)
+    jysq = impj_aplha_sq(2)
+    jzsq = impj_aplha_sq(3)
     Jsq  = jxsq + jysq + jzsq
     !
     !   IMPURITY SPIN OPERATOR - (S)
@@ -694,11 +725,10 @@ contains
        write(unit_,'(30(F20.12,1X))') (real(impStot(3,iorb,jorb)),jorb=1,Norb),(aimag(impStot(3,iorb,jorb)),jorb=1,Norb)
     enddo
     write(unit_,*)
-    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Sx]}","2-Im{Tr[Sx]}","3-Re{Tr[Sy]}","4-Im{Tr[Sy]}","5-Re{Tr[Sz]}","6-Im{Tr[Sz]}","7-|Sx|^2","8-|Sy|^2","9-|Sz|^2","10-|S|^2"
+    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Sx]}","2-Im{Tr[Sx]}","3-Re{Tr[Sy]}","4-Im{Tr[Sy]}","5-Re{Tr[Sz]}","6-Im{Tr[Sz]}"
     write(unit_,'(30(F20.12,1X))') real(trace(impStot(1,:,:))),aimag(trace(impStot(1,:,:))),&
-         real(trace(impStot(2,:,:))),aimag(trace(impStot(2,:,:))),&
-         real(trace(impStot(3,:,:))),aimag(trace(impStot(3,:,:))),&
-         Sxsq,Sysq,Szsq,Ssq
+                                   real(trace(impStot(2,:,:))),aimag(trace(impStot(2,:,:))),&
+                                   real(trace(impStot(3,:,:))),aimag(trace(impStot(3,:,:)))
     close(unit_)
     !
     !   IMPURITY ORBITAL ANGULAR MOMENTUM OPERATOR - (L)
@@ -720,11 +750,10 @@ contains
        write(unit_,'(30(F20.12,1X))') (real(impLtot(3,ispin,jspin)),jspin=1,Nspin),(aimag(impLtot(3,ispin,jspin)),jspin=1,Nspin)
     enddo
     write(unit_,*)
-    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Lx]}","2-Im{Tr[Lx]}","3-Re{Tr[Ly]}","4-Im{Tr[ly]}","5-Re{Tr[Lz]}","6-Im{Tr[Lz]}","7-|Lx|^2","8-|Ly|^2","9-|Lz|^2","10-|L|^2"
+    write(unit_,'(30(a20,1X))')"#1-Re{Tr[Lx]}","2-Im{Tr[Lx]}","3-Re{Tr[Ly]}","4-Im{Tr[ly]}","5-Re{Tr[Lz]}","6-Im{Tr[Lz]}"
     write(unit_,'(30(F20.12,1X))') real(trace(impLtot(1,:,:))),aimag(trace(impLtot(1,:,:))),&
-         real(trace(impLtot(2,:,:))),aimag(trace(impLtot(2,:,:))),&
-         real(trace(impLtot(3,:,:))),aimag(trace(impLtot(3,:,:))),&
-         Lxsq,Lysq,Lzsq,Lsq
+                                   real(trace(impLtot(2,:,:))),aimag(trace(impLtot(2,:,:))),&
+                                   real(trace(impLtot(3,:,:))),aimag(trace(impLtot(3,:,:)))
     close(unit_)
     !
     !   IMPURITY TOTAL ANGULAR MOMENTUM OPERATOR - (J = S + L)
@@ -732,8 +761,11 @@ contains
     unit_ = free_unit()
     open(unit=unit_,file='J_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
     write(unit_,'(30(a20,1X))') "#1-Re{jx}","2-Im{jx}","3-Re{jy}","4-Im{jy}","5-Re{jz}","6-Im{jz}","7-|jx|^2","8-|jy|^2","9-|jz|^2","10-|j|^2","11-Re{L.S}","12-Im{L.S}"
-    write(unit_,'(30(F20.12,1X))') real(impj_aplha(1)),aimag(impj_aplha(1)),real(impj_aplha(2)),aimag(impj_aplha(2)),real(impj_aplha(3)),aimag(impj_aplha(3)) &
-         ,jxsq,jysq,jzsq,Jsq,real(impLdotS),aimag(impLdotS)
+    write(unit_,'(30(F20.12,1X))') real(impj_aplha(1)),aimag(impj_aplha(1)), &
+                                   real(impj_aplha(2)),aimag(impj_aplha(2)), &
+                                   real(impj_aplha(3)),aimag(impj_aplha(3)), &
+                                   jxsq,jysq,jzsq,Jsq                      , &
+                                   real(impLdotS),aimag(impLdotS)
     close(unit_)
     !
   end subroutine ed_get_quantum_SOC_operators

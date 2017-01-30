@@ -2,6 +2,7 @@ MODULE ED_AUX_FUNX
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
   USE SF_TIMER
+  USE SF_LINALG
   USE SF_IOTOOLS, only:free_unit,reg,txtfy
   implicit none
   private
@@ -61,6 +62,8 @@ MODULE ED_AUX_FUNX
   public :: search_chemical_potential
   public :: search_chempot
   public :: SOC_jz_symmetrize
+  public :: atomic_SOC
+  public :: atomic_j
   public :: tql2
 contains
 
@@ -721,7 +724,7 @@ contains
     complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:,:)
     complex(8),allocatable                       ::  a_funct(:),b_funct(:),c_funct(:),d_funct(:),e_funct(:),f_funct(:)
     integer                                      ::  ispin,iorb
-    integer                                      ::  Lfreq
+    integer                                      ::  ifreq,Lfreq
     if(size(funct,dim=1)/=Nspin)stop "wrong size 1 in SOC symmetrize input f"
     if(size(funct,dim=2)/=Nspin)stop "wrong size 2 in SOC symmetrize input f"
     if(size(funct,dim=3)/=Norb) stop "wrong size 3 in SOC symmetrize input f"
@@ -760,22 +763,9 @@ contains
        enddo
     enddo
     !
-    !cerchio bianco
-    symmetrized_funct(1,2,1,3,:) = +f_funct
-    symmetrized_funct(2,1,3,1,:) = +f_funct
-    !cerchio nero
-    symmetrized_funct(1,2,3,1,:) = -f_funct
-    symmetrized_funct(2,1,1,3,:) = -f_funct
-    !quadrotto nero
-    symmetrized_funct(1,1,1,2,:) = -xi*f_funct
-    symmetrized_funct(1,2,2,3,:) = -xi*f_funct
-    symmetrized_funct(2,2,2,1,:) = -xi*f_funct
-    symmetrized_funct(2,1,2,3,:) = -xi*f_funct
-    !quadrotto bianco
-    symmetrized_funct(1,1,2,1,:) = +xi*f_funct
-    symmetrized_funct(1,2,3,2,:) = +xi*f_funct
-    symmetrized_funct(2,2,1,2,:) = +xi*f_funct
-    symmetrized_funct(2,1,3,2,:) = +xi*f_funct
+    do ifreq=1,Lfreq
+       symmetrized_funct(:,:,:,:,ifreq)=symmetrized_funct(:,:,:,:,ifreq)-2.d0*f_funct(ifreq)*so2nn_reshape(atomic_SOC(),Nspin,Norb)
+    enddo
     !
     funct = zero
     funct = symmetrized_funct
@@ -785,7 +775,54 @@ contains
 
 
 
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : Atomic SOC and j vector components
+  !+-------------------------------------------------------------------+
+  function atomic_SOC() result (LS)
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: LS,LS_
+    integer                                      :: i,j
+    LS_=zero;LS=zero
+    LS_(1:2,3:4) = +Xi * pauli_z / 2.
+    LS_(1:2,5:6) = -Xi * pauli_y / 2.
+    LS_(3:4,5:6) = +Xi * pauli_x / 2.
+    !hermiticity
+    do i=1,Nspin*Norb
+       do j=1,Nspin*Norb
+          LS_(j,i)=conjg(LS_(i,j))
+       enddo
+    enddo
+    LS=so2os_reshape(LS_,Nspin,Norb)
+  end function atomic_SOC
 
+  function atomic_j(component) result (ja)
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: ja,ja_
+    character(len=1)                             :: component
+    integer                                      :: i,j
+    ja_=zero;ja=zero
+    if    (component=="x")then
+       ja_(1:2,1:2) = pauli_x / 2.
+       ja_(3:4,3:4) = pauli_x / 2.
+       ja_(5:6,5:6) = pauli_x / 2.
+       ja_(3:4,5:6) = -Xi * eye(2)
+    elseif(component=="y")then
+       ja_(1:2,1:2) = pauli_y / 2.
+       ja_(3:4,3:4) = pauli_y / 2.
+       ja_(5:6,5:6) = pauli_y / 2.
+       ja_(1:2,5:6) = +Xi * eye(2)
+    elseif(component=="z")then
+       ja_(1:2,1:2) = pauli_z / 2.
+       ja_(3:4,3:4) = pauli_z / 2.
+       ja_(5:6,5:6) = pauli_z / 2.
+       ja_(1:2,3:4) = -Xi * eye(2)
+    endif
+    !hermiticity
+    do i=1,Nspin*Norb
+       do j=1,Nspin*Norb
+          ja_(j,i)=conjg(ja_(i,j))
+       enddo
+    enddo
+    ja=so2os_reshape(ja_,Nspin,Norb)
+  end function atomic_j
 
 
 
