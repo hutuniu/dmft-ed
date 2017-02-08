@@ -333,12 +333,14 @@ contains
        Lk=Nk*Nk
        if(master)write(LOGfile,*)"surface tot k-points:",Lk
        allocate(Hk(Nso,Nso,Lk));Hk=zero
+       Sigma_correction=zero
        call TB_build_model(Hk,hk_Ti3dt2g,Nso,[Nk,Nk,0])
        if(master.AND.present(file)) call TB_write_hk(Hk,file,Nso,Norb,1,1,[Nk,Nk,0])
     else
        Lk=Nk*Nk*Nk
        if(master)write(LOGfile,*)"bulk tot k-points:",Lk
        allocate(Hk(Nso,Nso,Lk));Hk=zero
+       Sigma_correction=zero
        call TB_build_model(Hk,hk_Ti3dt2g,Nso,[Nk,Nk,Nk])
        if(master.AND.present(file)) call TB_write_hk(Hk,file,Nso,Norb,1,1,[Nk,Nk,Nk])
     endif
@@ -652,7 +654,7 @@ contains
        call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
             points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
             file="Eigenband_bulk.nint")
-       Sigma_correction=Sreal
+       Sigma_correction=Smats
        call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
             points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
             file="Eigenband_bulk.sigma")
