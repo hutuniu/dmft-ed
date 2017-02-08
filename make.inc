@@ -5,7 +5,7 @@ FC=mpif90
 ##$ PLATFORM: supported platform are intel, gnu
 ##$ if using a parallel compiler (mpif90) check
 ##$ platform first using the cmd: $mpif90 -show
-PLAT=intel
+PLAT=gnu
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
@@ -24,7 +24,7 @@ LIBDIR=/opt
 #EXE=ed_hm_bethe_afm
 #EXE=ed_hm_2bands_hyb_fcc3d
 #EXE=ed_hm_mpitest
-EXE=ed_hm_2bands_dos
+#EXE=ed_hm_2bands_dos
 
 ##$ --> PERIODIC ANDERSON & P-D MODELS
 #EXE=ed_pam_1b
@@ -61,6 +61,7 @@ EXE=ed_hm_2bands_dos
 
 ##$ STO (nonSU2)
 #EXE=ed_STO
+EXE=ed_SOC
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
 DIR =./drivers

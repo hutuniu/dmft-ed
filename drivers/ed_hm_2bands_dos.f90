@@ -23,7 +23,7 @@ program hm_2bands_dos
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
   call parse_input_variable(Le,"LE",finput,default=500)
-  call parse_input_variable(Wband,"WBAND",finput,default=[1d0,0.5d0])
+  call parse_input_variable(Wband,"WBAND",finput,default=[1d0,1d0])
   call parse_input_variable(delta,"DELTA",finput,default=0d0)
   call parse_input_variable(dos_model,"DOS_MODEL",finput,"bethe")
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
