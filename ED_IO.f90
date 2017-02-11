@@ -658,18 +658,22 @@ contains
           write(unit,"(90(F15.9,1X))") (aimag(dm_diag(io,jo)),jo=1,Nspin*Norb)
        enddo
        write(unit,"(A10)")
+       write(unit,"(A30)")"# J basis densities"
+       do io=1,Nspin*Norb
+          write(unit,"(90(F15.9,1X))") (real(dm_diag(io,io)),jo=1,Nspin*Norb)
+       enddo
        !
     endif
     close(unit)
     !
-    if(ed_verbose<1) then
-       Tr=zero;Tr=trace(dm_)
-       write(LOGfile,'(A25,6F15.7)') 'test #1: Tr[rho]:    ',real(Tr),aimag(Tr)
-       Tr=zero;Tr=trace(matmul(dm_,dm_))
-       write(LOGfile,'(A25,6F15.7)') 'test #2: Tr[rho^2]:  ',real(Tr),aimag(Tr)
-       Tr=zero;Tr=sum(dm_eig_)
-       write(LOGfile,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
-    endif
+  !  if(ed_verbose<1) then
+  !     Tr=zero;Tr=trace(dm_)
+  !     write(LOGfile,'(A25,6F15.7)') 'test #1: Tr[rho]:    ',real(Tr),aimag(Tr)
+  !     Tr=zero;Tr=trace(matmul(dm_,dm_))
+  !     write(LOGfile,'(A25,6F15.7)') 'test #2: Tr[rho^2]:  ',real(Tr),aimag(Tr)
+  !     Tr=zero;Tr=sum(dm_eig_)
+  !     write(LOGfile,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
+  !  endif
   end subroutine ed_get_density_matrix
 
 

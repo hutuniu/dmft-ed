@@ -257,7 +257,7 @@ program ed_SOC
      call Bcast_MPI(Comm,converged)
      !
      !final mu shift
-     if(converged_n.and.upprshft.and.((nread==5.d0.and.zJ1_2>=0.05).or.(nread==2.d0.and.zJ3_2>=0.05)))then
+     if(converged_n.and.upprshft.and.((nread==5.d0.and.zJ1_2<=0.01).or.(nread==2.d0.and.zJ3_2<=0.01)))then
         shift_n_loop=shift_n_loop+1
         if(bath_type/="replica")then
            if(allocated(w))deallocate(w);allocate(w(Lreal));w=0.0d0
@@ -287,7 +287,7 @@ program ed_SOC
            write(LOGfile,'(5(a10,F10.5))') "shift",shift,"xmu_old",xmu_old,"xmu_new",xmu
            unit=free_unit()
            open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-           write(unit,*)xmu,sumdens,sumdens-nerr,"shift"
+           write(unit,*)xmu,sumdens,shift,"shift"
            close(unit)
         endif
      endif
@@ -862,6 +862,8 @@ contains
     real(8)                                      ::   bttm,tp,lvl,dw
     real(8)                                      ::   norm,fact
     real(8)                                      ::   LS_0,jz_0,jz_0_sq
+    real(8)                                      ::   moment1_J12=0.d0,moment2_J12=0.d0
+    real(8)                                      ::   moment1_J32=0.d0,moment2_J32=0.d0
     character(len=12)                            ::   file_rotation
     integer                                      ::   isetup=0
     !
@@ -991,7 +993,7 @@ contains
           endif
        endif
        !
-       !3)top-bottom find of the half-filled band in the case f_in = Gloc(w) and N=2,5
+       !4)top-bottom find of the half-filled band in the case f_in = Gloc(w) and N=2,5
        if(isetup==2 .and. type_freq=="wr" )then
           if(nread==5.d0 .or. nread==2.d0)then
              if(nread==5.d0)ndx=1
@@ -1013,7 +1015,25 @@ contains
           endif
        endif
        !
-       !4)save the integral after rotation
+       !5)first moment of A(w) in the case f_in = Gloc(w) and N=2,5
+       if(isetup==2 .and. type_freq=="wr" )then
+          moment1_J12=0.d0;moment2_J12=0.d0
+          moment1_J32=0.d0;moment2_J32=0.d0
+          do i=1,Lfreq
+             moment1_J12=moment1_J12+fact*aimag(f_out(1,1,i))*w(i)*norm
+             moment1_J32=moment1_J32+fact*aimag(f_out(2,2,i))*w(i)*norm
+             moment2_J12=moment2_J12+fact*aimag(f_out(1,1,i))*w(i)*w(i)*norm
+             moment2_J32=moment2_J32+fact*aimag(f_out(2,2,i))*w(i)*w(i)*norm
+          enddo
+          if(master)then
+             open(unit=106,file='Spectral_moment.dat',status='unknown',action='write',position='rewind')
+             write(106,'(90A15,1X)')"#A_J1/2(w)*w","A_J3/2(w)*w","A_J1/2(w)*w^2","A_J3/2(w)*w^2"
+             write(106,'(90F15.9,1X)')moment1_J12,moment1_J32,moment2_J12,moment2_J32
+             close(106)
+          endif
+       endif
+       !
+       !6)save the integral after rotation
        if(master)then
           if(isetup==1) then
              open(unit=106,file='sum_'//type_freq//'_G0loc_rot_'//type_rot//'.dat',status='unknown',action='write',position='rewind')
@@ -1037,7 +1057,7 @@ contains
           enddo
           close(106)
           !
-          !5)save the rotated function
+          !7)save the rotated function
           if(isetup==1) then
              file_rotation="G0lc_rot_"//type_rot//"_l"
           elseif(isetup==2) then
@@ -1061,6 +1081,7 @@ contains
           enddo
           !
           !DEBUG>>
+          !8)non interacting rho and observables in the case f_in = G0loc(w)
           if(isetup==1.and.type_freq=="wr")then
              dens_rot=0.d0
              do io=1,Nspin*Norb
