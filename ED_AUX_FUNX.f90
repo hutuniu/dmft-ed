@@ -613,7 +613,7 @@ contains
     endif
     !
     write(LOGfile,"(A,I5)")"count= ",count
-    write(LOGfile,"(A,L2)"),"Converged=",converged
+    write(LOGfile,"(A,L2)")"Converged=",converged
     print*,""
     !
   end subroutine search_chemical_potential

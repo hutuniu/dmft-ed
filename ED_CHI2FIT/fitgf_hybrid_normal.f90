@@ -28,8 +28,8 @@ subroutine chi2_fitgf_hybrid_normal(fg,bath_,ispin)
   character(len=20)                    :: suffix
   integer                              :: unit
   !
-  if(size(fg,1)/=Norb)stop"chi2_fitgf_hybrid_normal error: size[fg,1]!=Norb"
-  if(size(fg,2)/=Norb)stop"chi2_fitgf_hybrid_normal error: size[fg,2]!=Norb"
+  if(size(fg,1)/=Norb)stop "chi2_fitgf_hybrid_normal error: size[fg,1]!=Norb"
+  if(size(fg,2)/=Norb)stop "chi2_fitgf_hybrid_normal error: size[fg,2]!=Norb"
   !
   check= check_bath_dimension(bath_)
   if(.not.check)stop "chi2_fitgf_hybrid_normal error: wrong bath dimensions"

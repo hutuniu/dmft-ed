@@ -278,7 +278,7 @@ subroutine init_dmft_bath_mask(dmft_bath_)
         !Re-diagonal elements always present
         dmft_bath_%mask(ispin,ispin,iorb,iorb,1)=.true.
         !Im-diagonal elements checked
-        if(abs(aimag(impHloc(ispin,ispin,iorb,iorb))).gt.1e-6)stop"impHloc is not Hermitian"
+        if(abs(aimag(impHloc(ispin,ispin,iorb,iorb))).gt.1e-6)stop "impHloc is not Hermitian"
         !off-diagonal elements
         do jspin=1,Nspin
            do jorb=1,Norb

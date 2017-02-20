@@ -27,9 +27,9 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
   character(len=20)                    :: suffix
   integer                              :: unit
   !
-  if(size(fg,1)/=2)stop"chi2_fitgf_normal_superc error: size[fg,1]!=2"
-  if(size(fg,2)/=Norb)stop"chi2_fitgf_normal_superc error: size[fg,2]!=Norb"
-  if(size(fg,3)/=Norb)stop"chi2_fitgf_normal_superc error: size[fg,3]!=Norb"
+  if(size(fg,1)/=2)stop "chi2_fitgf_normal_superc error: size[fg,1]!=2"
+  if(size(fg,2)/=Norb)stop "chi2_fitgf_normal_superc error: size[fg,2]!=Norb"
+  if(size(fg,3)/=Norb)stop "chi2_fitgf_normal_superc error: size[fg,3]!=Norb"
   !
   check= check_bath_dimension(bath_)
   if(.not.check)stop "chi2_fitgf_normal_superc: wrong bath dimensions"

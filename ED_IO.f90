@@ -686,10 +686,10 @@ contains
     !real(8)                           ::  Lxsq,Lysq,Lzsq,Lsq
     !real(8)                           ::  Sxsq,Sysq,Szsq,Ssq
     real(8)                           ::  jxsq,jysq,jzsq,Jsq
-    if(Norb/=3)stop"SOC_operators implemented for 3 orbitals"
-    if(present(Simp).and.((size(Simp,dim=1)/=3).or.(size(Simp,dim=2)/=3).or.(size(Simp,dim=3)/=3)))stop"wrong S size (3,3,3)"
-    if(present(Limp).and.((size(Limp,dim=1)/=3).or.(size(Limp,dim=2)/=2).or.(size(Limp,dim=3)/=2)))stop"wrong L size (3,2,2)"
-    if(present(jimp).and.(size(jimp)/=3))stop"wrong j size (3)"
+    if(Norb/=3)stop "SOC_operators implemented for 3 orbitals"
+    if(present(Simp).and.((size(Simp,dim=1)/=3).or.(size(Simp,dim=2)/=3).or.(size(Simp,dim=3)/=3)))stop "wrong S size (3,3,3)"
+    if(present(Limp).and.((size(Limp,dim=1)/=3).or.(size(Limp,dim=2)/=2).or.(size(Limp,dim=3)/=2)))stop "wrong L size (3,2,2)"
+    if(present(jimp).and.(size(jimp)/=3))stop "wrong j size (3)"
     !
     if(present(Simp))        Simp=impStot
     if(present(Limp))        Limp=impLtot
