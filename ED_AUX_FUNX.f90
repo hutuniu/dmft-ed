@@ -613,7 +613,7 @@ contains
     endif
     !
     write(LOGfile,"(A,I5)")"count= ",count
-    write(LOGfile,"(A,L2)"),"Converged=",converged
+    write(LOGfile,"(A,L2)")"Converged=",converged
     print*,""
     !
   end subroutine search_chemical_potential
@@ -706,10 +706,12 @@ contains
              write(LOGfile,*)
           endif
        endif
-       unit=free_unit()
-       open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-       write(unit,*)xmu_tmp,dens_tmp,diffdens,iattempt
-       close(unit)
+       if(write_6)then
+          unit=free_unit()
+          open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+          write(unit,*)xmu_tmp,dens_tmp,diffdens,iattempt
+          close(unit)
+       endif
     endif
     iattempt=iattempt+1
     diffdens_old=diffdens

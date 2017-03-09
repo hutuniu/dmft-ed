@@ -292,9 +292,9 @@ contains
                    do m=1,idim
                       i=H%map(m)
                       ib = bdecomp(i,2*Ns)
-                      if((ib(isite)==1).and.(ib(jsite)==0))then
-                         call c(isite,i,r,sgn1)
-                         call cdg(jsite,r,k,sgn2)
+                      if((ib(jsite)==1).and.(ib(isite)==0))then
+                         call c(jsite,i,r,sgn1)
+                         call cdg(isite,r,k,sgn2)
                          j=binary_search(H%map,k)
                          if(ed_type=='d')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + &
                               peso*sgn1*gsvec(m)*sgn2*gsvec(j)
@@ -395,6 +395,7 @@ contains
           if(Nspin==2)then
              write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magz(iorb),iorb=1,Norb)
              if(Norb==3)write(LOGfile,"(A,10f18.12,A)") " Ji "//reg(ed_file_suffix)//"=",(real(impj_aplha(i)),i=1,3)
+             if(Norb==3)write(LOGfile,"(A,10f18.12,A)") " Ji^2 "//reg(ed_file_suffix)//"=",(real(impj_aplha_sq(i)),i=1,3)
           endif
        endif
     endif

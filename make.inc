@@ -9,7 +9,7 @@ PLAT=gnu
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=/opt
+LIBDIR=$(HOME)/opt
 
 
 
@@ -61,7 +61,7 @@ LIBDIR=/opt
 
 ##$ STO (nonSU2)
 #EXE=ed_STO
-EXE=ed_SOC
+#EXE=ed_SOC
 
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
 DIR =./drivers
