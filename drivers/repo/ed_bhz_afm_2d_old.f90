@@ -590,8 +590,8 @@ contains
   function so2j_index(ispin,iorb) result(isporb)
     integer :: ispin,iorb
     integer :: isporb
-    if(iorb>Norb)stop"error so2j_index: iorb>Norb"
-    if(ispin>Nspin)stop"error so2j_index: ispin>Nspin"
+    if(iorb>Norb)stop "error so2j_index: iorb>Norb"
+    if(ispin>Nspin)stop "error so2j_index: ispin>Nspin"
     isporb=(ispin-1)*Nspin + iorb
   end function so2j_index
 

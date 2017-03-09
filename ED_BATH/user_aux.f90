@@ -75,7 +75,7 @@ function get_bath_dimension(Hloc_nn,ispin_) result(bath_size)
      !complex diagonal elements checked
      do ispin=1,Nspin
         do iorb=1,Norb
-           if(abs(dimag(Hloc(ispin,ispin,iorb,iorb))).gt.1d-6)stop"Hloc is not Hermitian"
+           if(abs(dimag(Hloc(ispin,ispin,iorb,iorb))).gt.1d-6)stop "Hloc is not Hermitian"
         enddo
      enddo
      !number of non vanishing elements for each replica
@@ -1122,7 +1122,7 @@ subroutine spin_symmetrize_bath_site(bath_,save)
      dmft_bath_%v(Nspin,:,:)=dmft_bath_%v(1,:,:)
      if(ed_mode=="superc")dmft_bath_%d(Nspin,:,:)=dmft_bath_%d(1,:,:)
   else
-     stop"spin symmetrize not implemented for replica"
+     stop "spin symmetrize not implemented for replica"
   endif
   if(save_)call save_dmft_bath(dmft_bath_)
   call get_dmft_bath(dmft_bath_,bath_)

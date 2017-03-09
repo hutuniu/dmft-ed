@@ -555,7 +555,7 @@ contains
           sign=sgn(Den(i))
           if(sign*sign_old<1)then
              count=count+1
-             if(count>Linterval)stop"Allocate Xcsign to a larger array."
+             if(count>Linterval)stop "Allocate Xcsign to a larger array."
              Xcsign(count)=wr(i)
           endif
           sign_old=sign
@@ -605,7 +605,7 @@ contains
              sign=sgn(Den(i))
              if(sign*sign_old<1)then
                 count=count+1
-                if(count>Linterval)stop"Allocate Xcsign to a larger array."
+                if(count>Linterval)stop "Allocate Xcsign to a larger array."
                 Xcsign(count)=wr(i)
              endif
              sign_old=sign
@@ -861,8 +861,8 @@ contains
   function so2j_index(ispin,iorb) result(isporb)
     integer :: ispin,iorb
     integer :: isporb
-    if(iorb>Norb)stop"error so2j_index: iorb>Norb"
-    if(ispin>Nspin)stop"error so2j_index: ispin>Nspin"
+    if(iorb>Norb)stop "error so2j_index: iorb>Norb"
+    if(ispin>Nspin)stop "error so2j_index: ispin>Nspin"
     isporb=(ispin-1)*Nspin + iorb
   end function so2j_index
 

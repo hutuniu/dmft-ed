@@ -320,7 +320,7 @@ contains
        write(LOGfile,*)"# of k-points per direction :",Nk
        write(LOGfile,*)"# of SO-bands               :",Nso
     endif
-    if(allocated(Bath))stop" H(K) must be build before bath allocation, errors shall come otherwise"
+    if(allocated(Bath))stop " H(K) must be build before bath allocation, errors shall come otherwise"
     !
     bk_x = [1.d0,0.d0,0.d0]*2*pi
     bk_y = [0.d0,1.d0,0.d0]*2*pi

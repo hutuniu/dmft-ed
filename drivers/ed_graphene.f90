@@ -60,26 +60,46 @@ program ed_graphene
   Nso=Nspin*Norb
   Nlso=Nlat*Nso
 
-  !FOLLOWING REV.MOD.PHYS.81.109(2009)
-  !Lattice basis (a=1; a0=sqrt3*a) is:
-  !\a_1 = a0 [ sqrt3/2 , 1/2 ]
-  !\a_2 = a0 [ sqrt3/2 ,-1/2 ]
-  !
-  !
-  !nearest neighbor: A-->B, B-->A
+  ! BACKUP OF THE OLD LATTICE STRUCTURE (WRONG!!)
+  ! !FOLLOWING REV.MOD.PHYS.81.109(2009)
+  ! !Lattice basis (a=1; a0=sqrt3*a) is:
+  ! !\a_1 = a0 [ sqrt3/2 , 1/2 ]
+  ! !\a_2 = a0 [ sqrt3/2 ,-1/2 ]
+  ! !nearest neighbor: A-->B, B-->A
+  ! d1= [  1d0/2d0 , sqrt(3d0)/2d0 ]
+  ! d2= [  1d0/2d0 ,-sqrt(3d0)/2d0 ]
+  ! d3= [ -1d0     , 0d0           ]
+  ! !
+  ! !next nearest-neighbor displacements: A-->A, B-->B \== \nu_1,\nu_2, \nu_3=\nu_1-\nu_2
+  ! a1=[ sqrt(3d0)/2d0, 1d0/2d0]
+  ! a2=[ sqrt(3d0)/2d0,-1d0/2d0]
+  ! a3=a2-a1
+  ! !
+  ! !RECIPROCAL LATTICE VECTORS:
+  ! bklen=4d0*pi/3d0
+  ! bk1=bklen*[ 1d0/2d0 ,  sqrt(3d0)/2d0 ]
+  ! bk2=bklen*[ 1d0/2d0 , -sqrt(3d0)/2d0 ]
+
+
+  !LATTICE BASIS:
+  ! nearest neighbor: A-->B, B-->A
   d1= [  1d0/2d0 , sqrt(3d0)/2d0 ]
   d2= [  1d0/2d0 ,-sqrt(3d0)/2d0 ]
   d3= [ -1d0     , 0d0           ]
   !
-  !next nearest-neighbor displacements: A-->A, B-->B \== \nu_1,\nu_2, \nu_3=\nu_1-\nu_2
-  a1=[ sqrt(3d0)/2d0, 1d0/2d0]
-  a2=[ sqrt(3d0)/2d0,-1d0/2d0]
-  a3=a2-a1
-
+  !
+  !next nearest-neighbor displacements: A-->A, B-->B, cell basis
+  a1 = d2-d3                    !a*sqrt(3)[sqrt(3)/2,-1/2]
+  a2 = d3-d1                    !a*sqrt(3)[-sqrt(3)/2,-1/2]
+  a3 = d1-d2                    !a*sqrt(3)[0, 1]
+  !
+  !
   !RECIPROCAL LATTICE VECTORS:
-  bklen=4d0*pi/3d0
-  bk1=bklen*[ 1d0/2d0 ,  sqrt(3d0)/2d0 ]
-  bk2=bklen*[ 1d0/2d0 , -sqrt(3d0)/2d0 ]
+  bklen=4d0*pi/sqrt(3d0)
+  bk1=bklen*[ sqrt(3d0)/2d0 ,  1d0/2d0 ]
+  bk2=bklen*[ sqrt(3d0)/2d0 , -1d0/2d0 ]
+
+
 
   pointK = [2*pi/3, 2*pi/3/sqrt(3d0)]
   pointKp= [2*pi/3,-2*pi/3/sqrt(3d0)]

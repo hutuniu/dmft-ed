@@ -171,7 +171,7 @@
                     !
                     !diagonal elements
                     if ((ispin==jspin).and.(iorb==jorb)) then
-                       if(alfa/=beta)stop"wrong alfa beta"
+                       if(alfa/=beta)stop "wrong alfa beta"
                        htmp = impHloc(ispin,jspin,iorb,jorb)*real(ib(alfa),8)
                        call sp_insert_element(spH0,htmp,impi,i)
                     endif
@@ -229,7 +229,7 @@
                           !
                           !diagonal elements
                           if ((ispin==jspin).and.(iorb==jorb)) then
-                             if(alfa/=beta)stop"wrong alfa beta"
+                             if(alfa/=beta)stop "wrong alfa beta"
                              htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*real(ib(alfa),8)
                              call sp_insert_element(spH0,htmp,impi,i)
                           endif
