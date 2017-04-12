@@ -9,7 +9,7 @@ PLAT=gnu
 
 ##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
 ##$ is placed in different locations edit INCARGS here below
-LIBDIR=$(HOME)/opt
+LIBDIR=/opt
 
 
 

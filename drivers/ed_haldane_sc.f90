@@ -5,7 +5,7 @@ program ed_haldane
 
   implicit none
 
-  integer                                         :: iloop,Lk,Nso,Nlso,Nlat
+  integer                                         :: i,iloop,Lk,Nso,Nlso,Nlat
   logical                                         :: converged
 
   !Bath:
@@ -39,7 +39,7 @@ program ed_haldane
   real(8),dimension(2)                            :: Eout
   real(8),allocatable,dimension(:)                :: dens
   !
-  complex(8),allocatable,dimension(:,:,:,:,:)     :: Sigma0,Self0
+  complex(8),allocatable,dimension(:,:,:,:,:)     :: Sigma0,Self0,SigmaHF,SelfHF
 
 
 
@@ -101,7 +101,8 @@ program ed_haldane
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb));Hloc=zero
   allocate(Sigma0(Nlat,Nspin,Nspin,Norb,Norb));Sigma0=zero
   allocate(Self0(Nlat,Nspin,Nspin,Norb,Norb));Self0=zero
-
+  allocate(SigmaHF(Nlat,Nspin,Nspin,Norb,Norb));SigmaHF=zero
+  allocate(SelfHF(Nlat,Nspin,Nspin,Norb,Norb));SelfHF=zero
 
   !Buil the Hamiltonian on a grid or on  path
   call build_hk(trim(hkfile))
@@ -126,8 +127,12 @@ program ed_haldane
      call ed_get_sigma_real(Sreal(1,:,:,:,:,:,:),Nlat)
      call ed_get_self_matsubara(Smats(2,:,:,:,:,:,:),Nlat)
      call ed_get_self_real(Sreal(2,:,:,:,:,:,:),Nlat)
+     !
      Sigma0 = dreal(Smats(1,:,:,:,:,:,1))
      Self0  = dreal(Smats(2,:,:,:,:,:,1))
+
+
+
 
      ! compute the local gf:
      call dmft_gloc_matsubara_superc(Hk,Wtk,Gmats,Smats,iprint=4)
@@ -151,8 +156,9 @@ program ed_haldane
      call end_loop
   enddo
 
+
   call dmft_gloc_realaxis_superc(Hk,Wtk,Greal,Sreal,iprint=4)
-  
+
   !Eout = dmft_kinetic_energy(Hk,Wtk,Smats(1,:,:,:,:,:,:),Smats(2,:,:,:,:,:,:))
   !print*,Eout
 
@@ -212,7 +218,7 @@ contains
 
 
 
-  
+
 
 
   !---------------------------------------------------------------------
@@ -294,7 +300,7 @@ contains
     call get_Chern_number(HkNambu,[Nk,Nk],2,Nk/pi2*Nk/pi2,Chern)
   end subroutine eval_Chern_number
 
-  
+
   ! calcola il numero di chern di un generico stato dipendente da k con il metodo di Resta
   subroutine Get_Chern_number(Hk,Nkvec,Noccupied,one_over_area,Chern)
     complex(8),intent(in),dimension(:,:,:)    :: Hk    ![Nlso][Nlso][Nktot]
