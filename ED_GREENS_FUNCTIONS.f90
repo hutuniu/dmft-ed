@@ -32,33 +32,16 @@ MODULE ED_GREENS_FUNCTIONS
 
 
 
-  ! interface buildgf_impurity
-  !    module procedure :: buildgf_impurity_serial
-  !    module procedure :: buildgf_impurity_mpi
-  ! end interface buildgf_impurity
   public :: buildGf_impurity
-
-
-
-  ! interface rebuildgf_impurity
-  !    module procedure :: rebuildgf_impurity_serial
-  !    module procedure :: rebuildgf_impurity_mpi
-  ! end interface rebuildgf_impurity
-  public :: rebuildGf_impurity
-
-
-
-  ! interface buildChi_impurity
-  !    module procedure :: buildChi_impurity_serial
-  !    module procedure :: buildChi_impurity_mpi
-  ! end interface buildChi_impurity
+  
   public :: buildChi_impurity
 
-  
   public :: ed_greens_functions_set_MPI
 
   public :: ed_greens_functions_del_MPI
-  
+
+
+
   !Lanczos shared variables
   !=========================================================
   real(8),dimension(:),pointer                :: state_vec
@@ -119,30 +102,6 @@ contains
 
 
 
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Interface routine for Green's function calculation
-  !+------------------------------------------------------------------+
-  !   subroutine buildgf_impurity_serial()
-  !     call ed_buildgf()
-  !   end subroutine buildgf_impurity_serial
-  ! #ifdef _MPI
-  !   subroutine buildgf_impurity_mpi(MpiComm)
-  !     integer :: MpiComm
-  !     !
-  !     MPI_RANK = get_Rank_MPI(MpiComm)
-  !     MPI_SIZE = get_Size_MPI(MpiComm)
-  !     MPI_MASTER=get_Master_MPI(MpiComm)
-  !     call ed_matvec_set_MPI(MpiComm)
-  !     call ed_hamiltonian_set_MPI(MpiComm)
-  !     !
-  !     call ed_buildgf()
-  !     !
-  !     call ed_matvec_del_MPI()
-  !     call ed_hamiltonian_del_MPI()
-  !   end subroutine buildgf_impurity_mpi
-  ! #endif  
-
-
 
 
   subroutine buildgf_impurity()
@@ -196,7 +155,7 @@ contains
     invimpGreal=zero
     invimpG0real=zero
     !
-    if(mpi_master) write(LOGfile,"(A)")"Get impurity Greens functions:"
+    if(MPI_MASTER) write(LOGfile,"(A)")"Get impurity Greens functions:"
     select case(ed_mode)
     case default
        call build_gf_normal()
@@ -239,84 +198,25 @@ contains
     if(allocated(impDeltareal))deallocate(impDeltareal)
   end subroutine buildgf_impurity
 
-
-
-
+  !+------------------------------------------------------------------+
+  !                    GREEN'S FUNCTIONS 
+  !+------------------------------------------------------------------+
+  include 'ED_GREENS_FUNCTIONS/build_gf_normal.f90'
+  include 'ED_GREENS_FUNCTIONS/build_gf_superc.f90'
+  include 'ED_GREENS_FUNCTIONS/build_gf_nonsu2.f90'
 
 
 
 
 
   !+------------------------------------------------------------------+
-  !PURPOSE  : Interface routine for Green's function calculation
+  !                    SELF-ENERGY FUNCTIONS 
   !+------------------------------------------------------------------+
-  !   subroutine rebuildgf_impurity_serial()
-  !     call ed_rebuildgf()
-  !   end subroutine rebuildgf_impurity_serial
-  ! #ifdef _MPI
-  !   subroutine rebuildgf_impurity_mpi(MpiComm)
-  !     integer :: MpiComm
-  !     !
-  !     MPI_RANK = get_Rank_MPI(MpiComm)
-  !     MPI_SIZE = get_Size_MPI(MpiComm)
-  !     MPI_MASTER=get_Master_MPI(MpiComm)
-  !     !
-  !     call ed_rebuildgf()
-  !     !
-  !   end subroutine rebuildgf_impurity_mpi
-  ! #endif  
+  include "ED_GREENS_FUNCTIONS/get_sigma_normal.f90"
+  include "ED_GREENS_FUNCTIONS/get_sigma_superc.f90"
+  include "ED_GREENS_FUNCTIONS/get_sigma_nonsu2.f90"
 
 
-
-  subroutine rebuildgf_impurity()
-    if(.not.allocated(impGmats))stop "buildgf_impurity: impGmats not allocated"
-    if(.not.allocated(impGreal))stop "buildgf_impurity: impGreal not allocated"
-    if(.not.allocated(impFmats))stop "buildgf_impurity: impFmats not allocated"
-    if(.not.allocated(impFreal))stop "buildgf_impurity: impFreal not allocated"
-    impGmats=zero
-    impGreal=zero
-    impFmats=zero
-    impFreal=zero
-    !
-    if(.not.allocated(impSmats)) stop "buildgf_impurity: impSmats not allocated"
-    if(.not.allocated(impSreal)) stop "buildgf_impurity: impSreal not allocated"
-    if(.not.allocated(impSAmats))stop "buildgf_impurity: impSAmats not allocated"
-    if(.not.allocated(impSAreal))stop "buildgf_impurity: impSAreal not allocated"    
-    impSmats = zero
-    impSreal = zero
-    impSAmats = zero
-    impSAreal = zero
-    !
-    if(.not.allocated(impG0mats)) stop "buildgf_impurity: impG0mats not allocated"
-    if(.not.allocated(impG0real)) stop "buildgf_impurity: impG0real not allocated"
-    if(.not.allocated(impF0mats)) stop "buildgf_impurity: impF0mats not allocated"
-    if(.not.allocated(impF0real)) stop "buildgf_impurity: impF0real not allocated"
-    impG0mats=zero
-    impG0real=zero
-    impF0mats=zero
-    impF0real=zero
-    !
-    if(.not.allocated(GFpoles))   stop "buildgf_impurity: GFpoles not allocated"
-    if(.not.allocated(GFweights)) stop "buildgf_impurity: GFweights not allocated"
-    GFpoles=zero
-    GFweights=zero
-    !
-    !
-    if(MPI_MASTER) write(LOGfile,"(A)")"Rebuild impurity Greens functions:"
-    select case(ed_mode)
-    case default
-       call rebuild_gf_normal()
-       call get_sigma_normal()
-       if(MPI_MASTER)call print_impSigma_normal()
-    case ("superc")
-       stop "ERROR: rebuild works for ed_mode=normal only"
-    case ("nonsu2")
-       stop "ERROR: rebuild works for ed_mode=normal only"
-    end select
-    !
-    if(allocated(wm))deallocate(wm)
-    if(allocated(wr))deallocate(wr)
-  end subroutine rebuildgf_impurity
 
 
 
@@ -344,29 +244,6 @@ contains
   !+------------------------------------------------------------------+
   ! SUSCEPTIBILITY CALCULATIONS
   !+------------------------------------------------------------------+
-  !+------------------------------------------------------------------+
-  !PURPOSE  : Interface routine for Susceptibility calculation
-  !+------------------------------------------------------------------+
-  !   subroutine buildChi_impurity_serial()
-  !     call ed_buildChi()
-  !   end subroutine buildChi_impurity_serial
-  ! #ifdef _MPI
-  !   subroutine buildChi_impurity_mpi(MpiComm)
-  !     integer :: MpiComm
-  !     !
-  !     MPI_RANK = get_Rank_MPI(MpiComm)
-  !     MPI_SIZE = get_Size_MPI(MpiComm)
-  !     MPI_MASTER=get_Master_MPI(MpiComm)
-  !     call ed_matvec_set_MPI(MpiComm)
-  !     call ed_hamiltonian_set_MPI(MpiComm)
-  !     !
-  !     call ed_buildChi()
-  !     !
-  !     call ed_matvec_del_MPI()
-  !     call ed_hamiltonian_del_MPI()
-  !   end subroutine buildChi_impurity_mpi
-  ! #endif  
-
   subroutine buildChi_impurity()
     integer :: i
     !
@@ -421,32 +298,6 @@ contains
     call deallocate_grids
   end subroutine buildChi_impurity
 
-
-
-
-
-
-
-  !+------------------------------------------------------------------+
-  !                    GREEN'S FUNCTIONS 
-  !+------------------------------------------------------------------+
-  include 'ED_GREENS_FUNCTIONS/build_gf_normal.f90'
-  include 'ED_GREENS_FUNCTIONS/build_gf_superc.f90'
-  include 'ED_GREENS_FUNCTIONS/build_gf_nonsu2.f90'
-
-
-
-
-
-  !+------------------------------------------------------------------+
-  !                    SELF-ENERGY FUNCTIONS 
-  !+------------------------------------------------------------------+
-  include "ED_GREENS_FUNCTIONS/get_sigma_normal.f90"
-  include "ED_GREENS_FUNCTIONS/get_sigma_superc.f90"
-  include "ED_GREENS_FUNCTIONS/get_sigma_nonsu2.f90"
-
-
-
   !+------------------------------------------------------------------+
   !                    SUSCEPTIBILITIES (SPIN, CHARGE, PAIR)
   !+------------------------------------------------------------------+
@@ -454,6 +305,13 @@ contains
   include 'ED_GREENS_FUNCTIONS/build_chi_dens.f90'
   include 'ED_GREENS_FUNCTIONS/build_chi_pair.f90'
 
+
+
+
+
+
+
+  
 
 
 

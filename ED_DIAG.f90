@@ -84,33 +84,6 @@ contains
     call ed_analysis
   end subroutine diagonalize_impurity
 
-  ! #ifdef _MPI
-  !   subroutine diagonalize_impurity_mpi(comm)
-  !     integer :: comm
-  !     !
-  !     MpiComm  = comm
-  !     MpiStatus = .true.
-  !     MPI_SIZE  = get_Size_MPI(MpiComm)
-  !     MPI_MASTER= get_Master_MPI(MpiComm)
-  !     call ed_matvec_set_MPI(comm)
-  !     call ed_hamiltonian_set_MPI(comm)
-  !     !
-  !     select case(ed_type)
-  !     case default
-  !        call ed_diag_d
-  !     case('c')
-  !        call ed_diag_c
-  !     end select
-  !     !
-  !     call ed_analysis
-  !     !
-  !     call ed_matvec_del_MPI()
-  !     call ed_hamiltonian_del_MPI()
-  !     MpiComm=MPI_UNDEFINED
-  !     MpiStatus=.false.
-  !     !
-  !   end subroutine diagonalize_impurity_mpi
-  ! #endif
 
 
 
@@ -189,15 +162,11 @@ contains
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
           eig_values=0d0 ; eig_basis=0d0
           call ed_buildH_d(isector)
-          ! #ifdef _MPI
           if(MpiStatus)then
              call sp_eigh(MpiComm,spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
           else
              call sp_eigh(spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
           endif
-          ! #else
-          !           call sp_eigh(spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
-          ! #endif
        else
           if(allocated(eig_values))deallocate(eig_values)
           if(allocated(eig_basis))deallocate(eig_basis)
