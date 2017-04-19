@@ -12,8 +12,7 @@ module ED_MAIN
   USE ED_OBSERVABLES
   USE ED_DIAG
   USE SF_LINALG
-  USE SF_ARRAYS, only: linspace,arange
-  USE SF_IOTOOLS, only: str,reg,store_data,txtfy,free_unit
+  USE SF_IOTOOLS, only: str
   USE SF_TIMER,only: start_timer,stop_timer
 #ifdef _MPI
   USE MPI
@@ -22,7 +21,9 @@ module ED_MAIN
   implicit none
   private
 
-
+  !
+  !>INIT ED SOLVER
+  !
   interface ed_init_solver
      module procedure :: ed_init_solver_single
      module procedure :: ed_init_solver_lattice
@@ -31,10 +32,13 @@ module ED_MAIN
      module procedure :: ed_init_solver_lattice_mpi
 #endif
   end interface ed_init_solver
+  !>
   public :: ed_init_solver
 
 
-
+  !
+  !> ED SOLVER
+  !
   interface ed_solve
      module procedure :: ed_solve_single
      module procedure :: ed_solve_lattice
@@ -43,8 +47,8 @@ module ED_MAIN
      module procedure :: ed_solve_lattice_mpi
 #endif
   end interface ed_solve
+  !>
   public :: ed_solve
-
 
 
 
@@ -188,7 +192,7 @@ contains
        endif
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
        !
-       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
+       ed_file_suffix="_site"//str(ilat,Npad=4)
        !
        if(present(Hloc))then
           call ed_init_solver_single(bath(ilat,:),Hloc(ilat,:,:,:,:))
@@ -226,7 +230,7 @@ contains
        endif
        if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
        !
-       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
+       ed_file_suffix="_site"//str(ilat,Npad=4)
        !
        if(present(Hloc))then
           call ed_init_solver_single_mpi(MpiComm,bath(ilat,:),Hloc(ilat,:,:,:,:))
@@ -293,10 +297,8 @@ contains
     end select
     !
     spHtimesV_dd => spMatVec_dd
+    spHtimesV_dc => spMatVec_dc
     spHtimesV_cc => spMatVec_cc
-    lanc_spHtimesV_dd => lanc_spMatVec_dd
-    lanc_spHtimesV_dc => lanc_spMatVec_dc
-    lanc_spHtimesV_cc => lanc_spMatVec_cc
     !
     !SOLVE THE QUANTUM IMPURITY PROBLEM:
     call diagonalize_impurity()         !find target states by digonalization of Hamiltonian
@@ -311,10 +313,8 @@ contains
     nullify(ed_buildh_d)
     nullify(ed_buildh_c)
     nullify(spHtimesV_dd)
+    nullify(spHtimesV_dc)
     nullify(spHtimesV_cc)
-    nullify(lanc_spHtimesV_dd)
-    nullify(lanc_spHtimesV_dc)
-    nullify(lanc_spHtimesV_cc)
   end subroutine ed_solve_single
 
 #ifdef _MPI
@@ -356,10 +356,8 @@ contains
     end select
     !
     spHtimesV_dd => spMatVec_MPI_dd
+    spHtimesV_dc => spMatVec_MPI_dc
     spHtimesV_cc => spMatVec_MPI_cc
-    lanc_spHtimesV_dd => lanc_spMatVec_MPI_dd
-    lanc_spHtimesV_dc => lanc_spMatVec_MPI_dc
-    lanc_spHtimesV_cc => lanc_spMatVec_MPI_cc
     !
     !SET THE LOCAL COMMUNICATORS IN ALL THE RELEVANT PARTS OF THE CODE:
     call ed_matvec_set_MPI(MpiComm)
@@ -378,6 +376,7 @@ contains
     call deallocate_dmft_bath(dmft_bath)   
     call es_delete_espace(state_list)
     !
+    !DELETE THE LOCAL COMMUNICATORS IN ALL THE RELEVANT PARTS OF THE CODE:
     call ed_matvec_del_MPI()
     call ed_hamiltonian_del_MPI()
     call ed_diag_del_MPI()
@@ -386,10 +385,8 @@ contains
     nullify(ed_buildh_d)
     nullify(ed_buildh_c)
     nullify(spHtimesV_dd)
+    nullify(spHtimesV_dc)
     nullify(spHtimesV_cc)
-    nullify(lanc_spHtimesV_dd)
-    nullify(lanc_spHtimesV_dc)
-    nullify(lanc_spHtimesV_cc)
   end subroutine ed_solve_single_mpi
 #endif
 
@@ -402,7 +399,6 @@ contains
   !+-----------------------------------------------------------------------------+!
   !                          INEQUIVALENT SITES                                   !
   !+-----------------------------------------------------------------------------+!
-  !FALL BACK: DO A VERSION THAT DOES THE SITES IN PARALLEL USING SERIAL ED CODE
   subroutine ed_solve_lattice(bath,Hloc,iprint,Uloc_ii,Ust_ii,Jh_ii)
     !inputs
     real(8)          :: bath(:,:) ![Nlat][Nb]
@@ -485,9 +481,9 @@ contains
     call start_timer
     !
     do ilat = 1, Nsites
-       write(*,*)" solves site: "//reg(txtfy(ilat,Npad=4))
+       write(*,*)" solves site: "//str(ilat,Npad=4)
        !
-       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
+       ed_file_suffix="_site"//str(ilat,Npad=4)
        !
        !If required set the local value of U per each site
        if(present(Uloc_ii))Uloc(1:Norb) = Uloc_ii(ilat,1:Norb)
@@ -645,9 +641,9 @@ contains
     if(.not.MPI_MASTER)LOGfile = 800+MPI_ID
     !
     do ilat = 1 + MPI_ID, Nsites, MPI_SIZE
-       write(*,*)reg(txtfy(MPI_ID))//" solves site: "//reg(txtfy(ilat,Npad=4))
+       write(*,*)str(MPI_ID)//" solves site: "//str(ilat,Npad=4)
        !
-       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))
+       ed_file_suffix="_site"//str(ilat,Npad=4)
        !
        !If required set the local value of U per each site
        if(present(Uloc_ii))Uloc(1:Norb) = Uloc_ii(ilat,1:Norb)

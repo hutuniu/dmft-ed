@@ -87,13 +87,10 @@ subroutine lanc_ed_build_densChi_diag_d(iorb)
   integer             :: Nitermax
   type(sector_map)    :: HI    !map of the Sector S to Hilbert space H
   !
-  Nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
-  !
-  numstates=state_list%size
   !
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  do izero=1,numstates
+  !
+  do izero=1,state_list%size
      isector     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -113,14 +110,19 @@ subroutine lanc_ed_build_densChi_diag_d(iorb)
      deallocate(HI%map)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
-     alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nitermax)
+     nlanc=min(idim,lanc_nGFiter)
+     allocate(alfa_(nlanc),beta_(nlanc))
+     if(MpiStatus)then
+        call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+     else
+        call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+     endif
      cnorm2=one*norm0
      isign=1
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,iorb)
+     call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,iorb)
      isign=-1
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,iorb)
+     call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,iorb)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
@@ -143,13 +145,10 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
   integer                :: Nitermax
   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
-  Nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
-  !
-  numstates=state_list%size
   !
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  do izero=1,numstates
+  !
+  do izero=1,state_list%size
      isector     =  es_return_sector(state_list,izero)
      idim      =  getdim(isector)
      state_e    =  es_return_energy(state_list,izero)
@@ -170,14 +169,19 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
      deallocate(HI%map)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
-     alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_c(isector)
-     call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nitermax)
+     nlanc=min(idim,lanc_nGFiter)
+     allocate(alfa_(nlanc),beta_(nlanc))
+     if(MpiStatus)then
+        call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+     else
+        call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+     endif
      cnorm2=one*norm0
      isign=1
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,iorb)
+     call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,iorb)
      isign=-1
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,iorb)
+     call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,iorb)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
@@ -207,13 +211,9 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
   integer                :: Nitermax
   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
-  Nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
-  !
-  numstates=state_list%size
-  !
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  do izero=1,numstates
+  !
+  do izero=1,state_list%size
      ! properties of the ground states
      isector     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
@@ -239,15 +239,20 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
      enddo
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
-     alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nitermax)
+     nlanc=min(idim,lanc_nGFiter)
+     allocate(alfa_(nlanc),beta_(nlanc))
+     if(MpiStatus)then
+        call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+     else
+        call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+     endif
      cnorm2=one*norm0
      !particle and holes excitations all at once
      isign=1                    !<---
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
+     call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
      isign=-1                   !<---
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
+     call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
      !
      !build the (N_iorb - xi*N_jorb)|gs> state
      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
@@ -264,12 +269,17 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
      enddo
      norm0=dot_product(cvinit,cvinit)
      cvinit=cvinit/sqrt(norm0)
-     alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nitermax)
+     nlanc=min(idim,lanc_nGFiter)
+     allocate(alfa_(nlanc),beta_(nlanc))
+     if(MpiStatus)then
+        call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+     else
+        call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+     endif
      cnorm2=xi*norm0
      isign=1
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
+     call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
      !
      !build the (N_iorb + xi*N_jorb)|gs> state
      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
@@ -286,12 +296,17 @@ subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
      enddo
      norm0=dot_product(cvinit,cvinit)
      cvinit=cvinit/sqrt(norm0)
-     alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nitermax)
+     nlanc=min(idim,lanc_nGFiter)
+     allocate(alfa_(nlanc),beta_(nlanc))
+     if(MpiStatus)then
+        call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+     else
+        call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+     endif
      cnorm2=xi*norm0
      isign=-1
-     call add_to_lanczos_densChi(cnorm2,state_e,nitermax,alfa_,beta_,isign,iorb,jorb)
+     call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
      deallocate(vvinit)
      deallocate(HI%map)
      if(spH0%status)call sp_delete_matrix(spH0)
@@ -324,13 +339,10 @@ subroutine lanc_ed_build_densChi_tot_d()
   integer             :: Nitermax
   type(sector_map)    :: HI    !map of the Sector S to Hilbert space H
   !
-  Nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
-  !
-  numstates=state_list%size
   !
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  do izero=1,numstates
+  !
+  do izero=1,state_list%size
      isector     =  es_return_sector(state_list,izero)
      state_e    =  es_return_energy(state_list,izero)
      state_vec  => es_return_vector(state_list,izero)
@@ -350,14 +362,19 @@ subroutine lanc_ed_build_densChi_tot_d()
      deallocate(HI%map)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
-     alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_d(isector)
-     call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nitermax)
+     nlanc=min(idim,lanc_nGFiter)
+     allocate(alfa_(nlanc),beta_(nlanc))
+     if(MpiStatus)then
+        call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+     else
+        call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+     endif
      cnorm2=one*norm0
      isign=1
-     call add_to_lanczos_densChi_tot(cnorm2,state_e,nitermax,alfa_,beta_,isign)
+     call add_to_lanczos_densChi_tot(cnorm2,state_e,alfa_,beta_,isign)
      isign=-1
-     call add_to_lanczos_densChi_tot(cnorm2,state_e,nitermax,alfa_,beta_,isign)     
+     call add_to_lanczos_densChi_tot(cnorm2,state_e,alfa_,beta_,isign)     
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_vec)
@@ -380,13 +397,9 @@ subroutine lanc_ed_build_densChi_tot_c()
   integer                :: Nitermax
   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
-  Nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
-  !
-  numstates=state_list%size
-  !
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  do izero=1,numstates
+  !
+  do izero=1,state_list%size
      isector     =  es_return_sector(state_list,izero)
      idim      =  getdim(isector)
      state_e    =  es_return_energy(state_list,izero)
@@ -407,14 +420,19 @@ subroutine lanc_ed_build_densChi_tot_c()
      deallocate(HI%map)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
-     alfa_=0.d0 ; beta_=0.d0 ; nlanc=0
      call ed_buildH_c(isector)
-     call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nitermax)
+     nlanc=min(idim,lanc_nGFiter)
+     allocate(alfa_(nlanc),beta_(nlanc))
+     if(MpiStatus)then
+        call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+     else
+        call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+     endif
      cnorm2=one*norm0
      isign=1
-     call add_to_lanczos_densChi_tot(cnorm2,state_e,nitermax,alfa_,beta_,isign)
+     call add_to_lanczos_densChi_tot(cnorm2,state_e,alfa_,beta_,isign)
      isign=-1
-     call add_to_lanczos_densChi_tot(cnorm2,state_e,nitermax,alfa_,beta_,isign)
+     call add_to_lanczos_densChi_tot(cnorm2,state_e,alfa_,beta_,isign)
      deallocate(vvinit)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
@@ -455,20 +473,16 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
   complex(8)          :: cnorm2
   integer             :: Nitermax,Nlanc
   !
-  Nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
-  !
-  numstates=state_list%size
   !   
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  do istate=1,numstates
+  !
+  do istate=1,state_list%size
      isector    =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
      state_vec  => es_return_vector(state_list,istate)
      norm0=sqrt(dot_product(state_vec,state_vec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
-
      call build_sector(isector,HI)
      !
      !+- Apply Sum_ispin c^dg_{jorb,ispin} c_{iorb,ispin} -+!
@@ -511,11 +525,16 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
         !
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
         call ed_buildH_d(ksector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(kdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_densChi_mix(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb)
+        call add_to_lanczos_densChi_mix(cnorm2,state_e,alfa_,beta_,1,iorb,jorb)
         deallocate(vvinit)
      enddo
      !
@@ -560,11 +579,16 @@ subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
         !
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=nitermax
         call ed_buildH_d(ksector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(kdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_densChi_mix(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb)
+        call add_to_lanczos_densChi_mix(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb)
         deallocate(vvinit)
      enddo
      !
@@ -589,24 +613,29 @@ end subroutine lanc_ed_build_densChi_mix_d
 !+------------------------------------------------------------------+
 !PURPOSE  : 
 !+------------------------------------------------------------------+
-subroutine add_to_lanczos_densChi(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb)
+subroutine add_to_lanczos_densChi(vnorm2,Ei,alanc,blanc,isign,iorb,jorb)
   integer                                    :: iorb,jorb,isign
   complex(8)                                 :: pesoF,pesoAB,pesoBZ,peso,vnorm2  
   real(8)                                    :: Ei,Ej,Egs,de
   integer                                    :: nlanc
-  real(8),dimension(nlanc)                   :: alanc,blanc 
+  real(8),dimension(:)                       :: alanc
+  real(8),dimension(size(alanc))             :: blanc 
   real(8),dimension(size(alanc),size(alanc)) :: Z
   real(8),dimension(size(alanc))             :: diag,subdiag
   integer                                    :: i,j,ierr
   complex(8)                                 :: iw,chisp
   !
-  Egs    = state_list%emin
+  Egs = state_list%emin       !get the gs energy
+  !
+  Nlanc = size(alanc)
+  !
   pesoF  = vnorm2/zeta_function 
   pesoBZ = 1d0
   if(finiteT)pesoBZ = exp(-beta*(Ei-Egs))
   !
-  diag=0.d0 ; subdiag=0.d0 ; Z=0.d0
-  forall(i=1:Nlanc)Z(i,i)=1.d0
+  diag             = 0.d0
+  subdiag          = 0.d0
+  Z                = eye(Nlanc)
   diag(1:Nlanc)    = alanc(1:Nlanc)
   subdiag(2:Nlanc) = blanc(2:Nlanc)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
@@ -657,57 +686,34 @@ subroutine add_to_lanczos_densChi(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb)
   case default
      stop "add_to_lanczos_densChi: isign not in {-1,1}"
   end select
-
-  ! do j=1,nlanc
-  !    Ej     = diag(j)
-  !    dE     = Ej-Ei
-  !    pesoAB = Z(1,j)*Z(1,j)
-  !    peso   = pesoF*pesoAB*pesoBZ
-  !    !Matsubara:
-  !    !treat separately the first bosonic Matsubara freq.
-  !    if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
-  !       densChi_iv(iorb,jorb,0)=densChi_iv(iorb,jorb,0) + peso*2*beta
-  !    else
-  !       densChi_iv(iorb,jorb,0)=densChi_iv(iorb,jorb,0) + peso*2*(1d0-exp(-beta*dE))/dE !there is a factor 2 we do not know
-  !    endif
-  !    do i=1,Lmats
-  !       densChi_iv(iorb,jorb,i)=densChi_iv(iorb,jorb,i) + peso*2*dE/(vm(i)**2+dE**2)
-  !    enddo
-  !    !Imag. time:
-  !    do i=0,Ltau
-  !       densChi_tau(iorb,jorb,i)=densChi_tau(iorb,jorb,i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
-  !    enddo
-  !    !Real freq.: misses a factor 2
-  !    ![ (exp(-beta*DeltaE)-1)/(w+xi*eta - DeltaE) + (1-exp(-beta*DeltaE))/(w+xi*eta + DeltaE) ]
-  !    ! The second term is missing: does it contribute only to w<0? I guess so...
-  !    do i=1,Lreal
-  !       densChi_w(iorb,jorb,i)=densChi_w(iorb,jorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
-  !       !densChi_w(iorb,jorb,i)=densChi_w(iorb,jorb,i) + peso*(1.d0-exp(-beta*de))/(dcmplx(wr(i),eps)+de)
-  !    enddo
-  ! enddo
 end subroutine add_to_lanczos_densChi
 
 
 
 
-subroutine add_to_lanczos_densChi_mix(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb)
+subroutine add_to_lanczos_densChi_mix(vnorm2,Ei,alanc,blanc,isign,iorb,jorb)
   integer                                    :: iorb,jorb,isign
   complex(8)                                 :: pesoF,pesoAB,pesoBZ,peso,vnorm2  
   real(8)                                    :: Ei,Ej,Egs,de
   integer                                    :: nlanc
-  real(8),dimension(nlanc)                   :: alanc,blanc 
+  real(8),dimension(:)                       :: alanc
+  real(8),dimension(size(alanc))             :: blanc 
   real(8),dimension(size(alanc),size(alanc)) :: Z
   real(8),dimension(size(alanc))             :: diag,subdiag
   integer                                    :: i,j,ierr
   complex(8)                                 :: iw,chisp
   !
-  Egs    = state_list%emin
+  Egs = state_list%emin       !get the gs energy
+  !
+  Nlanc = size(alanc)
+  !
   pesoF  = vnorm2/zeta_function 
   pesoBZ = 1d0
   if(finiteT)pesoBZ = exp(-beta*(Ei-Egs))
   !
-  diag=0.d0 ; subdiag=0.d0 ; Z=0.d0
-  forall(i=1:Nlanc)Z(i,i)=1.d0
+  diag             = 0.d0
+  subdiag          = 0.d0
+  Z                = eye(Nlanc)
   diag(1:Nlanc)    = alanc(1:Nlanc)
   subdiag(2:Nlanc) = blanc(2:Nlanc)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
@@ -758,75 +764,32 @@ subroutine add_to_lanczos_densChi_mix(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jor
   case default
      stop "add_to_lanczos_densChi_mix: isign not in {-1,1}"
   end select
-
-
-
-  ! do j=1,nlanc
-  !    Ej     = diag(j)
-  !    dE     = Ej-Ei
-  !    pesoAB = Z(1,j)*Z(1,j)
-  !    peso   = pesoF*pesoAB*pesoBZ
-  !    !Matsubara:
-  !    !treat separately the first bosonic Matsubara freq.
-  !    if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
-  !       densChi_mix_iv(iorb,jorb,0)=densChi_mix_iv(iorb,jorb,0) + peso*2*beta
-  !    else
-  !       densChi_mix_iv(iorb,jorb,0)=densChi_mix_iv(iorb,jorb,0) + peso*2*(1d0-exp(-beta*dE))/dE !there is a factor 2 we do not know
-  !    endif
-  !    do i=1,Lmats
-  !       densChi_mix_iv(iorb,jorb,i)=densChi_mix_iv(iorb,jorb,i) + peso*2*dE/(vm(i)**2+dE**2)
-  !    enddo
-  !    !Imag. time:
-  !    do i=0,Ltau
-  !       densChi_mix_tau(iorb,jorb,i)=densChi_mix_tau(iorb,jorb,i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
-  !    enddo
-  !    !Real freq.: misses a factor 2
-  !    ![ (exp(-beta*DeltaE)-1)/(w+xi*eta - DeltaE) + (1-exp(-beta*DeltaE))/(w+xi*eta + DeltaE) ]
-  !    ! The second term is missing: does it contribute only to w<0? I guess so...
-  !    do i=1,Lreal
-  !       densChi_mix_w(iorb,jorb,i)=densChi_mix_w(iorb,jorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
-  !       !densChi_mix_w(iorb,jorb,i)=densChi_mix_w(iorb,jorb,i) + peso*(1.d0-exp(-beta*de))/(dcmplx(wr(i),eps)+de)
-  !    enddo
-  !    !>DEBUG: GIACOMO 1st IMPLEMENTATION
-  !    !    do i=1,Lreal
-  !    !       !denschi_w(iorb,jorb,i)=denschi_w(iorb,jorb,i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
-  !    !       denschi_mix_w(iorb,jorb,i)=denschi_mix_w(iorb,jorb,i) + isign*peso/(dcmplx(wr(i),eps)-isign*dE)           
-  !    !    enddo
-  !    !    if(iorb.ne.jorb) then
-  !    !       write(777,*) j,dE
-  !    !    else
-  !    !       write(776,*) j,dE
-  !    !    end if
-  !    !<DEBUG: GIACOMO 1st IMPLEMENTATION
-  ! enddo
-  ! !>DEBUG: GIACOMO 1st IMPLEMENTATION
-  ! ! if(iorb.ne.jorb) then
-  ! !    write(777,*) 
-  ! ! else
-  ! !    write(776,*) 
-  ! ! end if
-  ! !<DEBUG: GIACOMO 1st IMPLEMENTATION
 end subroutine add_to_lanczos_densChi_mix
 
 
 
-subroutine add_to_lanczos_densChi_tot(vnorm2,Ei,nlanc,alanc,blanc,isign)
+subroutine add_to_lanczos_densChi_tot(vnorm2,Ei,alanc,blanc,isign)
   complex(8)                                 :: pesoF,pesoAB,pesoBZ,peso,vnorm2  
   real(8)                                    :: Ei,Ej,Egs,de
   integer                                    :: nlanc,isign
-  real(8),dimension(nlanc)                   :: alanc,blanc 
+  real(8),dimension(:)                       :: alanc
+  real(8),dimension(size(alanc))             :: blanc 
   real(8),dimension(size(alanc),size(alanc)) :: Z
   real(8),dimension(size(alanc))             :: diag,subdiag
   integer                                    :: i,j,ierr
   complex(8)                                 :: iw,chisp
   !
-  Egs    = state_list%emin
+  Egs = state_list%emin       !get the gs energy
+  !
+  Nlanc = size(alanc)
+  !
   pesoF  = vnorm2/zeta_function 
   pesoBZ = 1d0
   if(finiteT)pesoBZ = exp(-beta*(Ei-Egs))
   !
-  diag=0.d0 ; subdiag=0.d0 ; Z=0.d0
-  forall(i=1:Nlanc)Z(i,i)=1.d0
+  diag             = 0.d0
+  subdiag          = 0.d0
+  Z                = eye(Nlanc)
   diag(1:Nlanc)    = alanc(1:Nlanc)
   subdiag(2:Nlanc) = blanc(2:Nlanc)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
@@ -878,33 +841,5 @@ subroutine add_to_lanczos_densChi_tot(vnorm2,Ei,nlanc,alanc,blanc,isign)
      stop "add_to_lanczos_densChi_tot: isign not in {-1,1}"
   end select
 
-
-  ! do j=1,nlanc
-  !    Ej     = diag(j)
-  !    dE     = Ej-Ei
-  !    pesoAB = Z(1,j)*Z(1,j)
-  !    peso   = pesoF*pesoAB*pesoBZ
-  !    !Matsubara:
-  !    !treat separately the first bosonic Matsubara freq.
-  !    if(beta*dE < 1d-1)then     !abs(X - (1-exp(-X)) is about 5*10^-3 for X<10^-1 this is a satisfactory bound
-  !       densChi_tot_iv(0)=densChi_tot_iv(0) + peso*2*beta
-  !    else
-  !       densChi_tot_iv(0)=densChi_tot_iv(0) + peso*2*(1d0-exp(-beta*dE))/dE !there is a factor 2 we do not know
-  !    endif
-  !    do i=1,Lmats
-  !       densChi_tot_iv(i)=densChi_tot_iv(i) + peso*2*dE/(vm(i)**2+dE**2)
-  !    enddo
-  !    !Imag. time:
-  !    do i=0,Ltau
-  !       densChi_tot_tau(i)=densChi_tot_tau(i) + peso*(exp(-tau(i)*de)+exp(-(beta-tau(i))*de))
-  !    enddo
-  !    !Real freq.: misses a factor 2
-  !    ![ (exp(-beta*DeltaE)-1)/(w+xi*eta - DeltaE) + (1-exp(-beta*DeltaE))/(w+xi*eta + DeltaE) ]
-  !    ! The second term is missing: does it contribute only to w<0? I guess so...
-  !    do i=1,Lreal
-  !       densChi_tot_w(i)=densChi_tot_w(i) + peso*(exp(-beta*de)-1.d0)/(dcmplx(wr(i),eps)-de)
-  !       !densChi_tot_w(i)=densChi_tot_w(i) + peso*(1.d0-exp(-beta*de))/(dcmplx(wr(i),eps)+de)
-  !    enddo
-  ! enddo
 end subroutine add_to_lanczos_densChi_tot
 

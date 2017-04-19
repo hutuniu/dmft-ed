@@ -9,9 +9,9 @@
 MODULE ED_GREENS_FUNCTIONS
   USE SF_CONSTANTS, only:one,xi,zero,pi
   USE SF_TIMER  
-  USE SF_IOTOOLS, only: free_unit,reg,free_units,txtfy,splot
+  USE SF_IOTOOLS, only: str,free_unit,reg,free_units,txtfy,splot
   USE SF_ARRAYS,  only: arange,linspace
-  USE SF_LINALG,  only: inv,inv_sym,inv_her
+  USE SF_LINALG,  only: inv,inv_sym,inv_her,eye
   USE SF_SP_LINALG, only: sp_lanc_tridiag
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
@@ -33,7 +33,7 @@ MODULE ED_GREENS_FUNCTIONS
 
 
   public :: buildGf_impurity
-  
+
   public :: buildChi_impurity
 
   public :: ed_greens_functions_set_MPI
@@ -61,11 +61,13 @@ MODULE ED_GREENS_FUNCTIONS
   !AUX GF
   !=========================================================
   complex(8),allocatable,dimension(:,:)       :: auxGmats,auxGreal
-  complex(8),allocatable,dimension(:,:,:)     :: auxGpoles,auxGweights
+  ! complex(8),allocatable,dimension(:,:,:)   :: auxGpoles,auxGweights
 
 
 #ifdef _MPI
   integer                                     :: MpiComm=MPI_UNDEFINED
+#else
+  integer                                     :: MpiComm=0
 #endif
   logical                                     :: MpiStatus=.false.  
   integer                                     :: MPI_RANK=0
@@ -96,6 +98,9 @@ contains
 #ifdef _MPI
     MpiComm  = MPI_UNDEFINED
     MpiStatus = .false.
+    MPI_RANK=0
+    MPI_SIZE=1
+    MPI_MASTER=.true.
 #endif
   end subroutine ed_greens_functions_del_MPI
 
@@ -107,40 +112,26 @@ contains
   subroutine buildgf_impurity()
     if(.not.allocated(wm))allocate(wm(Lmats))
     if(.not.allocated(wr))allocate(wr(Lreal))
-    wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
+    wm     = pi/beta*dble(2*arange(1,Lmats)-1)
     wr     = linspace(wini,wfin,Lreal)
     !
-    if(.not.allocated(impGmats))stop "buildgf_impurity: impGmats not allocated"
-    if(.not.allocated(impGreal))stop "buildgf_impurity: impGreal not allocated"
-    if(.not.allocated(impFmats))stop "buildgf_impurity: impFmats not allocated"
-    if(.not.allocated(impFreal))stop "buildgf_impurity: impFreal not allocated"
     impGmats=zero
     impGreal=zero
     impFmats=zero
     impFreal=zero
     !
-    if(.not.allocated(impSmats)) stop "buildgf_impurity: impSmats not allocated"
-    if(.not.allocated(impSreal)) stop "buildgf_impurity: impSreal not allocated"
-    if(.not.allocated(impSAmats))stop "buildgf_impurity: impSAmats not allocated"
-    if(.not.allocated(impSAreal))stop "buildgf_impurity: impSAreal not allocated"    
     impSmats = zero
     impSreal = zero
     impSAmats = zero
     impSAreal = zero
     !
-    if(.not.allocated(impG0mats)) stop "buildgf_impurity: impG0mats not allocated"
-    if(.not.allocated(impG0real)) stop "buildgf_impurity: impG0real not allocated"
-    if(.not.allocated(impF0mats)) stop "buildgf_impurity: impF0mats not allocated"
-    if(.not.allocated(impF0real)) stop "buildgf_impurity: impF0real not allocated"
     impG0mats=zero
     impG0real=zero
     impF0mats=zero
     impF0real=zero
     !
-    if(.not.allocated(GFpoles))   stop "buildgf_impurity: GFpoles not allocated"
-    if(.not.allocated(GFweights)) stop "buildgf_impurity: GFweights not allocated"
-    GFpoles=zero
-    GFweights=zero
+    ! GFpoles=zero
+    ! GFweights=zero
     !
     if(.not.allocated(impDeltamats)) allocate(impDeltamats(Nspin,Nspin,Norb,Norb,Lmats))
     if(.not.allocated(invimpG0mats)) allocate(invimpG0mats(Nspin,Nspin,Norb,Norb,Lmats))
@@ -171,17 +162,17 @@ contains
     if(mpi_master)then
        select case(ed_mode)
        case default
-          call print_poles_weights_normal()
+          ! call print_poles_weights_normal()
           call print_impSigma_normal()
           call print_impG_normal()
           call print_impG0_normal()
        case ("superc")
-          call print_poles_weights_superc()
+          ! call print_poles_weights_superc()
           call print_impSigma_superc()
           call print_impG_superc()
           call print_impG0_superc()
        case ("nonsu2")
-          call print_poles_weights_nonsu2()
+          ! call print_poles_weights_nonsu2()
           call print_impSigma_nonsu2()
           call print_impG_nonsu2()
           call print_impG0_nonsu2()
@@ -311,7 +302,7 @@ contains
 
 
 
-  
+
 
 
 

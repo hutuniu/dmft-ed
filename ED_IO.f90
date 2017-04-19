@@ -362,16 +362,16 @@ MODULE ED_IO
      module procedure :: ed_print_impG_lattice
   end interface ed_print_impG
 
-  public :: ed_print_PolesWeights
+  ! public :: ed_print_PolesWeights
   public :: ed_print_impSigma
   public :: ed_print_impG
   public :: ed_print_impG0
   public :: ed_print_impChi
 
   !FOR INTERNAL USE ONLY:
-  public :: print_poles_weights_normal
-  public :: print_poles_weights_superc
-  public :: print_poles_weights_nonsu2
+  ! public :: print_poles_weights_normal
+  ! public :: print_poles_weights_superc
+  ! public :: print_poles_weights_nonsu2
   !
   public :: print_impSigma_normal
   public :: print_impSigma_superc
@@ -420,18 +420,18 @@ contains
   ! - impG0
   ! NORMAL - SUPERConducting - NONSU2
   !+------------------------------------------------------------------+
-  subroutine ed_print_PolesWeights
-    select case(ed_mode)
-    case ("normal")
-       call print_poles_weights_normal
-    case ("superc")
-       call print_poles_weights_superc
-    case ("nonsu2")
-       call print_poles_weights_nonsu2
-    case default
-       stop "ed_print_PolesWeights error: ed_mode not in the list"
-    end select
-  end subroutine ed_print_PolesWeights
+  ! subroutine ed_print_PolesWeights
+  !   select case(ed_mode)
+  !   case ("normal")
+  !      call print_poles_weights_normal
+  !   case ("superc")
+  !      call print_poles_weights_superc
+  !   case ("nonsu2")
+  !      call print_poles_weights_nonsu2
+  !   case default
+  !      stop "ed_print_PolesWeights error: ed_mode not in the list"
+  !   end select
+  ! end subroutine ed_print_PolesWeights
 
 
   subroutine ed_print_impSigma_single
@@ -518,7 +518,7 @@ contains
 
 
 
-  include "ED_IO/print_PolesWeights.f90"
+  ! include "ED_IO/print_PolesWeights.f90"
   include "ED_IO/print_impSigma.f90"
   include "ED_IO/print_impG.f90"
   include "ED_IO/print_impG0.f90"
@@ -612,7 +612,7 @@ contains
     endif
     !
     dm_eig_=0.0d0;dm_rot_=zero;dm_rot_=dm_
-    call matrix_diagonalize(dm_rot_,dm_eig_,'V','U')
+    call eigh(dm_rot_,dm_eig_,'V','U')
     !
     unit = free_unit()
     open(unit,file="imp_density_matrix.dat",action="write",position="rewind",status='unknown')
@@ -666,14 +666,14 @@ contains
     endif
     close(unit)
     !
-  !  if(ed_verbose<1) then
-  !     Tr=zero;Tr=trace(dm_)
-  !     write(LOGfile,'(A25,6F15.7)') 'test #1: Tr[rho]:    ',real(Tr),aimag(Tr)
-  !     Tr=zero;Tr=trace(matmul(dm_,dm_))
-  !     write(LOGfile,'(A25,6F15.7)') 'test #2: Tr[rho^2]:  ',real(Tr),aimag(Tr)
-  !     Tr=zero;Tr=sum(dm_eig_)
-  !     write(LOGfile,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
-  !  endif
+    !  if(ed_verbose<1) then
+    !     Tr=zero;Tr=trace(dm_)
+    !     write(LOGfile,'(A25,6F15.7)') 'test #1: Tr[rho]:    ',real(Tr),aimag(Tr)
+    !     Tr=zero;Tr=trace(matmul(dm_,dm_))
+    !     write(LOGfile,'(A25,6F15.7)') 'test #2: Tr[rho^2]:  ',real(Tr),aimag(Tr)
+    !     Tr=zero;Tr=sum(dm_eig_)
+    !     write(LOGfile,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
+    !  endif
   end subroutine ed_get_density_matrix
 
 
@@ -731,8 +731,8 @@ contains
     write(unit_,*)
     write(unit_,'(30(a20,1X))')"#1-Re{Tr[Sx]}","2-Im{Tr[Sx]}","3-Re{Tr[Sy]}","4-Im{Tr[Sy]}","5-Re{Tr[Sz]}","6-Im{Tr[Sz]}"
     write(unit_,'(30(F20.12,1X))') real(trace(impStot(1,:,:))),aimag(trace(impStot(1,:,:))),&
-                                   real(trace(impStot(2,:,:))),aimag(trace(impStot(2,:,:))),&
-                                   real(trace(impStot(3,:,:))),aimag(trace(impStot(3,:,:)))
+         real(trace(impStot(2,:,:))),aimag(trace(impStot(2,:,:))),&
+         real(trace(impStot(3,:,:))),aimag(trace(impStot(3,:,:)))
     close(unit_)
     !
     !   IMPURITY ORBITAL ANGULAR MOMENTUM OPERATOR - (L)
@@ -756,8 +756,8 @@ contains
     write(unit_,*)
     write(unit_,'(30(a20,1X))')"#1-Re{Tr[Lx]}","2-Im{Tr[Lx]}","3-Re{Tr[Ly]}","4-Im{Tr[ly]}","5-Re{Tr[Lz]}","6-Im{Tr[Lz]}"
     write(unit_,'(30(F20.12,1X))') real(trace(impLtot(1,:,:))),aimag(trace(impLtot(1,:,:))),&
-                                   real(trace(impLtot(2,:,:))),aimag(trace(impLtot(2,:,:))),&
-                                   real(trace(impLtot(3,:,:))),aimag(trace(impLtot(3,:,:)))
+         real(trace(impLtot(2,:,:))),aimag(trace(impLtot(2,:,:))),&
+         real(trace(impLtot(3,:,:))),aimag(trace(impLtot(3,:,:)))
     close(unit_)
     !
     !   IMPURITY TOTAL ANGULAR MOMENTUM OPERATOR - (J = S + L)
@@ -766,10 +766,10 @@ contains
     open(unit=unit_,file='J_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
     write(unit_,'(30(a20,1X))') "#1-Re{jx}","2-Im{jx}","3-Re{jy}","4-Im{jy}","5-Re{jz}","6-Im{jz}","7-|jx|^2","8-|jy|^2","9-|jz|^2","10-|j|^2","11-Re{L.S}","12-Im{L.S}"
     write(unit_,'(30(F20.12,1X))') real(impj_aplha(1)),aimag(impj_aplha(1)), &
-                                   real(impj_aplha(2)),aimag(impj_aplha(2)), &
-                                   real(impj_aplha(3)),aimag(impj_aplha(3)), &
-                                   jxsq,jysq,jzsq,Jsq                      , &
-                                   real(impLdotS),aimag(impLdotS)
+         real(impj_aplha(2)),aimag(impj_aplha(2)), &
+         real(impj_aplha(3)),aimag(impj_aplha(3)), &
+         jxsq,jysq,jzsq,Jsq                      , &
+         real(impLdotS),aimag(impLdotS)
     close(unit_)
     !
   end subroutine ed_get_quantum_SOC_operators

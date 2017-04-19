@@ -89,6 +89,8 @@ end subroutine build_gf_normal
 
 
 
+
+
 !+------------------------------------------------------------------+
 !PURPOSE  : DOUBLE PRECISION
 !+------------------------------------------------------------------+
@@ -105,15 +107,11 @@ subroutine lanc_build_gf_normal_d(iorb,ispin)
   integer                          :: Nitermax,Nlanc
   type(sector_map)                  :: HI,HJ
   !
-  Nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
-  !
   isite=impIndex(iorb,ispin)
   !
-  numstates=state_list%size
-  !   
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  do istate=1,numstates
+  !
+  do istate=1,state_list%size
      isector    =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
      state_vec  => es_return_vector(state_list,istate)
@@ -142,12 +140,16 @@ subroutine lanc_build_gf_normal_d(iorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,iorb,iorb,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -171,12 +173,17 @@ subroutine lanc_build_gf_normal_d(iorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -185,155 +192,8 @@ subroutine lanc_build_gf_normal_d(iorb,ispin)
      !
   enddo
   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
-  deallocate(alfa_,beta_)
 end subroutine lanc_build_gf_normal_d
 
-
-
-!+------------------------------------------------------------------+
-!PURPOSE  : DOUBLE PRECISION
-!+------------------------------------------------------------------+
-subroutine nu_lanc_build_gf_normal_d(iorb,ispin)
-  real(8),allocatable :: vvinit(:)
-  integer             :: iorb,ispin,isite,istate
-  integer             :: idim,isector
-  integer             :: jdim,jsector
-  integer             :: ib(Nlevels)
-  integer             :: m,i,j,r
-  real(8)             :: sgn,norm2
-  complex(8)          :: cnorm2
-  integer             :: Nlanc,Nitermax,Neigen,Nblock
-  real(8),allocatable :: eig_val(:)
-  real(8),allocatable :: eig_vec(:,:)
-  type(sector_map)    :: HI,HJ
-  !
-  isite=impIndex(iorb,ispin)
-  !
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  !
-  do istate=1,state_list%size
-     isector    =  es_return_sector(state_list,istate)
-     state_e    =  es_return_energy(state_list,istate)
-     state_vec  => es_return_vector(state_list,istate)
-     !
-     if(abs(sqrt(dot_product(state_vec,state_vec))-1d0)>1.d-9)stop "GS is not normalized"
-     !
-     idim  = getdim(isector)
-     call build_sector(isector,HI)
-     !
-     !
-     !ADD ONE PARTICLE:
-     jsector = getCDGsector(ispin,isector)
-     if(jsector/=0)then
-        !
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")' add particle:',getnup(jsector),getndw(jsector)
-        !
-        call build_sector(jsector,HJ)
-        !
-        jdim  = getdim(jsector)
-        allocate(vvinit(jdim));vvinit=0d0
-        !
-        do m=1,idim
-           i=HI%map(m)
-           ib = bdecomp(i,2*Ns)
-           if(ib(isite)==0)then
-              call cdg(isite,i,r,sgn)
-              j=binary_search(HJ%map,r)
-              vvinit(j) = sgn*state_vec(m)
-           endif
-        enddo
-        deallocate(HJ%map)
-        norm2=dot_product(vvinit,vvinit)
-        vvinit=vvinit/sqrt(norm2)
-        !
-        !Setup the Eigvalues and Eigvector to store info:
-        Nlanc    = min(jdim,lanc_nGFiter)
-        Nitermax = Nlanc
-        Neigen   = 1
-        Nblock   = min(jdim,2*Neigen + 1)
-        if(allocated(eig_val))deallocate(eig_val)
-        if(allocated(eig_vec))deallocate(eig_vec)
-        allocate(eig_val(Neigen))      ; eig_val=0d0
-        allocate(eig_vec(Nlanc,Neigen)) ; eig_vec=0d0
-        if(MpiStatus)then
-           call sp_eigh(MpiComm,spHtimesV_dd,Nlanc,Neigen,Nblock,Nitermax,eig_val,eig_vec,tol=lanc_tolerance,v0=vvinit)
-        else
-           call sp_eigh(spHtimesV_dd,Nlanc,Neigen,Nblock,Nitermax,eig_val,eig_vec,tol=lanc_tolerance,v0=vvinit)
-        endif
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal_bis(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin)
-
-
-
-
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
-        call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin)
-        deallocate(vvinit)
-        if(spH0%status)call sp_delete_matrix(spH0)
-     endif
-
-     !REMOVE ONE PARTICLE:
-     jsector = getCsector(ispin,isector)
-     if(jsector/=0)then
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")' del particle:',getnup(jsector),getndw(jsector)
-        jdim  = getdim(jsector)
-        allocate(vvinit(jdim))
-        call build_sector(jsector,HJ)
-        vvinit=0d0
-        do m=1,idim
-           i=HI%map(m)
-           ib = bdecomp(i,2*Ns)
-           if(ib(isite)==1)then
-              call c(isite,i,r,sgn)
-              j=binary_search(HJ%map,r)
-              vvinit(j) = sgn*state_vec(m)
-           endif
-        enddo
-        deallocate(HJ%map)
-        norm2=dot_product(vvinit,vvinit)
-        vvinit=vvinit/sqrt(norm2)
-        !
-        !Build H in the Isector
-        call ed_buildH_d(isector)
-
-        !Setup the Eigvalues and Eigvector to store info:
-        Neigen   = 1
-        Nitermax = min(dim,lanc_nGFiter)
-        Nblock   = min(dim,2*Neigen + 1)
-        if(allocated(eig_values))deallocate(eig_values)
-        if(allocated(eig_vector))deallocate(eig_vector)
-        allocate(eig_values(Neigen),eig_vector(iDim,Neigen))
-        eig_values=0d0 ; eig_vector=0d0
-        if(MpiStatus)then
-           call sp_eigh(MpiComm,spHtimesV_dd,iDim,Neigen,Nblock,Nitermax,eig_values,eig_vector,tol=lanc_tolerance,v0=vvinit)
-        else
-           call sp_eigh(spHtimesV_dd,iDim,Neigen,Nblock,Nitermax,eig_values,eig_vector,tol=lanc_tolerance,v0=vvinit)
-        endif
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal_bis(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin)
-
-        ! alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
-        ! call ed_buildH_d(jsector)
-        ! call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        ! cnorm2=one*norm2
-        ! call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin)
-
-
-
-        deallocate(vvinit)
-        if(spH0%status)call sp_delete_matrix(spH0)
-     endif
-     !
-     nullify(state_vec)
-     deallocate(HI%map)
-     !
-  enddo
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
-  deallocate(alfa_,beta_)
-end subroutine nu_lanc_build_gf_normal_d
 
 
 
@@ -356,15 +216,11 @@ subroutine lanc_build_gf_normal_c(iorb,ispin)
   integer                          :: Nitermax,Nlanc
   type(sector_map)                 :: HI,HJ
   !
-  Nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
-  !
   isite=impIndex(iorb,ispin)
   !
-  numstates=state_list%size
-  !   
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  do istate=1,numstates
+  !
+  do istate=1,state_list%size
      isector    =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
      state_cvec => es_return_cvector(state_list,istate)
@@ -393,12 +249,16 @@ subroutine lanc_build_gf_normal_c(iorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,iorb,iorb,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -423,12 +283,16 @@ subroutine lanc_build_gf_normal_c(iorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -437,7 +301,6 @@ subroutine lanc_build_gf_normal_c(iorb,ispin)
      !
   enddo
   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
-  deallocate(alfa_,beta_)
 end subroutine lanc_build_gf_normal_c
 
 
@@ -462,15 +325,12 @@ subroutine lanc_build_gf_normal_mix_d(iorb,jorb,ispin)
   integer                          :: Nitermax,Nlanc
   type(sector_map)                 :: HI,HJ
   !
-  Nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
   isite=impIndex(iorb,ispin)  !orbital 1
   jsite=impIndex(jorb,ispin)  !orbital 2
   !
-  numstates=state_list%size
-  !   
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  do istate=1,numstates
+  !
+  do istate=1,state_list%size
      isector    =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
      state_vec  => es_return_vector(state_list,istate)
@@ -480,7 +340,6 @@ subroutine lanc_build_gf_normal_mix_d(iorb,jorb,ispin)
      idim  = getdim(isector)
      call build_sector(isector,HI)
      !
-
      !EVALUATE (c^+_iorb + c^+_jorb)|gs>
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
@@ -510,12 +369,16 @@ subroutine lanc_build_gf_normal_mix_d(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,iorb,jorb,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -548,12 +411,16 @@ subroutine lanc_build_gf_normal_mix_d(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -586,12 +453,16 @@ subroutine lanc_build_gf_normal_mix_d(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
-        cnorm2=-xi*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
-        deallocate(cvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,1,iorb,jorb,ispin)
+        deallocate(cvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -624,12 +495,16 @@ subroutine lanc_build_gf_normal_mix_d(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
-        cnorm2=-xi*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
-        deallocate(cvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiCOmm,spHtimesV_dc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin)
+        deallocate(cvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -637,8 +512,9 @@ subroutine lanc_build_gf_normal_mix_d(iorb,jorb,ispin)
      deallocate(HI%map)
      !
   enddo
+  !
   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
-  deallocate(alfa_,beta_)
+  !
 end subroutine lanc_build_gf_normal_mix_d
 
 
@@ -660,15 +536,12 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
   integer                          :: Nitermax,Nlanc
   type(sector_map)                 :: HI,HJ
   !
-  nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
   isite=impIndex(iorb,ispin)  !orbital 1
   jsite=impIndex(jorb,ispin)  !orbital 2
   !
-  numstates=state_list%size
-  !   
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  do istate=1,numstates
+  !
+  do istate=1,state_list%size
      isector    =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
      state_cvec => es_return_cvector(state_list,istate)
@@ -678,7 +551,6 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      idim  = getdim(isector)
      call build_sector(isector,HI)
      !
-
      !EVALUATE (c^+_iorb + c^+_jorb)|gs>
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
@@ -708,12 +580,16 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,1,iorb,jorb,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -746,12 +622,16 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(one*norm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -784,12 +664,16 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,cvinit,alfa_,beta_,nlanc)
-        cnorm2=-xi*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin)
-        deallocate(cvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,cvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,1,iorb,jorb,ispin)
+        deallocate(cvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -822,12 +706,16 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,cvinit,alfa_,beta_,nlanc)
-        cnorm2=-xi*norm2
-        call add_to_lanczos_gf_normal(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin)
-        deallocate(cvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,cvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_normal(-xi*norm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin)
+        deallocate(cvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -835,10 +723,74 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      deallocate(HI%map)
      !
   enddo
+  !
   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
-  deallocate(alfa_,beta_)
+  !
 end subroutine lanc_build_gf_normal_mix_c
 
+
+
+
+
+
+
+
+
+
+
+
+!+------------------------------------------------------------------+
+!PURPOSE  : 
+!+------------------------------------------------------------------+
+subroutine add_to_lanczos_gf_normal(vnorm2,Ei,alanc,blanc,isign,iorb,jorb,ispin)
+  complex(8)                                 :: vnorm2,pesoBZ,peso
+  real(8)                                    :: Ei,Egs,de
+  integer                                    :: nlanc,itype
+  real(8),dimension(:)                       :: alanc
+  real(8),dimension(size(alanc))             :: blanc 
+  integer                                    :: isign,iorb,jorb,ispin
+  real(8),dimension(size(alanc),size(alanc)) :: Z
+  real(8),dimension(size(alanc))             :: diag,subdiag
+  integer                                    :: i,j,ierr
+  complex(8)                                 :: iw
+  !
+  Egs = state_list%emin       !get the gs energy
+  !
+  Nlanc = size(alanc)
+  !
+  if((finiteT).and.(beta*(Ei-Egs).lt.200))then
+     pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
+  elseif(.not.finiteT)then
+     pesoBZ = vnorm2/zeta_function
+  else
+     pesoBZ=0.d0
+  endif
+  !
+  !pesoBZ = vnorm2/zeta_function
+  !if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
+  !
+  ! itype=(3+isign)/2
+  diag             = 0.d0
+  subdiag          = 0.d0
+  Z                = eye(Nlanc)
+  diag(1:Nlanc)    = alanc(1:Nlanc)
+  subdiag(2:Nlanc) = blanc(2:Nlanc)
+  call tql2(Nlanc,diag,subdiag,Z,ierr)
+  do j=1,nlanc
+     de = diag(j)-Ei
+     peso = pesoBZ*Z(1,j)*Z(1,j)
+     do i=1,Lmats
+        iw=xi*wm(i)
+        impGmats(ispin,ispin,iorb,jorb,i)=impGmats(ispin,ispin,iorb,jorb,i) + peso/(iw-isign*de)
+     enddo
+     do i=1,Lreal
+        iw=dcmplx(wr(i),eps)
+        impGreal(ispin,ispin,iorb,jorb,i)=impGreal(ispin,ispin,iorb,jorb,i) + peso/(iw-isign*de)
+     enddo
+     ! GFpoles(ispin,ispin,iorb,jorb,itype,j)   = isign*de
+     ! GFweights(ispin,ispin,iorb,jorb,itype,j) = peso
+  enddo
+end subroutine add_to_lanczos_gf_normal
 
 
 

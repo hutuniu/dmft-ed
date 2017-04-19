@@ -4,7 +4,7 @@
 !########################################################################
 module ED_DIAG
   USE SF_CONSTANTS
-  USE SF_LINALG, only: matrix_diagonalize
+  USE SF_LINALG, only: eigh
   USE SF_TIMER,  only: start_timer,stop_timer,eta
   USE SF_IOTOOLS, only:reg,free_unit
   USE SF_STAT
@@ -173,7 +173,7 @@ contains
           allocate(eig_values(dim),eig_basis(dim,dim))
           eig_values=0d0 ; eig_basis=0d0 
           call ed_buildH_d(isector,eig_basis)
-          call matrix_diagonalize(eig_basis,eig_values,'V','U')
+          call eigh(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=1.d0
        endif
        !
@@ -278,20 +278,16 @@ contains
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
           eig_values=0d0 ; eig_basis=0d0
           call ed_buildH_c(isector)
-          ! #ifdef _MPI
           if(MpiStatus)then
              call sp_eigh(MpiComm,spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
           else
              call sp_eigh(spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
           endif
-          ! #else
-          !           call sp_eigh(spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
-          ! #endif
        else
           allocate(eig_values(Dim),eig_basis(Dim,dim))
           eig_values=0.d0 ; eig_basis=zero
           call ed_buildH_c(isector,eig_basis)
-          call matrix_diagonalize(eig_basis,eig_values,'V','U')
+          call eigh(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=one
        endif
        !

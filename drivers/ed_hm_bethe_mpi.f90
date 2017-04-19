@@ -2,6 +2,7 @@ program lancED
   USE DMFT_ED
   USE SCIFOR
   USE DMFT_TOOLS
+  USE MPI
   implicit none
   integer                                     :: iloop,Nb,Le
   logical                                     :: converged
@@ -16,6 +17,15 @@ program lancED
   real(8),allocatable                         :: Gtau(:)
   real(8),dimension(:,:,:),allocatable        :: He
   real(8),dimension(:),allocatable            :: Wte
+  integer                                     :: comm,rank
+  logical                                     :: master
+
+
+  call init_MPI()
+  comm = MPI_COMM_WORLD
+  call StartMsg_MPI(comm)
+  rank = get_Rank_MPI(comm)
+  master = get_Master_MPI(comm)
 
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.in')
@@ -23,7 +33,7 @@ program lancED
   call parse_input_variable(Le,"LE",finput,default=500)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   !
-  call ed_read_input(trim(finput))
+  call ed_read_input(trim(finput),comm)
 
   !Add DMFT CTRL Variables:
   call add_ctrl_var(Norb,"norb")
@@ -53,28 +63,31 @@ program lancED
   Nb=get_bath_dimension()
   allocate(bath(Nb))
   allocate(bath_(Nb))
-  call ed_init_solver(bath)
+  call ed_init_solver(comm,bath)
 
   !DMFT loop
   iloop=0;converged=.false.
   do while(.not.converged.AND.iloop<nloop)
      iloop=iloop+1
-     call start_loop(iloop,nloop,"DMFT-loop")
+     if(master)call start_loop(iloop,nloop,"DMFT-loop")
      !
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
-     call ed_solve(bath) 
+     call ed_solve(comm,bath) 
      call ed_get_sigma_matsubara(Smats)
      call ed_get_sigma_real(Sreal)
      !
      ! compute the local gf:
-     call dmft_gloc_matsubara(one*He,Wte,Gmats,Smats,iprint=1)
+     call dmft_gloc_matsubara(Comm,one*He,Wte,Gmats,Smats,iprint=1)
      !
      !Get the Weiss field/Delta function to be fitted
-     if(cg_scheme=='weiss')then
-        call dmft_weiss(Gmats,Smats,Weiss,Hloc,iprint=1)
-     else
-        call dmft_delta(Gmats,Smats,Weiss,Hloc,iprint=1)
+     if(master)then
+        if(cg_scheme=='weiss')then
+           call dmft_weiss(Gmats,Smats,Weiss,Hloc,iprint=1)
+        else
+           call dmft_delta(Gmats,Smats,Weiss,Hloc,iprint=1)
+        endif
      endif
+     call Bcast_MPI(comm,Weiss)
      !
      !
      !Perform the SELF-CONSISTENCY by fitting the new bath
@@ -85,18 +98,24 @@ program lancED
      Bath_=Bath
 
      !Check convergence (if required change chemical potential)
-     converged = check_convergence(Weiss(1,1,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
+     if(master)converged = check_convergence(Weiss(1,1,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
+     call Bcast_MPI(Comm,converged)
      !
-     call end_loop
+     if(master)call end_loop
   enddo
 
 
-  call dmft_gloc_realaxis(one*He,Wte,Greal,Sreal,iprint=1)
-  Eout = dmft_kinetic_energy(one*He,Wte,Smats)
+  call dmft_gloc_realaxis(Comm,one*He,Wte,Greal,Sreal,iprint=1)
+  Eout = dmft_kinetic_energy(Comm,one*He,Wte,Smats)
 
   ! allocate(Wte(Le),He(Le))
   ! call bethe_lattice(Wte,He,Le,wband)
   ! Eout = ed_kinetic_energy(one*He,Wte,Smats(1,1,1,1,:))
+
+
+
+  call finalize_MPI()
+
 
 
 contains

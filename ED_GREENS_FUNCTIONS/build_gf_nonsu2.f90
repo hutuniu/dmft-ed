@@ -6,11 +6,6 @@ subroutine build_gf_nonsu2()
   integer :: isect0,numstates
   real(8) :: norm0
   !
-  if(.not.allocated(wm))allocate(wm(Lmats))
-  if(.not.allocated(wr))allocate(wr(Lreal))
-  wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
-  wr     = linspace(wini,wfin,Lreal)
-  !
   if(.not.allocated(impGmats))stop "build_gf_nonsu2: Gmats not allocated"
   if(.not.allocated(impGreal))stop "build_gf_nonsu2: Greal not allocated"
   impGmats=zero
@@ -22,7 +17,7 @@ subroutine build_gf_nonsu2()
      !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
      do ispin=1,Nspin
         do iorb=1,Norb
-           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
+           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(iorb)//"_s"//str(ispin)//str(ispin)
            select case(ed_type)
            case default
               call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
@@ -37,7 +32,7 @@ subroutine build_gf_nonsu2()
            do iorb=1,Norb
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
-                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     select case(ed_type)
                     case default
                        call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
@@ -73,7 +68,7 @@ subroutine build_gf_nonsu2()
      !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
      do ispin=1,Nspin
         do iorb=1,Norb
-           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
+           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(iorb)//"_s"//str(ispin)//str(ispin)
            select case(ed_type)
            case default
               call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
@@ -89,7 +84,7 @@ subroutine build_gf_nonsu2()
            do iorb=1,Norb
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
-                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     select case(ed_type)
                     case default
                        call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
@@ -126,7 +121,7 @@ subroutine build_gf_nonsu2()
            do iorb=1,Norb
               do jorb=1,Norb
                  if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
-                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     select case(ed_type)
                     case default
                        call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
@@ -163,7 +158,7 @@ subroutine build_gf_nonsu2()
            do iorb=1,Norb
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
-                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     select case(ed_type)
                     case default
                        call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
@@ -199,7 +194,7 @@ subroutine build_gf_nonsu2()
      !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
      do ispin=1,Nspin
         do iorb=1,Norb
-           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(ispin))
+           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(iorb)//"_s"//str(ispin)//str(ispin)
            select case(ed_type)
            case default
               call lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
@@ -216,7 +211,7 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     select case(ed_type)
                     case default
                        call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
@@ -255,7 +250,7 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     select case(ed_type)
                     case default
                        call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
@@ -294,7 +289,7 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
+                    if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     select case(ed_type)
                     case default
                        call lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
@@ -332,8 +327,6 @@ subroutine build_gf_nonsu2()
      endif
      !
   end select
-  if(allocated(wm))deallocate(wm)
-  if(allocated(wr))deallocate(wr)
 end subroutine build_gf_nonsu2
 
 
@@ -408,12 +401,17 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,ispin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -437,12 +435,17 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,ispin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -518,12 +521,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,ispin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -556,12 +564,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -595,11 +608,16 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+        endif
         cnorm2=+xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,ispin)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,ispin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -633,11 +651,16 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+        endif
         cnorm2=+xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -714,12 +737,17 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -752,12 +780,17 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -791,11 +824,16 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+        endif
         cnorm2=+xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,jspin)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -829,11 +867,16 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+        endif
         cnorm2=+xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -910,12 +953,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -948,12 +996,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -987,11 +1040,16 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+        endif
         cnorm2=+xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,jspin)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -1025,11 +1083,16 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+        endif
         cnorm2=+xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -1041,7 +1104,6 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d
-
 
 
 
@@ -1115,12 +1177,17 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,ispin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1144,12 +1211,17 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,ispin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1224,12 +1296,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,ispin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1262,12 +1339,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1301,12 +1383,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=+xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,ispin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1339,12 +1426,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=+xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1355,6 +1447,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
   deallocate(alfa_,beta_)
 end subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c
+
 
 
 !PURPOSE: Evaluate the same same orbital IORB, different spin ISPIN,JSPIN impurity GF.
@@ -1419,12 +1512,17 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1457,12 +1555,17 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1496,12 +1599,17 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=+xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,iorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1534,12 +1642,17 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=+xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1614,12 +1727,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1652,12 +1770,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=one*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1691,12 +1814,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=1*xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,1,iorb,jorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1729,12 +1857,17 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_c(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_cc,vvinit,alfa_,beta_,nlanc)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
+        endif
         cnorm2=1*xi*norm2
-        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,nlanc,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
-        deallocate(vvinit)
+        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1761,11 +1894,12 @@ end subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c
 !+------------------------------------------------------------------+
 !PURPOSE  : 
 !+------------------------------------------------------------------+
-subroutine add_to_lanczos_gf_nonsu2(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,ispin,jspin)
+subroutine add_to_lanczos_gf_nonsu2(vnorm2,Ei,alanc,blanc,isign,iorb,jorb,ispin,jspin)
   complex(8)                                 :: vnorm2,pesoBZ,peso
   real(8)                                    :: Ei,Egs,de
   integer                                    :: nlanc,itype
-  real(8),dimension(nlanc)                   :: alanc,blanc 
+  real(8),dimension(:)                       :: alanc
+  real(8),dimension(size(alanc))             :: blanc 
   integer                                    :: isign,iorb,jorb,ispin,jspin
   real(8),dimension(size(alanc),size(alanc)) :: Z
   real(8),dimension(size(alanc))             :: diag,subdiag
@@ -1773,6 +1907,8 @@ subroutine add_to_lanczos_gf_nonsu2(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,
   complex(8)                                 :: iw
   !
   Egs = state_list%emin       !get the gs energy
+  !
+  Nlanc = size(alanc)
   !
   if((finiteT).and.(beta*(Ei-Egs).lt.200))then
      pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
@@ -1785,9 +1921,10 @@ subroutine add_to_lanczos_gf_nonsu2(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,
   !pesoBZ = vnorm2/zeta_function
   !if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
   !
-  itype=(3+isign)/2
-  diag=0.d0 ; subdiag=0.d0 ; Z=0.d0
-  forall(i=1:Nlanc)Z(i,i)=1.d0
+  ! itype=(3+isign)/2
+  diag             = 0.d0
+  subdiag          = 0.d0
+  Z                = eye(Nlanc)
   diag(1:Nlanc)    = alanc(1:Nlanc)
   subdiag(2:Nlanc) = blanc(2:Nlanc)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
@@ -1802,9 +1939,7 @@ subroutine add_to_lanczos_gf_nonsu2(vnorm2,Ei,nlanc,alanc,blanc,isign,iorb,jorb,
         iw=dcmplx(wr(i),eps)
         impGreal(ispin,jspin,iorb,jorb,i)=impGreal(ispin,jspin,iorb,jorb,i) + peso/(iw-isign*de)
      enddo
-     GFpoles(ispin,jspin,iorb,jorb,itype,j)   = isign*de
-     GFweights(ispin,jspin,iorb,jorb,itype,j) = peso
+     ! GFpoles(ispin,jspin,iorb,jorb,itype,j)   = isign*de
+     ! GFweights(ispin,jspin,iorb,jorb,itype,j) = peso
   enddo
-
-
 end subroutine add_to_lanczos_gf_nonsu2

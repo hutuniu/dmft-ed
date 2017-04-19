@@ -1,10 +1,6 @@
 MODULE ED_VARS_GLOBAL
   USE SF_CONSTANTS
   USE ED_SPARSE_MATRIX
-  ! #ifdef _MPI
-  !   USE MPI
-  !   USE SF_MPI
-  ! #endif
   implicit none
 
   !-------------------- EFFECTIVE BATH STRUCTURE ----------------------!
@@ -21,7 +17,6 @@ MODULE ED_VARS_GLOBAL
   end type effective_bath
 
 
-
   !---------------- SECTOR-TO-FOCK SPACE STRUCTURE -------------------!
   type sector_map
      integer,dimension(:),allocatable :: map
@@ -35,12 +30,14 @@ MODULE ED_VARS_GLOBAL
 
   !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
   abstract interface
+
      !HAMILTONIAN CONSTUCTORS
+     !DBLE
      subroutine d_build_hamiltonian(isector,Hmat)
        integer                         :: isector
        real(8),dimension(:,:),optional :: Hmat
      end subroutine d_build_hamiltonian
-     !
+     !CMPLX
      subroutine c_build_hamiltonian(isector,Hmat)
        integer                            :: isector
        complex(8),dimension(:,:),optional :: Hmat
@@ -48,18 +45,19 @@ MODULE ED_VARS_GLOBAL
 
 
      !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
+     !dbleMat*dbleVec
      subroutine dd_sparse_HxV(Nloc,v,Hv)
        integer                 :: Nloc
        real(8),dimension(Nloc) :: v
        real(8),dimension(Nloc) :: Hv
      end subroutine dd_sparse_HxV
-     !
+     !dbleMat*cmplxVec
      subroutine dc_sparse_HxV(Nloc,v,Hv)
        integer                    :: Nloc
        complex(8),dimension(Nloc) :: v
        complex(8),dimension(Nloc) :: Hv
      end subroutine dc_sparse_HxV
-     !
+     !cmplxMat*cmplxVec
      subroutine cc_sparse_HxV(Nloc,v,Hv)
        integer                    :: Nloc
        complex(8),dimension(Nloc) :: v
@@ -113,11 +111,10 @@ MODULE ED_VARS_GLOBAL
   type(sparse_matrix)                                :: spH0up,spH0dw
   procedure(d_build_hamiltonian),pointer             :: ed_buildH_d=>null()
   procedure(c_build_hamiltonian),pointer             :: ed_buildH_c=>null()
+  !
   procedure(dd_sparse_HxV),pointer                   :: spHtimesV_dd=>null()
+  procedure(dc_sparse_HxV),pointer                   :: spHtimesV_dc=>null()
   procedure(cc_sparse_HxV),pointer                   :: spHtimesV_cc=>null()
-  procedure(dd_sparse_HxV),pointer                   :: lanc_spHtimesV_dd=>null()
-  procedure(dc_sparse_HxV),pointer                   :: lanc_spHtimesV_dc=>null()
-  procedure(cc_sparse_HxV),pointer                   :: lanc_spHtimesV_cc=>null()
 
 
   !Variables for DIAGONALIZATION
@@ -150,9 +147,9 @@ MODULE ED_VARS_GLOBAL
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Gmatsii,Grealii          ![Nlat][Nspin][Nspin][Norb][Norb][L]
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Fmatsii,Frealii          ![Nlat][Nspin][Nspin][Norb][Norb][L]
 
-  !Poles & Weights 
-  !=========================================================
-  real(8),allocatable,dimension(:,:,:,:,:,:)         :: GFpoles,GFweights
+  ! !Poles & Weights 
+  ! !=========================================================
+  ! real(8),allocatable,dimension(:,:,:,:,:,:)         :: GFpoles,GFweights
 
 
   !Spin Susceptibilities
@@ -222,39 +219,6 @@ MODULE ED_VARS_GLOBAL
   complex(8),allocatable,dimension(:)                :: impj_aplha
   complex(8),allocatable,dimension(:)                :: impj_aplha_sq
   complex(8)                                         :: impLdotS
-
-  ! !MPI Parallel environment variables
-  ! !PUBLIC
-  ! !=========================================================
-  ! integer                                            :: ED_MPI_COMM
-  ! integer                                            :: ED_MPI_ID=0
-  ! integer                                            :: ED_MPI_SIZE=1
-  ! integer                                            :: ED_MPI_ERR
-  ! logical                                            :: ED_MPI_MASTER=.true.
-
-
-
-  ! !--------------- LATTICE WRAP VARIABLES -----------------!
-  ! !Lattice size:
-  ! !PUBLIC USE: (should be set by routine)
-  ! !=========================================================
-  ! integer                                            :: Nlat
-
-  ! !Symmetry operations
-  ! !=========================================================
-  ! integer,allocatable,dimension(:)                   :: indep_list
-  ! integer,dimension(:),allocatable                   :: map_lat2ind
-  ! integer,dimension(:,:),allocatable                 :: map_ind2lat
-
-
-
-  ! !OBSOLETE (to be removed associated to build_tight_binding_2dsquare)
-  ! !Large matrices for Lattice Hamiltonian/GF
-  ! !PUBLIC
-  ! !=========================================================
-  ! integer,dimension(:),allocatable                   :: icol,irow
-  ! integer,dimension(:,:),allocatable                 :: ij2site
-  ! ! real(8),dimension(:,:),allocatable               :: H0
 
 
 

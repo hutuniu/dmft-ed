@@ -1,7 +1,7 @@
 MODULE ED_INPUT_VARS
   USE SCIFOR_VERSION
   USE SF_PARSE_INPUT
-  
+
   implicit none
 
   !GIT VERSION
@@ -91,25 +91,38 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : READ THE INPUT FILE AND SETUP GLOBAL VARIABLES
   !+-------------------------------------------------------------------+
-#ifdef _MPI
-#define INPUT_LIST INPUTunit,comm
-#else
-#define INPUT_LIST INPUTunit
-#endif  
-  subroutine ed_read_input(INPUT_LIST)
+  ! #ifdef _MPI
+  ! #define INPUT_LIST INPUTunit,comm
+  ! #else
+  ! #define INPUT_LIST INPUTunit
+  ! #endif  
+  !   subroutine ed_read_input(INPUT_LIST)
+  ! #ifdef _MPI
+  !     USE MPI
+  !     USE SF_MPI
+  ! #endif
+  !     character(len=*) :: INPUTunit
+  ! #ifdef _MPI
+  !     integer,optional :: comm
+  ! #endif
+  !     logical          :: master=.true.
+  ! #ifdef _MPI
+  !     if(present(comm))master=get_Master_MPI(comm)
+  ! #endif
+
+  subroutine ed_read_input(INPUTunit,comm)
 #ifdef _MPI
     USE MPI
     USE SF_MPI
 #endif
     character(len=*) :: INPUTunit
-#ifdef _MPI
     integer,optional :: comm
-#endif
     logical          :: master=.true.
 #ifdef _MPI
     if(present(comm))master=get_Master_MPI(comm)
 #endif
-    !
+
+    
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals.")
     call parse_input_variable(Nbath,"NBATH",INPUTunit,default=6,comment="Number of bath sites:(normal=>Nbath per orb)(hybrid=>Nbath total)(replica=>Nbath=Nreplica)")

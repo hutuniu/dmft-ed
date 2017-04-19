@@ -295,10 +295,10 @@ contains
     impF0mats=zero
     impF0real=zero
     !
-    allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
-    allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
-    GFpoles=0d0
-    GFweights=0d0
+    ! allocate(GFpoles(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+    ! allocate(GFweights(Nspin,Nspin,Norb,Norb,2,lanc_nGFiter))
+    ! GFpoles=0d0
+    ! GFweights=0d0
     !
     !allocate observables
     allocate(ed_dens(Norb),ed_docc(Norb),ed_phisc(Norb),ed_dens_up(Norb),ed_dens_dw(Norb))

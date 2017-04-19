@@ -6,27 +6,22 @@ subroutine build_gf_superc()
   complex(8) :: barGmats(Norb,Lmats),barGreal(Norb,Lreal)
   !
   !
-  if(.not.allocated(wm))allocate(wm(Lmats))
-  if(.not.allocated(wr))allocate(wr(Lreal))
-  wm     = pi/beta*real(2*arange(1,Lmats)-1,8)
-  wr     = linspace(wini,wfin,Lreal)
-  !
   if(.not.allocated(auxGmats))allocate(auxGmats(3,Lmats))
   if(.not.allocated(auxGreal))allocate(auxGreal(3,Lreal))
-  if(.not.allocated(auxGpoles))allocate(auxGpoles(2,3,lanc_nGFiter))
-  if(.not.allocated(auxGweights))allocate(auxGweights(2,3,lanc_nGFiter))
-  auxGmats=zero
+  auxgmats=zero
   auxGreal=zero
-  auxGpoles=zero
-  auxGweights=zero
   barGmats=zero
   barGreal=zero
+  ! if(.not.allocated(auxGpoles))allocate(auxGpoles(2,3,lanc_nGFiter))
+  ! if(.not.allocated(auxGweights))allocate(auxGweights(2,3,lanc_nGFiter))
+  ! auxGpoles=zero
+  ! auxGweights=zero
   !
   ispin=1                       !in this channel Nspin=2 is forbidden. check in ED_AUX_FUNX.
   do iorb=1,Norb
      auxGmats=zero
      auxGreal=zero
-     if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G&F_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))
+     if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G&F_l"//str(iorb)//"_s"//str(ispin)
      call lanc_build_gf_superc_d(iorb)
      !
      impGmats(ispin,ispin,iorb,iorb,:) = auxGmats(1,:) !this is G_{iorb,iorb} = G_{up,up;iorb,iorb}
@@ -35,12 +30,10 @@ subroutine build_gf_superc()
      barGreal(                 iorb,:) = auxGreal(2,:)
      impFmats(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGmats(3,:)-auxGmats(1,:)-auxGmats(2,:))
      impFreal(ispin,ispin,iorb,iorb,:) = 0.5d0*(auxGreal(3,:)-auxGreal(1,:)-auxGreal(2,:))
-
      !
-     GFpoles(ispin,ispin,iorb,iorb,:,:)   = auxGpoles(:,1,:)
-     GFweights(ispin,ispin,iorb,iorb,:,:) = auxGweights(:,1,:)
+     ! GFpoles(ispin,ispin,iorb,iorb,:,:)   = auxGpoles(:,1,:)
+     ! GFweights(ispin,ispin,iorb,iorb,:,:) = auxGweights(:,1,:)
      !
-
      ! UNCOMMENT THIS AND FOLLOWING LINES MARKED WITH >ANOMAL TO USE THE MORE GENERAL ALGORITHM
      ! FOR THE EVALUATION OF THE ANOMALOUS GF
      ! >ANOMAL
@@ -53,8 +46,7 @@ subroutine build_gf_superc()
   if(bath_type=='hybrid')then
      do iorb=1,Norb
         do jorb=iorb+1,Norb
-           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")&
-                "Get G_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))
+           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//"_m"//str(jorb)//"_s"//str(ispin)
            call lanc_build_gf_superc_mix_d(iorb,jorb)
            impGmats(ispin,ispin,iorb,jorb,:) = auxGmats(3,:)
            impGreal(ispin,ispin,iorb,jorb,:) = auxGreal(3,:)
@@ -71,8 +63,6 @@ subroutine build_gf_superc()
      enddo
   endif
   deallocate(auxGmats,auxGreal)
-  if(allocated(wm))deallocate(wm)
-  if(allocated(wr))deallocate(wr)
 end subroutine build_gf_superc
 
 
@@ -98,14 +88,9 @@ subroutine lanc_build_gf_superc_d(iorb)
   integer                :: Nitermax,Nlanc
   type(sector_map)       :: HI,HJ
   !
-  Nitermax=lanc_nGFiter
-  allocate(alfa_(Nitermax),beta_(Nitermax))
-  !
-  numstates=state_list%size
-  !   
   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
   !
-  do istate=1,numstates
+  do istate=1,state_list%size
      isector    =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
      state_vec  => es_return_vector(state_list,istate)
@@ -134,12 +119,16 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,1,ichan=1)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_superc(one*norm2,state_e,alfa_,beta_,1,ichan=1)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -163,12 +152,16 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,ichan=1)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_superc(one*norm2,state_e,alfa_,beta_,-1,ichan=1)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -196,12 +189,16 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,1,ichan=2)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_superc(one*norm2,state_e,alfa_,beta_,1,ichan=2)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -226,12 +223,16 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,ichan=2)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_superc(one*norm2,state_e,alfa_,beta_,-1,ichan=2)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -269,12 +270,16 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,1,ichan=3)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_superc(one*norm2,state_e,alfa_,beta_,1,ichan=3)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -310,12 +315,16 @@ subroutine lanc_build_gf_superc_d(iorb)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,ichan=3)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_superc(one*norm2,state_e,alfa_,beta_,-1,ichan=3)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -397,7 +406,7 @@ subroutine lanc_build_gf_superc_d(iorb)
      !    alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
      !    call ed_buildH_d(jsector)
      !    call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
-     !    cnorm2=-xi**norm2
+     !    cnorm2=-xi*norm2
      !    call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,ichan=3)
      !    deallocate(cvinit)
      !    if(spH0%status)call sp_delete_matrix(spH0)
@@ -409,7 +418,6 @@ subroutine lanc_build_gf_superc_d(iorb)
      !
   enddo
   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
-  deallocate(alfa_,beta_)
 end subroutine lanc_build_gf_superc_d
 
 
@@ -483,12 +491,16 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,1,ichan=3)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_superc(one*norm2,state_e,alfa_,beta_,1,ichan=3)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -524,12 +536,16 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dd,vvinit,alfa_,beta_,nlanc)
-        cnorm2=one*norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,ichan=3)
-        deallocate(vvinit)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_superc(one*norm2,state_e,alfa_,beta_,-1,ichan=3)
+        deallocate(vvinit,alfa_,beta_)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
 
@@ -565,11 +581,15 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
-        cnorm2=-xi*norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,1,ichan=3)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_superc(-xi*norm2,state_e,alfa_,beta_,1,ichan=3)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -606,11 +626,15 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
         deallocate(HJ%map)
         norm2=dot_product(cvinit,cvinit)
         cvinit=cvinit/sqrt(norm2)
-        alfa_=0.d0 ; beta_=0.d0 ; nlanc=min(jdim,nitermax)
         call ed_buildH_d(jsector)
-        call sp_lanc_tridiag(lanc_spHtimesV_dc,cvinit,alfa_,beta_,nlanc)
-        cnorm2=-xi**norm2
-        call add_to_lanczos_gf_superc(cnorm2,state_e,nlanc,alfa_,beta_,-1,ichan=3)
+        nlanc=min(jdim,lanc_nGFiter)
+        allocate(alfa_(nlanc),beta_(nlanc))
+        if(MpiStatus)then
+           call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
+        else
+           call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
+        endif
+        call add_to_lanczos_gf_superc(-xi*norm2,state_e,alfa_,beta_,-1,ichan=3)
         deallocate(cvinit)
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
@@ -621,8 +645,13 @@ subroutine lanc_build_gf_superc_mix_d(iorb,jorb)
   enddo
   !
   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
-  deallocate(alfa_,beta_)
 end subroutine lanc_build_gf_superc_mix_d
+
+
+
+
+
+
 
 
 
@@ -630,11 +659,12 @@ end subroutine lanc_build_gf_superc_mix_d
 !+------------------------------------------------------------------+
 !PURPOSE  : 
 !+------------------------------------------------------------------+
-subroutine add_to_lanczos_gf_superc(vnorm2,Ei,nlanc,alanc,blanc,isign,ichan)
+subroutine add_to_lanczos_gf_superc(vnorm2,Ei,alanc,blanc,isign,ichan)
   complex(8)                                 :: vnorm2,pesoBZ,peso
   real(8)                                    :: Ei,Egs,de
   integer                                    :: nlanc,itype
-  real(8),dimension(nlanc)                   :: alanc,blanc 
+  real(8),dimension(:)                       :: alanc
+  real(8),dimension(size(alanc))             :: blanc 
   integer                                    :: isign,ichan
   real(8),dimension(size(alanc),size(alanc)) :: Z
   real(8),dimension(size(alanc))             :: diag,subdiag
@@ -642,6 +672,8 @@ subroutine add_to_lanczos_gf_superc(vnorm2,Ei,nlanc,alanc,blanc,isign,ichan)
   complex(8)                                 :: iw
   !
   Egs = state_list%emin       !get the gs energy
+  !
+  Nlanc = size(alanc)
   !
   ! if((finiteT).and.(beta*(Ei-Egs).lt.200))then
   !    pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
@@ -655,8 +687,9 @@ subroutine add_to_lanczos_gf_superc(vnorm2,Ei,nlanc,alanc,blanc,isign,ichan)
   if(finiteT)pesoBZ = vnorm2*exp(-beta*(Ei-Egs))/zeta_function
   !
   itype=(3+isign)/2
-  diag=0.d0 ; subdiag=0.d0 ; Z=0.d0
-  forall(i=1:Nlanc)Z(i,i)=1.d0
+  diag             = 0.d0
+  subdiag          = 0.d0
+  Z                = eye(Nlanc)
   diag(1:Nlanc)    = alanc(1:Nlanc)
   subdiag(2:Nlanc) = blanc(2:Nlanc)
   call tql2(Nlanc,diag,subdiag,Z,ierr)
@@ -671,9 +704,9 @@ subroutine add_to_lanczos_gf_superc(vnorm2,Ei,nlanc,alanc,blanc,isign,ichan)
         iw=dcmplx(wr(i),eps)
         auxGreal(ichan,i)=auxGreal(ichan,i) + peso/(iw-isign*de)
      enddo
-     ! GFpoles(ispin,ispin,iorb,jorb,itype,j)   = isign*de
-     ! GFweights(ispin,ispin,iorb,jorb,itype,j) = peso
-     auxGpoles(itype,ichan,j)   = isign*de
-     auxGweights(itype,ichan,j) = peso
+     ! ! GFpoles(ispin,ispin,iorb,jorb,itype,j)   = isign*de
+     ! ! GFweights(ispin,ispin,iorb,jorb,itype,j) = peso
+     ! auxGpoles(itype,ichan,j)   = isign*de
+     ! auxGweights(itype,ichan,j) = peso
   enddo
 end subroutine add_to_lanczos_gf_superc
