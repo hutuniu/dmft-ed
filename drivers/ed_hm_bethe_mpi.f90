@@ -91,15 +91,19 @@ program lancED
      !
      !
      !Perform the SELF-CONSISTENCY by fitting the new bath
-     call ed_chi2_fitgf(Weiss,bath,ispin=1)
-     !
-     !MIXING:
-     if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
-     Bath_=Bath
-
-     !Check convergence (if required change chemical potential)
-     if(master)converged = check_convergence(Weiss(1,1,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
-     call Bcast_MPI(Comm,converged)
+     if(master)then
+        call ed_chi2_fitgf(Weiss,bath,ispin=1)
+        !
+        !MIXING:
+        if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*Bath_
+        Bath_=Bath
+        !
+        !Check convergence (if required change chemical potential)
+        converged = check_convergence(Weiss(1,1,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
+     endif
+     call Bcast_MPI(comm,bath)
+     call Bcast_MPI(comm,converged)
+     call Bcast_MPI(comm,xmu)
      !
      if(master)call end_loop
   enddo
