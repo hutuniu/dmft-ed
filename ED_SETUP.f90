@@ -24,6 +24,7 @@ MODULE ED_SETUP
   public :: setup_pointers_superc
   public :: setup_pointers_nonsu2
   public :: build_sector
+  public :: delete_sector
   public :: bdecomp
   public :: bjoin
   public :: flip_state
@@ -817,6 +818,12 @@ contains
     end select
   end subroutine build_sector
 
+  subroutine delete_sector(isector,Hup)!,Hdw)
+    integer                   :: isector
+    type(sector_map)          :: Hup
+    ! type(sector_map),optional :: Hdw
+    call map_dealocate(Hup)
+  end subroutine delete_sector
 
 
 

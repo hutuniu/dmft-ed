@@ -22,7 +22,6 @@ MODULE ED_INPUT_VARS
   real(8)              :: eps                 !broadening
   real(8)              :: wini,wfin           !
   integer              :: Nsuccess            !
-  integer              :: mpi_colors          !
   logical              :: Jhflag              !spin-exchange and pair-hopping flag.
   logical              :: chiflag             !
   logical              :: HFmode              !flag for HF interaction form U(n-1/2)(n-1/2) VS Unn
@@ -59,8 +58,10 @@ MODULE ED_INPUT_VARS
   real(8)              :: nread               !fixed density. if 0.d0 fixed chemical potential calculation.
   real(8)              :: nerr                !fix density threshold. a loop over from 1.d-1 to required nerr is performed
   real(8)              :: ndelta              !initial chemical potential step
-  integer              :: niter
-  integer              :: ed_verbose
+  integer              :: niter               !
+  integer              :: ed_verbose          !
+  logical              :: ed_direct_Hv        !flag to select direct on-the-fly H*v product (mem++, cpu--) or via stored sparse matrix H (mem--, cpu++)
+
 
   !Some parameters for function dimension:
   !=========================================================
@@ -76,13 +77,13 @@ MODULE ED_INPUT_VARS
 
   !RDMFT VARIABLES:
   !=========================================================
-  integer              :: Nside            !linear size of the cluster to be solved.
-  real(8)              :: rdmft_nread      !density value for chemical potential search.
-  real(8)              :: rdmft_nerror     ! max error in adjusting chemical potential. 
-  real(8)              :: rdmft_ndelta     !starting value for chemical potential shift.
-  logical              :: rdmft_lrsym      !flag to enforce left-right symmetry in a biased system
-  integer              :: mix_type         !flag for mixing type: 0=mix G0, 1=mix Sigma
-  character(len=64)    :: fileSig,fileSelf !restart files
+  ! integer              :: Nside            !linear size of the cluster to be solved.
+  ! real(8)              :: rdmft_nread      !density value for chemical potential search.
+  ! real(8)              :: rdmft_nerror     ! max error in adjusting chemical potential. 
+  ! real(8)              :: rdmft_ndelta     !starting value for chemical potential shift.
+  ! logical              :: rdmft_lrsym      !flag to enforce left-right symmetry in a biased system
+  ! integer              :: mix_type         !flag for mixing type: 0=mix G0, 1=mix Sigma
+  ! character(len=64)    :: fileSig,fileSelf !restart files
 
 
 contains
@@ -122,7 +123,7 @@ contains
     if(present(comm))master=get_Master_MPI(comm)
 #endif
 
-    
+
     !DEFAULT VALUES OF THE PARAMETERS:
     call parse_input_variable(Norb,"NORB",INPUTunit,default=1,comment="Number of impurity orbitals.")
     call parse_input_variable(Nbath,"NBATH",INPUTunit,default=6,comment="Number of bath sites:(normal=>Nbath per orb)(hybrid=>Nbath total)(replica=>Nbath=Nreplica)")
@@ -137,8 +138,8 @@ contains
     call parse_input_variable(dmft_error,"DMFT_ERROR",INPUTunit,default=0.00001d0,comment="Error threshold for DMFT convergence")
     call parse_input_variable(sb_field,"SB_FIELD",INPUTunit,default=0.1d0,comment="Value of a symmetry breaking field for magnetic solutions.")
     call parse_input_variable(ed_twin,"ED_TWIN",INPUTunit,default=.false.,comment="flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.")
+    call parse_input_variable(ed_direct_Hv,"ED_DIRECT_HV",INPUTunit,default=.false.,comment="flag to select direct on-the-fly H*v product (mem++, cpu--) or via stored sparse matrix H (mem--, cpu++)")
     call parse_input_variable(nsuccess,"NSUCCESS",INPUTunit,default=1,comment="Number of successive iterations below threshold for convergence")
-    call parse_input_variable(mpi_colors,"MPI_COLORS",INPUTunit,default=1,comment="Number of color groups to divide the MPI Communicators into inequivalent sites")
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=5000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=5000,comment="Number of real-axis frequencies.")
     call parse_input_variable(Ltau,"LTAU",INPUTunit,default=1000,comment="Number of imaginary time points.")
@@ -182,11 +183,8 @@ contains
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
     call parse_input_variable(ed_verbose,"ED_VERBOSE",INPUTunit,default=0,comment="Verbosity level: 0=all --> 5:almost nothing on the screen.")
     call parse_input_variable(ed_file_suffix,"ED_FILE_SUFFIX",INPUTunit,default=".ed",comment="Suffix in the output files.")
-    !+- LATTICE INPUT -+!
-    call parse_input_variable(Nside,"NSIDE",INPUTunit,default=6)
-    call parse_input_variable(fileSig,"FILESIG",INPUTunit,default="LSigma.data")
-    call parse_input_variable(fileSelf,"FILESELF",INPUTunit,default="LSelf.data")
-    call parse_input_variable(mix_type,"MIX_TYPE",INPUTunit,default=0)
+    !
+    !
     Ltau=max(int(beta),Ltau)
     if(master)then
        call save_input_file(INPUTunit)

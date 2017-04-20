@@ -3,6 +3,7 @@ MODULE ED_VARS_GLOBAL
   USE ED_SPARSE_MATRIX
   implicit none
 
+
   !-------------------- EFFECTIVE BATH STRUCTURE ----------------------!
   type effective_bath
      real(8),dimension(:,:,:),allocatable        :: e     !local energies [Nspin][Norb][Nbath]/[Nspin][1][Nbath]
@@ -16,6 +17,8 @@ MODULE ED_VARS_GLOBAL
      logical                                     :: status=.false.
   end type effective_bath
 
+  
+
 
   !---------------- SECTOR-TO-FOCK SPACE STRUCTURE -------------------!
   type sector_map
@@ -26,6 +29,12 @@ MODULE ED_VARS_GLOBAL
      module procedure :: map_allocate_scalar
      module procedure :: map_allocate_vector
   end interface map_allocate
+
+  interface map_deallocate
+     module procedure :: map_deallocate_scalar
+     module procedure :: map_deallocate_vector
+  end interface map_deallocate
+
 
 
   !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
@@ -236,6 +245,20 @@ contains
     integer :: i
     do i=1,size(H)
        allocate(H(i)%map(N(i)))
+    enddo
+  end subroutine map_allocate_vector
+
+
+  subroutine map_deallocate_scalar(H)
+    type(sector_map) :: H
+    deallocate(H%map)
+  end subroutine map_deallocate_scalar
+  !
+  subroutine map_allocate_vector(H)
+    type(sector_map),dimension(:) :: H
+    integer :: i
+    do i=1,size(H)
+       allocate(H(i)%map)
     enddo
   end subroutine map_allocate_vector
 
