@@ -292,7 +292,6 @@ subroutine init_dmft_bath_mask(dmft_bath_)
                  !Im
                  if(abs(aimag(impHloc(ispin,jspin,iorb,jorb))).gt.1e-6)then
                     dmft_bath_%mask(ispin,jspin,iorb,jorb,2)=.true.
-                    if(ed_type=="d") stop "complex impHloc and ed_mode='d' are not compatible"
                  endif
               endif
            enddo
@@ -476,16 +475,16 @@ subroutine write_dmft_bath(dmft_bath_,unit)
            hybr_aux=dmft_bath_%vr(i)
            do io=1,Nspin*Norb
               if(unit_==LOGfile)then
-                 if(ed_type=="d") then
-                    if(io==1)write(unit_,"(F8.3,a5,90(F8.3,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                    if(io/=1)write(unit_,"(a8,a5,90(F8.3,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                 endif
-                 if(ed_type=="c") then
-                    if(io==1) write(unit_,"(2F8.3,a5,90(F8.3,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
-                         (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                    if(io/=1) write(unit_,"(2a8,a5,90(F8.3,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
-                         (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                 endif
+                 ! if(ed_type=="d") then
+                 !    if(io==1)write(unit_,"(F8.3,a5,90(F8.3,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                 !    if(io/=1)write(unit_,"(a8,a5,90(F8.3,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                 ! endif
+                 ! if(ed_type=="c") then
+                 if(io==1) write(unit_,"(2F8.3,a5,90(F8.3,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
+                      (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                 if(io/=1) write(unit_,"(2a8,a5,90(F8.3,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
+                      (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                 ! endif
               else
                  if(io==1)write(unit_,"(90(F21.12,1X))")      real(hybr_aux),aimag(hybr_aux),(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
                  if(io/=1)write(unit_,"(2a21,90(F21.12,1X))")      "  "     ,     "  "      ,(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)

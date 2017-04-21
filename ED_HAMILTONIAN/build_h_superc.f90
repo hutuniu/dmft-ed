@@ -2,7 +2,9 @@
      m = H%map(i)
      impi = i-ishift
      ib = bdecomp(m,2*Ns)
-     htmp=0.d0
+     !
+     htmp=zero
+     !
      do iorb=1,Norb
         nup(iorb)=dble(ib(iorb))
         ndw(iorb)=dble(ib(iorb+Ns))
@@ -123,7 +125,7 @@
                  call cdg(jorb+Ns,k2,k3,sg3)
                  call cdg(iorb,k3,k4,sg4)
                  j=binary_search(H%map,k4)
-                 htmp = Jh*sg1*sg2*sg3*sg4
+                 htmp = one*Jh*sg1*sg2*sg3*sg4
                  !
                  call sp_insert_element(spH0,htmp,impi,j)
                  !
@@ -150,7 +152,7 @@
                  call cdg(iorb+Ns,k2,k3,sg3)
                  call cdg(iorb,k3,k4,sg4)
                  j=binary_search(H%map,k4)
-                 htmp = Jh*sg1*sg2*sg3*sg4
+                 htmp = one*Jh*sg1*sg2*sg3*sg4
                  !
                  call sp_insert_element(spH0,htmp,impi,j)
                  !
@@ -167,7 +169,9 @@
      !BATH HAMILTONIAN
      if(bath_type/="replica") then
         !diagonal bath hamiltonian: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
-        htmp=0.0d0
+        !
+        htmp=zero
+        !
         do iorb=1,size(dmft_bath%e,2)
            do kp=1,Nbath
               alfa=getBathStride(iorb,kp)
@@ -181,7 +185,9 @@
         !
      else
         !diagonal elements
-        htmp=0.0d0
+        !
+        htmp=zero
+        !
         do kp=1,Nbath
            do iorb=1,Norb
               alfa = getBathStride(iorb,kp) !iorb + kp*Norb
@@ -194,7 +200,9 @@
         call sp_insert_element(spH0,htmp,impi,i)
         !
         !off-diagonal elements
-        htmp=0.0d0
+        !
+        htmp=zero
+        !
         do kp=1,Nbath
            do iorb=1,Norb
               do jorb=1,Norb
@@ -301,7 +309,7 @@
                  call c(ms,m,k1,sg1)
                  call c(ms+Ns,k1,k2,sg2)
                  j=binary_search(H%map,k2)
-                 htmp=dmft_bath%d(1,iorb,kp)*sg1*sg2
+                 htmp=one*dmft_bath%d(1,iorb,kp)*sg1*sg2
                  !
                  call sp_insert_element(spH0,htmp,impi,j)
                  !
@@ -311,7 +319,7 @@
                  call cdg(ms+Ns,m,k1,sg1)
                  call cdg(ms,k1,k2,sg2)
                  j=binary_search(H%map,k2)
-                 htmp=dmft_bath%d(1,iorb,kp)*sg1*sg2 !
+                 htmp=one*dmft_bath%d(1,iorb,kp)*sg1*sg2 !
                  !
                  call sp_insert_element(spH0,htmp,impi,j)
                  !

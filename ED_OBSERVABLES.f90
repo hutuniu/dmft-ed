@@ -87,7 +87,6 @@ contains
     real(8)                         :: peso
     real(8)                         :: norm
     real(8),dimension(Norb)         :: nup,ndw,Sz,nt
-    real(8),dimension(:),pointer    :: gsvec
     complex(8),dimension(:),pointer :: gscvec
     type(sector_map)                :: H,HJ
     real(8),allocatable             :: vvinit(:)
@@ -121,13 +120,8 @@ contains
        Ei      = es_return_energy(state_list,izero)
        idim    = getdim(isector)
        !
-       if(ed_type=='d')then
-          gsvec  => es_return_vector(state_list,izero)
-          norm=sqrt(dot_product(gsvec,gsvec))
-       elseif(ed_type=='c')then
-          gscvec  => es_return_cvector(state_list,izero)
-          norm=sqrt(dot_product(gscvec,gscvec))
-       endif
+       gscvec  => es_return_cvector(state_list,izero)
+       norm=sqrt(dot_product(gscvec,gscvec))
        if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
        !
        peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
@@ -140,11 +134,7 @@ contains
           m=H%map(i)
           ib = bdecomp(m,2*Ns)
           !
-          if(ed_type=='d')then
-             gs_weight=peso*gsvec(i)**2
-          elseif(ed_type=='c')then
-             gs_weight=peso*abs(gscvec(i))**2
-          endif
+          gs_weight=peso*abs(gscvec(i))**2
           !
           !Get operators:
           do iorb=1,Norb
@@ -173,7 +163,6 @@ contains
           enddo
           s2tot = s2tot  + (sum(sz))**2*gs_weight
        enddo
-       if(associated(gsvec))nullify(gsvec)
        if(associated(gscvec))nullify(gscvec)
        deallocate(H%map)
     enddo
@@ -188,13 +177,8 @@ contains
                 isector = es_return_sector(state_list,izero)
                 Ei      = es_return_energy(state_list,izero)
                 idim    = getdim(isector)
-                if(ed_type=='d')then
-                   gsvec  => es_return_vector(state_list,izero)
-                   norm=sqrt(dot_product(gsvec,gsvec))
-                elseif(ed_type=='c')then
-                   gscvec  => es_return_cvector(state_list,izero)
-                   norm=sqrt(dot_product(gscvec,gscvec))
-                endif
+                gscvec  => es_return_cvector(state_list,izero)
+                norm=sqrt(dot_product(gscvec,gscvec))
                 if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
                 !
                 peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
@@ -218,7 +202,7 @@ contains
                       if(ib(iorb)==0)then
                          call cdg(iorb,m,r,sgn)
                          j=binary_search(HJ%map,r)
-                         vvinit(j) = sgn*gsvec(i)
+                         vvinit(j) = sgn*gscvec(i)
                       endif
                    enddo
                    do i=1,idim
@@ -227,14 +211,14 @@ contains
                       if(ib(iorb+Ns)==1)then
                          call c(iorb+Ns,m,r,sgn)
                          j=binary_search(HJ%map,r)
-                         vvinit(j) = vvinit(j) + sgn*gsvec(i)
+                         vvinit(j) = vvinit(j) + sgn*gscvec(i)
                       endif
                    enddo
                    deallocate(HJ%map)
                    phisc(iorb) = phisc(iorb) + dot_product(vvinit,vvinit)*peso
                    deallocate(vvinit)
                 endif
-                if(associated(gsvec)) nullify(gsvec)
+                if(associated(gscvec)) nullify(gscvec)
                 deallocate(H%map)
                 !
              enddo
@@ -253,13 +237,8 @@ contains
        isector = es_return_sector(state_list,izero)
        Ei      = es_return_energy(state_list,izero)
        idim    = getdim(isector)
-       if(ed_type=='d')then
-          gsvec  => es_return_vector(state_list,izero)
-          norm=sqrt(dot_product(gsvec,gsvec))
-       elseif(ed_type=='c')then
-          gscvec  => es_return_cvector(state_list,izero)
-          norm=sqrt(dot_product(gscvec,gscvec))
-       endif
+       gscvec  => es_return_cvector(state_list,izero)
+       norm=sqrt(dot_product(gscvec,gscvec))
        if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
        !
        peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
@@ -273,9 +252,7 @@ contains
              do m=1,idim
                 i=H%map(m)
                 ib = bdecomp(i,2*Ns)
-                if(ed_type=='d')imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + &
-                     peso*ib(isite)*gsvec(m)*gsvec(m)
-                if(ed_type=='c')imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + &
+                imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + &
                      peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
              enddo
           enddo
@@ -296,9 +273,7 @@ contains
                          call c(jsite,i,r,sgn1)
                          call cdg(isite,r,k,sgn2)
                          j=binary_search(H%map,k)
-                         if(ed_type=='d')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + &
-                              peso*sgn1*gsvec(m)*sgn2*gsvec(j)
-                         if(ed_type=='c')imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + &
+                         imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + &
                               peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
                       endif
                    enddo
@@ -435,7 +410,6 @@ contains
     real(8)                         :: norm
     real(8),dimension(Norb)         :: nup,ndw
     real(8),dimension(Nspin,Norb)   :: eloc
-    real(8),dimension(:),pointer    :: gsvec
     complex(8),dimension(:),pointer :: gscvec
     type(sector_map)                :: H
     logical                         :: Jcondition
@@ -462,13 +436,8 @@ contains
        Ei      = es_return_energy(state_list,izero)
        idim    = getdim(isector)
        !
-       if(ed_type=='d')then
-          gsvec  => es_return_vector(state_list,izero)
-          norm=sqrt(dot_product(gsvec,gsvec))
-       elseif(ed_type=='c')then
-          gscvec  => es_return_cvector(state_list,izero)
-          norm=sqrt(dot_product(gscvec,gscvec))
-       endif
+       gscvec  => es_return_cvector(state_list,izero)
+       norm=sqrt(dot_product(gscvec,gscvec))
        if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
        !
        peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
@@ -480,11 +449,7 @@ contains
           m=H%map(i)
           ib = bdecomp(m,2*Ns)
           !
-          if(ed_type=='d')then
-             gs_weight=peso*gsvec(i)**2
-          elseif(ed_type=='c')then
-             gs_weight=peso*abs(gscvec(i))**2
-          endif
+          gs_weight=peso*abs(gscvec(i))**2
           !
           !Get operators:
           do iorb=1,Norb
@@ -632,7 +597,6 @@ contains
              endif
           endif
        enddo
-       if(associated(gsvec))nullify(gsvec)
        if(associated(gscvec))nullify(gscvec)
        deallocate(H%map)
     enddo

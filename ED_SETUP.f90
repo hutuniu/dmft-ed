@@ -241,7 +241,6 @@ contains
     if(ed_mode=="superc")then
        if(Nspin>1)stop "ED ERROR: SC + AFM is currently not supported ." 
        if(Norb>1)stop "ED WARNING: SC in multi-band is not tested. Remove this line in ED_AUX_FUNX to go on."
-       if(ed_type=='c')stop "ED ERROR: SC with Hermitian H is not implemented."
        if(ed_twin)stop  "ED WARNING: SC + ED_TWIN is not tested. Remove this line in ED_AUX_FUNX to go on."
     endif
     if(ed_mode=="nonsu2")then

@@ -7,9 +7,7 @@ module ED_EIGENSPACE
   type sparse_estate
      integer                         :: sector        !index of the sector
      real(8)                         :: e             !energy of the eigen-state
-     real(8),dimension(:),pointer    :: vec=>null()   !double precision eigen-vector
      complex(8),dimension(:),pointer :: cvec=>null()  !double complex eigen-vector
-     logical                         :: isreal=.true. !real*8 flag
      logical                         :: itwin=.false. !twin sector label
      type(sparse_estate),pointer     :: twin=>null()  !link to twin box 
      type(sparse_estate),pointer     :: next=>null()  !link to next box (chain)
@@ -24,11 +22,11 @@ module ED_EIGENSPACE
 
 
   interface es_insert_state
-     module procedure es_insert_state_d,es_insert_state_c
+     module procedure :: es_insert_state_c
   end interface es_insert_state
 
   interface es_add_state
-     module procedure es_add_state_d,es_add_state_c
+     module procedure :: es_add_state_c
   end interface es_add_state
 
   public :: sparse_estate
@@ -43,10 +41,8 @@ module ED_EIGENSPACE
   public :: es_add_state        !add a state w/ costraint        !checked
   public :: es_pop_state        !pop a state                     !checked
   !
-  public :: es_return_type         !get the type of a state         !checked
   public :: es_return_sector       !get the sector of a state       !checked
   public :: es_return_energy       !get the energy of a state       !checked
-  public :: es_return_vector       !get the vector of a state       !checked
   public :: es_return_cvector      !get the vector of a state       !checked
   public :: es_return_gs_degeneracy!get the number of degenerate GS !checked
   !
@@ -82,7 +78,6 @@ contains        !some routine to perform simple operation on the lists
        if(.not.associated(c))exit  !empty list
        p%next => c%next !
        c%next=>null()
-       if(associated(c%vec))deallocate(c%vec)
        if(associated(c%cvec))deallocate(c%cvec)
        if(associated(c%twin))c%twin=>null()
        deallocate(c)
@@ -108,7 +103,6 @@ contains        !some routine to perform simple operation on the lists
        if(.not.associated(c))exit  !empty list
        p%next => c%next            !
        c%next=>null()
-       if(associated(c%vec))deallocate(c%vec)
        if(associated(c%cvec))deallocate(c%cvec)
        if(associated(c%twin))c%twin=>null()
        deallocate(c)
@@ -129,31 +123,6 @@ contains        !some routine to perform simple operation on the lists
   !+------------------------------------------------------------------+
   !PURPOSE  : insert a state into the list using ener,vector,sector
   !+------------------------------------------------------------------+
-  subroutine es_add_state_d(espace,e,vec,sector,twin,size,verbose)
-    type(sparse_espace),intent(inout) :: espace
-    real(8),intent(in)                :: e
-    real(8),dimension(:),intent(in)   :: vec
-    integer,intent(in)                :: sector
-    integer,intent(in),optional       :: size
-    logical,intent(in),optional       :: verbose
-    logical,intent(in),optional       :: twin
-    logical                           :: twin_
-    twin_=.false.;if(present(twin))twin_=twin
-    if(present(size))then     !if present size add respecting the size constraint.
-       if(espace%size<size)then
-          call es_insert_state_d(espace,e,vec,sector,twin_)
-       else
-          if(e < es_return_energy(espace))then
-             if(present(verbose).AND.(verbose.eqv..true.))print*,"found a new state:"
-             call es_pop_state(espace)
-             call es_insert_state_d(espace,e,vec,sector,twin_)
-          endif
-       endif
-    else                      !else add normally
-       call es_insert_state_d(espace,e,vec,sector,twin_)
-    endif
-  end subroutine es_add_state_d
-
   subroutine es_add_state_c(espace,e,cvec,sector,twin,size,verbose)
     type(sparse_espace),intent(inout) :: espace
     real(8),intent(in)                :: e
@@ -185,58 +154,6 @@ contains        !some routine to perform simple operation on the lists
   !+------------------------------------------------------------------+
   !PURPOSE  : insert a state into the list using ener,vector,sector
   !+------------------------------------------------------------------+
-  subroutine es_insert_state_d(space,e,vec,sector,twin)
-    type(sparse_espace),intent(inout) :: space
-    real(8),intent(in)                :: e
-    real(8),dimension(:),intent(in)   :: vec
-    integer,intent(in)                :: sector
-    logical                           :: twin
-    type(sparse_estate),pointer       :: p,c
-    p => space%root
-    c => p%next
-    do                            !traverse the list until obj < value (ordered list)
-       if(.not.associated(c))exit !empty list or beginning of the list
-       if(e <= c%e)exit
-       p => c
-       c => c%next
-    end do
-    !
-    allocate(p%next)                !Create a new element in the list
-    if(e > space%emax)space%emax=e !update the max energy (corresponds to the top entry)
-    if(e < space%emin)space%emin=e !update the min energy (corresponds to the first entry)
-    p%next%e = e    
-    allocate(p%next%vec(size(vec)))
-    p%next%vec = vec
-    p%next%isreal=.true.
-    p%next%itwin=.false.
-    p%next%sector=sector
-    space%size = space%size+1
-    if(twin)then               !Create a twin element in the list with same energy, no vector and twin flag T
-       allocate(p%next%next)
-       p%next%next%e = e    
-       p%next%next%isreal=.true.
-       p%next%next%itwin=.true.
-       p%next%next%sector=get_twin_sector(sector)
-       p%next%next%twin => p%next
-       space%size = space%size+1
-    endif
-    if(.not.associated(c))then !end of the list special case
-       if(.not.twin)then
-          p%next%next  => null()
-       else
-          p%next%next%next  => null()
-       endif
-    else
-       if(.not.twin)then
-          p%next%next  => c      !the %next of the new node come to current
-       else
-          p%next%next%next  => c 
-       endif
-    end if
-    p=>null()
-    c=>null()
-  end subroutine es_insert_state_d
-
   subroutine es_insert_state_c(space,e,vec,sector,twin)
     type(sparse_espace),intent(inout)  :: space
     real(8),intent(in)                 :: e
@@ -259,14 +176,12 @@ contains        !some routine to perform simple operation on the lists
     if(e < space%emin)space%emin=e !update the min energy (corresponds to the first entry)
     allocate(p%next%cvec(size(vec)))
     p%next%cvec = vec
-    p%next%isreal=.false.
     p%next%itwin=.false.
     p%next%sector=sector
     space%size = space%size+1
     if(twin)then !Create a twin element in the list with same energy, no vector and twin flag T
        allocate(p%next%next)
        p%next%next%e = e    
-       p%next%next%isreal=.false.
        p%next%next%itwin=.true.
        p%next%next%sector=get_twin_sector(sector)
        p%next%next%twin => p%next      ! wiggled arrow of the twin_wout_vector points to its twin_w_vector
@@ -324,12 +239,10 @@ contains        !some routine to perform simple operation on the lists
     if(c%itwin)then             
        pp%next => c%next
        !delete C
-       if(associated(c%vec))deallocate(c%vec)
        if(associated(c%cvec))deallocate(c%cvec)
        if(associated(c%twin))c%twin=>null()
        deallocate(c)
        !delete P
-       if(associated(p%vec))deallocate(p%vec)
        if(associated(p%cvec))deallocate(p%cvec)
        if(associated(p%twin))p%twin=>null()
        deallocate(p)
@@ -345,19 +258,16 @@ contains        !some routine to perform simple operation on the lists
           if(c%next%itwin)then
              p%next => c%next%next 
              !delete C
-             if(associated(c%vec))deallocate(c%vec)
              if(associated(c%cvec))deallocate(c%cvec)
              if(associated(c%twin))c%twin=>null()
              deallocate(c)
              !delete C%NEXT
-             if(associated(c%next%vec))deallocate(c%next%vec)
              if(associated(c%next%cvec))deallocate(c%next%cvec)
              if(associated(c%next%twin))c%next%twin=>null()
              deallocate(c%next)
              space%size=space%size-2
           else
              p%next => c%next      
-             if(associated(c%vec))deallocate(c%vec)
              if(associated(c%cvec))deallocate(c%cvec)
              if(associated(c%twin))c%twin=>null()
              deallocate(c)
@@ -365,7 +275,6 @@ contains        !some routine to perform simple operation on the lists
           endif
        else
           p%next => c%next      
-          if(associated(c%vec))deallocate(c%vec)
           if(associated(c%cvec))deallocate(c%cvec)
           if(associated(c%twin))c%twin=>null()
           deallocate(c)
@@ -453,30 +362,6 @@ contains        !some routine to perform simple operation on the lists
 
 
 
-  !+------------------------------------------------------------------+
-  !PURPOSE  : 
-  !+------------------------------------------------------------------+
-  function es_return_type(space,n) result(ctype)
-    type(sparse_espace),intent(in) :: space
-    integer,optional,intent(in)    :: n
-    logical                        :: ctype
-    type(sparse_estate),pointer    :: c
-    integer                        :: i,pos
-    if(.not.space%status) stop "es_return_type: espace not allocated"
-    pos= space%size ; if(present(n))pos=n
-    if(pos>space%size)stop "es_return_type: n > espace.size"
-    if(space%size==0)stop "es_return_type: espace empty"
-    c => space%root
-    do i=1,pos
-       c => c%next
-       if(.not.associated(c))exit
-    end do
-    if(.not.c%itwin)then
-       ctype = c%isreal
-    else
-       ctype = c%twin%isreal
-    endif
-  end function es_return_type
 
 
 
@@ -511,39 +396,6 @@ contains        !some routine to perform simple operation on the lists
   !+------------------------------------------------------------------+
   !PURPOSE  : 
   !+------------------------------------------------------------------+
-  function es_return_vector(space,n) result(vector)
-    type(sparse_espace),intent(in)   :: space
-    integer,optional,intent(in)      :: n
-    real(8),dimension(:),pointer     :: vector
-    type(sparse_estate),pointer      :: c
-    integer                          :: i,pos
-    integer                          :: dim
-    integer,dimension(:),allocatable :: order
-    if(.not.space%status) stop "es_return_vector: espace not allocated"
-    pos= space%size ; if(present(n))pos=n
-    if(pos>space%size)      stop "es_return_vector: n > espace.size"
-    if(space%size==0)stop "es_return_vector: espace emtpy"
-    c => space%root
-    do i=1,pos
-       c => c%next
-       if(.not.associated(c))exit
-    end do
-    if(.not.c%itwin)then
-       if(.not.c%isreal)stop "pop vector isreal=F: can not associate to complex vector"
-       vector => c%vec
-    else
-       if(.not.c%twin%isreal)stop "pop vector isreal=F: can not associate to complex vector"
-       dim = getdim(c%sector)
-       allocate(Order(dim))
-       call twin_sector_order(c%twin%sector,Order)
-       allocate(vector(dim))
-       do i=1,dim
-          vector(i) = c%twin%vec(Order(i))
-       enddo
-       deallocate(order)
-    endif
-  end function es_return_vector
-
   function es_return_cvector(space,n) result(vector)
     type(sparse_espace),intent(in)   :: space
     integer,optional,intent(in)      :: n
@@ -562,10 +414,8 @@ contains        !some routine to perform simple operation on the lists
        if(.not.associated(c))exit
     end do
     if(.not.c%itwin)then
-       if(c%isreal)stop "pop cvector isreal=T: can not associate to real vector"
        vector => c%cvec
     else
-       if(c%twin%isreal)stop "pop cvector isreal=T: can not associate to real vector"
        dim = getdim(c%sector)
        allocate(Order(dim))
        call twin_sector_order(c%twin%sector,Order)
@@ -605,21 +455,14 @@ contains        !some routine to perform simple operation on the lists
           counter=counter+1
           write(unit_,"(A10,I5)")   "Index   : ",counter
           write(unit_,"(A10,I5)")   "Sector  : ",c%sector
-          write(unit_,"(A10,3L3)")  "Twin    : ",c%itwin,associated(c%vec),associated(c%cvec)
+          write(unit_,"(A10,3L3)")  "Twin    : ",c%itwin,associated(c%cvec)
           write(unit_,"(A10,I5)")   "Size    : ",getdim(c%sector)!size(c%vec)
           write(unit_,"(A10,f18.9)")"Energy  : ",c%e
           if(wvec_)then
-             if(c%isreal)then
-                write(unit_,"(A10)")"Vec     : "
-                do i=1,size(c%vec)
-                   write(unit_,*)c%vec(i)
-                enddo
-             else
-                write(unit_,"(A10)")"Vec     : "
-                do i=1,size(c%vec)
-                   write(unit_,*)c%cvec(i)
-                enddo
-             endif
+             write(unit_,"(A10)")"Vec     : "
+             do i=1,size(c%cvec)
+                write(unit_,*)c%cvec(i)
+             enddo
           endif
           c => c%next  !traverse list
           write(unit_,*)""

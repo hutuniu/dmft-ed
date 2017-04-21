@@ -49,7 +49,6 @@ MODULE ED_INPUT_VARS
   real(8)              :: cg_eps              !fit eps tolerance
   logical              :: finiteT             !flag for finite temperature calculation
   logical              :: ed_twin             !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
-  character(len=1)     :: ed_type             !flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)
   character(len=7)     :: ed_mode             !flag to set ed symmetry type: normal=normal (default), superc=superconductive, nonsu2=broken SU(2)
   logical              :: ed_para             !flag to enforce non-magnetic solution
   real(8)              :: ed_vsf_ratio        !
@@ -171,7 +170,6 @@ contains
     call parse_input_variable(cg_stop,"CG_STOP",INPUTunit,default=0,comment="Conjugate-Gradient stopping condition.")
     call parse_input_variable(cg_eps,"CG_EPS",INPUTunit,default=0.000001d0,comment="Conjugate-Gradient eps tolerance.")
     call parse_input_variable(cg_weight,"CG_WEIGHT",INPUTunit,default=0,comment="Conjugate-Gradient weight form: 0=1.0 ,1=1/n , 2=1/w.")
-    call parse_input_variable(ed_Type,"ED_TYPE",INPUTunit,default='d',comment="Flag to set real or complex Ham: d=symmetric H (real), c=hermitian H (cmplx)")    
     call parse_input_variable(ed_mode,"ED_MODE",INPUTunit,default='normal',comment="Flag to set ED type: normal=normal, superc=superconductive, nonsu2=broken SU(2)")
     call parse_input_variable(ed_para,"ED_PARA",INPUTunit,default=.true.,comment="Flag to force paramagnetic solution (only used in ed_mode=nonsu2 now).")
     call parse_input_variable(ed_vsf_ratio,"ED_VSF_RATIO",INPUTunit,default=0.1d0,comment="Ration of the spin-flip hopping to spin-hold ones in the nonSU2 channel.")

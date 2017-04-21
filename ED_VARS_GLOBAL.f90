@@ -32,11 +32,6 @@ MODULE ED_VARS_GLOBAL
   abstract interface
 
      !HAMILTONIAN CONSTUCTORS
-     !DBLE
-     subroutine d_build_hamiltonian(isector,Hmat)
-       integer                         :: isector
-       real(8),dimension(:,:),optional :: Hmat
-     end subroutine d_build_hamiltonian
      !CMPLX
      subroutine c_build_hamiltonian(isector,Hmat)
        integer                            :: isector
@@ -45,18 +40,6 @@ MODULE ED_VARS_GLOBAL
 
 
      !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
-     !dbleMat*dbleVec
-     subroutine dd_sparse_HxV(Nloc,v,Hv)
-       integer                 :: Nloc
-       real(8),dimension(Nloc) :: v
-       real(8),dimension(Nloc) :: Hv
-     end subroutine dd_sparse_HxV
-     !dbleMat*cmplxVec
-     subroutine dc_sparse_HxV(Nloc,v,Hv)
-       integer                    :: Nloc
-       complex(8),dimension(Nloc) :: v
-       complex(8),dimension(Nloc) :: Hv
-     end subroutine dc_sparse_HxV
      !cmplxMat*cmplxVec
      subroutine cc_sparse_HxV(Nloc,v,Hv)
        integer                    :: Nloc
@@ -109,11 +92,8 @@ MODULE ED_VARS_GLOBAL
   !=========================================================  
   type(sparse_matrix)                                :: spH0
   type(sparse_matrix)                                :: spH0up,spH0dw
-  procedure(d_build_hamiltonian),pointer             :: ed_buildH_d=>null()
   procedure(c_build_hamiltonian),pointer             :: ed_buildH_c=>null()
   !
-  procedure(dd_sparse_HxV),pointer                   :: spHtimesV_dd=>null()
-  procedure(dc_sparse_HxV),pointer                   :: spHtimesV_dc=>null()
   procedure(cc_sparse_HxV),pointer                   :: spHtimesV_cc=>null()
 
 
