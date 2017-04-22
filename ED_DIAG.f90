@@ -28,7 +28,6 @@ module ED_DIAG
   public :: diagonalize_impurity
 
   public :: ed_diag_set_MPI
-
   public :: ed_diag_del_MPI
 
 
@@ -46,6 +45,10 @@ module ED_DIAG
 contains
 
 
+
+  !+-------------------------------------------------------------------+
+  !PURPOSE  : Setup the MPI-Parallel environment for ED_DIAG
+  !+------------------------------------------------------------------+
   subroutine ed_diag_set_MPI(comm)
 #ifdef _MPI
     integer :: comm
@@ -57,7 +60,6 @@ contains
     integer,optional :: comm
 #endif
   end subroutine ed_diag_set_MPI
-
 
   subroutine ed_diag_del_MPI()
 #ifdef _MPI
@@ -75,12 +77,7 @@ contains
   ! GS, build the Green's functions calling all the necessary routines
   !+------------------------------------------------------------------+
   subroutine diagonalize_impurity()
-    select case(ed_type)
-    case default
-       call ed_diag_d
-    case('c')
-       call ed_diag_c
-    end select
+    call ed_diag_c
     call ed_analysis
   end subroutine diagonalize_impurity
 
@@ -88,19 +85,21 @@ contains
 
 
 
+
+
   !+-------------------------------------------------------------------+
   !PURPOSE  : diagonalize the Hamiltonian in each sector and find the 
-  ! spectrum DOUBLE PRECISION
+  ! spectrum DOUBLE COMPLEX
   !+------------------------------------------------------------------+
-  subroutine ed_diag_d
-    integer             :: nup,ndw,isector,dim
-    integer             :: isect,izero,sz,nt
-    integer             :: i,j,iter,unit
-    integer             :: Nitermax,Neigen,Nblock
-    real(8)             :: oldzero,enemin,Ei
-    real(8),allocatable :: eig_values(:)
-    real(8),allocatable :: eig_basis(:,:)
-    logical             :: lanc_solve,Tflag,lanc_verbose
+  subroutine ed_diag_c
+    integer                :: nup,ndw,isector,dim
+    integer                :: isect,izero,sz,nt
+    integer                :: i,j,iter,unit
+    integer                :: Nitermax,Neigen,Nblock
+    real(8)                :: oldzero,enemin,Ei
+    real(8),allocatable    :: eig_values(:)
+    complex(8),allocatable :: eig_basis(:,:)
+    logical                :: lanc_solve,Tflag,lanc_verbose
     !
     if(state_list%status)call es_delete_espace(state_list)
     state_list=es_init_espace()
@@ -115,7 +114,6 @@ contains
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
-
        Tflag    = twin_mask(isector).AND.ed_twin
        select case(ed_mode)
        case default
@@ -161,20 +159,20 @@ contains
           if(allocated(eig_basis))deallocate(eig_basis)
           allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
           eig_values=0d0 ; eig_basis=0d0
-          call ed_buildH_d(isector)
+          call ed_buildH_c(isector)
           if(MpiStatus)then
-             call sp_eigh(MpiComm,spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+             call sp_eigh(MpiComm,spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
           else
-             call sp_eigh(spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+             call sp_eigh(spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
           endif
        else
           if(allocated(eig_values))deallocate(eig_values)
           if(allocated(eig_basis))deallocate(eig_basis)
-          allocate(eig_values(dim),eig_basis(dim,dim))
-          eig_values=0d0 ; eig_basis=0d0 
-          call ed_buildH_d(isector,eig_basis)
+          allocate(eig_values(Dim),eig_basis(Dim,dim))
+          eig_values=0d0 ; eig_basis=zero
+          call ed_buildH_c(isector,eig_basis)
           call eigh(eig_basis,eig_values,'V','U')
-          if(dim==1)eig_basis(dim,dim)=1.d0
+          if(dim==1)eig_basis(dim,dim)=one
        endif
        !
        if(spH0%status)call sp_delete_matrix(spH0)
@@ -196,121 +194,6 @@ contains
              endif
           enddo
        endif
-       unit=free_unit()
-       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
-       call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
-       close(unit)
-       !
-       if(allocated(eig_values))deallocate(eig_values)
-       if(allocated(eig_basis))deallocate(eig_basis)
-       !
-    enddo sector
-    if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
-  end subroutine ed_diag_d
-
-
-
-  !+-------------------------------------------------------------------+
-  !PURPOSE  : diagonalize the Hamiltonian in each sector and find the 
-  ! spectrum DOUBLE COMPLEX
-  !+------------------------------------------------------------------+
-  subroutine ed_diag_c
-    integer                :: nup,ndw,isector,dim
-    integer                :: sz,nt
-    integer                :: i,iter
-    integer                :: numgs
-    integer                :: Nitermax,Neigen,Nblock
-    real(8)                :: oldzero,enemin
-    real(8),allocatable    :: eig_values(:)
-    complex(8),allocatable :: eig_basis(:,:)
-    logical                :: lanc_solve,Tflag
-    if(state_list%status)call es_delete_espace(state_list)
-    state_list=es_init_espace()
-    oldzero=1000.d0
-    if(ed_verbose<3.AND.MPI_MASTER)call start_timer()
-    iter=0
-    sector: do isector=1,Nsectors
-       if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
-       iter=iter+1
-       Tflag    = twin_mask(isector).AND.ed_twin
-       select case(ed_mode)
-       case default
-          Tflag=Tflag.AND.(getnup(isector)/=getndw(isector))
-       case ("superc")
-          Tflag=Tflag.AND.(getsz(isector)/=0)
-       case("nonsu2")
-          Tflag=Tflag.AND.(getn(isector)/=Ns)
-       end select       !
-       Dim      = getdim(isector)
-       Neigen   = min(dim,neigen_sector(isector))
-       Nitermax = min(dim,lanc_niter)
-       Nblock   = min(dim,lanc_ncv_factor*Neigen + lanc_ncv_add)!min(dim,5*Neigen+10)
-       !
-       lanc_solve  = .true.
-       if(Neigen==dim)lanc_solve=.false.
-       if(dim<=max(lanc_dim_threshold,MPI_SIZE))lanc_solve=.false.
-       !
-       if(MPI_MASTER)then
-          if(ed_verbose<=0)then
-             select case(ed_mode)
-             case default
-                nup  = getnup(isector)
-                ndw  = getndw(isector)
-                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15,A12,3I4)")&
-                     iter,"-Solving sector:",isector,", nup:",nup,", ndw:",ndw,", dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
-             case ("superc")
-                sz   = getsz(isector)
-                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15,A12,3I4)")&
-                     iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
-             case ("nonsu2")
-                nt   = getn(isector)
-                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15,A12,3I4)")&
-                     iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
-             end select
-          elseif(ed_verbose>0.AND.ed_verbose<3)then
-             call eta(iter,count(twin_mask),LOGfile)
-          endif
-       endif
-       !
-       if(lanc_solve)then
-          if(allocated(eig_values))deallocate(eig_values)
-          if(allocated(eig_basis))deallocate(eig_basis)
-          allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
-          eig_values=0d0 ; eig_basis=0d0
-          call ed_buildH_c(isector)
-          if(MpiStatus)then
-             call sp_eigh(MpiComm,spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
-          else
-             call sp_eigh(spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
-          endif
-       else
-          allocate(eig_values(Dim),eig_basis(Dim,dim))
-          eig_values=0.d0 ; eig_basis=zero
-          call ed_buildH_c(isector,eig_basis)
-          call eigh(eig_basis,eig_values,'V','U')
-          if(dim==1)eig_basis(dim,dim)=one
-       endif
-       !
-       if(spH0%status)call sp_delete_matrix(spH0)
-       !
-       if(finiteT)then
-          do i=1,Neigen
-             call es_add_state(state_list,eig_values(i),eig_basis(1:dim,i),isector,twin=Tflag,size=lanc_nstates_total)
-          enddo
-       else
-          do i=1,Neigen
-             enemin = eig_values(i)
-             if(enemin < oldzero-10.d0*gs_threshold)then
-                oldzero=enemin
-                call es_free_espace(state_list)
-                call es_add_state(state_list,enemin,eig_basis(1:dim,i),isector,twin=Tflag)
-             elseif(abs(enemin-oldzero) <= gs_threshold)then
-                oldzero=min(oldzero,enemin)
-                call es_add_state(state_list,enemin,eig_basis(1:dim,i),isector,twin=Tflag)
-             endif
-          enddo
-       endif
-       !
        unit=free_unit()
        open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
        call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
@@ -464,11 +347,14 @@ contains
              if(ed_verbose<4.AND.MPI_MASTER)then
                 select case(ed_mode)
                 case default
-                   write(LOGfile,"(A,I4,2x,2I4,2x,I5)")"Trimming state:",isector,getnup(isector),getndw(isector),state_list%size
+                   write(LOGfile,"(A,I4,2x,2I4,2x,I5)")&
+                        "Trimming state:",isector,getnup(isector),getndw(isector),state_list%size
                 case("superc")
-                   write(LOGfile,"(A,I4,2x,I4,2x,I5)")"Trimming state:",isector,getsz(isector),state_list%size
+                   write(LOGfile,"(A,I4,2x,I4,2x,I5)")&
+                        "Trimming state:",isector,getsz(isector),state_list%size
                 case("nonsu2")
-                   write(LOGfile,"(A,I4,2x,I4,2x,I5)")"Trimming state:",isector,getn(isector),state_list%size
+                   write(LOGfile,"(A,I4,2x,I4,2x,I5)")&
+                        "Trimming state:",isector,getn(isector),state_list%size
                 end select
              endif
              call es_pop_state(state_list)
@@ -512,13 +398,16 @@ contains
           case default
              nup   = getnup(isector)
              ndw   = getndw(isector)
-             write(unit,"(i3,f18.12,2x,ES19.12,1x,2i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),nup,ndw,isector,getdim(isector)
+             write(unit,"(i3,f18.12,2x,ES19.12,1x,2i3,3x,i3,i10)")&
+                  istate,Estate,exp(-beta*(Estate-state_list%emin)),nup,ndw,isector,getdim(isector)
           case("superc")
              sz   = getsz(isector)
-             write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),sz,isector,getdim(isector)
+             write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)")&
+                  istate,Estate,exp(-beta*(Estate-state_list%emin)),sz,isector,getdim(isector)
           case("nonsu2")
              n    = getn(isector)
-             write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)")istate,Estate,exp(-beta*(Estate-state_list%emin)),n,isector,getdim(isector)
+             write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)")&
+                  istate,Estate,exp(-beta*(Estate-state_list%emin)),n,isector,getdim(isector)
           end select
        enddo
     endif
@@ -552,3 +441,131 @@ contains
 
 
 end MODULE ED_DIAG
+
+
+
+
+
+
+
+
+
+
+  ! !+-------------------------------------------------------------------+
+  ! !PURPOSE  : diagonalize the Hamiltonian in each sector and find the 
+  ! ! spectrum DOUBLE PRECISION
+  ! !+------------------------------------------------------------------+
+  ! subroutine ed_diag_d
+  !   integer             :: nup,ndw,isector,dim
+  !   integer             :: isect,izero,sz,nt
+  !   integer             :: i,j,iter,unit
+  !   integer             :: Nitermax,Neigen,Nblock
+  !   real(8)             :: oldzero,enemin,Ei
+  !   real(8),allocatable :: eig_values(:)
+  !   real(8),allocatable :: eig_basis(:,:)
+  !   logical             :: lanc_solve,Tflag,lanc_verbose
+  !   !
+  !   if(state_list%status)call es_delete_espace(state_list)
+  !   state_list=es_init_espace()
+  !   oldzero=1000.d0
+  !   if(ed_verbose<3.AND.MPI_MASTER)call start_timer()
+  !   if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Diagonalize impurity H:"
+  !   !
+  !   lanc_verbose=.false.
+  !   if(ed_verbose<0)lanc_verbose=.true.
+  !   !
+  !   iter=0
+  !   sector: do isector=1,Nsectors
+  !      if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
+  !      iter=iter+1
+  !      Tflag    = twin_mask(isector).AND.ed_twin
+  !      select case(ed_mode)
+  !      case default
+  !         Tflag = Tflag.AND.(getnup(isector)/=getndw(isector))
+  !      case ("superc")
+  !         Tflag = Tflag.AND.(getsz(isector)/=0)
+  !      case("nonsu2")
+  !         Tflag = Tflag.AND.(getn(isector)/=Ns)
+  !      end select
+  !      Dim      = getdim(isector)
+  !      Neigen   = min(dim,neigen_sector(isector))
+  !      Nitermax = min(dim,lanc_niter)
+  !      Nblock   = min(dim,lanc_ncv_factor*Neigen + lanc_ncv_add)!min(dim,5*Neigen+10)
+  !      !
+  !      lanc_solve  = .true.
+  !      if(Neigen==dim)lanc_solve=.false.
+  !      if(dim<=max(lanc_dim_threshold,MPI_SIZE))lanc_solve=.false.
+  !      !
+  !      if(MPI_MASTER)then
+  !         if(ed_verbose<=0)then
+  !            select case(ed_mode)
+  !            case default
+  !               nup  = getnup(isector)
+  !               ndw  = getndw(isector)
+  !               write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15,A12,3I4)")&
+  !                    iter,"-Solving sector:",isector,", nup:",nup,", ndw:",ndw,", dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+  !            case ("superc")
+  !               sz   = getsz(isector)
+  !               write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15,A12,3I4)")&
+  !                    iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+  !            case ("nonsu2")
+  !               nt   = getn(isector)
+  !               write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15,A12,3I4)")&
+  !                    iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+  !            end select
+  !         elseif(ed_verbose>0.AND.ed_verbose<3)then
+  !            call eta(iter,count(twin_mask),LOGfile)
+  !         endif
+  !      endif
+  !      !
+  !      if(lanc_solve)then
+  !         if(allocated(eig_values))deallocate(eig_values)
+  !         if(allocated(eig_basis))deallocate(eig_basis)
+  !         allocate(eig_values(Neigen),eig_basis(Dim,Neigen))
+  !         eig_values=0d0 ; eig_basis=0d0
+  !         call ed_buildH_d(isector)
+  !         if(MpiStatus)then
+  !            call sp_eigh(MpiComm,spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+  !         else
+  !            call sp_eigh(spHtimesV_dd,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
+  !         endif
+  !      else
+  !         if(allocated(eig_values))deallocate(eig_values)
+  !         if(allocated(eig_basis))deallocate(eig_basis)
+  !         allocate(eig_values(dim),eig_basis(dim,dim))
+  !         eig_values=0d0 ; eig_basis=0d0 
+  !         call ed_buildH_d(isector,eig_basis)
+  !         call eigh(eig_basis,eig_values,'V','U')
+  !         if(dim==1)eig_basis(dim,dim)=1.d0
+  !      endif
+  !      !
+  !      if(spH0%status)call sp_delete_matrix(spH0)
+  !      !
+  !      if(finiteT)then
+  !         do i=1,Neigen
+  !            call es_add_state(state_list,eig_values(i),eig_basis(1:dim,i),isector,twin=Tflag,size=lanc_nstates_total)
+  !         enddo
+  !      else
+  !         do i=1,Neigen
+  !            enemin = eig_values(i)
+  !            if (enemin < oldzero-10.d0*gs_threshold)then
+  !               oldzero=enemin
+  !               call es_free_espace(state_list)
+  !               call es_add_state(state_list,enemin,eig_basis(1:dim,i),isector,twin=Tflag)
+  !            elseif(abs(enemin-oldzero) <= gs_threshold)then
+  !               oldzero=min(oldzero,enemin)
+  !               call es_add_state(state_list,enemin,eig_basis(1:dim,i),isector,twin=Tflag)
+  !            endif
+  !         enddo
+  !      endif
+  !      unit=free_unit()
+  !      open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+  !      call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
+  !      close(unit)
+  !      !
+  !      if(allocated(eig_values))deallocate(eig_values)
+  !      if(allocated(eig_basis))deallocate(eig_basis)
+  !      !
+  !   enddo sector
+  !   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+  ! end subroutine ed_diag_d

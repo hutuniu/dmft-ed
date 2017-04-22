@@ -168,6 +168,10 @@ contains
 
 
 
+
+  
+
+
   !+-----------------------------------------------------------------------------+!
   !                           INEQUVALENT SITES                                   !
   !+-----------------------------------------------------------------------------+!
@@ -257,6 +261,12 @@ contains
 
 
 
+
+
+  
+
+
+
   !+-----------------------------------------------------------------------------+!
   !PURPOSE: solve the impurity problems for a single or many independent
   ! lattice site using ED. 
@@ -284,20 +294,15 @@ contains
     !ASSOCIATE THE GLOBAL PROCEDURES
     select case(ed_mode)
     case ('normal')
-       ed_buildh_d=>build_H_normal_d
        ed_buildh_c=>build_H_normal_c       
     case ('superc')
-       ed_buildh_d=>build_H_superc_d
        ed_buildh_c=>build_H_superc_c       
     case ('nonsu2')
-       ed_buildh_d=>build_H_nonsu2_d
        ed_buildh_c=>build_H_nonsu2_c       
     case default
        stop "ED_SOLVE_SINGLE ERROR: ed_mode not set: normal/superc/nonsu2"
     end select
     !
-    spHtimesV_dd => spMatVec_dd
-    spHtimesV_dc => spMatVec_dc
     spHtimesV_cc => spMatVec_cc
     !
     !SOLVE THE QUANTUM IMPURITY PROBLEM:
@@ -310,10 +315,7 @@ contains
     call deallocate_dmft_bath(dmft_bath)   
     call es_delete_espace(state_list)
     !
-    nullify(ed_buildh_d)
     nullify(ed_buildh_c)
-    nullify(spHtimesV_dd)
-    nullify(spHtimesV_dc)
     nullify(spHtimesV_cc)
   end subroutine ed_solve_single
 
@@ -343,20 +345,15 @@ contains
     !ASSOCIATE THE GLOBAL PROCEDURES
     select case(ed_mode)
     case ('normal')
-       ed_buildh_d=>build_H_normal_d
        ed_buildh_c=>build_H_normal_c       
     case ('superc')
-       ed_buildh_d=>build_H_superc_d
        ed_buildh_c=>build_H_superc_c       
     case ('nonsu2')
-       ed_buildh_d=>build_H_nonsu2_d
        ed_buildh_c=>build_H_nonsu2_c       
     case default
        stop "ED_SOLVE_SINGLE ERROR: ed_mode not set: normal/superc/nonsu2"
     end select
     !
-    spHtimesV_dd => spMatVec_MPI_dd
-    spHtimesV_dc => spMatVec_MPI_dc
     spHtimesV_cc => spMatVec_MPI_cc
     !
     !SET THE LOCAL COMMUNICATORS IN ALL THE RELEVANT PARTS OF THE CODE:
@@ -382,15 +379,18 @@ contains
     call ed_diag_del_MPI()
     call ed_observables_del_MPI()
     call ed_greens_functions_del_MPI()    
-    nullify(ed_buildh_d)
     nullify(ed_buildh_c)
-    nullify(spHtimesV_dd)
-    nullify(spHtimesV_dc)
     nullify(spHtimesV_cc)
   end subroutine ed_solve_single_mpi
 #endif
 
 
+
+
+
+
+
+  
 
 
 
@@ -722,24 +722,6 @@ contains
     !
   end subroutine ed_solve_lattice_mpi
 #endif
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

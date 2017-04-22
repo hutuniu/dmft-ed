@@ -6,27 +6,16 @@ subroutine build_chi_spin()
   write(LOGfile,"(A)")"Get impurity spin Chi:"
   do iorb=1,Norb
      if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_spin_l"//reg(txtfy(iorb))
-     select case(ed_type)
-     case default
-        call lanc_ed_build_spinChi_d(iorb)
-     case ('c')
-        call lanc_ed_build_spinChi_c(iorb)
-     end select
+     call lanc_ed_build_spinChi_c(iorb)
   enddo
   if(Norb>1)then
      if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_spin_tot"
-     select case(ed_type)
-     case default
-        call lanc_ed_build_spinChi_tot_d()
-     case ('c')
-        call lanc_ed_build_spinChi_tot_c()
-     end select
+     call lanc_ed_build_spinChi_tot_c()
   endif
   spinChi_tau = SpinChi_tau/zeta_function
   spinChi_w   = spinChi_w/zeta_function
   spinChi_iv  = spinChi_iv/zeta_function
 end subroutine build_chi_spin
-
 
 
 
@@ -37,64 +26,6 @@ end subroutine build_chi_spin
 ! are identical so work out only one lanczos tridiag. work out the 
 ! reduction for both values of isign in the same call.
 !+------------------------------------------------------------------+
-subroutine lanc_ed_build_spinChi_d(iorb)
-  integer                          :: iorb,isite,isector,izero
-  integer                          :: numstates
-  integer                          :: nlanc,idim
-  integer                          :: iup0,idw0,isign
-  integer                          :: ib(Nlevels)
-  integer                          :: m,i,j,r
-  real(8)                          :: norm0,sgn
-  real(8),allocatable              :: alfa_(:),beta_(:)
-  real(8),allocatable              :: vvinit(:)
-  integer                          :: Nitermax
-  type(sector_map) :: HI    !map of the Sector S to Hilbert space H
-  !
-  !
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  !
-  do izero=1,state_list%size
-     isector     =  es_return_sector(state_list,izero)
-     state_e    =  es_return_energy(state_list,izero)
-     state_vec  => es_return_vector(state_list,izero)
-     norm0=sqrt(dot_product(state_vec,state_vec))
-     if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim  = getdim(isector)
-     allocate(vvinit(idim))
-     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
-     call build_sector(isector,HI)
-     vvinit=0.d0
-     do m=1,idim                     !loop over |gs> components m
-        i=HI%map(m)
-        ib = bdecomp(i,2*Ns)
-        sgn = dble(ib(iorb))-dble(ib(iorb+Ns))
-        vvinit(m) = 0.5d0*sgn*state_vec(m)   !build the cdg_up|gs> state
-     enddo
-     deallocate(HI%map)
-     norm0=sqrt(dot_product(vvinit,vvinit))
-     vvinit=vvinit/norm0
-     call ed_buildH_d(isector)
-     nlanc=min(idim,lanc_nGFiter)
-     allocate(alfa_(nlanc),beta_(nlanc))
-     if(MpiStatus)then
-        call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-     else
-        call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-     endif
-     !particles
-     isign=1
-     call add_to_lanczos_spinChi(norm0,state_e,alfa_,beta_,isign,iorb)
-     !holes
-     isign=-1
-     call add_to_lanczos_spinChi(norm0,state_e,alfa_,beta_,isign,iorb)
-     deallocate(vvinit)
-     if(spH0%status)call sp_delete_matrix(spH0)
-     nullify(state_vec)
-  enddo
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
-  deallocate(alfa_,beta_)
-end subroutine lanc_ed_build_spinChi_d
-
 subroutine lanc_ed_build_spinChi_c(iorb)
   integer                          :: iorb,isite,isector,izero
   integer                          :: numstates
@@ -118,7 +49,6 @@ subroutine lanc_ed_build_spinChi_c(iorb)
      state_cvec => es_return_cvector(state_list,izero)
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim  = getdim(isector)
      allocate(vvinit(idim))
      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
@@ -158,6 +88,10 @@ end subroutine lanc_ed_build_spinChi_c
 
 
 
+
+
+
+
 !+------------------------------------------------------------------+
 !PURPOSE  : Evaluate the total Spin susceptibility \Chi_spin for a 
 ! single orbital: \chi =  <[\sum_a S_a(\tau)][\sum_a S_a(0)]>
@@ -165,63 +99,6 @@ end subroutine lanc_ed_build_spinChi_c
 ! are identical so work out only one lanczos tridiag. work out the 
 ! reduction for both values of isign in the same call.
 !+------------------------------------------------------------------+
-subroutine lanc_ed_build_spinChi_tot_d()
-  integer                          :: iorb,isite,isector,izero
-  integer                          :: numstates
-  integer                          :: nlanc,idim
-  integer                          :: iup0,idw0,isign
-  integer                          :: ib(Nlevels)
-  integer                          :: m,i,j,r
-  real(8)                          :: norm0,sgn
-  real(8),allocatable              :: alfa_(:),beta_(:)
-  real(8),allocatable              :: vvinit(:)
-  integer                          :: Nitermax
-  type(sector_map) :: HI    !map of the Sector S to Hilbert space H
-  !
-  !  
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
-  !
-  do izero=1,state_list%size
-     isector     =  es_return_sector(state_list,izero)
-     state_e    =  es_return_energy(state_list,izero)
-     state_vec  => es_return_vector(state_list,izero)
-     norm0=sqrt(dot_product(state_vec,state_vec))
-     if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim  = getdim(isector)
-     allocate(vvinit(idim))
-     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
-     call build_sector(isector,HI)
-     vvinit=0.d0
-     do m=1,idim  
-        i=HI%map(m)
-        ib = bdecomp(i,2*Ns)
-        sgn = sum(dble(ib(1:Norb)))-sum(dble(ib(Ns+1:Ns+Norb)))
-        vvinit(m) = 0.5d0*sgn*state_vec(m) 
-     enddo
-     deallocate(HI%map)
-     norm0=sqrt(dot_product(vvinit,vvinit))
-     vvinit=vvinit/norm0
-     call ed_buildH_d(isector)
-     nlanc=min(idim,lanc_nGFiter)
-     allocate(alfa_(nlanc),beta_(nlanc))
-     if(MpiStatus)then
-        call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-     else
-        call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-     endif
-     !particles
-     isign=1
-     call add_to_lanczos_spinChi(norm0,state_e,alfa_,beta_,isign,Norb+1)
-     !holes
-     isign=-1
-     call add_to_lanczos_spinChi(norm0,state_e,alfa_,beta_,isign,Norb+1)
-     deallocate(vvinit,alfa_,beta_)
-     if(spH0%status)call sp_delete_matrix(spH0)
-     nullify(state_vec)
-  enddo
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
-end subroutine lanc_ed_build_spinChi_tot_d
-
 subroutine lanc_ed_build_spinChi_tot_c()
   integer                          :: iorb,isite,isector,izero
   integer                          :: numstates
@@ -245,12 +122,11 @@ subroutine lanc_ed_build_spinChi_tot_c()
      state_cvec => es_return_cvector(state_list,izero)
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-     idim  = getdim(isector)
      allocate(vvinit(idim))
      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=0.d0
-     do m=1,idim                     !loop over |gs> components m
+     do m=1,idim  
         i=HI%map(m)
         ib = bdecomp(i,2*Ns)
         sgn = sum(dble(ib(1:Norb)))-sum(dble(ib(Ns+1:Ns+Norb)))
@@ -279,6 +155,7 @@ subroutine lanc_ed_build_spinChi_tot_c()
   enddo
   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
 end subroutine lanc_ed_build_spinChi_tot_c
+
 
 
 
@@ -362,3 +239,130 @@ subroutine add_to_lanczos_spinChi(vnorm,Ei,alanc,blanc,isign,iorb)
   end select
 
 end subroutine add_to_lanczos_spinChi
+
+
+
+
+
+
+
+
+
+
+
+
+
+! subroutine lanc_ed_build_spinChi_d(iorb)
+!   integer                          :: iorb,isite,isector,izero
+!   integer                          :: numstates
+!   integer                          :: nlanc,idim
+!   integer                          :: iup0,idw0,isign
+!   integer                          :: ib(Nlevels)
+!   integer                          :: m,i,j,r
+!   real(8)                          :: norm0,sgn
+!   real(8),allocatable              :: alfa_(:),beta_(:)
+!   real(8),allocatable              :: vvinit(:)
+!   integer                          :: Nitermax
+!   type(sector_map) :: HI    !map of the Sector S to Hilbert space H
+!   !
+!   !
+!   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+!   !
+!   do izero=1,state_list%size
+!      isector     =  es_return_sector(state_list,izero)
+!      idim      =  getdim(isector)
+!      state_e    =  es_return_energy(state_list,izero)
+!      state_vec  => es_return_vector(state_list,izero)
+!      norm0=sqrt(dot_product(state_vec,state_vec))
+!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
+!      allocate(vvinit(idim))
+!      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+!      call build_sector(isector,HI)
+!      vvinit=0.d0
+!      do m=1,idim                     !loop over |gs> components m
+!         i=HI%map(m)
+!         ib = bdecomp(i,2*Ns)
+!         sgn = dble(ib(iorb))-dble(ib(iorb+Ns))
+!         vvinit(m) = 0.5d0*sgn*state_vec(m)   !build the cdg_up|gs> state
+!      enddo
+!      deallocate(HI%map)
+!      norm0=sqrt(dot_product(vvinit,vvinit))
+!      vvinit=vvinit/norm0
+!      call ed_buildH_d(isector)
+!      nlanc=min(idim,lanc_nGFiter)
+!      allocate(alfa_(nlanc),beta_(nlanc))
+!      if(MpiStatus)then
+!         call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+!      else
+!         call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+!      endif
+!      !particles
+!      isign=1
+!      call add_to_lanczos_spinChi(norm0,state_e,alfa_,beta_,isign,iorb)
+!      !holes
+!      isign=-1
+!      call add_to_lanczos_spinChi(norm0,state_e,alfa_,beta_,isign,iorb)
+!      deallocate(vvinit,alfa_,beta_)
+!      if(spH0%status)call sp_delete_matrix(spH0)
+!      nullify(state_vec)
+!   enddo
+!   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+! end subroutine lanc_ed_build_spinChi_d
+
+
+! subroutine lanc_ed_build_spinChi_tot_d()
+!   integer                          :: iorb,isite,isector,izero
+!   integer                          :: numstates
+!   integer                          :: nlanc,idim
+!   integer                          :: iup0,idw0,isign
+!   integer                          :: ib(Nlevels)
+!   integer                          :: m,i,j,r
+!   real(8)                          :: norm0,sgn
+!   real(8),allocatable              :: alfa_(:),beta_(:)
+!   real(8),allocatable              :: vvinit(:)
+!   integer                          :: Nitermax
+!   type(sector_map) :: HI    !map of the Sector S to Hilbert space H
+!   !
+!   !  
+!   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+!   !
+!   do izero=1,state_list%size
+!      isector     =  es_return_sector(state_list,izero)
+!      idim       =  getdim(isector)
+!      state_e    =  es_return_energy(state_list,izero)
+!      state_vec  => es_return_vector(state_list,izero)
+!      norm0=sqrt(dot_product(state_vec,state_vec))
+!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
+!      allocate(vvinit(idim))
+!      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+!      call build_sector(isector,HI)
+!      vvinit=0.d0
+!      do m=1,idim  
+!         i=HI%map(m)
+!         ib = bdecomp(i,2*Ns)
+!         sgn = sum(dble(ib(1:Norb)))-sum(dble(ib(Ns+1:Ns+Norb)))
+!         vvinit(m) = 0.5d0*sgn*state_vec(m) 
+!      enddo
+!      deallocate(HI%map)
+!      norm0=sqrt(dot_product(vvinit,vvinit))
+!      vvinit=vvinit/norm0
+!      call ed_buildH_d(isector)
+!      nlanc=min(idim,lanc_nGFiter)
+!      allocate(alfa_(nlanc),beta_(nlanc))
+!      if(MpiStatus)then
+!         call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
+!      else
+!         call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
+!      endif
+!      !particles
+!      isign=1
+!      call add_to_lanczos_spinChi(norm0,state_e,alfa_,beta_,isign,Norb+1)
+!      !holes
+!      isign=-1
+!      call add_to_lanczos_spinChi(norm0,state_e,alfa_,beta_,isign,Norb+1)
+!      deallocate(vvinit,alfa_,beta_)
+!      if(spH0%status)call sp_delete_matrix(spH0)
+!      nullify(state_vec)
+!   enddo
+!   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+! end subroutine lanc_ed_build_spinChi_tot_d
