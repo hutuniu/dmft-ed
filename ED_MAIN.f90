@@ -6,8 +6,7 @@ module ED_MAIN
   USE ED_IO,only: ed_print_impSigma
   USE ED_SETUP
   USE ED_BATH
-  USE ED_MATVEC
-  USE ED_HAMILTONIAN
+  USE ED_HAMILTONIAN_MATVEC
   USE ED_GREENS_FUNCTIONS
   USE ED_OBSERVABLES
   USE ED_DIAG
@@ -292,16 +291,17 @@ contains
     endif
     !
     !ASSOCIATE THE GLOBAL PROCEDURES
-    select case(ed_mode)
-    case ('normal')
-       ed_buildh_c=>build_H_normal_c       
-    case ('superc')
-       ed_buildh_c=>build_H_superc_c       
-    case ('nonsu2')
-       ed_buildh_c=>build_H_nonsu2_c       
-    case default
-       stop "ED_SOLVE_SINGLE ERROR: ed_mode not set: normal/superc/nonsu2"
-    end select
+    ! select case(ed_mode)
+    ! case ('normal')
+    !    ed_buildh_c=>build_H_normal_c       
+    ! case ('superc')
+    !    ed_buildh_c=>build_H_superc_c       
+    ! case ('nonsu2')
+    !    ed_buildh_c=>build_H_nonsu2_c       
+    ! case default
+    !    stop "ED_SOLVE_SINGLE ERROR: ed_mode not set: normal/superc/nonsu2"
+    ! end select
+    ed_buildh_c  => build_H_c
     !
     spHtimesV_cc => spMatVec_cc
     !
@@ -343,16 +343,17 @@ contains
     endif
     !
     !ASSOCIATE THE GLOBAL PROCEDURES
-    select case(ed_mode)
-    case ('normal')
-       ed_buildh_c=>build_H_normal_c       
-    case ('superc')
-       ed_buildh_c=>build_H_superc_c       
-    case ('nonsu2')
-       ed_buildh_c=>build_H_nonsu2_c       
-    case default
-       stop "ED_SOLVE_SINGLE ERROR: ed_mode not set: normal/superc/nonsu2"
-    end select
+    ! select case(ed_mode)
+    ! case ('normal')
+    !    ed_buildh_c=>build_H_normal_c       
+    ! case ('superc')
+    !    ed_buildh_c=>build_H_superc_c       
+    ! case ('nonsu2')
+    !    ed_buildh_c=>build_H_nonsu2_c       
+    ! case default
+    !    stop "ED_SOLVE_SINGLE ERROR: ed_mode not set: normal/superc/nonsu2"
+    ! end select
+    ed_buildh_c  => build_H_c
     !
     spHtimesV_cc => spMatVec_MPI_cc
     !

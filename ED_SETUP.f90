@@ -821,7 +821,7 @@ contains
     integer                   :: isector
     type(sector_map)          :: Hup
     ! type(sector_map),optional :: Hdw
-    call map_dealocate(Hup)
+    call map_deallocate(Hup)
   end subroutine delete_sector
 
 

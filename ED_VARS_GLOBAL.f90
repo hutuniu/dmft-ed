@@ -17,7 +17,7 @@ MODULE ED_VARS_GLOBAL
      logical                                     :: status=.false.
   end type effective_bath
 
-  
+
 
 
   !---------------- SECTOR-TO-FOCK SPACE STRUCTURE -------------------!
@@ -234,13 +234,13 @@ contains
     deallocate(H%map)
   end subroutine map_deallocate_scalar
   !
-  subroutine map_allocate_vector(H)
+  subroutine map_deallocate_vector(H)
     type(sector_map),dimension(:) :: H
     integer :: i
     do i=1,size(H)
-       allocate(H(i)%map)
+       deallocate(H(i)%map)
     enddo
-  end subroutine map_allocate_vector
+  end subroutine map_deallocate_vector
 
 
 END MODULE ED_VARS_GLOBAL

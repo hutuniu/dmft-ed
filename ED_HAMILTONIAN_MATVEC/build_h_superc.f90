@@ -282,16 +282,14 @@
            endif
         enddo
      enddo
-
-
-
-     !##############################################
-     !#                                            #
-     !#    ANOMALOUS PAIR-CREATION/DESTRUCTION     #
-     !#                                            #
-     !##############################################
      !
      !
+     !
+     !
+     !
+     !
+     !
+     !ANOMALOUS PAIR-CREATION/DESTRUCTION
      if(ed_mode=="superc")then
         do iorb=1,size(dmft_bath%e,2)
            do kp=1,Nbath
