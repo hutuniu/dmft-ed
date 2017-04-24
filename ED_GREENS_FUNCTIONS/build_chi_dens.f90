@@ -83,7 +83,10 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
      deallocate(HI%map)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
-     call ed_buildH_c(isector)
+     !
+     call setup_Hv_sector(isector)
+     if(ed_sparse_H)call ed_buildH_c()
+     !
      nlanc=min(idim,lanc_nGFiter)
      allocate(alfa_(nlanc),beta_(nlanc))
      if(MpiStatus)then
@@ -96,6 +99,9 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,iorb)
      isign=-1
      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,iorb)
+     !
+     call delete_Hv_sector()
+     !
      deallocate(vvinit,alfa_,beta_)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
@@ -145,7 +151,10 @@ subroutine lanc_ed_build_densChi_tot_c()
      deallocate(HI%map)
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
-     call ed_buildH_c(isector)
+     !
+     call setup_Hv_sector(isector)
+     if(ed_sparse_H)call ed_buildH_c()
+     !
      nlanc=min(idim,lanc_nGFiter)
      allocate(alfa_(nlanc),beta_(nlanc))
      if(MpiStatus)then
@@ -158,6 +167,9 @@ subroutine lanc_ed_build_densChi_tot_c()
      call add_to_lanczos_densChi_tot(cnorm2,state_e,alfa_,beta_,isign)
      isign=-1
      call add_to_lanczos_densChi_tot(cnorm2,state_e,alfa_,beta_,isign)
+     !
+     call delete_Hv_sector()
+     !
      deallocate(vvinit,alfa_,beta_)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
@@ -216,7 +228,10 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      enddo
      norm0=dot_product(vvinit,vvinit)
      vvinit=vvinit/sqrt(norm0)
-     call ed_buildH_c(isector)
+     !
+     call setup_Hv_sector(isector)
+     if(ed_sparse_H)call ed_buildH_c()
+     !
      nlanc=min(idim,lanc_nGFiter)
      allocate(alfa_(nlanc),beta_(nlanc))
      if(MpiStatus)then
@@ -230,6 +245,9 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
      isign=-1                   !<---
      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
+     !
+     call delete_Hv_sector()
+     !
      !
      !build the (N_iorb - xi*N_jorb)|gs> state
      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
@@ -246,7 +264,10 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      enddo
      norm0=dot_product(cvinit,cvinit)
      cvinit=cvinit/sqrt(norm0)
-     call ed_buildH_c(isector)
+     !
+     call setup_Hv_sector(isector)
+     if(ed_sparse_H)call ed_buildH_c()
+     !
      nlanc=min(idim,lanc_nGFiter)
      allocate(alfa_(nlanc),beta_(nlanc))
      if(MpiStatus)then
@@ -257,6 +278,9 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      cnorm2=xi*norm0
      isign=1
      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
+     !
+     call delete_Hv_sector()
+     !
      !
      !build the (N_iorb + xi*N_jorb)|gs> state
      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
@@ -273,7 +297,10 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      enddo
      norm0=dot_product(cvinit,cvinit)
      cvinit=cvinit/sqrt(norm0)
-     call ed_buildH_c(isector)
+     !
+     call setup_Hv_sector(isector)
+     if(ed_sparse_H)call ed_buildH_c()
+     !
      nlanc=min(idim,lanc_nGFiter)
      allocate(alfa_(nlanc),beta_(nlanc))
      if(MpiStatus)then
@@ -284,6 +311,9 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      cnorm2=xi*norm0
      isign=-1
      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
+     !
+     call delete_Hv_sector()
+     !
      deallocate(cvinit,vvinit,alfa_,beta_)
      deallocate(HI%map)
      if(spH0%status)call sp_delete_matrix(spH0)
@@ -373,7 +403,10 @@ subroutine lanc_ed_build_densChi_mix_c(iorb,jorb)
         !
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(ksector)
+        !
+        call setup_Hv_sector(ksector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(kdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -383,6 +416,9 @@ subroutine lanc_ed_build_densChi_mix_c(iorb,jorb)
         endif
         cnorm2=one*norm2
         call add_to_lanczos_densChi_mix(cnorm2,state_e,alfa_,beta_,1,iorb,jorb)
+        !
+        call delete_Hv_sector()
+        !
         deallocate(vvinit,alfa_,beta_)
      enddo
      !
@@ -427,7 +463,10 @@ subroutine lanc_ed_build_densChi_mix_c(iorb,jorb)
         !
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(ksector)
+        !
+        call setup_Hv_sector(ksector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(kdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -437,6 +476,9 @@ subroutine lanc_ed_build_densChi_mix_c(iorb,jorb)
         endif
         cnorm2=one*norm2
         call add_to_lanczos_densChi_mix(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb)
+        !
+        call delete_Hv_sector()
+        !
         deallocate(vvinit,alfa_,beta_)
      enddo
      !

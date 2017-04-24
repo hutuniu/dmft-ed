@@ -42,8 +42,7 @@ MODULE ED_VARS_GLOBAL
 
      !HAMILTONIAN CONSTUCTORS
      !CMPLX
-     subroutine c_build_hamiltonian(isector,Hmat)
-       integer                            :: isector
+     subroutine c_build_hamiltonian(Hmat)
        complex(8),dimension(:,:),optional :: Hmat
      end subroutine c_build_hamiltonian
 

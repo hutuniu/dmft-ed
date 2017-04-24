@@ -291,19 +291,16 @@ contains
     endif
     !
     !ASSOCIATE THE GLOBAL PROCEDURES
-    ! select case(ed_mode)
-    ! case ('normal')
-    !    ed_buildh_c=>build_H_normal_c       
-    ! case ('superc')
-    !    ed_buildh_c=>build_H_superc_c       
-    ! case ('nonsu2')
-    !    ed_buildh_c=>build_H_nonsu2_c       
-    ! case default
-    !    stop "ED_SOLVE_SINGLE ERROR: ed_mode not set: normal/superc/nonsu2"
-    ! end select
     ed_buildh_c  => build_H_c
     !
-    spHtimesV_cc => spMatVec_cc
+    select case(ed_sparse_H)
+    case (.true.)
+       spHtimesV_cc => spMatVec_cc
+    case (.false.)
+       spHtimesV_cc => directMatVec_cc
+    case default
+       stop "ed_solve_single ERROR: ed_sparse_H undefined"
+    end select
     !
     !SOLVE THE QUANTUM IMPURITY PROBLEM:
     call diagonalize_impurity()         !find target states by digonalization of Hamiltonian
@@ -343,23 +340,19 @@ contains
     endif
     !
     !ASSOCIATE THE GLOBAL PROCEDURES
-    ! select case(ed_mode)
-    ! case ('normal')
-    !    ed_buildh_c=>build_H_normal_c       
-    ! case ('superc')
-    !    ed_buildh_c=>build_H_superc_c       
-    ! case ('nonsu2')
-    !    ed_buildh_c=>build_H_nonsu2_c       
-    ! case default
-    !    stop "ED_SOLVE_SINGLE ERROR: ed_mode not set: normal/superc/nonsu2"
-    ! end select
     ed_buildh_c  => build_H_c
     !
-    spHtimesV_cc => spMatVec_MPI_cc
+    select case(ed_sparse_H)
+    case (.true.)
+       spHtimesV_cc => spMatVec_MPI_cc
+    case (.false.)
+       spHtimesV_cc => directMatVec_MPI_cc
+    case default
+       stop "ed_solve_single_mpi ERROR: ed_sparse_H undefined"
+    end select
     !
     !SET THE LOCAL COMMUNICATORS IN ALL THE RELEVANT PARTS OF THE CODE:
-    call ed_matvec_set_MPI(MpiComm)
-    call ed_hamiltonian_set_MPI(MpiComm)
+    call ed_hamiltonian_matvec_set_MPI(MpiComm)
     call ed_diag_set_MPI(MpiComm)
     call ed_observables_set_MPI(MpiComm)
     call ed_greens_functions_set_MPI(MpiComm)
@@ -375,8 +368,7 @@ contains
     call es_delete_espace(state_list)
     !
     !DELETE THE LOCAL COMMUNICATORS IN ALL THE RELEVANT PARTS OF THE CODE:
-    call ed_matvec_del_MPI()
-    call ed_hamiltonian_del_MPI()
+    call ed_hamiltonian_matvec_del_MPI()
     call ed_diag_del_MPI()
     call ed_observables_del_MPI()
     call ed_greens_functions_del_MPI()    

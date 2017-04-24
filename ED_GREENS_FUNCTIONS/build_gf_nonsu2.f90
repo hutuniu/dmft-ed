@@ -335,7 +335,10 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -345,7 +348,9 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
         endif
         cnorm2=one*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,ispin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -369,7 +374,10 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -379,7 +387,9 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
         endif
         cnorm2=one*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,ispin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -451,7 +461,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -461,7 +474,9 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         endif
         cnorm2=one*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,ispin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -494,7 +509,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -504,7 +522,9 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         endif
         cnorm2=one*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -538,7 +558,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -548,7 +571,9 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         endif
         cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,ispin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -581,7 +606,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -591,7 +619,9 @@ subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
         endif
         cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -664,7 +694,10 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -674,7 +707,9 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         endif
         cnorm2=one*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,jspin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -707,7 +742,10 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -717,7 +755,9 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         endif
         cnorm2=one*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -751,7 +791,10 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -761,7 +804,9 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         endif
         cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,jspin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -794,7 +839,10 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -804,7 +852,9 @@ subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
         endif
         cnorm2=+xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -876,7 +926,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -886,7 +939,9 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         endif
         cnorm2=one*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,jspin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -919,7 +974,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -929,7 +987,9 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         endif
         cnorm2=one*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -963,7 +1023,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -973,7 +1036,9 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         endif
         cnorm2=1*xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,jspin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !
@@ -1006,7 +1071,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         deallocate(HJ%map)
         norm2=dot_product(vvinit,vvinit)
         vvinit=vvinit/sqrt(norm2)
-        call ed_buildH_c(jsector)
+        !
+        call setup_Hv_sector(jsector)
+        if(ed_sparse_H)call ed_buildH_c()
+        !
         nlanc=min(jdim,lanc_nGFiter)
         allocate(alfa_(nlanc),beta_(nlanc))
         if(MpiStatus)then
@@ -1016,7 +1084,9 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
         endif
         cnorm2=1*xi*norm2
         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
-        deallocate(vvinit,alfa_,beta_)
+        !
+        call delete_Hv_sector()
+        !
         if(spH0%status)call sp_delete_matrix(spH0)
      endif
      !

@@ -62,7 +62,10 @@ subroutine lanc_ed_build_spinChi_c(iorb)
      deallocate(HI%map)
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
-     call ed_buildH_c(isector)
+     !
+     call setup_Hv_sector(isector)
+     if(ed_sparse_H)call ed_buildH_c()
+     !
      nlanc=min(idim,lanc_nGFiter)
      allocate(alfa_(nlanc),beta_(nlanc))
      if(MpiStatus)then
@@ -76,6 +79,9 @@ subroutine lanc_ed_build_spinChi_c(iorb)
      !holes
      isign=-1
      call add_to_lanczos_spinChi(norm0,state_e,alfa_,beta_,isign,iorb)
+     !
+     call delete_Hv_sector()
+     !
      deallocate(vvinit,alfa_,beta_)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
@@ -135,7 +141,10 @@ subroutine lanc_ed_build_spinChi_tot_c()
      deallocate(HI%map)
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
-     call ed_buildH_c(isector)
+     !
+     call setup_Hv_sector(isector)
+     if(ed_sparse_H)call ed_buildH_c()
+     !
      nlanc=min(idim,lanc_nGFiter)
      allocate(alfa_(nlanc),beta_(nlanc))
      if(MpiStatus)then
@@ -149,6 +158,9 @@ subroutine lanc_ed_build_spinChi_tot_c()
      !holes
      isign=-1
      call add_to_lanczos_spinChi(norm0,state_e,alfa_,beta_,isign,Norb+1)
+     !
+     call delete_Hv_sector()
+     !
      deallocate(vvinit,alfa_,beta_)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)

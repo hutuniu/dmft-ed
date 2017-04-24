@@ -59,7 +59,7 @@ MODULE ED_INPUT_VARS
   real(8)              :: ndelta              !initial chemical potential step
   integer              :: niter               !
   integer              :: ed_verbose          !
-  logical              :: ed_direct_Hv        !flag to select direct on-the-fly H*v product (mem++, cpu--) or via stored sparse matrix H (mem--, cpu++)
+  logical              :: ed_sparse_H         !flag to select  storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE 
 
 
   !Some parameters for function dimension:
@@ -74,15 +74,6 @@ MODULE ED_INPUT_VARS
   character(len=100)   :: Hfile,HLOCfile
   integer              :: LOGfile
 
-  !RDMFT VARIABLES:
-  !=========================================================
-  ! integer              :: Nside            !linear size of the cluster to be solved.
-  ! real(8)              :: rdmft_nread      !density value for chemical potential search.
-  ! real(8)              :: rdmft_nerror     ! max error in adjusting chemical potential. 
-  ! real(8)              :: rdmft_ndelta     !starting value for chemical potential shift.
-  ! logical              :: rdmft_lrsym      !flag to enforce left-right symmetry in a biased system
-  ! integer              :: mix_type         !flag for mixing type: 0=mix G0, 1=mix Sigma
-  ! character(len=64)    :: fileSig,fileSelf !restart files
 
 
 contains
@@ -137,7 +128,7 @@ contains
     call parse_input_variable(dmft_error,"DMFT_ERROR",INPUTunit,default=0.00001d0,comment="Error threshold for DMFT convergence")
     call parse_input_variable(sb_field,"SB_FIELD",INPUTunit,default=0.1d0,comment="Value of a symmetry breaking field for magnetic solutions.")
     call parse_input_variable(ed_twin,"ED_TWIN",INPUTunit,default=.false.,comment="flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.")
-    call parse_input_variable(ed_direct_Hv,"ED_DIRECT_HV",INPUTunit,default=.false.,comment="flag to select direct on-the-fly H*v product (mem++, cpu--) or via stored sparse matrix H (mem--, cpu++)")
+    call parse_input_variable(ed_sparse_H,"ED_SPARSE_H",INPUTunit,default=.true.,comment="flag to select  storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE ")
     call parse_input_variable(nsuccess,"NSUCCESS",INPUTunit,default=1,comment="Number of successive iterations below threshold for convergence")
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=5000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=5000,comment="Number of real-axis frequencies.")

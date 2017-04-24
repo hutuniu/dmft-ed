@@ -59,7 +59,10 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      enddo
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
-     call ed_buildH_c(isector)
+     !
+     call setup_Hv_sector(isector)
+     if(ed_sparse_H)call ed_buildH_c()
+     !
      nlanc=min(idim,lanc_nGFiter)
      allocate(alfa_(nlanc),beta_(nlanc))
      if(MpiStatus)then
@@ -69,6 +72,10 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      endif
      isign=-1 !<== ACTHUNG!!!! check this is the correct value of isign
      call add_to_lanczos_pairChi(norm0,state_e,alfa_,beta_,isign,iorb)
+     !
+     call delete_Hv_sector()
+     !
+     if(spH0%status)call sp_delete_matrix(spH0)
      deallocate(vvinit,alfa_,beta_)
      !
      !Build the CDG_{iorb,dw}CDG_{iorb,up}|eigvec> 
@@ -86,7 +93,10 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      enddo
      norm0=sqrt(dot_product(vvinit,vvinit))
      vvinit=vvinit/norm0
-     call ed_buildH_c(isector)
+     !
+     call setup_Hv_sector(isector)
+     if(ed_sparse_H)call ed_buildH_c()
+     !
      nlanc=min(idim,lanc_nGFiter)
      allocate(alfa_(nlanc),beta_(nlanc))
      if(MpiStatus)then
@@ -96,6 +106,9 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      endif
      isign=1 !<== ACTHUNG!!!! check this is the correct value of isign
      call add_to_lanczos_pairChi(norm0,state_e,alfa_,beta_,isign,iorb)
+     !
+     call delete_Hv_sector()
+     !
      if(spH0%status)call sp_delete_matrix(spH0)
      deallocate(vvinit,alfa_,beta_)
      deallocate(HI%map)
