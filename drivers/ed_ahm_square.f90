@@ -4,9 +4,9 @@ program ed_ah
   USE SCIFOR
   USE DMFT_TOOLS
   implicit none
-  integer                                       :: iloop,Nb,Lk,Nx
+  integer                                       :: iloop,Nb,Lk,Nx,Nso
   logical                                       :: converged
-  real(8)                                       :: wband,ts,wmixing,Eout(2)
+  real(8)                                       :: wband,ts,wmixing,Eout(2),dens
   !Bath:
   real(8),allocatable                           :: Bath(:),BathOld(:)
   !The local hybridization function:
@@ -15,7 +15,8 @@ program ed_ah
   character(len=16)                             :: finput,fhloc
   logical                                       :: phsym,normal_bath
   real(8),allocatable                           :: wt(:),kxgrid(:),kygrid(:),wm(:),wr(:)
-  complex(8),allocatable                        :: Hk(:,:,:)
+  complex(8),allocatable                        :: Hk(:,:,:,:)
+
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED.conf')
   call parse_input_variable(wmixing,"wmixing",finput,default=1.d0,comment="Mixing bath parameter")
@@ -25,6 +26,23 @@ program ed_ah
   call parse_input_variable(normal_bath,"normal",finput,default=.false.,comment="Flag to enforce no symmetry braking in the bath.")
   !
   call ed_read_input(trim(finput))
+  !
+  call add_ctrl_var(beta,"BETA")
+  call add_ctrl_var(Norb,"NORB")
+  call add_ctrl_var(Nspin,"Nspin")
+  call add_ctrl_var(xmu,"xmu")
+  call add_ctrl_var(wini,"wini")
+  call add_ctrl_var(wfin,"wfin")
+  call add_ctrl_var(eps,"eps")
+
+  Nso=1
+
+  !setup solver
+  Nb=get_bath_dimension()
+  allocate(bath(Nb))
+  allocate(bathold(Nb))
+  call ed_init_solver(bath)
+
 
   !Allocate Weiss Field:
   allocate(delta(2,Nspin,Nspin,Norb,Norb,Lmats))
@@ -32,25 +50,20 @@ program ed_ah
   allocate(Smats(2,Nspin,Nspin,Norb,Norb,Lmats),Sreal(2,Nspin,Nspin,Norb,Norb,Lreal))
 
 
-  !setup solver
-  Nb=get_bath_size()
-  allocate(bath(Nb))
-  allocate(bathold(Nb))
-  call ed_init_solver(bath)
 
 
+  !Build Hk
+  call TB_set_bk(bkx=[pi2,0d0],bky=[0d0,pi2])
   Lk = Nx*Nx
-  allocate(Hk(1*1,1*1,Lk),Wt(Lk),Hloc(1,1,1,1))
-  allocate(kxgrid(Nx),kygrid(Nx))
-  write(*,*) "Using Nk_total="//txtfy(Lk)
-  kxgrid = kgrid(Nx)
-  kygrid = kgrid(Nx)
-  Hk(1,1,:) = TB_build_model(hk_model,kxgrid,kygrid,[0d0])
-  !Hk(1,1,:) = build_hk_model(hk_model,kxgrid,kygrid,[0d0])
-  Wt     = 1d0/Lk
+  allocate(Hk(2,Nso,Nso,Lk),Wt(Lk),Hloc(1,1,1,1))
+  call TB_build_model(Hk(1,:,:,:),hk_model,Nso,[Nx,Nx])
+  Wt = 1d0/Lk
+  Hk(2,:,:,:) = -Hk(1,:,:,:)
   Hloc   = zero
-  call write_hk_w90("Hk2d.dat",1,1,0,1,Hk,kxgrid,kygrid,[0d0])
-  call get_free_dos(dreal(Hk(1,1,:)),Wt)
+  call TB_write_hk(Hk(1,:,:,:),"Hk2d.dat",1,&
+       Nd=1,Np=0,Nineq=1,&
+       Nkvec=[Nx,Nx])
+
 
   !DMFT loop
   iloop=0;converged=.false.
@@ -61,13 +74,19 @@ program ed_ah
      !Solve the EFFECTIVE IMPURITY PROBLEM (first w/ a guess for the bath)
      call ed_solve(bath) 
      call ed_get_sigma_matsubara(Smats(1,:,:,:,:,:))
-     call ed_get_sigma_real(Sreal(1,:,:,:,:,:))
      call ed_get_self_matsubara(Smats(2,:,:,:,:,:))
+     call ed_get_sigma_real(Sreal(1,:,:,:,:,:))
      call ed_get_self_real(Sreal(2,:,:,:,:,:))
 
-     !Get the Weiss field/Delta function to be fitted (user defined)
-     call ed_get_gloc(Hk,Wt,Gmats,Greal,Smats,Sreal,iprint=1)
-     call ed_get_weiss(Gmats,Smats,Delta,Hloc=Hloc,iprint=1)
+
+     !Compute the local gfs:
+     call dmft_gloc_matsubara_superc(Hk,Wt,Gmats,Smats,iprint=1)
+
+     if(cg_scheme=='weiss')then
+        call dmft_weiss_superc(Gmats,Smats,Delta,Hloc,iprint=1)
+     else
+        call dmft_delta_superc(Gmats,Smats,Delta,Hloc,iprint=1)
+     endif
 
      !Perform the SELF-CONSISTENCY by fitting the new bath
      call ed_chi2_fitgf(delta,bath,ispin=1)
@@ -77,11 +96,23 @@ program ed_ah
      !MIXING:
      if(iloop>1)Bath = wmixing*Bath + (1.d0-wmixing)*BathOld
      BathOld=Bath
+
      !Check convergence (if required change chemical potential)
-     converged = check_convergence(delta(1,1,1,1,1,:)+delta(2,1,1,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
-     if(nread/=0.d0)call search_chemical_potential(ed_dens(1),xmu,converged)
+     converged = check_convergence(delta(1,1,1,1,1,:),dmft_error,nsuccess,nloop,reset=.false.)
+     if(nread/=0.d0)then
+        call ed_get_dens(dens,iorb=1)
+        call search_chemical_potential(xmu,dens,converged)
+     endif
      call end_loop
   enddo
+
+  !Compute the local gfs:
+  call dmft_gloc_realaxis_superc(Hk,Wt,Greal,Sreal,iprint=1)
+
+  !Compute the Kinetic Energy:
+  Eout = dmft_kinetic_energy(Hk(1,:,:,:),Wt,Smats(1,:,:,:,:,:),Smats(2,:,:,:,:,:))
+
+
 
   !call get_sc_optical_conductivity
 
@@ -102,14 +133,15 @@ contains
 
 
 
+
   !-------------------------------------------------------------------------------------------
   !PURPOSE:  Hk model for the 2d square lattice
   !-------------------------------------------------------------------------------------------
-  function hk_model(kpoint) result(hk)
+  function hk_model(kpoint,N) result(hk)
     real(8),dimension(:) :: kpoint
     integer              :: N
     real(8)              :: kx,ky
-    complex(8)           :: hk
+    complex(8)           :: hk(N,N)
     kx=kpoint(1)
     ky=kpoint(2)
     Hk = -one*2d0*ts*(cos(kx)+cos(ky))

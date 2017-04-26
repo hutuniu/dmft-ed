@@ -20,7 +20,7 @@ program ed_ahm_bethe
   real(8)                                       :: wband,wmixing
   logical                                       :: phsym,normal_bath
   real(8)                                       :: de,dens,Eout(2)
-  real(8),dimension(:,:,:),allocatable          :: Ebethe
+  real(8),dimension(:,:,:,:),allocatable        :: Ebethe
   real(8),dimension(:),allocatable              :: Dbethe
   complex(8),dimension(:,:,:,:),allocatable     :: Hloc
 
@@ -60,10 +60,11 @@ program ed_ahm_bethe
   !
   !
   !
-  allocate(Ebethe(1,1,Le),Dbethe(Le),Hloc(1,1,1,1))
-  Ebethe(1,1,:) = linspace(-Wband,Wband,Le,mesh=de)
-  Dbethe        = dens_bethe(Ebethe(1,1,:),wband)*de
-  Hloc          = 0d0
+  allocate(Ebethe(2,1,1,Le),Dbethe(Le),Hloc(1,1,1,1))
+  Ebethe(1,1,1,:) = linspace(-Wband,Wband,Le,mesh=de)
+  Ebethe(2,1,1,:) =-linspace(-Wband,Wband,Le,mesh=de)
+  Dbethe          = dens_bethe(Ebethe(1,1,1,:),wband)*de
+  Hloc            = 0d0
   !
   !DMFT loop
   iloop=0;converged=.false.
@@ -116,7 +117,7 @@ program ed_ahm_bethe
   call dmft_gloc_realaxis_superc(one*Ebethe,Dbethe,Greal,Sreal,iprint=1)
 
   !Compute the Kinetic Energy:
-  Eout = dmft_kinetic_energy(one*Ebethe,Dbethe,Smats(1,:,:,:,:,:),Smats(2,:,:,:,:,:))
+  Eout = dmft_kinetic_energy(one*Ebethe(1,:,:,:),Dbethe,Smats(1,:,:,:,:,:),Smats(2,:,:,:,:,:))
 
 end program ed_ahm_bethe
 

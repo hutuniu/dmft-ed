@@ -89,7 +89,7 @@ contains
     real(8),dimension(Norb)         :: nup,ndw,Sz,nt
     complex(8),dimension(:),pointer :: gscvec
     type(sector_map)                :: H,HJ
-    real(8),allocatable             :: vvinit(:)
+    complex(8),allocatable          :: vvinit(:)
     !
     !LOCAL OBSERVABLES:
     ! density, 
@@ -171,8 +171,7 @@ contains
     if(ed_mode=="superc")then
        do ispin=1,Nspin
           do iorb=1,Norb
-             numstates=state_list%size
-             do izero=1,numstates
+             do izero=1,state_list%size
                 !
                 isector = es_return_sector(state_list,izero)
                 Ei      = es_return_energy(state_list,izero)
@@ -195,7 +194,7 @@ contains
                    jdim    = getdim(jsector)
                    allocate(vvinit(jdim))
                    call build_sector(jsector,HJ)
-                   vvinit=0.d0
+                   vvinit=zero
                    do i=1,idim
                       m=H%map(i)
                       ib = bdecomp(m,2*Ns)
@@ -231,8 +230,7 @@ contains
     !IMPURITY DENSITY MATRIX
     if(allocated(imp_density_matrix)) deallocate(imp_density_matrix);allocate(imp_density_matrix(Nspin,Nspin,Norb,Norb))
     imp_density_matrix=zero
-    numstates=state_list%size
-    do izero=1,numstates
+    do izero=1,state_list%size
        !
        isector = es_return_sector(state_list,izero)
        Ei      = es_return_energy(state_list,izero)
@@ -284,7 +282,7 @@ contains
        deallocate(H%map)
     enddo
     !
-    imp_density_matrix = imp_density_matrix/float(numstates)
+    imp_density_matrix = imp_density_matrix/float(state_list%size)
     !
     !IMPURITY DENSITY OPERATORS
     if((Nspin/=1).and.(Norb==3))then

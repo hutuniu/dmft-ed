@@ -258,7 +258,7 @@ subroutine lanc_build_gf_superc_c(iorb)
         if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up + c_dw:',getsz(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
-        vvinit=0.d0
+        vvinit=zero
         do m=1,idim
            i=HI%map(m)
            ib = bdecomp(i,2*Ns)
@@ -309,7 +309,7 @@ subroutine lanc_build_gf_superc_c(iorb)
              write(LOGfile,"(A23,I3)")'apply c_up + c^+_dw:',getsz(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
-        vvinit=0.d0
+        vvinit=zero
         do m=1,idim
            i=HI%map(m)
            ib = bdecomp(i,2*Ns)
