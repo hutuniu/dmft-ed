@@ -624,94 +624,103 @@ contains
 
 
 
-  subroutine search_chempot(xmu_tmp,dens_tmp,converged_,write_6) 
-    real(8),intent(in)    ::   dens_tmp
-    real(8),intent(inout) ::   xmu_tmp
-    logical,intent(inout) ::   converged_
-    logical,intent(in)    ::   write_6
+  subroutine search_chempot(xmu_tmp,dens_tmp,converged_)!,write_6)
+    real(8),intent(in)          ::   dens_tmp
+    real(8),intent(inout)       ::   xmu_tmp
+    logical,intent(inout)       ::   converged_
+    !logical,intent(in)          ::   write_6
     !internal
-    real(8)               ::   diffdens,delta_xmu,xmu_shift
-    real(8)               ::   denslarge,denssmall
-    real(8),save          ::   diffdens_old
-    real(8),save          ::   xmularge
-    real(8),save          ::   xmusmall
-    integer,save          ::   ilarge
-    integer,save          ::   ismall
-    integer,save          ::   inotbound
-    integer,save          ::   iattempt=1
-    integer               ::   unit
+    real(8)                     ::   diffdens,delta_xmu,xmu_shift
+    real(8)                     ::   denslarge,denssmall,xmu_old
+    real(8),save                ::   diffdens_old
+    real(8),save                ::   xmularge
+    real(8),save                ::   xmusmall
+    integer,save                ::   ilarge=0
+    integer,save                ::   ismall=0
+    integer,save                ::   inotbound
+    integer,save                ::   ibound=0
+    integer,save                ::   iattempt=1
+    integer                     ::   unit
     !
     diffdens=dens_tmp-nread
-    delta_xmu=0.1d0
+    delta_xmu=0.2d0
     !
     if ((dabs(diffdens)).le.nerr) then
        converged_=.TRUE.
        inotbound=0
-       if(write_6)then
+       !if(write_6)then
           write(LOGfile,*)
-          write(LOGfile,*) "   --------------------------------------------"
+          write(LOGfile,*) "   ------------------- search chempot -----------------"
           write(LOGfile,'(A30,I3)')    "   Density ok in attempt: ",iattempt
           write(LOGfile,'(A30,F10.6)') "   tolerance: ",nerr
           write(LOGfile,'(A30,F10.6)') "   density: ",dens_tmp
+          write(LOGfile,'(A30,F10.6)') "   error: ",diffdens
           write(LOGfile,'(A30,F10.6)') "   target desity: ",nread
           write(LOGfile,'(A30,F10.6)') "   xmu: ",xmu_tmp
           write(LOGfile,"(A30,L3)")    "   Converged(n): ",converged_
-          write(LOGfile,*) "   --------------------------------------------"
+          write(LOGfile,*) "   ----------------------------------------------------"
           write(LOGfile,*)
-       endif
+       !endif
        unit=free_unit()
        open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-       write(unit,*)xmu_tmp,dens_tmp,diffdens
+       write(unit,'(3F25.12)')xmu_tmp,dens_tmp,diffdens
        close(unit)
     else
        converged_=.FALSE.
-       if(write_6)then
+       !if(write_6)then
           write(LOGfile,*)
-          write(LOGfile,*) "   --------------------------------------------"
+          write(LOGfile,*) "   ------------------- search chempot -----------------"
           write(LOGfile,'(A30,2I5)')    "   Adjusting xmu #",iattempt,inotbound
-          write(LOGfile,'(A10,F10.6,A7,F10.6)') "    n:",dens_tmp,"!= n:",nread
-       endif
+          write(LOGfile,'(A10,F10.6,A8,F10.6,A8,F10.6)') "    n:",dens_tmp,"!= n:",nread,"error:",abs(dens_tmp-nread)
+       !endif
        !vedo se la densità è troppa o troppo poca
        if (diffdens.gt.0.d0) then  
-          ilarge=1
+  !        ilarge=1
           xmularge=xmu_tmp
           denslarge=dens_tmp
        elseif (diffdens.lt.0.d0) then
-          ismall=1
+  !        ismall=1
           xmusmall=xmu_tmp
           denssmall=dens_tmp
        endif
+       if (ilarge*ismall.ne.0) ibound=ibound+1
        if (ilarge*ismall.eq.0) then
           !non ho ancora trovato un xmu per cui diffdens cambia segno
           inotbound=inotbound+1
-          if (inotbound>=5)  delta_xmu = delta_xmu*2.0d0
-          if (inotbound>=10) delta_xmu = delta_xmu*3.0d0
-          if (inotbound>=15) delta_xmu = delta_xmu*4.0d0
+          if (inotbound>=8)  delta_xmu = 0.5d0
+          if (inotbound>=12) delta_xmu = 1.0d0
+          if (inotbound>=16) delta_xmu = 1.5d0
+          if (inotbound>=20) delta_xmu = 2.0d0
           xmu_shift = delta_xmu * diffdens
+          xmu_old = xmu_tmp
           xmu_tmp = xmu_tmp - xmu_shift
-          if(write_6)then
-             write(LOGfile,*) "   Delta xmu: ",delta_xmu
-             write(LOGfile,*) "   Try xmu: ",xmu_tmp
-             write(LOGfile,*) "   --------------------------------------------"
-             write(LOGfile,*)
-          endif
+          !
+          write(LOGfile,*) "   Delta xmu: ",delta_xmu
+          write(LOGfile,*) "   Old xmu: ",xmu_old
+          write(LOGfile,*) "   Try xmu: ",xmu_tmp
+          write(LOGfile,*) "   ----------------------------------------------------"
+          write(LOGfile,*)
+          !
        else
+       !elseif((ilarge*ismall.ne.0).and.(ibound.ne.1))then
           !ho trovato un xmu per cui diffdens cambia segno
-          if(write_6)write(LOGfile,*)"   xmu is bound",xmularge,"-",xmusmall
+          write(LOGfile,*)"   xmu is bound",xmularge,"-",xmusmall
           xmu_shift =  sign(1.0d0,diffdens)*abs((xmusmall-xmularge)/2.)
+          xmu_old = xmu_tmp
           xmu_tmp = xmu_tmp - xmu_shift
-          if(write_6)then
-             write(LOGfile,*) "   Try xmu =",xmu_tmp
-             write(LOGfile,*) "   --------------------------------------------"
-             write(LOGfile,*)
-          endif
+          !
+          write(LOGfile,*) "   Old xmu: ",xmu_old
+          write(LOGfile,*) "   Try xmu =",xmu_tmp
+          write(LOGfile,*) "   ----------------------------------------------------"
+          write(LOGfile,*)
+          !
        endif
-       if(write_6)then
-          unit=free_unit()
-          open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-          write(unit,*)xmu_tmp,dens_tmp,diffdens,iattempt
-          close(unit)
-       endif
+       !
+       unit=free_unit()
+       open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+       write(unit,'(3F25.12,1I5)')xmu_tmp,dens_tmp,diffdens,iattempt
+       close(unit)
+       !
     endif
     iattempt=iattempt+1
     diffdens_old=diffdens

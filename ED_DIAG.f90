@@ -200,7 +200,7 @@ contains
           enddo
        endif
        unit=free_unit()
-       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed",position='append',action='write')
        call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
        close(unit)
        !

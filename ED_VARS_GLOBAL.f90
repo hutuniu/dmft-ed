@@ -207,6 +207,10 @@ MODULE ED_VARS_GLOBAL
   complex(8),allocatable,dimension(:)                :: impj_aplha
   complex(8),allocatable,dimension(:)                :: impj_aplha_sq
   complex(8)                                         :: impLdotS
+  !
+  complex(8),allocatable,dimension(:)                :: bthLdotS
+  complex(8),allocatable,dimension(:,:,:,:,:)        :: bth_density_matrix
+
 
 
 

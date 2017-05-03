@@ -179,7 +179,7 @@ contains
     endif
     !
     !-----------------------------------------------!
-    include "ED_HAMILTONIAN_MATVEC/build_h.f90"
+    include "ED_HAMILTONIAN_MATVEC/build_h_all.f90"
     !-----------------------------------------------!
     !
     if(present(Hmat))then
@@ -345,7 +345,7 @@ contains
     !
     Hv=zero
     !-----------------------------------------------!
-    include "ED_HAMILTONIAN_MATVEC/build_HxV.f90"
+    include "ED_HAMILTONIAN_MATVEC/build_hxv.f90"
     !-----------------------------------------------!
     !
   end subroutine directMatVec_cc
@@ -432,7 +432,7 @@ contains
     Hv=zero
     !
     !-----------------------------------------------!
-    include "ED_HAMILTONIAN_MATVEC/build_HxV.f90"
+    include "ED_HAMILTONIAN_MATVEC/build_hxv.f90"
     !-----------------------------------------------!
     !
   end subroutine directMatVec_MPI_cc

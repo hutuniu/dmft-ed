@@ -48,7 +48,7 @@ program ed_SOC
   logical                                        :: rotateG0loc
   complex(8),allocatable,dimension(:,:,:,:,:)    :: impG
   !custom variables for convergence test:
-  complex(8),allocatable,dimension(:)            :: delta_conv
+  complex(8),allocatable,dimension(:)            :: conv_funct
   !custom variables for chempot search:
   logical                                        :: converged_n,upprshft
   integer                                        :: conv_n_loop=0
@@ -58,6 +58,7 @@ program ed_SOC
   real(8)                                        :: bottom,top,shift
   real(8)                                        :: dw,sumdens,xmu_old
   real(8),allocatable,dimension(:)               :: w,orb_dens
+  logical                                        :: look4n=.true.
   !custom variables for density matrix:
   real(8),allocatable,dimension(:)               :: dm_eig
   complex(8),allocatable,dimension(:,:)          :: dm
@@ -72,11 +73,15 @@ program ed_SOC
   !
   !#########   MPI INITIALIZATION   #########
   !
+#ifdef _MPI
   call init_MPI()
   comm = MPI_COMM_WORLD
   call StartMsg_MPI(comm)
   rank = get_Rank_MPI(comm)
   master = get_Master_MPI(comm)
+#else
+  master=.true.
+#endif
   !
   !#########    VARIABLE PARSING    #########
   !
@@ -92,7 +97,11 @@ program ed_SOC
   call parse_input_variable(upprshft,   "upprshft",finput,    default=.false.)
   call parse_input_variable(rotateG0loc,"ROTATEG0loc",finput, default=.false.)
   !
+#ifdef _MPI
   call ed_read_input(trim(finput),comm)
+#else
+  call ed_read_input(trim(finput))
+#endif
   !
   Nso=Nspin*Norb
   !
@@ -100,6 +109,7 @@ program ed_SOC
   call add_ctrl_var(Norb,"norb")
   call add_ctrl_var(Nspin,"nspin")
   call add_ctrl_var(beta,"beta")
+  call add_ctrl_var(Lfit,"Lfit")
   call add_ctrl_var(xmu,"xmu")
   call add_ctrl_var(wini,'wini')
   call add_ctrl_var(wfin,'wfin')
@@ -118,7 +128,7 @@ program ed_SOC
   allocate(delta_old(Nspin,Nspin,Norb,Norb,Lmats));        delta_old=zero
   allocate(Sigma_correction(Nspin,Nspin,Norb,Norb,Lmats)); Sigma_correction=zero
   !
-  allocate(delta_conv(Lmats));                             delta_conv=zero
+  allocate(conv_funct(Lmats));                             conv_funct=zero
   !
   allocate(dm(Nspin*Norb,Nspin*Norb));                     dm=zero
   allocate(dm_eig(Nspin*Norb));                            dm_eig=zero
@@ -129,9 +139,18 @@ program ed_SOC
   allocate(Ltot(3,Nspin,Nspin));                           Ltot=zero
   allocate(jz(3));                                         jz=zero
   !
+  allocate(d_t2g_Hloc(Nspin*Norb,Nspin*Norb));             d_t2g_Hloc=zero
+  allocate(d_t2g_Hloc_nn(Nspin,Nspin,Norb,Norb));          d_t2g_Hloc_nn=zero
+  !
+  allocate(w(Lreal));                                      w=0.0d0
+  w = linspace(wini,wfin,Lreal,mesh=dw)
+  !
+  Lfit=min(int((Uloc(1)+1.2+(3*SOC/2))*(beta/pi))+100,Lmats)
+  if(master)write(LOGfile,'(a12,I6,2(a12,F10.3))')"Lfit:",Lfit,"iwmax:",(pi/beta)*(2*Lfit-1),"U+2D+Dsoc:",Uloc(1)+1.2+(3*SOC/2)
+  !
   !#########        BUILD Hk        #########
   !
-  call build_hk()!trim(hkfile))
+  call build_hk(trim(hkfile))
   if(surface)then
       allocate(Wtk(Nk*Nk));Wtk=1.d0/(Nk*Nk)
   else
@@ -152,7 +171,11 @@ program ed_SOC
   !
   !#########      INIT SOLVER       #########
   !
+#ifdef _MPI
   call ed_init_solver(Comm,Bath,d_t2g_Hloc_nn)
+#else
+  call ed_init_solver(Bath,d_t2g_Hloc_nn)
+#endif
   !
   !#########          DMFT          #########
   !
@@ -162,15 +185,24 @@ program ed_SOC
      if(master)call start_loop(iloop,nloop,"DMFT-loop")
      !
      !solve impurity
+#ifdef _MPI
      call ed_solve(comm,Bath)
+#else
+     call ed_solve(Bath)
+#endif
      !
      !get sigmas
      call ed_get_sigma_matsubara(Smats)
      call ed_get_sigma_real(Sreal)
      !
      !get local Gf's
+#ifdef _MPI
      call dmft_gloc_matsubara(Comm,Hk,Wtk,Gmats,Smats,iprint=4)
      call dmft_gloc_realaxis(Comm,Hk,Wtk,Greal,Sreal,iprint=4)
+#else
+     call dmft_gloc_matsubara(Hk,Wtk,Gmats,Smats,iprint=4)
+     call dmft_gloc_realaxis(Hk,Wtk,Greal,Sreal,iprint=4)
+#endif
      !
      !operations on Weiss/Delta
      if(cg_scheme=='weiss')then
@@ -182,10 +214,18 @@ program ed_SOC
         Weiss_old=Weiss
         !fit Weiss
         if (ed_mode=="normal") then
+#ifdef _MPI
            call ed_chi2_fitgf(Comm,Weiss,bath,ispin=1)
+#else
+           call ed_chi2_fitgf(Weiss,bath,ispin=1)
+#endif
            call spin_symmetrize_bath(bath,save=.true.)
         else
+#ifdef _MPI
            call ed_chi2_fitgf(Comm,Weiss,bath)
+#else
+           call ed_chi2_fitgf(Weiss,bath)
+#endif
         endif
      else
         !get Delta
@@ -196,54 +236,79 @@ program ed_SOC
         Delta_old=Delta
         !fit Delta
         if (ed_mode=="normal") then
+#ifdef _MPI
            call ed_chi2_fitgf(Comm,Delta,bath,ispin=1)
+#else
+           call ed_chi2_fitgf(Delta,bath,ispin=1)
+#endif
            call spin_symmetrize_bath(bath,save=.true.)
         else
+#ifdef _MPI
            call ed_chi2_fitgf(Comm,Delta,bath)
+#else
+           call ed_chi2_fitgf(Delta,bath)
+#endif
         endif
      endif
      !
      !each loop operations
-     if(bath_type=="replica")then
-        if(master)then
-           call build_rotation(dm_custom_rot)
-           call ed_get_density_matrix(dm,dm_eig,dm_rot,dm_custom_rot)
-           call ed_get_quantum_SOC_operators(Stot,Ltot,jz)
+     if(master)then
+        !
+        !a - get rotation
+        call build_rotation(dm_custom_rot)
+        !
+        !b - rotation of rho
+        call ed_get_density_matrix(dm,dm_eig,dm_rot,dm_custom_rot)
+        !
+        !d - print operators and rotation of S(iw), impG(iw), Gloc(w) in case of replica
+        write(LOGfile,*)
+        write(LOGfile,*) "   -------------------- rotations ---------------------"
+        if(bath_type=="replica")then
+           call ed_get_quantum_SOC_operators()
            call Jz_rotate(Smats,"impS","A","wm")
            if(allocated(impG))deallocate(impG)
            allocate(impG(Nspin,Nspin,Norb,Norb,Lmats));impG=zero
            call ed_get_gimp_matsubara(impG)
            call Jz_rotate(impG,"impG","A","wm")
            deallocate(impG)
+           Alvl=0.2d0;bottom=0.d0;top=0.d0
+           call Jz_rotate(Greal,"Gloc","A","wr",bottom,top,Alvl)
+        elseif(bath_type=="normal")then
+           call ed_get_quantum_SOC_operators(dm_custom_rot)
+           call compute_spectral_moments_nn(Greal,w,-1.d0/pi,dw)
         endif
-        Alvl=0.8d0
-        call Jz_rotate(Greal,"Gloc","A","wr",bottom,top,pi*Alvl)
-     endif
-     !
-     !chemical potential find
-     converged_n=.true.
-     xmu_old=xmu
-     allocate(orb_dens(Norb));orb_dens=0.d0
-     call ed_get_dens(orb_dens);sumdens=sum(orb_dens)
-     deallocate(orb_dens)
-     if(master)write(*,'(3(a10,F10.5))') "sumdens",sumdens,"diffdens",abs(nread-sumdens),"nread",nread
-     if(nread/=0.d0)then
-        converged_n=.false.
-        if(iloop>=3)call search_chempot(xmu,sumdens,converged_n,master)
-        if(master)write(*,'(2(a10,F10.5))') "xmu_old",xmu_old,"xmu_new",xmu
-     endif
-     if(converged_n)then
-        conv_n_loop=conv_n_loop+1
-     else
-        conv_n_loop=0
-     endif
-     !
-     !convergence
-     do i=1,Lmats
-        delta_conv(i)=sum(nn2so_reshape(delta(:,:,:,:,i),Nspin,Norb))
-     enddo
-     if(master) then
-        converged = check_convergence(delta_conv,dmft_error,nsuccess,nloop)
+        write(LOGfile,*) "   ----------------------------------------------------"
+        write(LOGfile,*)
+        !
+        !e - chemical potential find
+        converged_n=.true.
+        xmu_old=xmu
+        allocate(orb_dens(Norb));orb_dens=0.d0
+        call ed_get_dens(orb_dens);sumdens=sum(orb_dens)
+        deallocate(orb_dens)
+        if(nread/=0.d0.and.look4n)then
+           converged_n=.false.
+           if(iloop>=3)call search_chempot(xmu,sumdens,converged_n)
+        endif
+        if(converged_n)then
+           conv_n_loop=conv_n_loop+1
+        else
+           conv_n_loop=0
+        endif
+        !
+        !f - convergence
+        write(LOGfile,*)
+        write(LOGfile,*) "   ------------------- convergence --------------------"
+        if(cg_scheme=='weiss')then
+           do i=1,Lmats
+              conv_funct(i)=sum(nn2so_reshape(weiss(:,:,:,:,i),Nspin,Norb))
+           enddo
+        else
+           do i=1,Lmats
+              conv_funct(i)=sum(nn2so_reshape(delta(:,:,:,:,i),Nspin,Norb))
+           enddo
+        endif
+        converged = check_convergence(conv_funct,dmft_error,nsuccess,nloop)
         write(LOGfile,'(a35,L3)') "sigma converged",converged
         write(LOGfile,'(a35,L3)') "dens converged",converged_n
         converged = converged .and. converged_n
@@ -251,56 +316,63 @@ program ed_SOC
         write(LOGfile,'(a35,I3)') "global iloop",iloop
         write(LOGfile,'(a35,I3)') "times dens is ok",conv_n_loop
         write(LOGfile,'(a35,I3)') "times rigid shift",shift_n_loop
+        write(LOGfile,*) "   ----------------------------------------------------"
+        write(LOGfile,*)
+        !
+        !g - final mu shift
+        !if(converged_n.and.upprshft.and.((nread==5.d0.and.zJ1_2<=0.01).or.(nread==2.d0.and.zJ3_2<=0.01)))then
+        if(converged_n.and.upprshft) then !.and.(abs(nread-2.d0)<=nerr).or.(abs(nread-5.d0)<=nerr)))then
+           write(LOGfile,*)
+           write(LOGfile,*) "   -------------------- uppershift --------------------"
+           !shift_n_loop=shift_n_loop+1
+           !
+           write(LOGfile,'(2(a10,F10.5))')"top:",top,"bottom:",bottom
+           shift      = bottom + ( top - bottom ) / 2.d0
+           xmu_old    = xmu
+           if(abs(shift)>2*dw)then
+              shift_n_loop=shift_n_loop+1
+              xmu        = xmu_old + shift
+              converged  = .false.
+              look4n     = .false.
+              write(LOGfile,'(6(a10,F10.5))')"shift:",shift,"xmu_old:",xmu_old,"xmu_new:",xmu
+              unit=free_unit()
+              open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+              write(unit,'(3F25.12,a10,1I5)')xmu,sumdens,shift,"shift",shift_n_loop
+              close(unit)
+           else
+              write(LOGfile,'(6(a10,F10.5))')"NO shift:",shift,"2dw:",2*dw,"xmu_old:",xmu_old,"xmu_new:",xmu
+           endif
+           !
+           !unit=free_unit()
+           !open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
+           !write(unit,*)xmu,sumdens,shift,"shift"
+           !close(unit)
+           !
+        write(LOGfile,*) "   ----------------------------------------------------"
+           write(LOGfile,*)
+        endif
      endif
      !
-     call MPI_Barrier(Comm,ier)
+#ifdef _MPI
+     call Bcast_MPI(Comm,top)
+     call Bcast_MPI(Comm,bottom)
+     call Bcast_MPI(Comm,xmu)
      call Bcast_MPI(Comm,converged)
-     !
-     !final mu shift
-     if(converged_n.and.upprshft.and.((nread==5.d0.and.zJ1_2<=0.01).or.(nread==2.d0.and.zJ3_2<=0.01)))then
-        shift_n_loop=shift_n_loop+1
-        if(bath_type/="replica")then
-           if(allocated(w))deallocate(w);allocate(w(Lreal));w=0.0d0
-           w = linspace(wini,wfin,Lreal,mesh=dw)
-           loop1: do i=1,Lreal
-              if(abs(aimag(Greal(1,1,1,1,i))).gt.0.8d0)then
-                 bottom=w(i)
-                 exit loop1
-              endif
-           enddo loop1
-           loop2: do i=1,Lreal
-              if(abs(aimag(Greal(1,1,1,1,Lreal-i+1))).gt.0.8d0)then
-                 top=w(Lreal-i+1)
-                 exit loop2
-              endif
-           enddo loop2
-        endif
-        if(master)write(LOGfile,*)"top",top,"bottom",bottom
-        shift      = bottom + ( top - bottom ) / 2.d0
-        xmu_old    = xmu
-        if(abs(shift)>=0.005)then
-           xmu        = xmu_old + shift
-           converged  = .false.
-           nread  = 0.0d0!con questo una volta che comincio a shiftare rigidamente la densità non la ricontrollo piu
-        endif
-        if(master)then
-           write(LOGfile,'(5(a10,F10.5))') "shift",shift,"xmu_old",xmu_old,"xmu_new",xmu
-           unit=free_unit()
-           open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
-           write(unit,*)xmu,sumdens,shift,"shift"
-           close(unit)
-        endif
-     endif
+     call MPI_Barrier(Comm,ier)
+#endif
      !
      if(master)call end_loop
+     !
   enddo
   !
   !#########    BUILD Hk ON PATH    #########
   !
-  if(master)call build_eigenbands()
+  call build_eigenbands()
   !
   !
+#ifdef _MPI
   call finalize_MPI()
+#endif
   !
   !
 contains
@@ -315,6 +387,8 @@ contains
     character(len=*),optional                    :: file
     real(8),dimension(3)                         :: bk_x,bk_y,bk_z
     integer                                      :: ik,Lk
+    !integer                                      :: i_mu,max_mu=500
+    !real(8)                                      :: mu_edge=0.5
     integer                                      :: i_mu,max_mu=100
     real(8)                                      :: mu_edge=2.0d0
     complex(8),dimension(Nso,Nso,Lmats)          :: Gmats
@@ -327,7 +401,7 @@ contains
        write(LOGfile,*)"# of k-points per direction :",Nk
        write(LOGfile,*)"# of SO-bands               :",Nso
     endif
-    if(allocated(Bath))stop " H(K) must be build before bath allocation, errors shall come otherwise"
+    if(allocated(Bath))stop" H(K) must be build before bath allocation, errors shall come otherwise"
     !
     bk_x = [1.d0,0.d0,0.d0]*2*pi
     bk_y = [0.d0,1.d0,0.d0]*2*pi
@@ -355,6 +429,7 @@ contains
     d_t2g_Hloc = sum(Hk(:,:,:),dim=3)/Lk
     where(abs((d_t2g_Hloc))<1.d-9)d_t2g_Hloc=0d0
     d_t2g_Hloc_nn=so2nn_reshape(d_t2g_Hloc,Nspin,Norb)
+    call TB_write_hloc(d_t2g_Hloc,file)
     !
     !-----  Build the local GF in the spin-orbital Basis   -----
     !
@@ -398,7 +473,8 @@ contains
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     !
     do i_mu=1,max_mu
-       mu=-mu_edge+(2*mu_edge/max_mu)*float(i_mu)
+       mu=-mu_edge+(2*abs(mu_edge)/max_mu)*float(i_mu)
+       !mu=0.35d0+(2*abs(mu_edge)/max_mu)*float(i_mu)
        Greal=zero
        do ik=1,Lk
           do i=1,Lreal
@@ -456,7 +532,7 @@ contains
        Hk(ndx:ndx+1,ndx:ndx+1) = diagonal_orbital_dispersion(kx,ky,kz,HoppingMatrix(i,:))
     enddo
     !
-    if(SOC/=zero.or.IVB/=zero)then
+    if((SOC/=zero.or.IVB/=zero).and.bath_type=="replica")then
        Hk = Hk + SOC*H_LS() + IVB*H_IVB(kx,ky,kz)
     endif
     !
@@ -628,48 +704,53 @@ contains
     integer                                      :: Npts,Lk
     type(rgb_color),dimension(:),allocatable     :: colors
     !
-    allocate(colors(Nso))
-    colors=[red1,green1,blue1,red1,green1,blue1]
-    !
-    if(surface)then
-       write(LOGfile,*)"Build surface H(k) along the path M-X-G-X"
-       Npts = 4
-       Lk=(Npts-1)*Nkpath
-       allocate(kpath(Npts,3))
-       kpath(1,:)=kpoint_M1
-       kpath(2,:)=kpoint_X1
-       kpath(3,:)=kpoint_Gamma
-       kpath(4,:)=kpoint_X1
-       Sigma_correction=zero
-       call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
-            points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
-            file="Eigenband_surf.nint")
-       Sigma_correction=Smats
-       call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
-            points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
-            file="Eigenband_surf.sigma")
-       Sigma_correction=zero
-    else
-       write(LOGfile,*)"Build bulk H(k) along the path M-R-G-M-X-G-X"
-       Npts = 7
-       Lk=(Npts-1)*Nkpath
-       allocate(kpath(Npts,3))
-       kpath(1,:)=kpoint_M1
-       kpath(2,:)=kpoint_R
-       kpath(3,:)=kpoint_Gamma
-       kpath(4,:)=kpoint_M1
-       kpath(5,:)=kpoint_X1
-       kpath(6,:)=kpoint_Gamma
-       kpath(7,:)=kpoint_X1
-       Sigma_correction=zero
-       call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
-            points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
-            file="Eigenband_bulk.nint")
-       Sigma_correction=Smats
-       call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
-            points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
-            file="Eigenband_bulk.sigma")
-       Sigma_correction=zero
+    if (master)then
+       allocate(colors(Nso))
+       colors=[red1,green1,blue1,red1,green1,blue1]
+       !
+       if(surface)then
+          write(LOGfile,*)"Build surface H(k) along the path M-X-G-X"
+          Npts = 4
+          Lk=(Npts-1)*Nkpath
+          allocate(kpath(Npts,3))
+          kpath(1,:)=kpoint_M1
+          kpath(2,:)=kpoint_X1
+          kpath(3,:)=kpoint_Gamma
+          kpath(4,:)=kpoint_X1
+          Sigma_correction=zero
+          call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
+               points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
+               file="Eigenband_surf.nint")
+          Sigma_correction=Smats
+          call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
+               points_name=[character(len=20) :: 'M', 'X', 'G', 'X'],&
+               file="Eigenband_surf.sigma")
+          Sigma_correction=zero
+       else
+          write(LOGfile,*)"Build bulk H(k) along the path M-R-G-M-X-G-X"
+          Npts = 7
+          Lk=(Npts-1)*Nkpath
+          allocate(kpath(Npts,3))
+          kpath(1,:)=kpoint_M1
+          kpath(2,:)=kpoint_R
+          kpath(3,:)=kpoint_Gamma
+          kpath(4,:)=kpoint_M1
+          kpath(5,:)=kpoint_X1
+          kpath(6,:)=kpoint_Gamma
+          kpath(7,:)=kpoint_X1
+          Sigma_correction=zero
+          call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
+               points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
+               file="Eigenband_bulk.nint")
+          Sigma_correction=Smats
+          call TB_solve_model(hk_Ti3dt2g,Nso,kpath,Lk,colors_name=colors,&
+               points_name=[character(len=20) :: 'M', 'R', 'G', 'M', 'X', 'G', 'X'],&
+               file="Eigenband_bulk.sigma")
+          Sigma_correction=zero
+       endif
+       !
+       write(LOGfile,*)"Im done on the path"
+       stop
     endif
     !
   end subroutine build_eigenbands
@@ -768,9 +849,9 @@ contains
           T(3,0) = 0.0d0
        else
           T=1.0d0
-          T(1,0) = +0.30d0
-          T(2,0) = -0.15d0
-          T(3,0) = -0.15d0
+          T(1,0) = +SOC
+          T(2,0) = -SOC/2.d0
+          T(3,0) = -SOC/2.d0
        endif
     else
        if(surface)then
@@ -829,7 +910,7 @@ contains
     if(present(impHloc_rot_))then
        impHloc_rot_=zero
        impHloc_rot_=d_t2g_Hloc
-       call matrix_diagonalize(impHloc_rot_,impHloc_eig,'V','U')
+       call eigh(impHloc_rot_,impHloc_eig,'V','U')
     endif
     !
   end subroutine build_rotation
@@ -856,16 +937,23 @@ contains
     complex(8),allocatable,dimension(:)          ::   Luttinger,z_rot
     complex(8),dimension(Nspin*Norb,Nspin*Norb)  ::   theta_C,impHloc_rot,rho_ab
     real(8),dimension(Nspin*Norb,Nspin*Norb)     ::   dens_rot
-    integer                                      ::   io,jo,ndx,Lfreq
+    integer                                      ::   io,jo,ndx,Lfreq,ik
     integer                                      ::   ispin,jspin,iorb,jorb
     real(8),allocatable,dimension(:)             ::   w
     real(8)                                      ::   bttm,tp,lvl,dw
     real(8)                                      ::   norm,fact
-    real(8)                                      ::   LS_0,jz_0,jz_0_sq
-    real(8)                                      ::   moment1_J12=0.d0,moment2_J12=0.d0
-    real(8)                                      ::   moment1_J32=0.d0,moment2_J32=0.d0
+    real(8)                                      ::   LS_0,jz_0,jz_0_sq,Ek0
     character(len=12)                            ::   file_rotation
     integer                                      ::   isetup=0
+    !
+    integer                                      ::   posupper,poslower
+    integer                                      ::   icount,max_count
+    integer,dimension(200)                       ::   posmax
+    real(8)                                      ::   second_derivative
+    logical                                      ::   level
+    !
+    real(8)                                      ::   Ek0bis
+    complex(8),allocatable                       ::   Hkj(:,:,:)
     !
     if(type_funct=="G0lc") isetup=1
     if(type_funct=="Gloc") isetup=2
@@ -955,7 +1043,7 @@ contains
     !###############################################################
     !
     if(type_rot=="A")then
-       if(master)write(LOGfile,*) "  Rotation with analytic LS(C)"
+       if(master)write(LOGfile,*) "  Rotation with analytic LS"
        !
        !1)rotation
        f_out=zero
@@ -973,10 +1061,7 @@ contains
           if(master)then
              open(unit=106,file='Zqp_rot.dat',status='unknown',action='write',position='rewind')
              write(106,'(90A15,1X)') "#J=1/2,jz=-1/2","#J=3/2,jz=+1/2","#J=3/2,jz=-3/2","#J=1/2,jz=+1/2","#J=3/2,jz=+3/2","#J=3/2,jz=-1/2"
-             write(106,'(90F15.9,1X)')(z_rot(io),io=1,Nspin*Norb)
-             write(106,*)
-             write(106,*)
-             write(106,*)
+             write(106,'(90F15.9,1X)')(real(z_rot(io)),io=1,Nspin*Norb)
              close(106)
           endif
        endif
@@ -988,49 +1073,82 @@ contains
           enddo
           if(master)then
              open(unit=106,file='Luttinger.dat',status='unknown',action='write',position='rewind')
+             write(106,'(90A15,1X)') "#J=1/2,jz=-1/2","#J=3/2,jz=+1/2","#J=3/2,jz=-3/2","#J=1/2,jz=+1/2","#J=3/2,jz=+3/2","#J=3/2,jz=-1/2"
              write(106,'(90F15.9,1X)') (real(Luttinger(io)),io=1,2*Nspin*Norb),(aimag(luttinger(io)),io=1,2*Nspin*Norb)
              close(106)
           endif
        endif
        !
        !4)top-bottom find of the half-filled band in the case f_in = Gloc(w) and N=2,5
-       if(isetup==2 .and. type_freq=="wr" )then
-          if(nread==5.d0 .or. nread==2.d0)then
-             if(nread==5.d0)ndx=1
-             if(nread==2.d0)ndx=2
+       if(isetup==2 .and. type_freq=="wr" )then ! .and. upprshft )then
+          if( (abs(nread-2.d0)<=2*nerr).or.(abs(nread-5.d0)<=2*nerr) )then
+             if(abs(nread-5.d0)<=2*nerr)ndx=1
+             if(abs(nread-2.d0)<=2*nerr)ndx=2
              if(present(top_).and.present(bottom_))then
-                outerloop1:do i=1,Lfreq
-                   if(abs(aimag(f_out(ndx,ndx,i))).gt.lvl)then
-                      bottom_=w(i)
-                      exit outerloop1
+                top_=0.d0;bottom_=0.d0
+                posupper=10*Lfreq;poslower=-posupper
+                max_count=0;posmax=0
+                !
+                freqloop:do i=Lfreq,1,-1
+                   if(( abs(real(f_out(ndx,ndx,i))).lt.lvl  ).and.( real(f_out(ndx,ndx,i))>0.d0)) then
+                      max_count=max_count+1
+                      posmax(max_count)=i
+                      if(w(i)<-wfin) exit freqloop
                    endif
-                enddo outerloop1
-                outerloop2:do i=1,Lfreq
-                   if(abs(aimag(f_out(ndx,ndx,Lfreq-i+1))).gt.lvl)then
-                      top_=w(Lfreq-i+1)
-                      exit outerloop2
+                enddo freqloop
+                !
+                maxloop:do icount=1,max_count
+                   level=.false.
+                   if( -aimag(f_out(ndx,ndx,posmax(icount)))/pi>0.85 )level=.true.
+                   second_derivative = (real(f_out(ndx,ndx,posmax(icount)+1))-real(f_out(ndx,ndx,posmax(icount)-1)))/(w(posmax(icount)+1)-w(posmax(icount)-1))
+                   if(second_derivative>0.d0)then
+                      if((posmax(icount)<posupper).and.(w(posmax(icount))>0.d0).and.level)then
+                         posupper=posmax(icount)
+                         top_=w(posupper)
+                      elseif((w(posmax(icount))<0.d0).and.level)then
+                         poslower=posmax(icount)
+                         bottom_=w(poslower)
+                         exit maxloop
+                      endif
                    endif
-                enddo outerloop2
+                enddo maxloop
+                !
+                !old algorithm >>
+                !outerloop1:do i=1,Lfreq
+                !   if(abs(aimag(f_out(ndx,ndx,i))).gt.lvl)then
+                !      bottom_=w(i)
+                !      exit outerloop1
+                !   endif
+                !enddo outerloop1
+                !outerloop2:do i=1,Lfreq
+                !   if(abs(aimag(f_out(ndx,ndx,Lfreq-i+1))).gt.lvl)then
+                !      top_=w(Lfreq-i+1)
+                !      exit outerloop2
+                !   endif
+                !enddo outerloop2
+                !if(bath_type/="replica")then
+                !   loop1: do i=1,Lreal
+                !      if(abs(aimag(Greal(1,1,1,1,i))).gt.0.8d0)then
+                !         bottom=w(i)
+                !         exit loop1
+                !      endif
+                !   enddo loop1
+                !  loop2: do i=1,Lreal
+                !      if(abs(aimag(Greal(1,1,1,1,Lreal-i+1))).gt.0.8d0)then
+                !         top=w(Lreal-i+1)
+                !         exit loop2
+                !      endif
+                !  enddo loop2
+                !endif
+                !>> old algotithm
+                !
              endif
           endif
        endif
        !
        !5)first moment of A(w) in the case f_in = Gloc(w) and N=2,5
        if(isetup==2 .and. type_freq=="wr" )then
-          moment1_J12=0.d0;moment2_J12=0.d0
-          moment1_J32=0.d0;moment2_J32=0.d0
-          do i=1,Lfreq
-             moment1_J12=moment1_J12+fact*aimag(f_out(1,1,i))*w(i)*norm
-             moment1_J32=moment1_J32+fact*aimag(f_out(2,2,i))*w(i)*norm
-             moment2_J12=moment2_J12+fact*aimag(f_out(1,1,i))*w(i)*w(i)*norm
-             moment2_J32=moment2_J32+fact*aimag(f_out(2,2,i))*w(i)*w(i)*norm
-          enddo
-          if(master)then
-             open(unit=106,file='Spectral_moment.dat',status='unknown',action='write',position='rewind')
-             write(106,'(90A15,1X)')"#A_J1/2(w)*w","A_J3/2(w)*w","A_J1/2(w)*w^2","A_J3/2(w)*w^2"
-             write(106,'(90F15.9,1X)')moment1_J12,moment1_J32,moment2_J12,moment2_J32
-             close(106)
-          endif
+          call compute_spectral_moments_so(f_out,w,fact,norm)
        endif
        !
        !6)save the integral after rotation
@@ -1080,7 +1198,6 @@ contains
              enddo
           enddo
           !
-          !DEBUG>>
           !8)non interacting rho and observables in the case f_in = G0loc(w)
           if(isetup==1.and.type_freq=="wr")then
              dens_rot=0.d0
@@ -1092,16 +1209,34 @@ contains
              enddo
              !
              rho_ab = matmul(theta_C,matmul(dens_rot,transpose(conjg(theta_C))))
-             LS_0=trace(matmul(rho_ab,Z2so_reshape(H_LS())))
-             jz_0=trace(matmul(rho_ab,Z2so_reshape(j_a("z"))))
-             jz_0_sq=trace(matmul(rho_ab,Z2so_reshape(matmul(j_a("z"),j_a("z")))))
+             LS_0=trace(matmul(rho_ab,atomic_SOC()))
+             !jz_0=trace(matmul(rho_ab,Z2so_reshape(j_a("z"))))
+             !jz_0_sq=trace(matmul(rho_ab,Z2so_reshape(matmul(j_a("z"),j_a("z")))))
+             jz_0=trace(matmul(rho_ab,atomic_j("z")))
+             jz_0_sq=trace(matmul(rho_ab,matmul(atomic_j("z"),atomic_j("z"))))
              !
-             write(LOGfile,*) "  J basis densities in the non interacting case:"
-             write(LOGfile,'(20F8.3)') mu,(dens_rot(io,io),io=1,Nso)
-             write(LOGfile,'(20F8.3)') sum(dens_rot),LS_0,jz_0,jz_0_sq
+             Ek0=zero
+             do ik=1,Nk*Nk*Nk
+                Ek0 = Ek0 + trace(matmul(rho_ab,Hk(:,:,ik)))/(Nk*Nk*Nk)
+             enddo
+             !
+             if(allocated(HkJ))deallocate(HkJ);allocate(HkJ(Nspin*Norb,Nspin*Norb,Nk*Nk*Nk));HkJ=zero
+             Ek0bis=zero
+             do ik=1,Nk*Nk*Nk
+                HkJ(:,:,ik)=matmul(transpose(conjg(theta_C)),matmul(Hk(:,:,ik),theta_C))-mu*eye(Nspin*Norb)
+                do io=1,Nspin*Norb
+                   if(real(HkJ(io,io,ik))>0.d0)cycle
+                   Ek0bis = Ek0bis + HkJ(io,io,ik)/(Nk*Nk*Nk)
+                enddo
+             enddo
+             !
+             write(LOGfile,'(1A12,A72,1A12)') "mu","non-interacting J basis densities","Ntot"
+             write(LOGfile,'(20F12.4)') mu,(dens_rot(io,io),io=1,Nso),sum(dens_rot)
+             write(LOGfile,'(20A12)')   " LS_0","jz_0","jz_0_sq","Ek0"
+             write(LOGfile,'(20F12.4)') LS_0,jz_0,jz_0_sq,Ek0,Ek0bis
              !
              open(unit=106,file='nonint_dens_rot.dat',status='unknown',action='write',position='append')
-             write(106,'(20F18.12)')   mu,(dens_rot(io,io),io=1,Nso),LS_0,jz_0,jz_0_sq
+             write(106,'(20F18.12)')   mu,(dens_rot(io,io),io=1,Nso),LS_0,jz_0,jz_0_sq,Ek0
              close(106)
              !
              open(106,file="nonint_density_matrix.dat",action="write",position="append",status='unknown')
@@ -1124,7 +1259,6 @@ contains
              close(106)
              !
           endif
-          !!<<DEBUG
        endif
     endif
     !
@@ -1246,6 +1380,64 @@ contains
     endif
     !
   end subroutine Jz_rotate
+
+
+
+  !+------------------------------------------------------------------------------------------+!
+  !PURPOSE:
+  !NOTE:    
+  !+------------------------------------------------------------------------------------------+!
+  subroutine compute_spectral_moments_so(A_,w_,fact_,norm_)
+    implicit none
+    complex(8),intent(in)                         :: A_(Nspin*Norb,Nspin*Norb,Lreal)
+    real(8),intent(in)                            :: w_(Lreal)
+    real(8),intent(in)                            :: fact_,norm_
+    real(8)                                       :: moment1_J12=0.d0,moment2_J12=0.d0
+    real(8)                                       :: moment1_J32=0.d0,moment2_J32=0.d0
+    integer                                       :: i
+    !
+    moment1_J12=0.d0;moment2_J12=0.d0
+    moment1_J32=0.d0;moment2_J32=0.d0
+    do i=1,Lreal
+       moment1_J12=moment1_J12+fact_*aimag(A_(1,1,i))*w_(i)*norm_
+       moment1_J32=moment1_J32+fact_*aimag(A_(2,2,i))*w_(i)*norm_
+       moment2_J12=moment2_J12+fact_*aimag(A_(1,1,i))*w_(i)*w_(i)*norm_
+       moment2_J32=moment2_J32+fact_*aimag(A_(2,2,i))*w_(i)*w_(i)*norm_
+    enddo
+    if(master)then
+       open(unit=106,file='Spectral_moment.dat',status='unknown',action='write',position='rewind')
+       write(106,'(90A15,1X)')"#A_J1/2(w)*w","A_J3/2(w)*w","A_J1/2(w)*w^2","A_J3/2(w)*w^2"
+       write(106,'(90F15.9,1X)')moment1_J12,moment1_J32,moment2_J12,moment2_J32
+       close(106)
+    endif
+    !
+  end subroutine compute_spectral_moments_so
+  !
+  subroutine compute_spectral_moments_nn(A_,w_,fact_,norm_)
+    implicit none
+    complex(8),intent(in)                         :: A_(Nspin,Nspin,Norb,Norb,Lreal)
+    real(8),intent(in)                            :: w_(Lreal)
+    real(8),intent(in)                            :: fact_,norm_
+    real(8)                                       :: moment1_J12=0.d0,moment2_J12=0.d0
+    real(8)                                       :: moment1_J32=0.d0,moment2_J32=0.d0
+    integer                                       :: i
+    !
+    moment1_J12=0.d0;moment2_J12=0.d0
+    moment1_J32=0.d0;moment2_J32=0.d0
+    do i=1,Lreal
+       moment1_J12=moment1_J12+fact_*aimag(A_(1,1,1,1,i))*w_(i)*norm_
+       moment1_J32=moment1_J32+fact_*aimag(A_(1,1,2,2,i))*w_(i)*norm_
+       moment2_J12=moment2_J12+fact_*aimag(A_(1,1,1,1,i))*w_(i)*w_(i)*norm_
+       moment2_J32=moment2_J32+fact_*aimag(A_(1,1,2,2,i))*w_(i)*w_(i)*norm_
+    enddo
+    if(master)then
+       open(unit=106,file='Spectral_moment.dat',status='unknown',action='write',position='rewind')
+       write(106,'(90A15,1X)')"#A_J1/2(w)*w","A_J3/2(w)*w","A_J1/2(w)*w^2","A_J3/2(w)*w^2"
+       write(106,'(90F15.9,1X)')moment1_J12,moment1_J32,moment2_J12,moment2_J32
+       close(106)
+    endif
+    !
+  end subroutine compute_spectral_moments_nn
 
 
 

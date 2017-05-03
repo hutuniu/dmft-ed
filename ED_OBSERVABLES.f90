@@ -78,7 +78,7 @@ contains
     integer                         :: isector,jsector
     integer                         :: idim,jdim
     integer                         :: isz,jsz
-    integer                         :: iorb,jorb,ispin,jspin,isite,jsite
+    integer                         :: iorb,jorb,ispin,jspin,isite,jsite,ibath
     integer                         :: numstates
     integer                         :: r,m,k
     real(8)                         :: sgn,sgn1,sgn2
@@ -251,7 +251,7 @@ contains
                 i=H%map(m)
                 ib = bdecomp(i,2*Ns)
                 imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + &
-                     peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
+                                                            peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
              enddo
           enddo
        enddo
@@ -272,7 +272,7 @@ contains
                          call cdg(isite,r,k,sgn2)
                          j=binary_search(H%map,k)
                          imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + &
-                              peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                                                                     peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
                       endif
                    enddo
                 enddo
@@ -282,7 +282,64 @@ contains
        deallocate(H%map)
     enddo
     !
-    imp_density_matrix = imp_density_matrix/float(state_list%size)
+    !
+    !BATH DENSITY MATRIX
+    if(allocated(bth_density_matrix)) deallocate(bth_density_matrix);allocate(bth_density_matrix(Nspin,Nspin,Norb,Norb,Nbath))
+    bth_density_matrix=zero
+    do izero=1,state_list%size
+       !
+       isector = es_return_sector(state_list,izero)
+       Ei      = es_return_energy(state_list,izero)
+       idim    = getdim(isector)
+       gscvec  => es_return_cvector(state_list,izero)
+       norm=sqrt(dot_product(gscvec,gscvec))
+       if(abs(norm-1.d0)>1.d-9)stop "GS is not normalized"
+       !
+       peso = 1.d0 ; if(finiteT)peso=exp(-beta*(Ei-Egs))
+       peso = peso/zeta_function
+       !
+       call build_sector(isector,H)
+       !Diagonal densities
+       do ibath=1,Nbath
+          do ispin=1,Nspin
+             do iorb=1,Norb
+                isite = iorb + ibath*Norb + (ispin-1)*Ns
+                do m=1,idim
+                   i=H%map(m)
+                   ib = bdecomp(i,2*Ns)
+                   bth_density_matrix(ispin,ispin,iorb,iorb,ibath) = bth_density_matrix(ispin,ispin,iorb,iorb,ibath) + &
+                                                                     peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
+                enddo
+             enddo
+          enddo
+          !off-diagonal
+          do ispin=1,Nspin
+             do jspin=1,Nspin
+                do iorb=1,Norb
+                   do jorb=1,Norb
+                      if((ed_mode=="normal").and.(ispin/=jspin))cycle !  ed_mode=="normal" ==>    spin off-dig term not calculated
+                      if((bath_type=="normal").and.(iorb/=jorb))cycle !bath_type=="normal" ==> orbital off-dig term not calculated
+                      isite = iorb + ibath*Norb + (ispin-1)*Ns
+                      jsite = jorb + ibath*Norb + (jspin-1)*Ns
+                      do m=1,idim
+                         i=H%map(m)
+                         ib = bdecomp(i,2*Ns)
+                         if((ib(jsite)==1).and.(ib(isite)==0))then
+                            call c(jsite,i,r,sgn1)
+                            call cdg(isite,r,k,sgn2)
+                            j=binary_search(H%map,k)
+                            bth_density_matrix(ispin,jspin,iorb,jorb,ibath) = bth_density_matrix(ispin,jspin,iorb,jorb,ibath) + &
+                                                                              peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                         endif
+                      enddo
+                   enddo
+                enddo
+             enddo
+          enddo
+       enddo
+       !
+       deallocate(H%map)
+    enddo
     !
     !IMPURITY DENSITY OPERATORS
     if((Nspin/=1).and.(Norb==3))then
@@ -291,6 +348,7 @@ contains
        if(allocated(impj_aplha))   deallocate(impj_aplha);   allocate(impj_aplha(3));         impj_aplha=zero
        if(allocated(impj_aplha_sq))deallocate(impj_aplha_sq);allocate(impj_aplha_sq(3));      impj_aplha_sq=zero
        impLdotS=zero
+       if(allocated(bthLdotS))     deallocate(bthLdotS);     allocate(bthLdotS(Nbath));       bthLdotS=zero
        !
        !#####################################################
        !#                    S(iorb,jorb)                   #
@@ -333,6 +391,9 @@ contains
        !#####################################################
        !
        impLdotS = trace(matmul(nn2so_reshape(imp_density_matrix,Nspin,Norb),atomic_SOC()))
+       do ibath=1,Nbath
+          bthLdotS(ibath) = trace(matmul(nn2so_reshape(bth_density_matrix(:,:,:,:,ibath),Nspin,Norb),atomic_SOC()))
+       enddo
        !
        !#####################################################
        !#                         ja                        #
@@ -353,8 +414,9 @@ contains
     endif
     !<<DEBUG
     !
-    call get_szr
+    !call get_szr
     if(MPI_MASTER)then
+       call get_szr
        if(iolegend)call write_legend
        call write_observables()
        write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(ed_file_suffix)//"=",(dens(iorb),iorb=1,Norb),sum(dens)
@@ -467,14 +529,14 @@ contains
                    call c(jorb,m,k1,sg1)
                    call cdg(iorb,k1,k2,sg2)
                    j=binary_search(H%map,k2)
-                   ed_Eknot = ed_Eknot + impHloc(1,1,iorb,jorb)*sg1*sg2*gs_weight
+                   ed_Eknot = ed_Eknot + impHloc(1,1,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))!gs_weight
                 endif
                 !SPIN DW
                 if((ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
                    call c(jorb+Ns,m,k1,sg1)
                    call cdg(iorb+Ns,k1,k2,sg2)
                    j=binary_search(H%map,k2)
-                   ed_Eknot = ed_Eknot + impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2*gs_weight
+                   ed_Eknot = ed_Eknot + impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))!gs_weight
                 endif
              enddo
           enddo
@@ -487,14 +549,14 @@ contains
                       call c(jorb+Ns,m,k1,sg1)
                       call cdg(iorb,k1,k2,sg2)
                       j=binary_search(H%map,k2)
-                      ed_Eknot = ed_Eknot + impHloc(1,Nspin,iorb,jorb)*sg1*sg2*gs_weight
+                      ed_Eknot = ed_Eknot + impHloc(1,Nspin,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))!gs_weight
                    endif
                    !DW-UP
                    if((impHloc(Nspin,1,iorb,jorb)/=zero).AND.(ib(iorb+Ns)==0).AND.(ib(jorb)==1))then
                       call c(jorb,m,k1,sg1)
                       call cdg(iorb+Ns,k1,k2,sg2)
                       j=binary_search(H%map,k2)
-                      ed_Eknot = ed_Eknot + impHloc(Nspin,1,iorb,jorb)*sg1*sg2*gs_weight
+                      ed_Eknot = ed_Eknot + impHloc(Nspin,1,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))!gs_weight
                    endif
                 enddo
              enddo
@@ -548,8 +610,8 @@ contains
                       call cdg(jorb+Ns,k2,k3,sg3)
                       call cdg(iorb,k3,k4,sg4)
                       j=binary_search(H%map,k4)
-                      ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gs_weight
-                      ed_Dse  = ed_Dse  + sg1*sg2*sg3*sg4*gs_weight
+                      ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
+                      ed_Dse  = ed_Dse  + sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
                    endif
                 enddo
              enddo
@@ -572,8 +634,8 @@ contains
                       call cdg(iorb+Ns,k2,k3,sg3)
                       call cdg(iorb,k3,k4,sg4)
                       j=binary_search(H%map,k4)
-                      ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gs_weight
-                      ed_Dph  = ed_Dph  + sg1*sg2*sg3*sg4*gs_weight
+                      ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
+                      ed_Dph  = ed_Dph  + sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
                    endif
                 enddo
              enddo

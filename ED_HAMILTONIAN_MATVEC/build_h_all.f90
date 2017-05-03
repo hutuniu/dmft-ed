@@ -162,7 +162,7 @@
      !
      if(bath_type/="replica") then
         ! DIAGONAL BATH HAMILTONIAN: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
-        htmp=0.0d0
+        htmp=zero
         do iorb=1,size(dmft_bath%e,2)
            do kp=1,Nbath
               ms=getBathStride(iorb,kp)
@@ -190,7 +190,6 @@
                           !
                           !diagonal elements
                           if ((ispin==jspin).and.(iorb==jorb)) then
-                             if(alfa/=beta)stop "wrong alfa beta"
                              htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*real(ib(alfa),8)
                              call sp_insert_element(spH0,htmp,impi,i)
                           endif
