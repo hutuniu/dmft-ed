@@ -179,7 +179,7 @@ contains
     endif
     !
     !-----------------------------------------------!
-    include "ED_HAMILTONIAN_MATVEC/build_h_all.f90"
+    include "ED_HAMILTONIAN_MATVEC/build_h.f90"
     !-----------------------------------------------!
     !
     if(present(Hmat))then
