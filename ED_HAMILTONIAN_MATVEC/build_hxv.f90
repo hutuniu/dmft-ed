@@ -3,18 +3,12 @@
      impi = i-ishift
      ib = bdecomp(m,2*Ns)
      !
-     htmp=zero
-     !
      do iorb=1,Norb
         nup(iorb)=dble(ib(iorb))
         ndw(iorb)=dble(ib(iorb+Ns))
      enddo
      !
      !
-     !CHEMICAL POTENTIAL
-     htmp = htmp - xmu*(sum(nup)+sum(ndw))
-
-
      !IMPURITY  HAMILTONIAN
      include "ED_HAMILTONIAN_MATVEC/HxVimp.f90"
 

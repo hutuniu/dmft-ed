@@ -1,5 +1,5 @@
 MODULE ED_INPUT_VARS
-  USE SCIFOR_VERSION
+  USE SF_VERSION
   USE SF_PARSE_INPUT
 
   implicit none
@@ -182,7 +182,8 @@ contains
     Ltau=max(int(beta),Ltau)
     if(master)then
        call save_input_file(INPUTunit)
-       call sf_version(revision)
+       call scifor_version()
+       call code_version(revision)
     endif
     !Act on the input variable only after printing.
     !In the new parser variables are hard-linked into the list:

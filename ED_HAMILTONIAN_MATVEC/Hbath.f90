@@ -1,13 +1,12 @@
-  if(bath_type/="replica") then
+  Breplica: if(bath_type/="replica") then
      !
      !diagonal bath hamiltonian: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
      htmp=zero
      do iorb=1,size(dmft_bath%e,2)
         do kp=1,Nbath
            alfa=getBathStride(iorb,kp)
-           htmp =htmp + &
-                dmft_bath%e(1,iorb,kp)*ib(alfa) +& !UP
-                dmft_bath%e(Nspin,iorb,kp)*ib(alfa+Ns) !DW
+           htmp =htmp + dmft_bath%e(1,iorb,kp)*ib(alfa)        !UP
+           htmp =htmp + dmft_bath%e(Nspin,iorb,kp)*ib(alfa+Ns) !DW
         enddo
      enddo
      !
@@ -15,97 +14,92 @@
      !
   else
      !
-     ! !diagonal bath hamiltonian: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
-     ! htmp=zero
-     ! do kp=1,Nbath
-     !    do iorb=1,Norb
-     !       alfa = getBathStride(iorb,kp) !iorb + kp*Norb
-     !       htmp = htmp + &
-     !            dmft_bath%h(1,1,iorb,iorb,kp)*ib(alfa) + & !UP
-     !            dmft_bath%h(Nspin,Nspin,iorb,iorb,kp)*ib(alfa+Ns) !DW
-     !    enddo
-     ! enddo
-     ! !
-     ! call sp_insert_element(spH0,htmp,impi,i)
-     ! !
-     ! !off-diagonal elements
-     ! do kp=1,Nbath
-     !    do iorb=1,Norb
-     !       do jorb=1,Norb
-     !          if(iorb==jorb)cycle
-     !          !UP
-     !          alfa = getBathStride(iorb,kp)
-     !          beta = getBathStride(jorb,kp)
-     !          Jcondition = &
-     !               (dmft_bath%h(1,1,iorb,jorb,kp)/=zero) .AND. &
-     !               (ib(beta)==1)                         .AND. &
-     !               (ib(alfa)==0)
-     !          if (Jcondition)then
-     !             call c(beta,m,k1,sg1)
-     !             call cdg(alfa,k1,k2,sg2)
-     !             j = binary_search(H%map,k2)
-     !             htmp = dmft_bath%h(1,1,iorb,jorb,kp)*sg1*sg2
-     !             !
-     !             call sp_insert_element(spH0,htmp,impi,j)
-     !             !
-     !          endif
-     !          !DW
-     !          alfa = getBathStride(iorb,kp)
-     !          beta = getBathStride(jorb,kp)
-     !          Jcondition = &
-     !               (dmft_bath%h(Nspin,Nspin,iorb,jorb,kp)/=zero) .AND. &
-     !               (ib(beta+Ns)==1)                         .AND. &
-     !               (ib(alfa+Ns)==0)
-     !          if (Jcondition)then
-     !             call c(beta+Ns,m,k1,sg1)
-     !             call cdg(alfa+Ns,k1,k2,sg2)
-     !             j = binary_search(H%map,k2)
-     !             htmp = dmft_bath%h(Nspin,Nspin,iorb,jorb,kp)*sg1*sg2
-     !             !
-     !             call sp_insert_element(spH0,htmp,impi,j)
-     !             !
-     !          endif
-     !          !
-     !       enddo
-     !    enddo
-     ! enddo
      !
-     ! CLUSTER REPLICA-HAMILTONIAN - no inter-cluster couplings
+     !diagonal bath hamiltonian: +energy of the bath=\sum_a=1,Norb\sum_{l=1,Nbath}\e^a_l n^a_l
+     htmp=zero
+     do kp=1,Nbath
+        do iorb=1,Norb
+           alfa = getBathStride(iorb,kp)
+           htmp = htmp + dmft_bath%h(1,1,iorb,iorb,kp)*ib(alfa)              !UP
+           htmp = htmp + dmft_bath%h(Nspin,Nspin,iorb,iorb,kp)*ib(alfa+Ns)   !DW
+        enddo
+     enddo
+     !
+     call sp_insert_element(spH0,htmp,impi,i)
+     !
+     !off-diagonal elements
+     !
+     !1. same spin:
      do kp=1,Nbath
         do iorb=1,Norb
            do jorb=1,Norb
-              do ispin=1,Nspin
-                 do jspin=1,Nspin
-                    !
-                    if(dmft_bath%h(ispin,jspin,iorb,jorb,kp)/=zero) then
-                       !
-                       alfa = iorb + kp*Norb + (ispin-1)*Ns
-                       beta = jorb + kp*Norb + (jspin-1)*Ns
-                       !
-                       !diagonal elements
-                       if ((ispin==jspin).and.(iorb==jorb)) then
-                          htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*real(ib(alfa),8)
-                          call sp_insert_element(spH0,htmp,impi,i)
-                       endif
-                       !
-                       !off-diagonal elements
-                       if ((ib(beta)==1) .AND. (ib(alfa)==0)) then
-                          call c(beta,m,k1,sg1)
-                          call cdg(alfa,k1,k2,sg2)
-                          j = binary_search(H%map,k2)
-                          htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*sg1*sg2
-                          call sp_insert_element(spH0,htmp,impi,j)
-                       endif
-                       !
-                    endif
-                    !
-                 enddo
-              enddo
+              !this loop considers only the orbital off-diagonal terms
+              !because iorb=jorb can not have simultaneously
+              !occupation 0 and 1, as required by this if Jcondition:
+              !UP
+              alfa = getBathStride(iorb,kp)
+              beta = getBathStride(jorb,kp)
+              Jcondition = &
+                   (dmft_bath%h(1,1,iorb,jorb,kp)/=zero) .AND. &
+                   (ib(beta)==1)                         .AND. &
+                   (ib(alfa)==0)
+              if (Jcondition)then
+                 call c(beta,m,k1,sg1)
+                 call cdg(alfa,k1,k2,sg2)
+                 j = binary_search(H%map,k2)
+                 htmp = dmft_bath%h(1,1,iorb,jorb,kp)*sg1*sg2
+                 !
+                 call sp_insert_element(spH0,htmp,impi,j)
+                 !
+              endif
+              !DW
+              alfa = getBathStride(iorb,kp) + Ns
+              beta = getBathStride(jorb,kp) + Ns
+              Jcondition = &
+                   (dmft_bath%h(Nspin,Nspin,iorb,jorb,kp)/=zero) .AND. &
+                   (ib(beta)==1)                                 .AND. &
+                   (ib(alfa)==0)
+              if (Jcondition)then
+                 call c(beta,m,k1,sg1)
+                 call cdg(alfa,k1,k2,sg2)
+                 j = binary_search(H%map,k2)
+                 htmp = dmft_bath%h(Nspin,Nspin,iorb,jorb,kp)*sg1*sg2
+                 !
+                 call sp_insert_element(spH0,htmp,impi,j)
+                 !
+              endif
            enddo
         enddo
      enddo
      !
-  endif
+     !2. spin-flip part (only for the nonSU2 channel!)
+     if(ed_mode=="nonsu2")then
+        do kp=1,Nbath
+           do ispin=1,Nspin
+              jspin = 3-ispin !ispin=1,jspin=2, ispin=2,jspin=1
+              do iorb=1,Norb
+                 do jorb=1,Norb
+                    alfa = getBathStride(iorb,kp) + (ispin-1)*Ns
+                    beta = getBathStride(jorb,kp) + (jspin-1)*Ns
+                    Jcondition=&
+                         (impHloc(ispin,jspin,iorb,jorb)/=zero) .AND. &
+                         (ib(beta)==1)                          .AND. &
+                         (ib(alfa)==0)
+                    if(Jcondition)then
+                       call c(beta,m,k1,sg1)
+                       call cdg(alfa,k1,k2,sg2)
+                       j = binary_search(H%map,k2)
+                       htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*sg1*sg2
+                       !
+                       call sp_insert_element(spH0,htmp,impi,j)
+                       !
+                    endif
+                 enddo
+              enddo
+           enddo
+        enddo
+     endif
+  endif Breplica
 
 
 
@@ -137,3 +131,41 @@
         enddo
      enddo
   endif
+
+
+
+  ! ! CLUSTER REPLICA-HAMILTONIAN - no inter-cluster couplings
+  ! do kp=1,Nbath
+  !    do iorb=1,Norb
+  !       do jorb=1,Norb
+  !          do ispin=1,Nspin
+  !             do jspin=1,Nspin
+  !                !
+  !                if(dmft_bath%h(ispin,jspin,iorb,jorb,kp)/=zero) then
+  !                   !
+  !                   alfa = iorb + kp*Norb + (ispin-1)*Ns
+  !                   beta = jorb + kp*Norb + (jspin-1)*Ns
+  !                   !
+  !                   !diagonal elements
+  !                   if ((ispin==jspin).and.(iorb==jorb)) then
+  !                      htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*real(ib(alfa),8)
+  !                      call sp_insert_element(spH0,htmp,impi,i)
+  !                   endif
+  !                   !
+  !                   !off-diagonal elements
+  !                   if ((ib(beta)==1) .AND. (ib(alfa)==0)) then
+  !                      call c(beta,m,k1,sg1)
+  !                      call cdg(alfa,k1,k2,sg2)
+  !                      j = binary_search(H%map,k2)
+  !                      print*,"4",iorb,jorb,ispin,jspin,j
+  !                      htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*sg1*sg2
+  !                      call sp_insert_element(spH0,htmp,impi,j)
+  !                   endif
+  !                   !
+  !                endif
+  !                !
+  !             enddo
+  !          enddo
+  !       enddo
+  !    enddo
+  ! enddo

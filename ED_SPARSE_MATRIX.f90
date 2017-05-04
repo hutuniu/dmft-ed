@@ -334,8 +334,8 @@ contains
           iadd=.true.
           exit
        endif
-       if(c%col > column)exit
-       ! if(column <= c%col)exit
+       !if(c%col > column)exit
+       if(column <= c%col)exit
        p => c
        c => c%next
     end do

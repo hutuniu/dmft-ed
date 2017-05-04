@@ -1066,6 +1066,7 @@ contains
     mid = size(a)/2 + 1
     if (size(a) == 0) then
        bsresult = 0        ! not found
+       !stop "binary_search error: value not found"
     else if (a(mid) > value) then
        bsresult= binary_search(a(:mid-1), value)
     else if (a(mid) < value) then

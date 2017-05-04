@@ -10,7 +10,6 @@
            j = binary_search(H%map,k2)
            htmp = diag_hybr(1,iorb,kp)*sg1*sg2
            hv(impi) = hv(impi) + htmp*vin(j)
-           !hv(j) = hv(j) + htmp*vin(impi)!??
         endif
         if( (diag_hybr(1,iorb,kp)/=0d0) .AND. (ib(iorb)==0) .AND. (ib(ms)==1) )then
            call c(ms,m,k1,sg1)
@@ -18,7 +17,6 @@
            j=binary_search(H%map,k2)
            htmp = diag_hybr(1,iorb,kp)*sg1*sg2
            hv(impi) = hv(impi) + htmp*vin(j)
-           !hv(j) = hv(j) + htmp*vin(impi)!??
         endif
         !
         !IMP DW <--> BATH DW
@@ -28,7 +26,6 @@
            j=binary_search(H%map,k2)
            htmp=diag_hybr(Nspin,iorb,kp)*sg1*sg2
            hv(impi) = hv(impi) + htmp*vin(j)
-           !hv(j) = hv(j) + htmp*vin(impi)!??
         endif
         if( (diag_hybr(Nspin,iorb,kp)/=0d0) .AND. (ib(iorb+Ns)==0) .AND. (ib(ms+Ns)==1) )then
            call c(ms+Ns,m,k1,sg1)
@@ -36,7 +33,6 @@
            j=binary_search(H%map,k2)
            htmp=diag_hybr(Nspin,iorb,kp)*sg1*sg2
            hv(impi) = hv(impi) + htmp*vin(j)
-           !hv(j) = hv(j) + htmp*vin(impi)!??
         endif
      enddo
   enddo
@@ -55,7 +51,6 @@
               j = binary_search(H%map,k2)
               htmp = dmft_bath%u(1,iorb,kp)*sg1*sg2
               hv(impi) = hv(impi) + htmp*vin(j)
-              !hv(j) = hv(j) + htmp*vin(impi)!??
            endif
            if( (ib(iorb)==0) .AND. (ib(ms+Ns)==1) )then
               call c(ms+Ns,m,k1,sg1)
@@ -63,7 +58,6 @@
               j=binary_search(H%map,k2)
               htmp = dmft_bath%u(1,iorb,kp)*sg1*sg2
               hv(impi) = hv(impi) + htmp*vin(j)
-              !hv(j) = hv(j) + htmp*vin(impi)!??
            endif
            ! IMP DW <--> BATH UP
            if( (ib(iorb+Ns)==1) .AND. (ib(ms)==0) )then
@@ -72,7 +66,6 @@
               j=binary_search(H%map,k2)
               htmp = dmft_bath%u(Nspin,iorb,kp)*sg1*sg2
               hv(impi) = hv(impi) + htmp*vin(j)
-              !hv(j) = hv(j) + htmp*vin(impi)!??
            endif
            if( (ib(iorb+Ns)==0) .AND. (ib(ms)==1) )then
               call c(ms,m,k1,sg1)
@@ -80,7 +73,6 @@
               j=binary_search(H%map,k2)
               htmp = dmft_bath%u(Nspin,iorb,kp)*sg1*sg2
               hv(impi) = hv(impi) + htmp*vin(j)
-              !hv(j) = hv(j) + htmp*vin(impi)!??
            endif
         enddo
      enddo

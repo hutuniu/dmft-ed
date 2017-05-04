@@ -1,15 +1,22 @@
   !Diagonal Elements, i.e. local part
+  htmp = zero
+  htmp = htmp - xmu*(sum(nup)+sum(ndw))
+  !
   do iorb=1,Norb
      htmp = htmp + impHloc(1,1,iorb,iorb)*nup(iorb)
      htmp = htmp + impHloc(Nspin,Nspin,iorb,iorb)*ndw(iorb)
   enddo
-
+  !
+  call sp_insert_element(spH0,htmp,impi,i)
+  !
 
   !Off-diagonal elements, i.e. non-local part
   !1. same spin:
   do iorb=1,Norb
      do jorb=1,Norb
-        if(iorb==jorb)cycle
+        !this loop considers only the orbital off-diagonal terms
+        !because iorb=jorb can not have simultaneously
+        !occupation 0 and 1, as required by this if Jcondition:
         !UP
         Jcondition = &
              (impHloc(1,1,iorb,jorb)/=zero) .AND. &
@@ -27,7 +34,7 @@
         !DW
         Jcondition = &
              (impHloc(Nspin,Nspin,iorb,jorb)/=zero) .AND. &
-             (ib(jorb+Ns)==1)                  .AND. &
+             (ib(jorb+Ns)==1)                       .AND. &
              (ib(iorb+Ns)==0)
         if (Jcondition) then
            call c(jorb+Ns,m,k1,sg1)
@@ -38,18 +45,16 @@
            call sp_insert_element(spH0,htmp,impi,j)
            !
         endif
-        !
      enddo
   enddo
   !
-  !
-  !1. spin-flip part (only for the nonSU2 channel!)
+  !2. spin-flip part (only for the nonSU2 channel!)
   if(ed_mode=="nonsu2")then
-     do iorb=1,Norb
-        do jorb=1,Norb
-           do ispin=1,Nspin
-              !do jspin=1,Nspin
-              jspin = 3-ispin !ispin=1,jspin=2, ispin=2,jspin=1
+     do ispin=1,Nspin
+        jspin = 3-ispin !ispin=1,jspin=2, ispin=2,jspin=1
+        !
+        do iorb=1,Norb
+           do jorb=1,Norb
               alfa = iorb + (ispin-1)*Ns
               beta = jorb + (jspin-1)*Ns
               Jcondition=&
@@ -65,7 +70,6 @@
                  !
               endif
               !
-              !enddo
            enddo
         enddo
      enddo

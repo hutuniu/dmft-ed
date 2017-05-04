@@ -7,18 +7,13 @@ FC=mpif90
 ##$ platform first using the cmd: $mpif90 -show
 PLAT=gnu
 
-##$ LOCATION OF THE scifor and dmft_tools DIRECTORIES
-##$ is placed in different locations edit INCARGS here below
-LIBDIR=/opt
-
-
 
 ##$ CHOOSE THE MODEL BY SELECTING THE PROGRAM DRIVER
 ##$ if needed add yours to the list:
 ##$ --> HUBBARD MODELS:
-EXE=ed_hm_bethe
+#EXE=ed_hm_bethe
 #EXE=ed_ahm_bethe
-#EXE=ed_ahm_square
+EXE=ed_ahm_square
 #EXE=ed_hm_2dsquare
 #EXE=ed_hm_2b_cubic
 #EXE=ed_hm_bethe_afm
@@ -63,51 +58,40 @@ EXE=ed_hm_bethe
 #EXE=ed_STO
 #EXE=ed_SOC
 
+EXE=ed_ahm_square_2bands
+
 ##$ SET THE LOCATION OF YOU PROGRAM DRIVER (default is ./drivers)
 DIR =./drivers
 
 ##$ SET THE LOCATION WHERE TO PLACE THE EXECUTABLE (default is $HOME/.bin)
 DIREXE=$(HOME)/.bin
 
+INCARGS=$(shell pkg-config --cflags --libs-only-L dmft_tools scifor)
+
 ifeq ($(PLAT),intel)
-#define suitable options here
-FFLAG=-O2 -ftz
-OFLAG=-O3 -ftz -prof-gen -prof-use
-DFLAG=-p -O0 -g -fpe0 -warn -warn errors -debug extended -traceback -check all,noarg_temp_created
+FFLAG=-O2 -ftz $(INCARGS) 
+OFLAG=-O3 -ftz -prof-gen -prof-use $(INCARGS) 
+DFLAG=-p -O0 -g -fpe0 -warn -warn errors -debuEg extended -traceback -check all,noarg_temp_created $(INCARGS) 
 FPPFLAG =-fpp
 endif
 
 ifeq ($(PLAT),gnu)
-INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib
-INCARGS+=-I$(LIBDIR)/dmft_tools/gnu/include -L$(LIBDIR)/dmft_tools/gnu/lib
+# INCARGS=-I$(LIBDIR)/scifor/gnu/include -L$(LIBDIR)/scifor/gnu/lib
+# INCARGS+=-I$(LIBDIR)/dmft_tools/gnu/include -L$(LIBDIR)/dmft_tools/gnu/lib
 FFLAG = -O2 -ffree-line-length-none $(INCARGS) 
 DFLAG = -O0 -p -g -fimplicit-none -Wsurprising  -Waliasing -fwhole-file -fcheck=all -pedantic -fbacktrace -ffree-line-length-none  $(INCARGS)
-#DFLAG = -O0 -p -g -Wall -fimplicit-none -ffpe-trap=zero,overflow,underflow  -Wall  -Wline-truncation  -Wcharacter-truncation  -Wsurprising  -Waliasing  -Wimplicit-interface  -Wunused-parameter  -fwhole-file  -fcheck=all  -pedantic  -fbacktrace -fcheck=bounds -ffree-line-length-none  $(INCARGS)
 OFLAG = -O3 -ffast-math -march=native -funroll-all-loops -fno-protect-parens -flto -ffree-line-length-none $(INCARGS)
 FPPFLAG =-cpp
 endif
 
 
-
-##$ CHOOSE LINKING OPTIONS:
-##$ 
-##$ If you intend to use mkl:
-##$ 
-#MKLARGS=-lmkl_intel_lp64 -lmkl_sequential -lmkl_core -lpthread -lm
-#ARGS=-ldmftt -lscifor $(MKLARGS) -larpack -lparpack 
-##$ 
-##$ ELSE:
-##$ 
-ARGS=  -ldmftt -lscifor #-lfftpack -lminpack -llapack -lblas  -larpack -lparpack
-
-
+##$ LINKING OPTIONS:
+ARGS=  -ldmft_tools -lscifor
 
 
 ##$ REVISION SOFTWARE VARIABLES
-##$ 
 REV=$(shell git rev-parse HEAD)
 BRANCH=_$(shell git rev-parse --abbrev-ref HEAD)
-REV=$(shell git rev-parse HEAD)
 VER = 'character(len=41),parameter :: revision = "$(REV)"' > revision.inc
 
 ifeq ($(BRANCH),_master)

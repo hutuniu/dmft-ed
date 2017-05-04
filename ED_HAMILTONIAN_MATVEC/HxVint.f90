@@ -1,5 +1,6 @@
   !density-density interaction: same orbital, opposite spins:
   ! = \sum_\a U_\a*(n_{\a,up}*n_{\a,dw})
+  htmp = zero
   do iorb=1,Norb
      htmp = htmp + Uloc(iorb)*nup(iorb)*ndw(iorb)
   enddo
@@ -62,7 +63,6 @@
               htmp = one*Jx*sg1*sg2*sg3*sg4
               !
               hv(impi) = hv(impi) + htmp*vin(j)
-              !hv(j) = hv(j) + htmp*vin(impi)!??
               !
            endif
         enddo
@@ -90,7 +90,6 @@
               htmp = one*Jp*sg1*sg2*sg3*sg4
               !
               hv(impi) = hv(impi) + htmp*vin(j)
-              !hv(j) = hv(j) + htmp*vin(impi)!??
               !
            endif
         enddo
