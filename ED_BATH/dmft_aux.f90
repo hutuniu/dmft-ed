@@ -278,7 +278,7 @@ subroutine init_dmft_bath_mask(dmft_bath_)
         !Re-diagonal elements always present
         dmft_bath_%mask(ispin,ispin,iorb,iorb,1)=.true.
         !Im-diagonal elements checked
-        if(abs(aimag(impHloc(ispin,ispin,iorb,iorb))).gt.1e-6)stop "impHloc is not Hermitian"
+        if(abs(aimag(impHloc(ispin,ispin,iorb,iorb))).gt.1e-6)stop"impHloc is not Hermitian"
         !off-diagonal elements
         do jspin=1,Nspin
            do jorb=1,Norb
@@ -727,7 +727,7 @@ subroutine set_dmft_bath(bath_,dmft_bath_)
               element_R=bath_(i)
               do ispin=1,Nspin
                  do iorb=1,Norb
-                    dmft_bath_%h(ispin,ispin,iorb,iorb,ibath)=cmplx(element_R,element_I)
+                    dmft_bath_%h(ispin,ispin,iorb,iorb,ibath)=cmplx(-abs(element_R),0d0)
                  enddo
               enddo
               i=i+1
@@ -741,7 +741,7 @@ subroutine set_dmft_bath(bath_,dmft_bath_)
                        do jorb=1,Norb
                           io = iorb + (ispin-1)*Norb
                           jo = jorb + (jspin-1)*Norb
-                          dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)+element_R*dmft_bath_%LS(ispin,jspin,iorb,jorb,1)
+                          dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)+abs(element_R)*dmft_bath_%LS(ispin,jspin,iorb,jorb,1)
                        enddo
                     enddo
                  enddo
@@ -975,10 +975,10 @@ subroutine get_dmft_bath(dmft_bath_,bath_)
            do ibath=1,Nbath
               !all diagonal per bath *all equal*
               i=i+1
-              bath_(i)=real(dmft_bath_%h(1,1,1,1,ibath))
+              bath_(i)=-abs(real(dmft_bath_%h(1,1,1,1,ibath)))
               !specific element for SOC
               i=i+1
-              bath_(i)=real(dmft_bath_%h(1,2,3,1,ibath))!*2.d0
+              bath_(i)=abs(real(dmft_bath_%h(1,2,3,1,ibath)))!*2.d0
            enddo
         else
            !all non-vanishing terms in imploc - all spin

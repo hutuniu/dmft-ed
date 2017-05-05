@@ -262,6 +262,8 @@ contains
     iter=0
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
+       if (isector<18) cycle sector
+      ! if (isector<15) cycle sector
        iter=iter+1
        Tflag    = twin_mask(isector).AND.ed_twin
        select case(ed_mode)
@@ -295,7 +297,7 @@ contains
                      iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
              case ("nonsu2")
                 nt   = getn(isector)
-                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15,A12,3I4)")&
+                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15,A12,3(1X,I4))")&
                      iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
              end select
           elseif(ed_verbose>0.AND.ed_verbose<3)then
@@ -347,7 +349,7 @@ contains
        endif
        !
        unit=free_unit()
-       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed")
+       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed",position='append',action='write')
        call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
        close(unit)
        !
@@ -566,13 +568,13 @@ contains
     if(MPI_MASTER)then
        select case(ed_mode)
        case default
-          write(unit,"(A7,A3,A3)")" Sector","Nup","Ndw"
+          write(unit,"(A7,A3,A3)")" # Sector","Nup","Ndw"
           write(unit,"(I4,2x,I3,I3)")isector,getnup(isector),getndw(isector)
        case ("superc")
-          write(unit,"(A7,A4)")" Sector","Sz"
+          write(unit,"(A7,A4)")" # Sector","Sz"
           write(unit,"(I4,2x,I4)")isector,getsz(isector)
        case ("nonsu2")
-          write(unit,"(A7,A3)")" Sector","N"
+          write(unit,"(A7,A3)")" # Sector","N"
           write(unit,"(I4,2x,I4)")isector,getn(isector)
        end select
        do i=1,size(eig_values)

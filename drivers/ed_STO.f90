@@ -255,7 +255,7 @@ contains
     real(8)                             :: wm(Lmats),wr(Lreal),dw
     complex(8),dimension(Nso,Nso)       :: inv_impHloc
     !
-    if(allocated(Bath))stop " H(K) must be build before bath allocation, errors shall come otherwise"
+    if(allocated(Bath))stop" H(K) must be build before bath allocation, errors shall come otherwise"
     !
     if(ED_MPI_ID==0)write(LOGfile,*)"Build H(k) for STO:"
     !

@@ -90,24 +90,25 @@ program ed_nano
   !Hloc = reshape_Hloc(nanoHloc,Nlat,Nspin,Norb)
   Hloc = lso2nnn_reshape(nanoHloc,Nlat,Nspin,Norb)
 
+  ! allocate hybridization matrix
+  if(leads)then
+     call set_hyb()
+     ! not both of them can be defined at the same time
+     call dmft_set_Gamma_matsubara(hyb_mats)
+     !call dmft_set_Gamma_realaxis(hyb_real)
+  endif
 
 
   ! postprocessing options
 
   ! evaluates the kinetic energy
   if(kinetic)then
-     !
-     ! allocate hybridization matrix
-     if(leads)then
-        call set_hyb()
-        call dmft_set_Gamma_matsubara(hyb_mats) !needed for dmft_kinetic_energy (change!)
-     endif
-     !
      ! read converged self-energy
-     call read_sigma_mats(Smats_ineq)
+     call read_sigma(Smats_ineq,Sreal_ineq)
      do ilat=1,Nlat
         ineq = lat2ineq(ilat)
         Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
+        Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
      enddo
      !
      print*,size(Smats,1)
@@ -121,23 +122,23 @@ program ed_nano
 
   ! computes conductance on the real-axis
   if(trans)then
-     !
-     ! allocate hybridization matrix
-     if(leads)then
-        call set_hyb()
-        call dmft_set_Gamma_realaxis(hyb_real) !needed for dmft_gij_realaxis
-     endif
-     !
      ! read converged self-energy
-     call read_sigma_real(Sreal_ineq)
+     call read_sigma(Smats_ineq,Sreal_ineq)
      do ilat=1,Nlat
         ineq = lat2ineq(ilat)
+        Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
         Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
      enddo
      !
+     ! allocates and extracts non-local Green's function
+     !allocate(Gijmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+     !call dmft_gloc_matsubara(Hij,[1d0],Gmats,Smats,iprint=1)!,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+     !call dmft_gij_matsubara(Hij,[1d0],Gijmats,Smats,iprint=0)
+     !deallocate(Gijmats)
+     !
      allocate(Gijreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-     call dmft_gloc_realaxis(Hij,[1d0],Greal,Sreal,iprint=1)
-     call dmft_gij_realaxis(Hij,[1d0],Gijreal,Sreal,iprint=1)
+     call dmft_gloc_realaxis(Hij,[1d0],Greal,Sreal,iprint=1)!,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+     call dmft_gij_realaxis(Hij,[1d0],Gijreal,Sreal,iprint=0)
      !
      ! extract the linear response (zero-bias) transmission function
      ! i.e. the conductance in units of the quantum G0 [e^2/h]
@@ -151,23 +152,22 @@ program ed_nano
 
   ! compute effective non-local exchange
   if(jrkky)then
-     !
-     ! allocate hybridization matrix
-     if(leads)then
-        call set_hyb()
-        call dmft_set_Gamma_realaxis(hyb_real) !needed for dmft_gij_realaxis
-     endif
-     !
      ! read converged self-energy
-     call read_sigma_real(Sreal_ineq)
+     call read_sigma(Smats_ineq,Sreal_ineq)
      do ilat=1,Nlat
         ineq = lat2ineq(ilat)
+        Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
         Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
      enddo
      !
+     ! allocates and extracts non-local Green's function
+     !allocate(Gijmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+     !call dmft_gloc_matsubara(Hij,[1d0],Gmats,Smats,iprint=1)!,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+     !call dmft_gij_matsubara(Hij,[1d0],Gijmats,Smats,iprint=0)
+     !deallocate(Gijmats,Smats)
+     !
      allocate(Gijreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-     call dmft_gloc_realaxis(Hij,[1d0],Greal,Sreal,iprint=1)
-     call dmft_gij_realaxis(Hij,[1d0],Gijreal,Sreal,iprint=0)
+     call dmft_gloc_realaxis(Hij,[1d0],Greal,Sreal,iprint=1)!,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
      !
      ! compute effective exchange
      call ed_get_jeff(Gijreal,Sreal)
@@ -180,23 +180,22 @@ program ed_nano
 
   ! compute effective non-local exchange
   if(chi0ij)then
-     !
-     ! allocate hybridization matrix
-     if(leads)then
-        call set_hyb()
-        call dmft_set_Gamma_realaxis(hyb_real) !needed for dmft_gij_realaxis
-     endif
-     !
      ! read converged self-energy
-     call read_sigma_real(Sreal_ineq)
+     call read_sigma(Smats_ineq,Sreal_ineq)
      do ilat=1,Nlat
         ineq = lat2ineq(ilat)
+        Smats(ilat,:,:,:,:,:) = Smats_ineq(ineq,:,:,:,:,:)
         Sreal(ilat,:,:,:,:,:) = Sreal_ineq(ineq,:,:,:,:,:)
      enddo
      !
+     ! allocates and extracts non-local Green's function
+     !allocate(Gijmats(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lmats))
+     !call dmft_gloc_matsubara(Hij,[1d0],Gmats,Smats,iprint=1)!,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
+     !call dmft_gij_matsubara(Hij,[1d0],Gijmats,Smats,iprint=0)
+     !deallocate(Gijmats,Smats)
+     !
      allocate(Gijreal(Nlat,Nlat,Nspin,Nspin,Norb,Norb,Lreal))
-     call dmft_gloc_realaxis(Hij,[1d0],Greal,Sreal,iprint=1)
-     call dmft_gij_realaxis(Hij,[1d0],Gijreal,Sreal,iprint=0)
+     call dmft_gloc_realaxis(Hij,[1d0],Greal,Sreal,iprint=1)!,Gamma_mats=Hyb_mats,Gamma_real=Hyb_real)
      !
      ! compute bare static non-local susceptibility
      call ed_get_chi0ij(Gijreal)
@@ -207,12 +206,6 @@ program ed_nano
 
 
   !###################################################################################################
-
-
-  ! allocate hybridization matrix
-  if(leads)then
-     call set_hyb()
-  endif
 
 
   ! setup solver
@@ -254,23 +247,11 @@ program ed_nano
      enddo
 
      ! compute the local gf:
-     !
-     if(leads)then
-        call dmft_set_Gamma_matsubara(hyb_mats)
-     endif
      call dmft_gloc_matsubara(Hij,[1d0],Gmats,Smats,iprint=1)
-     do ineq=1,Nineq
-        ilat = ineq2lat(ineq)
-        Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
-     enddo
-     !
-     if(leads)then
-        call dmft_set_Gamma_realaxis(hyb_mats)
-     endif
      call dmft_gloc_realaxis(Hij,[1d0],Greal,Sreal,iprint=1)
      do ineq=1,Nineq
         ilat = ineq2lat(ineq)
-        Greal_ineq(ineq,:,:,:,:,:) = Greal(ilat,:,:,:,:,:)
+        Gmats_ineq(ineq,:,:,:,:,:) = Gmats(ilat,:,:,:,:,:)
      enddo
 
      ! compute the Weiss field
@@ -300,12 +281,11 @@ program ed_nano
      call end_loop()
   end do
 
-  ! save self-energy on disk
-  call save_sigma_mats(Smats_ineq)
-  call save_sigma_real(Sreal_ineq)
 
-  ! compute kineti energy at convergence
-  Eout = dmft_kinetic_energy(Hij,[1d0],Smats)
+  call save_sigma(Smats_ineq,Sreal_ineq)
+
+
+  Eout = dmft_kinetic_energy(Hij,[1d0],Smats)!(:,1,1,1,1,:))
   print*,Eout
 
 
@@ -427,14 +407,13 @@ contains
     enddo
     close(unit)
     !
-    ! basis vectors must be defined
-    call TB_set_bk([1d0,0d0,0d0],[0d0,1d0,0d0],[0d0,0d0,1d0])
-    call TB_write_hk(Hk=Hij,file="Hij_nano.data",&
+    call write_hk_w90("Hij_nano.data",&
          No=Nlso,&
          Nd=Norb,&
          Np=0,&
          Nineq=Nineq,&
-         Nkvec=[1,1,1])
+         Hk=Hij,&
+         kxgrid=[0d0],kygrid=[0d0],kzgrid=[0d0])
     !
     allocate(nanoHloc(Nlso,Nlso))
     nanoHloc = extract_Hloc(Hij,Nlat,Nspin,Norb)
@@ -453,60 +432,6 @@ contains
     enddo
     close(unit)
   end subroutine build_Hij
-
-
-  !----------------------------------------------------------------------------------------!
-  ! purpose: save the matsubare local self-energy on disk
-  !----------------------------------------------------------------------------------------!
-  subroutine save_sigma_mats(Smats)
-    complex(8),intent(inout)         :: Smats(:,:,:,:,:,:)
-    character(len=30)                :: suffix
-    integer                          :: ilat,ispin,iorb
-    real(8),dimension(:),allocatable :: wm
-
-    if(size(Smats,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
-    if(size(Smats,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
-    if(size(Smats,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
-    if(size(Smats,5)/=Norb) stop "save_sigma: error in dim 5. Norb"
-
-    allocate(wm(Lmats))
-
-    wm = pi/beta*(2*arange(1,Lmats)-1)
-    write(LOGfile,*)"write spin-orbital diagonal elements:"
-    do ispin=1,Nspin
-       do iorb=1,Norb
-          suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
-          call store_data("LSigma"//trim(suffix),Smats(:,ispin,ispin,iorb,iorb,:),wm)
-       enddo
-    enddo
-
-  end subroutine save_sigma_mats
-
-
-  !----------------------------------------------------------------------------------------!
-  ! purpose: save the real local self-energy on disk
-  !----------------------------------------------------------------------------------------!
-  subroutine save_sigma_real(Sreal)
-    complex(8),intent(inout)         :: Sreal(:,:,:,:,:,:)
-    character(len=30)                :: suffix
-    integer                          :: ilat,ispin,iorb
-    real(8),dimension(:),allocatable :: wm,wr
-
-    if(size(Sreal,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
-    if(size(Sreal,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
-    if(size(Sreal,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
-    if(size(Sreal,5)/=Norb) stop "save_sigma: error in dim 5. Norb"
-
-    allocate(wr(Lreal))
-
-    do ispin=1,Nspin
-       do iorb=1,Norb
-          suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-          call store_data("LSigma"//trim(suffix),Sreal(:,ispin,ispin,iorb,iorb,:),wr)
-       enddo
-    enddo
-
-  end subroutine save_sigma_real
 
 
   !----------------------------------------------------------------------------------------!
@@ -550,62 +475,6 @@ contains
 
   end subroutine save_sigma
 
-
-
-  !----------------------------------------------------------------------------------------!
-  ! purpose: read the matsubara local self-energy from disk
-  !----------------------------------------------------------------------------------------!
-  subroutine read_sigma_mats(Smats)
-    complex(8),intent(inout)         :: Smats(:,:,:,:,:,:)
-    character(len=30)                :: suffix
-    integer                          :: ilat,ispin,iorb
-    real(8),dimension(:),allocatable :: wm,wr
-
-    if(size(Smats,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
-    if(size(Smats,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
-    if(size(Smats,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
-    if(size(Smats,5)/=Norb) stop "save_sigma: error in dim 5. Norb"
-
-    allocate(wm(Lmats))
-
-    wm = pi/beta*(2*arange(1,Lmats)-1)
-    write(LOGfile,*)"write spin-orbital diagonal elements:"
-    do ispin=1,Nspin
-       do iorb=1,Norb
-          suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_iw.ed"
-          call read_data("LSigma"//trim(suffix),Smats(:,ispin,ispin,iorb,iorb,:),wm)
-       enddo
-    enddo
-
-  end subroutine read_sigma_mats
-
-
-  !----------------------------------------------------------------------------------------!
-  ! purpose: read the real local self-energy from disk
-  !----------------------------------------------------------------------------------------!
-  subroutine read_sigma_real(Sreal)
-    complex(8),intent(inout)         :: Sreal(:,:,:,:,:,:)
-    character(len=30)                :: suffix
-    integer                          :: ilat,ispin,iorb
-    real(8),dimension(:),allocatable :: wm,wr
-
-    if(size(Sreal,2)/=Nspin) stop "save_sigma: error in dim 2. Nspin"
-    if(size(Sreal,3)/=Nspin) stop "save_sigma: error in dim 3. Nspin"
-    if(size(Sreal,4)/=Norb) stop "save_sigma: error in dim 4. Norb"
-    if(size(Sreal,5)/=Norb) stop "save_sigma: error in dim 5. Norb"
-
-    allocate(wr(Lreal))
-
-    wr = linspace(wini,wfin,Lreal)
-    write(LOGfile,*)"write spin-orbital diagonal elements:"
-    do ispin=1,Nspin
-       do iorb=1,Norb
-          suffix="_l"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//"_realw.ed"
-          call read_data("LSigma"//trim(suffix),Sreal(:,ispin,ispin,iorb,iorb,:),wr)
-       enddo
-    enddo
-
-  end subroutine read_sigma_real
 
 
   !----------------------------------------------------------------------------------------!

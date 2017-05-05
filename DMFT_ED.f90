@@ -8,7 +8,9 @@ MODULE DMFT_ED
        so2nn_reshape                          ,&
        nn2so_reshape                          ,&
        search_chemical_potential              ,&
-       search_chempot
+       search_chempot                         ,&
+       atomic_SOC                             ,&
+       atomic_j
 
 
   USE ED_IO,      only:                        &
