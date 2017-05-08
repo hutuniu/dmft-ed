@@ -7,9 +7,12 @@ MODULE DMFT_ED
        nnn2lso_reshape                        ,&
        so2nn_reshape                          ,&
        nn2so_reshape                          ,&
+       so2os_reshape                          ,&
+       os2so_reshape                          ,&
        search_chemical_potential              ,&
        search_chempot                         ,&
        atomic_SOC                             ,&
+       atomic_SOC_rotation                    ,&
        atomic_j
 
 
