@@ -139,14 +139,14 @@ subroutine init_dmft_bath(dmft_bath_)
      dmft_bath_%h=zero
      do i=1,Nbath
         !
-        dmft_bath_%h(:,:,:,:,i)=so2nn_reshape((-0.05d0*eye(Nspin*Norb)+0.1d0*atomic_SOC()),Nspin,Norb)+noise_b(i)
+        dmft_bath_%h(:,:,:,:,i)=so2nn_reshape(+0.05d0*eye(Nspin*Norb)-(0.01+noise_b(i))*atomic_SOC(),Nspin,Norb)!impHloc+noise_b(i)!-so2nn_reshape(0.15*eye(6),Nspin,Norb) !(-0.05d0*eye(Nspin*Norb)+(0.01+noise_b(i))*atomic_SOC())
         !
      enddo
      !HYBR. INITIALIZATION
      dmft_bath_%vr=zero
      do i=1,Nbath
         noise_tot=noise_b(i)
-        dmft_bath_%vr(i)=cmplx(0.005d0+noise_tot,0.0d0)!*(-1)**(i-1)
+        dmft_bath_%vr(i)=cmplx(0.05d0+noise_b(i),0.0d0)!*(-1)**(i-1)
      enddo
      !
      deallocate(noise_b,noise_s,noise_o)
@@ -732,6 +732,7 @@ subroutine set_dmft_bath(bath_,dmft_bath_)
               lambda_k=bath_(i)
               !
               hrep_aux=cmplx(eps_k,0.0d0)*eye(Nspin*Norb)+lambda_k*2.d0*atomic_SOC()
+              !hrep_aux=cmplx(-abs(eps_k),0.0d0)*eye(Nspin*Norb)+abs(lambda_k)*2.d0*atomic_SOC()
               dmft_bath_%h(:,:,:,:,ibath)=so2nn_reshape(hrep_aux,Nspin,Norb)
               !
            enddo
@@ -963,11 +964,9 @@ subroutine get_dmft_bath(dmft_bath_,bath_)
            do ibath=1,Nbath
               !all diagonal per bath *all equal*
               i=i+1
-              !bath_(i)=-abs(real(dmft_bath_%h(1,1,1,1,ibath)))
               bath_(i)=real(dmft_bath_%h(1,1,1,1,ibath))
               !specific element for SOC
               i=i+1
-              !bath_(i)=abs(real(dmft_bath_%h(1,2,3,1,ibath)))
               bath_(i)=real(dmft_bath_%h(1,2,3,1,ibath))
            enddo
         else

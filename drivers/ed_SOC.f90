@@ -478,8 +478,13 @@ contains
           !mu=-mu_edge+(2*abs(mu_edge)/max_mu)*float(i_mu)
           mu=0.25d0+(2*abs(mu_edge)/max_mu)*float(i_mu)
        else
-          if(SOC==0.3d0)mu=0.3585 !(L=0.3)
-          if(SOC==0.1d0)mu=0.2819 !(L=0.1)
+          if(SOC==0.3d0)then
+             mu=0.3585 !(L=0.3)
+          elseif(SOC==0.1d0)then
+             mu=0.2819 !(L=0.1)
+          else
+             mu=xmu
+          endif
        endif
        Greal=zero
        do ik=1,Lk
