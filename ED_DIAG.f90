@@ -111,9 +111,9 @@ contains
     !
     iter=0
     sector: do isector=1,Nsectors
-       !<DEBUG
-       if(isector<110)cycle sector
-       !>DEBUG
+       write(*,*)"call to build_sector_2"
+       call build_sector_2(isector)
+       cycle sector
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        Tflag    = twin_mask(isector).AND.ed_twin
@@ -428,13 +428,13 @@ contains
     if(MPI_MASTER)then
        select case(ed_mode)
        case default
-          write(unit,"(A7,A3,A3)")" Sector","Nup","Ndw"
+          write(unit,"(A7,A3,A3)")" # Sector","Nup","Ndw"
           write(unit,"(I4,2x,I3,I3)")isector,getnup(isector),getndw(isector)
        case ("superc")
-          write(unit,"(A7,A4)")" Sector","Sz"
+          write(unit,"(A7,A4)")" # Sector","Sz"
           write(unit,"(I4,2x,I4)")isector,getsz(isector)
        case ("nonsu2")
-          write(unit,"(A7,A3)")" Sector","N"
+          write(unit,"(A7,A3)")" # Sector","N"
           write(unit,"(I4,2x,I4)")isector,getn(isector)
        end select
        do i=1,size(eig_values)

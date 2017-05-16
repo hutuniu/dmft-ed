@@ -69,7 +69,7 @@ program ed_SOC
   complex(8),allocatable,dimension(:)            :: jz
   !non interacting analysis:
   real(8)                                        :: mu
-  logical                                        :: nonint_mu_shift=.false.
+  logical                                        :: nonint_mu_shift!=.false.
   !
   !#########   MPI INITIALIZATION   #########
   !
@@ -96,6 +96,7 @@ program ed_SOC
   call parse_input_variable(Hk_test,    "HK_TEST",finput,     default=.true.)
   call parse_input_variable(upprshft,   "upprshft",finput,    default=.false.)
   call parse_input_variable(rotateG0loc,"ROTATEG0loc",finput, default=.false.)
+  call parse_input_variable(nonint_mu_shift,"NONINTMUSHIFT",finput, default=.false.)
   !
 #ifdef _MPI
   call ed_read_input(trim(finput),comm)
@@ -114,6 +115,7 @@ program ed_SOC
   call add_ctrl_var(wini,'wini')
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
+  call add_ctrl_var(Jz_basis,"JZ_BASIS")
   !
   !#########       ALLOCATION       #########
   !
@@ -190,6 +192,10 @@ program ed_SOC
 #else
      call ed_solve(Bath)
 #endif
+
+     stop
+
+
      !
      !get sigmas
      call ed_get_sigma_matsubara(Smats)
@@ -473,8 +479,18 @@ contains
     wr = linspace(wini,wfin,Lreal,mesh=dw)
     !
     do i_mu=1,max_mu
-       mu=-mu_edge+(2*abs(mu_edge)/max_mu)*float(i_mu)
-       !mu=0.35d0+(2*abs(mu_edge)/max_mu)*float(i_mu)
+       if(nonint_mu_shift)then
+          !mu=-mu_edge+(2*abs(mu_edge)/max_mu)*float(i_mu)
+          mu=0.25d0+(2*abs(mu_edge)/max_mu)*float(i_mu)
+       else
+          if(SOC==0.3d0)then
+             mu=0.3585 !(L=0.3)
+          elseif(SOC==0.1d0)then
+             mu=0.2819 !(L=0.1)
+          else
+             mu=xmu
+          endif
+       endif
        Greal=zero
        do ik=1,Lk
           do i=1,Lreal
@@ -550,7 +566,7 @@ contains
     enddo
     !
     !A1 shape: [Norb*Norb]*Nspin
-    Hk = Z2so_reshape(Hk)
+    Hk = so2os_reshape(Hk,Nspin,Norb)
     !
   end function hk_Ti3dt2g
 
@@ -660,39 +676,6 @@ contains
        enddo
     enddo
   end function H_IVB
-
-
-
-  !+------------------------------------------------------------------------------------------+!
-  !PURPOSE: (OFF DIAGONAL) build local jz(p) moment matrix representation in the Z formulation
-  !+------------------------------------------------------------------------------------------+!
-  function j_a(component) result(ja)
-    complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: ja
-    character(len=1)                             :: component
-    ja=zero
-    if    (component=="x")then
-       ja(1:2,1:2) = pauli_x / 2.
-       ja(3:4,3:4) = pauli_x / 2.
-       ja(5:6,5:6) = pauli_x / 2.
-       ja(3:4,5:6) = -Xi * eye(2)
-    elseif(component=="y")then
-       ja(1:2,1:2) = pauli_y / 2.
-       ja(3:4,3:4) = pauli_y / 2.
-       ja(5:6,5:6) = pauli_y / 2.
-       ja(1:2,5:6) = +Xi * eye(2)
-    elseif(component=="z")then
-       ja(1:2,1:2) = pauli_z / 2.
-       ja(3:4,3:4) = pauli_z / 2.
-       ja(5:6,5:6) = pauli_z / 2.
-       ja(1:2,3:4) = -Xi * eye(2)
-    endif
-    !hermiticity
-    do i=1,Nspin*Norb
-       do j=1,Nspin*Norb
-          ja(j,i)=conjg(ja(i,j))
-       enddo
-    enddo
-  end function j_a
 
 
 
@@ -875,37 +858,9 @@ contains
     complex(8),dimension(6,6),intent(out)          ::   theta_C_
     complex(8),dimension(6,6),intent(out),optional ::   impHloc_rot_
     real(8),dimension(6)                           ::   impHloc_eig
-    theta_C_=zero
-    !J=1/2 jz=-1/2
-    theta_C_(1,1)=-Xi
-    theta_C_(3,1)=-1.0d0
-    theta_C_(6,1)=+Xi
-    theta_C_(:,1)=theta_C_(:,1)/sqrt(3.)
-    !J=1/2 jz=+1/2
-    theta_C_(2,2)=-Xi
-    theta_C_(4,2)=+1.0d0
-    theta_C_(5,2)=-Xi
-    theta_C_(:,2)=theta_C_(:,2)/sqrt(3.)
-    !J=3/2 jz=-3/2
-    theta_C_(2,3)=-Xi
-    theta_C_(4,3)=+1.0d0
-    theta_C_(5,3)=+2.0d0*Xi
-    theta_C_(:,3)=theta_C_(:,3)/sqrt(6.)
-    !J=3/2 jz=-1/2
-    theta_C_(1,4)=+Xi
-    theta_C_(3,4)=-1.0d0
-    theta_C_(:,4)=theta_C_(:,4)/sqrt(2.)
-    !J=3/2 jz=+1/2
-    theta_C_(2,5)=-Xi 
-    theta_C_(4,5)=-1.0d0
-    theta_C_(:,5)=theta_C_(:,5)/sqrt(2.)
-    !J=3/2 jz=+3/2
-    theta_C_(1,6)=+Xi
-    theta_C_(3,6)=+1.0d0
-    theta_C_(6,6)=+2.0d0*Xi
-    theta_C_(:,6)=theta_C_(:,6)/sqrt(6.)
     !
-    theta_C_=Z2so_reshape(theta_C_)
+    theta_C_ = zero
+    theta_C_ = atomic_SOC_rotation()
     !
     if(present(impHloc_rot_))then
        impHloc_rot_=zero
@@ -1060,7 +1015,7 @@ contains
           zJ3_2=z_rot(4)
           if(master)then
              open(unit=106,file='Zqp_rot.dat',status='unknown',action='write',position='rewind')
-             write(106,'(90A15,1X)') "#J=1/2,jz=-1/2","#J=3/2,jz=+1/2","#J=3/2,jz=-3/2","#J=1/2,jz=+1/2","#J=3/2,jz=+3/2","#J=3/2,jz=-1/2"
+             write(106,'(90A15,1X)') "#J=1/2,jz=-1/2","#J=1/2,jz=+1/2","#J=3/2,jz=-3/2","#J=3/2,jz=+3/2","#J=3/2,jz=-1/2","#J=3/2,jz=+1/2"
              write(106,'(90F15.9,1X)')(real(z_rot(io)),io=1,Nspin*Norb)
              close(106)
           endif
@@ -1073,7 +1028,7 @@ contains
           enddo
           if(master)then
              open(unit=106,file='Luttinger.dat',status='unknown',action='write',position='rewind')
-             write(106,'(90A15,1X)') "#J=1/2,jz=-1/2","#J=3/2,jz=+1/2","#J=3/2,jz=-3/2","#J=1/2,jz=+1/2","#J=3/2,jz=+3/2","#J=3/2,jz=-1/2"
+             write(106,'(90A15,1X)') "#J=1/2,jz=-1/2","#J=1/2,jz=+1/2","#J=3/2,jz=-3/2","#J=3/2,jz=+3/2","#J=3/2,jz=-1/2","#J=3/2,jz=+1/2"
              write(106,'(90F15.9,1X)') (real(Luttinger(io)),io=1,2*Nspin*Norb),(aimag(luttinger(io)),io=1,2*Nspin*Norb)
              close(106)
           endif
@@ -1083,7 +1038,7 @@ contains
        if(isetup==2 .and. type_freq=="wr" )then ! .and. upprshft )then
           if( (abs(nread-2.d0)<=2*nerr).or.(abs(nread-5.d0)<=2*nerr) )then
              if(abs(nread-5.d0)<=2*nerr)ndx=1
-             if(abs(nread-2.d0)<=2*nerr)ndx=2
+             if(abs(nread-2.d0)<=2*nerr)ndx=3
              if(present(top_).and.present(bottom_))then
                 top_=0.d0;bottom_=0.d0
                 posupper=10*Lfreq;poslower=-posupper
@@ -1202,7 +1157,7 @@ contains
           if(isetup==1.and.type_freq=="wr")then
              dens_rot=0.d0
              do io=1,Nspin*Norb
-                do i=1,Lmats
+                do i=1,Lreal
                    dens_rot(io,io)=dens_rot(io,io)+fact*dimag(f_out(io,io,i))*norm
                    if(abs(w(i))<dw) exit
                 enddo
@@ -1210,8 +1165,6 @@ contains
              !
              rho_ab = matmul(theta_C,matmul(dens_rot,transpose(conjg(theta_C))))
              LS_0=trace(matmul(rho_ab,atomic_SOC()))
-             !jz_0=trace(matmul(rho_ab,Z2so_reshape(j_a("z"))))
-             !jz_0_sq=trace(matmul(rho_ab,Z2so_reshape(matmul(j_a("z"),j_a("z")))))
              jz_0=trace(matmul(rho_ab,atomic_j("z")))
              jz_0_sq=trace(matmul(rho_ab,matmul(atomic_j("z"),atomic_j("z"))))
              !
@@ -1311,7 +1264,7 @@ contains
        if(isetup==2 .and. type_freq=="wr" )then
           if(nread==5.d0 .or. nread==2.d0)then
              if(nread==5.d0)ndx=1
-             if(nread==2.d0)ndx=2
+             if(nread==2.d0)ndx=3
              if(present(top_).and.present(bottom_))then
                 outerloop3:do i=1,Lfreq
                    if(abs(aimag(f_out(ndx,ndx,i))).gt.lvl)then
@@ -1400,9 +1353,9 @@ contains
     moment1_J32=0.d0;moment2_J32=0.d0
     do i=1,Lreal
        moment1_J12=moment1_J12+fact_*aimag(A_(1,1,i))*w_(i)*norm_
-       moment1_J32=moment1_J32+fact_*aimag(A_(2,2,i))*w_(i)*norm_
+       moment1_J32=moment1_J32+fact_*aimag(A_(3,3,i))*w_(i)*norm_
        moment2_J12=moment2_J12+fact_*aimag(A_(1,1,i))*w_(i)*w_(i)*norm_
-       moment2_J32=moment2_J32+fact_*aimag(A_(2,2,i))*w_(i)*w_(i)*norm_
+       moment2_J32=moment2_J32+fact_*aimag(A_(3,3,i))*w_(i)*w_(i)*norm_
     enddo
     if(master)then
        open(unit=106,file='Spectral_moment.dat',status='unknown',action='write',position='rewind')
@@ -1476,66 +1429,8 @@ contains
 
 
   !____________________________________________________________________________________________!
-  !                       reshape functions and other utilities
+  !                                     utilities
   !____________________________________________________________________________________________!
-  !+------------------------------------------------------------------------------------------+!
-  !PURPOSE: reshape functions
-  !  Z  = [Nspin,Nspin]*Norb
-  !  A1 = [Norb*Norb]*Nspin
-  !  A2 = [Nspin,Nspin,Norb,Norb]
-  !+------------------------------------------------------------------------------------------+!
-  function Z2so_reshape(fg) result(g)
-    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: fg
-    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
-    integer                                         :: i,j,iorb,jorb,ispin,jspin
-    integer                                         :: io1,jo1,io2,jo2
-    g = zero
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                !O-index
-                io1 = iorb + (ispin-1)*Norb
-                jo1 = jorb + (jspin-1)*Norb
-                !I-index
-                io2 = ispin + (iorb-1)*Nspin
-                jo2 = jspin + (jorb-1)*Nspin
-                !switch
-                g(io1,jo1)  = fg(io2,jo2)
-                !
-             enddo
-          enddo
-       enddo
-    enddo
-  end function Z2so_reshape
-
-  function so2Z_reshape(fg) result(g)
-    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: fg
-    complex(8),dimension((Nspin*Norb),(Nspin*Norb)) :: g
-    integer                                         :: i,j,iorb,jorb,ispin,jspin
-    integer                                         :: io1,jo1,io2,jo2
-    g = zero
-    do ispin=1,Nspin
-       do jspin=1,Nspin
-          do iorb=1,Norb
-             do jorb=1,Norb
-                !O-index
-                io1 = ispin + (iorb-1)*Nspin
-                jo1 = jspin + (jorb-1)*Nspin
-                !I-index
-                io2 = iorb + (ispin-1)*Norb
-                jo2 = jorb + (jspin-1)*Norb
-                !switch
-                g(io1,jo1)  = fg(io2,jo2)
-                !
-             enddo
-          enddo
-       enddo
-    enddo
-  end function so2Z_reshape
-
-
-
   !+------------------------------------------------------------------------------------------+!
   !PURPOSE: Inversion test
   !+------------------------------------------------------------------------------------------+!

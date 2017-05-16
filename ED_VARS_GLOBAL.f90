@@ -80,14 +80,18 @@ MODULE ED_VARS_GLOBAL
   !PRIVATE:
   !=========================================================
   integer,allocatable,dimension(:,:)                 :: getsector
+  integer,allocatable,dimension(:,:)                 :: getsector_Jz
   integer,allocatable,dimension(:,:)                 :: getCsector
   integer,allocatable,dimension(:,:)                 :: getCDGsector
+  integer,allocatable,dimension(:,:,:)               :: getCsector_Jz
+  integer,allocatable,dimension(:,:,:)               :: getCDGsector_Jz
   integer,allocatable,dimension(:,:)                 :: getBathStride
   integer,allocatable,dimension(:,:)                 :: impIndex
   integer,allocatable,dimension(:)                   :: getDim,getDimUp,getDimDw
   integer,allocatable,dimension(:)                   :: getNup,getNdw
   integer,allocatable,dimension(:)                   :: getSz
   integer,allocatable,dimension(:)                   :: getN
+  integer,allocatable,dimension(:)                   :: gettwoJz
   logical,allocatable,dimension(:)                   :: twin_mask
 
   !Effective Bath used in the ED code (this is opaque to user)
@@ -211,7 +215,8 @@ MODULE ED_VARS_GLOBAL
   complex(8),allocatable,dimension(:)                :: bthLdotS
   complex(8),allocatable,dimension(:,:,:,:,:)        :: bth_density_matrix
 
-
+  integer,parameter,dimension(3)                     :: Lzdiag = [1,-1,0]
+  integer,parameter,dimension(2)                     :: Szdiag = [1,-1]
 
 
 contains
