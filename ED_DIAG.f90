@@ -262,7 +262,10 @@ contains
     iter=0
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
-       if (isector<18) cycle sector
+       write(*,*)"call to build_sector_2"
+       call build_sector_2(isector)
+
+      ! if (isector<18) cycle sector
       ! if (isector<15) cycle sector
        iter=iter+1
        Tflag    = twin_mask(isector).AND.ed_twin

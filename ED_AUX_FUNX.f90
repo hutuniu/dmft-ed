@@ -64,6 +64,7 @@ MODULE ED_AUX_FUNX
   public :: SOC_jz_symmetrize
   public :: atomic_SOC
   public :: atomic_SOC_rotation
+  public :: orbital_jz_rotation
   public :: atomic_j
   public :: tql2
 contains
@@ -903,39 +904,26 @@ contains
     LS_rot_(3,6)=+2.d0
     LS_rot_(:,6)=LS_rot_(:,6)/sqrt(6.)
     !
-    ![Nspin*Nspin]*Norb notation
-!    !J=1/2 jz=-1/2
-!    LS_rot_(1,1)=-Xi
-!    LS_rot_(3,1)=-1.0d0
-!    LS_rot_(6,1)=+Xi
-!    LS_rot_(:,1)=LS_rot_(:,1)/sqrt(3.)
-!    !J=1/2 jz=+1/2
-!    LS_rot_(2,2)=-Xi
-!    LS_rot_(4,2)=+1.0d0
-!    LS_rot_(5,2)=-Xi
-!    LS_rot_(:,2)=LS_rot_(:,2)/sqrt(3.)
-!    !J=3/2 jz=-3/2
-!    LS_rot_(2,3)=-Xi
-!    LS_rot_(4,3)=+1.0d0
-!    LS_rot_(5,3)=+2.0d0*Xi
-!    LS_rot_(:,3)=LS_rot_(:,3)/sqrt(6.)
-!    !J=3/2 jz=-1/2
-!    LS_rot_(1,4)=+Xi
-!    LS_rot_(3,4)=-1.0d0
-!    LS_rot_(:,4)=LS_rot_(:,4)/sqrt(2.)
-!    !J=3/2 jz=+1/2
-!    LS_rot_(2,5)=-Xi 
-!    LS_rot_(4,5)=-1.0d0
-!    LS_rot_(:,5)=LS_rot_(:,5)/sqrt(2.)
-!    !J=3/2 jz=+3/2
-!    LS_rot_(1,6)=+Xi
-!    LS_rot_(3,6)=+1.0d0
-!    LS_rot_(6,6)=+2.0d0*Xi
-!    LS_rot_(:,6)=LS_rot_(:,6)/sqrt(6.)
-    !
     LS_rot=LS_rot_
     !
   end function atomic_SOC_rotation
+
+  function orbital_jz_rotation() result (U_rot)
+    complex(8),dimension(Norb,Norb)              :: U_rot,U_rot_
+    integer                                      :: i,j
+    U_rot=zero;U_rot_=zero
+    !
+    !
+    U_rot_(1,1)=-Xi/sqrt(2.)
+    U_rot_(2,2)=+1.d0/sqrt(2.)
+    U_rot_(3,3)=+Xi
+    !
+    U_rot_(1,2)=-Xi/sqrt(2.)
+    U_rot_(2,1)=-1.d0/sqrt(2.)
+    !
+    U_rot=U_rot_
+    !
+  end function orbital_jz_rotation
 
   function atomic_j(component) result (ja)
     complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: ja,ja_

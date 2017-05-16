@@ -13,6 +13,7 @@ MODULE DMFT_ED
        search_chempot                         ,&
        atomic_SOC                             ,&
        atomic_SOC_rotation                    ,&
+       orbital_jz_rotation                    ,&
        atomic_j
 
 

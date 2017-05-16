@@ -24,6 +24,7 @@ MODULE ED_SETUP
   public :: setup_pointers_superc
   public :: setup_pointers_nonsu2
   public :: build_sector
+  public :: build_sector_2
   public :: bdecomp
   public :: bjoin
   public :: flip_state
@@ -818,7 +819,74 @@ contains
   end subroutine build_sector
 
 
+  !+------------------------------------------------------------------+
+  !PURPOSE  : constructs the sectors by storing the map to the 
+  !states i\in Hilbert_space from the states count in H_sector.
+  !|ImpUP,BathUP>|ImpDW,BathDW >
+  !+------------------------------------------------------------------+
+  subroutine build_sector_2(isector)
+    integer                   :: isector
+    integer                   :: nup,ndw,sz,nt
+    integer                   :: nup_,ndw_,sz_,nt_
+    integer                   :: i,ibath
+    integer                   :: iup,idw
+    integer                   :: dim
+    real(8)                   :: Sz_tot,Lz_tot
+    real(8),allocatable       :: Jz(:)
+    integer                   :: ivec(Ns),jvec(Ns)
 
+
+
+       nt  = getN(isector)
+       dim = getDim(isector)
+
+       write(123,*)
+       write(123,'(A20,I5)') "sector N",nt
+       write(123,'(A20,I5)') "sector dim(N)",dim
+       write(123,*)
+
+       write(124,*)
+       write(124,'(A20,I5)') "sector N",nt
+       write(124,'(A20,I5)') "sector dim(N)",dim
+
+       if(allocated(Jz))deallocate(Jz);allocate(Jz(dim));Jz=0.d0
+
+       dim=0
+       !mi guardo tutti i possibili valori di nup,ndw 
+       !anche quelli con la densità diversa da quella del settore
+       do idw=0,2**Ns-1
+          jvec = bdecomp(idw,Ns)
+          do iup=0,2**Ns-1
+             ivec = bdecomp(iup,Ns)
+             !ivec e jvec sono la decomposizione in vettore
+             !qui controllo la densità che ho ottenuto con lo specifico vettore
+             nt_  = sum(ivec) + sum(jvec)
+             Lz_tot=0.d0;Sz_tot=0.d0
+             do ibath=0,Nbath
+                Lz_tot = Lz_tot + 1.d0 * ivec(1+Norb*ibath) + 1.d0 * jvec(1+Norb*ibath)
+                Lz_tot = Lz_tot - 1.d0 * ivec(2+Norb*ibath) - 1.d0 * jvec(2+Norb*ibath)
+             enddo
+             Sz_tot = 0.5*(sum(ivec) - sum(jvec))
+
+             !se la densità è quella del settore metto lo stato in rappresentazione decimale dentro la mappa
+             if(nt_ == nt)then
+                dim=dim+1
+                Jz(dim)=(Lz_tot+Sz_tot)
+                !write(123,'(3I3,4X,3I3,4X,3(1F5.2,4X))')ivec,jvec,Lz_tot,Sz_tot,Jz(dim)
+                write(123,'(6I3,4X,6I3,4X,3(1F5.2,4X))')ivec,jvec,Lz_tot,Sz_tot,Jz(dim)
+             endif
+          enddo
+       enddo
+       write(124,*)
+       write(124,*)"-----------------------------"
+       write(124,'(A20,3X,1F5.2)')"maxval(Jz)",maxval(Jz)
+       write(124,*)
+       write(124,'(A20,3X,1F5.2)')"minval(Jz)",minval(Jz)
+       write(124,*)
+       write(124,'(A20,3X,1I5)')"degeneracy",int(2.d0*maxval(Jz))+1
+       write(124,*)"-----------------------------"
+       write(124,*)
+  end subroutine build_sector_2
 
 
 
