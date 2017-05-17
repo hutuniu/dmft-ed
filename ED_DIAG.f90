@@ -110,10 +110,10 @@ contains
     if(ed_verbose<0)lanc_verbose=.true.
     !
     iter=0
+    !DEBUG>>
+    write(*,*)"ed_diag",Nsectors
+    !>>DEBUG
     sector: do isector=1,Nsectors
-       write(*,*)"call to build_sector_2"
-       call build_sector_2(isector)
-       cycle sector
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        Tflag    = twin_mask(isector).AND.ed_twin
@@ -191,10 +191,10 @@ contains
           if(dim==1)eig_basis(dim,dim)=one
        endif
        !
-       if(MPI_MASTER.AND.ed_verbose<=0)then
-          write(LOGfile,*)"Evals: ",eig_values
-          print*,""
-       endif
+       !if(MPI_MASTER.AND.ed_verbose<=0)then
+       !   write(LOGfile,*)"Evals: ",eig_values
+       !   print*,""
+       !endif
        !
        if(spH0%status)call sp_delete_matrix(spH0)
        !

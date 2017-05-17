@@ -139,7 +139,7 @@ subroutine init_dmft_bath(dmft_bath_)
      dmft_bath_%h=zero
      do i=1,Nbath
         !
-        dmft_bath_%h(:,:,:,:,i)=impHloc+noise_b(i)*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)
+        dmft_bath_%h(:,:,:,:,i)=impHloc-noise_b(i)*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)
         !
      enddo
      !HYBR. INITIALIZATION
@@ -967,7 +967,11 @@ subroutine get_dmft_bath(dmft_bath_,bath_)
               bath_(i)=real(dmft_bath_%h(1,1,1,1,ibath))
               !specific element for SOC
               i=i+1
-              bath_(i)=real(dmft_bath_%h(1,2,3,1,ibath))
+              if(Jz_basis)then
+                 bath_(i)=real(dmft_bath_%h(1,2,1,3,ibath))
+              else
+                 bath_(i)=real(dmft_bath_%h(1,2,3,1,ibath))
+              endif
            enddo
         else
            !all non-vanishing terms in imploc - all spin

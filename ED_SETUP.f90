@@ -144,6 +144,9 @@ contains
 #endif
     !
     call setup_ed_dimensions()
+    !DEBUG>>
+    write(*,*)" call setup_ed_dimensions()",Nsectors
+    !>>DEBUG
     !
     dim_sector_max=0
     select case(ed_mode)
@@ -617,7 +620,6 @@ contains
     integer                                           :: twoJz_add,twoJz_del
     isector=0
     if(Jz_basis)then
-       Nsectors=0
        !pointers definition
        do in=0,Nlevels
           !
@@ -646,6 +648,9 @@ contains
              getmaxtwoJz(isector)=maxtwoJz
              getSector(in,twoJz)=isector
              dim = get_nonsu2_sector_dimension_Jz(in,twoJz)
+             !DEBUG>>
+             write(*,*)isector,in,twoJz,dim
+             !>>DEBUG
              getDim(isector)=dim
              neigen_sector(isector) = min(dim,lanc_nstates_sector)
           enddo
@@ -826,6 +831,7 @@ contains
     integer :: iup,idw,ibath,iorb
     integer :: nt,twoLz,twoSz
     !
+    dim=0
     do idw=0,2**Ns-1
        jvec = bdecomp(idw,Ns)
        do iup=0,2**Ns-1
