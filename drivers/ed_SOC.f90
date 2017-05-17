@@ -192,10 +192,6 @@ program ed_SOC
 #else
      call ed_solve(Bath)
 #endif
-
-     stop
-
-
      !
      !get sigmas
      call ed_get_sigma_matsubara(Smats)
@@ -260,27 +256,37 @@ program ed_SOC
      !each loop operations
      if(master)then
         !
-        !a - get rotation
+        !
+        !+ get rotation:
+        !  imp_basis --> Jdiag_basis
         call build_rotation(dm_custom_rot)
         !
-        !b - rotation of rho
-        call ed_get_density_matrix(dm,dm_eig,dm_rot,dm_custom_rot)
+        !+ get rho in the impurity basis 
+        !  and rotate it in the diagonal J basis
+        call ed_get_density_matrix(dm,dm_custom_rot,dm_eig,dm_rot)
         !
-        !d - print operators and rotation of S(iw), impG(iw), Gloc(w) in case of replica
+        !+ print operators Simp, Limp, Jimp in the {a,s} basis
+        call ed_get_quantum_SOC_operators()
+        !
+        !
         write(LOGfile,*)
         write(LOGfile,*) "   -------------------- rotations ---------------------"
         if(bath_type=="replica")then
-           call ed_get_quantum_SOC_operators()
+           !
+           ! rotation of impSmats in the {J} basis
            call Jz_rotate(Smats,"impS","A","wm")
-           if(allocated(impG))deallocate(impG)
-           allocate(impG(Nspin,Nspin,Norb,Norb,Lmats));impG=zero
+           !
+           ! rotation of impGmats in the {J} basis
+           if(allocated(impG))deallocate(impG);allocate(impG(Nspin,Nspin,Norb,Norb,Lmats));impG=zero
            call ed_get_gimp_matsubara(impG)
            call Jz_rotate(impG,"impG","A","wm")
            deallocate(impG)
+           !
+           ! rotation of Greal in the {J} basis
            Alvl=0.2d0;bottom=0.d0;top=0.d0
            call Jz_rotate(Greal,"Gloc","A","wr",bottom,top,Alvl)
+           !
         elseif(bath_type=="normal")then
-           call ed_get_quantum_SOC_operators(dm_custom_rot)
            call compute_spectral_moments_nn(Greal,w,-1.d0/pi,dw)
         endif
         write(LOGfile,*) "   ----------------------------------------------------"
@@ -536,6 +542,7 @@ contains
     integer                                      :: Nso_,ndx
     complex(8),dimension(Nso_,Nso_)              :: hk
     real(8),allocatable                          :: HoppingMatrix(:,:)
+    complex(8),allocatable                       :: U(:,:),Udag(:,:)
     !
     kx=kvec(1);ky=kvec(2);kz=kvec(3)
     !
@@ -565,8 +572,18 @@ contains
        enddo
     enddo
     !
-    !A1 shape: [Norb*Norb]*Nspin
+    !shape:  [Norb*Norb]*Nspin
+    !
+    !basis:  {a,Sz}
     Hk = so2os_reshape(Hk,Nspin,Norb)
+    !basis:  {Lz,Sz}
+    if(Jz_basis)then
+       allocate(U(Nspin*Norb,Nspin*Norb));U=zero
+       allocate(Udag(Nspin*Norb,Nspin*Norb));Udag=zero
+       U=orbital_Lz_rotation_NorbNspin()
+       Udag=transpose(conjg(orbital_Lz_rotation_NorbNspin()))
+       Hk=matmul(Udag,matmul(Hk,U))
+    endif
     !
   end function hk_Ti3dt2g
 
@@ -860,7 +877,13 @@ contains
     real(8),dimension(6)                           ::   impHloc_eig
     !
     theta_C_ = zero
-    theta_C_ = atomic_SOC_rotation()
+    if(Jz_basis)then
+       !rotation {Lz,Sz}-->{a,Sz}-->{J}
+       theta_C_ = matmul(transpose(conjg(orbital_Lz_rotation_NorbNspin())),atomic_SOC_rotation())
+    else
+       !rotation {a,Sz}-->{J}
+       theta_C_ = atomic_SOC_rotation()
+    endif
     !
     if(present(impHloc_rot_))then
        impHloc_rot_=zero
@@ -916,6 +939,8 @@ contains
     if(type_funct=="impG") isetup=4
     lvl=1.0d0;if(present(lvl_))lvl=lvl_
     !
+    !if(Jz_basis)       theta_C: {Lz,Sz}-->{a,Sz}-->{J}
+    !if(.not.Jz_basis)  theta_C: {a,Sz}------------>{J}
     call build_rotation(theta_C,impHloc_rot)
     !
     Lfreq=size(Fso,dim=5)

@@ -139,7 +139,7 @@ subroutine init_dmft_bath(dmft_bath_)
      dmft_bath_%h=zero
      do i=1,Nbath
         !
-        dmft_bath_%h(:,:,:,:,i)=so2nn_reshape(+0.05d0*eye(Nspin*Norb)-(0.01+noise_b(i))*atomic_SOC(),Nspin,Norb)!impHloc+noise_b(i)!-so2nn_reshape(0.15*eye(6),Nspin,Norb) !(-0.05d0*eye(Nspin*Norb)+(0.01+noise_b(i))*atomic_SOC())
+        dmft_bath_%h(:,:,:,:,i)=impHloc+noise_b(i)*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)
         !
      enddo
      !HYBR. INITIALIZATION
@@ -542,6 +542,8 @@ subroutine set_dmft_bath(bath_,dmft_bath_)
   integer                :: iorb,ispin,jorb,jspin,ibath
   logical                :: check
   complex(8)             :: hrep_aux(Nspin*Norb,Nspin*Norb)
+  complex(8)             :: U(Nspin*Norb,Nspin*Norb)
+  complex(8)             :: Udag(Nspin*Norb,Nspin*Norb)
   real(8)                :: element_R,element_I,eps_k,lambda_k
   if(.not.dmft_bath_%status)stop "set_dmft_bath error: bath not allocated"
   check = check_bath_dimension(bath_)
@@ -724,8 +726,13 @@ subroutine set_dmft_bath(bath_,dmft_bath_)
               i=i+1
               lambda_k=bath_(i)
               !
-              hrep_aux=cmplx(eps_k,0.0d0)*eye(Nspin*Norb)+lambda_k*2.d0*atomic_SOC()
-              !hrep_aux=cmplx(-abs(eps_k),0.0d0)*eye(Nspin*Norb)+abs(lambda_k)*2.d0*atomic_SOC()
+              if(Jz_basis)then
+                 U=orbital_Lz_rotation_NorbNspin()
+                 Udag=transpose(conjg(U))
+                 hrep_aux=cmplx(eps_k,0.0d0)*eye(Nspin*Norb)+lambda_k*2.d0*matmul(Udag,matmul(atomic_SOC(),U))
+              else
+                 hrep_aux=cmplx(eps_k,0.0d0)*eye(Nspin*Norb)+lambda_k*2.d0*atomic_SOC()
+              endif
               dmft_bath_%h(:,:,:,:,ibath)=so2nn_reshape(hrep_aux,Nspin,Norb)
               !
            enddo

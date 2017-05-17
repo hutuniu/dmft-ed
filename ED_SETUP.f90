@@ -210,6 +210,7 @@ contains
     allocate(getSz(Nsectors));getSz=0
     allocate(getN(Nsectors));getN=0
     allocate(gettwoJz(Nsectors));gettwoJz=0
+    allocate(getmaxtwoJz(Nsectors));getmaxtwoJz=0
     select case(ed_mode)
     case default
        allocate(getSector(0:Ns,0:Ns))
@@ -642,6 +643,7 @@ contains
              isector=isector+1
              getN(isector)=in
              gettwoJz(isector)=twoJz
+             getmaxtwoJz(isector)=maxtwoJz
              getSector(in,twoJz)=isector
              dim = get_nonsu2_sector_dimension_Jz(in,twoJz)
              getDim(isector)=dim
@@ -749,7 +751,7 @@ contains
           do iorb=1,Norb
              do ispin=1,Nspin
                 twoJz_del= 2 * Lzdiag(iorb) + Szdiag(ispin)
-                if(twoJz_del == -twoJz) cycle
+                if(twoJz_del == -getmaxtwoJz(isector)) cycle
                 twoJz=twoJz - twoJz_del
                 jsector=getSector(jn,twoJz)
                 getCsector_Jz(iorb,ispin,isector)=jsector
@@ -767,7 +769,7 @@ contains
           do iorb=1,Norb
              do ispin=1,Nspin
                 twoJz_add= 2 * Lzdiag(iorb) + Szdiag(ispin)
-                if(twoJz_add == twoJz) cycle
+                if(twoJz_add == getmaxtwoJz(isector)) cycle
                 twoJz=twoJz + twoJz_add
                 jsector=getSector(jn,twoJz)
                 getCDGsector_Jz(iorb,ispin,isector)=jsector

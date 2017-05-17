@@ -888,6 +888,8 @@ contains
     integer                                      :: i,j
     LS_rot_=zero;LS_rot=zero
     !
+    ! {a,Sz}-->{J}
+    !
     ![Norb*Norb]*Nspin notation
     !J=1/2 jz=-1/2
     LS_rot_(1,1)=+1.d0
@@ -927,6 +929,9 @@ contains
     integer                                      :: i,j
     U_rot=zero;U_rot_=zero
     !
+    ! {a}-->{Lz}
+    !
+    ![Norb*Norb] notation
     U_rot_(1,1)=-Xi/sqrt(2.)
     U_rot_(2,2)=+1.d0/sqrt(2.)
     U_rot_(3,3)=+Xi
@@ -943,6 +948,9 @@ contains
     integer                                      :: i,j
     U_rot=zero;U_rot_=zero
     !
+    ! {a,Sz}-->{Lz,Sz}
+    !
+    ![Norb*Norb]*Nspin notation
     U_rot_(1,1)=-Xi/sqrt(2.)
     U_rot_(2,2)=+1.d0/sqrt(2.)
     U_rot_(3,3)=+Xi

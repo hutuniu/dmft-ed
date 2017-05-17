@@ -92,6 +92,7 @@ MODULE ED_VARS_GLOBAL
   integer,allocatable,dimension(:)                   :: getSz
   integer,allocatable,dimension(:)                   :: getN
   integer,allocatable,dimension(:)                   :: gettwoJz
+  integer,allocatable,dimension(:)                   :: getmaxtwoJz
   logical,allocatable,dimension(:)                   :: twin_mask
 
   !Effective Bath used in the ED code (this is opaque to user)

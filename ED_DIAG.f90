@@ -95,7 +95,7 @@ contains
     integer                :: isect,izero,sz,nt
     integer                :: i,j,iter,unit
     integer                :: Nitermax,Neigen,Nblock
-    real(8)                :: oldzero,enemin,Ei
+    real(8)                :: oldzero,enemin,Ei,Jz
     real(8),allocatable    :: eig_values(:)
     complex(8),allocatable :: eig_basis(:,:)
     logical                :: lanc_solve,Tflag,lanc_verbose
@@ -140,16 +140,24 @@ contains
              case default
                 nup  = getnup(isector)
                 ndw  = getndw(isector)
-                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15,A12,3I4)")&
+                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15,A12,3I6)")&
                      iter,"-Solving sector:",isector,", nup:",nup,", ndw:",ndw,", dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
              case ("superc")
                 sz   = getsz(isector)
-                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15,A12,3I4)")&
+                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15,A12,3I6)")&
                      iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
              case ("nonsu2")
-                nt   = getn(isector)
-                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15,A12,3I4)")&
-                     iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+                if(Jz_basis)then
+                   nt   = getn(isector)
+                   Jz   = gettwoJz(isector)/2.
+                    write(LOGfile,"(1X,I4,A,I4,A4,I4,A4,F5.2,A6,I15,A12,3I6)")&
+                        iter,"-Solving sector:",isector," n:",nt," Jz:",Jz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+
+                else
+                   nt   = getn(isector)
+                    write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15,A12,3I6)")&
+                        iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+                endif
              end select
           elseif(ed_verbose>0.AND.ed_verbose<3)then
              call eta(iter,count(twin_mask),LOGfile)
@@ -181,6 +189,11 @@ contains
           call delete_Hv_sector()
           call eigh(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=one
+       endif
+       !
+       if(MPI_MASTER.AND.ed_verbose<=0)then
+          write(LOGfile,*)"Evals: ",eig_values
+          print*,""
        endif
        !
        if(spH0%status)call sp_delete_matrix(spH0)
