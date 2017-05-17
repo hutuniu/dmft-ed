@@ -111,9 +111,6 @@ contains
     !
     iter=0
     sector: do isector=1,Nsectors
-       !<DEBUG
-       if(isector<110)cycle sector
-       !>DEBUG
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        Tflag    = twin_mask(isector).AND.ed_twin
@@ -170,6 +167,12 @@ contains
           else
              call sp_eigh(spHtimesV_cc,Dim,Neigen,Nblock,Nitermax,eig_values,eig_basis,tol=lanc_tolerance)
           endif
+          !>DEBUG
+          if(MPI_MASTER.AND.ed_verbose<=0)then
+             write(LOGfile,*)"Evals: ",eig_values
+             print*,""
+          endif
+          !<DEBUG
           call delete_Hv_sector()
        else
           if(allocated(eig_values))deallocate(eig_values)

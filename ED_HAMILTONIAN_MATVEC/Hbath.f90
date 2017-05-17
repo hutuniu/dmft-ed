@@ -82,7 +82,7 @@
                     alfa = getBathStride(iorb,kp) + (ispin-1)*Ns
                     beta = getBathStride(jorb,kp) + (jspin-1)*Ns
                     Jcondition=&
-                         (impHloc(ispin,jspin,iorb,jorb)/=zero) .AND. &
+                         (dmft_bath%h(ispin,jspin,iorb,jorb,kp)/=zero) .AND. &
                          (ib(beta)==1)                          .AND. &
                          (ib(alfa)==0)
                     if(Jcondition)then
