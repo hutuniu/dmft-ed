@@ -92,7 +92,7 @@ program lancED
 
 
   call dmft_gloc_realaxis(one*He,Wte,Greal,Sreal,iprint=1)
-  Eout = dmft_kinetic_energy(one*He,Wte,Smats)
+  call dmft_kinetic_energy(one*He,Wte,Smats)
 
   ! allocate(Wte(Le),He(Le))
   ! call bethe_lattice(Wte,He,Le,wband)

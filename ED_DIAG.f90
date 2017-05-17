@@ -111,9 +111,6 @@ contains
     !
     iter=0
     sector: do isector=1,Nsectors
-       !<DEBUG
-       if(isector<110)cycle sector
-       !>DEBUG
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
        Tflag    = twin_mask(isector).AND.ed_twin

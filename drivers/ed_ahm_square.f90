@@ -110,7 +110,7 @@ program ed_ah
   call dmft_gloc_realaxis_superc(Hk,Wt,Greal,Sreal,iprint=1)
 
   !Compute the Kinetic Energy:
-  Eout = dmft_kinetic_energy(Hk(1,:,:,:),Wt,Smats(1,:,:,:,:,:),Smats(2,:,:,:,:,:))
+  call dmft_kinetic_energy(Hk(1,:,:,:),Wt,Smats(1,:,:,:,:,:),Smats(2,:,:,:,:,:))
 
 
 

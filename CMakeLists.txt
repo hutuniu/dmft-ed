@@ -13,18 +13,16 @@ IF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
 ENDIF(NOT CMAKE_Fortran_COMPILER_SUPPORTS_F90)
 
 # Set some options the user may choose
-OPTION(USE_MPI "Use the MPI library for parallelization" ON)
+OPTION(USE_MPI "Set MPI pre-compilation flag" ON)
+OPTION(USE_MPI_FC "Use MPI fortran compiler" ON)
 OPTION(VERBOSE "Build a verbose Makefile" OFF)
 
 # reSet compiler to MPI is required 
-IF(USE_MPI)
+IF(USE_MPI_FC)
   FIND_PACKAGE(MPI REQUIRED)
   SET(CMAKE_Fortran_COMPILER ${MPI_Fortran_COMPILER})
-  SET(MPI_CPP "MPI")
   MESSAGE(STATUS "Set Fortran compiler FC to ${CMAKE_Fortran_COMPILER}")
-ELSE(USE_MPI)
-  SET(MPI_CPP "")
-ENDIF(USE_MPI)
+ENDIF(USE_MPI_FC)
 
 # Set verbosity of the Makefile according to option
 IF(VERBOSE)

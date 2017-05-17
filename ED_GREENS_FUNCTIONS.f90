@@ -15,7 +15,7 @@ MODULE ED_GREENS_FUNCTIONS
   USE SF_SP_LINALG, only: sp_lanc_tridiag
   USE ED_INPUT_VARS
   USE ED_VARS_GLOBAL
-  USE ED_IO
+  USE ED_IO                     !< this contains the routine to print GF,Sigma and G0
   USE ED_EIGENSPACE
   USE ED_BATH_FUNCTIONS
   USE ED_SETUP
@@ -161,17 +161,14 @@ contains
     if(mpi_master)then
        select case(ed_mode)
        case default
-          ! call print_poles_weights_normal()
           call print_impSigma_normal()
           call print_impG_normal()
           call print_impG0_normal()
        case ("superc")
-          ! call print_poles_weights_superc()
           call print_impSigma_superc()
           call print_impG_superc()
           call print_impG0_superc()
        case ("nonsu2")
-          ! call print_poles_weights_nonsu2()
           call print_impSigma_nonsu2()
           call print_impG_nonsu2()
           call print_impG0_nonsu2()

@@ -117,7 +117,7 @@ program ed_ahm_bethe
   call dmft_gloc_realaxis_superc(one*Ebethe,Dbethe,Greal,Sreal,iprint=1)
 
   !Compute the Kinetic Energy:
-  Eout = dmft_kinetic_energy(one*Ebethe(1,:,:,:),Dbethe,Smats(1,:,:,:,:,:),Smats(2,:,:,:,:,:))
+  call dmft_kinetic_energy(one*Ebethe(1,:,:,:),Dbethe,Smats(1,:,:,:,:,:),Smats(2,:,:,:,:,:))
 
 end program ed_ahm_bethe
 
