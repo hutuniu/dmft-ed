@@ -144,9 +144,6 @@ contains
 #endif
     !
     call setup_ed_dimensions()
-    !DEBUG>>
-    write(*,*)" call setup_ed_dimensions()",Nsectors
-    !>>DEBUG
     !
     dim_sector_max=0
     select case(ed_mode)
@@ -208,12 +205,17 @@ contains
     !Allocate indexing arrays
     allocate(impIndex(Norb,2));impIndex=0
     allocate(getDim(Nsectors));getDim=0
+    !
     allocate(getDimUp(Nsectors),getDimDw(Nsectors));getDimUp=0;getDimDw=0
     allocate(getNup(Nsectors),getNdw(Nsectors));getNup=0;getNdw=0
+    !
     allocate(getSz(Nsectors));getSz=0
+    !
     allocate(getN(Nsectors));getN=0
+    !
     allocate(gettwoJz(Nsectors));gettwoJz=0
-    allocate(getmaxtwoJz(Nsectors));getmaxtwoJz=0
+    allocate(getmaxtwoJz(0:Nlevels));getmaxtwoJz=0
+    !
     select case(ed_mode)
     case default
        allocate(getSector(0:Ns,0:Ns))
@@ -221,16 +223,19 @@ contains
        allocate(getSector(-Ns:Ns,1))
     case ("nonsu2")
        if(Jz_basis)then
-          allocate(getSector(0:Nlevels,Nlevels));getSector=0
+          allocate(getSector(0:Nlevels,-Nlevels:Nlevels));getSector=0
        else
           allocate(getSector(0:Nlevels,1));getSector=0
        endif
     end select
     getSector=0
+    !
     allocate(getCsector(2,Nsectors));getCsector=0
     allocate(getCDGsector(2,Nsectors));getCDGsector=0
+    !
     allocate(getCsector_Jz(Norb,Nspin,Nsectors));getCsector_Jz=0
     allocate(getCDGsector_Jz(Norb,Nspin,Nsectors));getCDGsector_Jz=0
+    !
     allocate(getBathStride(Norb,Nbath));getBathStride=0
     allocate(twin_mask(Nsectors));
     allocate(neigen_sector(Nsectors))
@@ -645,11 +650,11 @@ contains
              isector=isector+1
              getN(isector)=in
              gettwoJz(isector)=twoJz
-             getmaxtwoJz(isector)=maxtwoJz
+             getmaxtwoJz(in)=maxtwoJz
              getSector(in,twoJz)=isector
              dim = get_nonsu2_sector_dimension_Jz(in,twoJz)
              !DEBUG>>
-             write(*,*)isector,in,twoJz,dim
+             write(*,*)"setup",isector,in,twoJz,maxtwoJz,dim
              !>>DEBUG
              getDim(isector)=dim
              neigen_sector(isector) = min(dim,lanc_nstates_sector)
@@ -746,7 +751,7 @@ contains
 
     if(Jz_basis)then
        !
-       getCsector_Jz=0
+       getCsector_Jz=-1
        !c_{Lz,Sz}
        do isector=1,Nsectors
           in=getn(isector);if(in==0)cycle
@@ -755,27 +760,27 @@ contains
           twoJz=gettwoJz(isector)
           do iorb=1,Norb
              do ispin=1,Nspin
-                twoJz_del= 2 * Lzdiag(iorb) + Szdiag(ispin)
-                if(twoJz_del == -getmaxtwoJz(isector)) cycle
-                twoJz=twoJz - twoJz_del
+                twoJz_del = 2 * Lzdiag(iorb) + Szdiag(ispin)
+                twoJz = twoJz - twoJz_del
+                if(abs(twoJz) > getmaxtwoJz(jn)) cycle
                 jsector=getSector(jn,twoJz)
                 getCsector_Jz(iorb,ispin,isector)=jsector
              enddo
           enddo
        enddo
        !
-       getCDGsector_Jz=0
+       getCDGsector_Jz=-1
        !cdg_{Lz,Sz}
        do isector=1,Nsectors
-          in=getn(isector);if(in==0)cycle
+          in=getn(isector);if(in==Nlevels)cycle
           jn=in+1
           !
           twoJz=gettwoJz(isector)
           do iorb=1,Norb
              do ispin=1,Nspin
-                twoJz_add= 2 * Lzdiag(iorb) + Szdiag(ispin)
-                if(twoJz_add == getmaxtwoJz(isector)) cycle
-                twoJz=twoJz + twoJz_add
+                twoJz_add = 2 * Lzdiag(iorb) + Szdiag(ispin)
+                twoJz = twoJz + twoJz_add
+                if(abs(twoJz) > getmaxtwoJz(jn)) cycle
                 jsector=getSector(jn,twoJz)
                 getCDGsector_Jz(iorb,ispin,isector)=jsector
              enddo
@@ -938,6 +943,10 @@ contains
                 if(nt_ == nt .and. twoJz==(twoSz_+twoLz_) )then
                    dim=dim+1
                    Hup%map(dim)=iup + idw*2**Ns
+                   !DEBUG>>
+                   write(*,*)"build",isector,nt_,twoJz,dim,Hup%map(dim)
+                   write(*,*)Hup%map(dim),ivec,"    ",jvec
+                   !>>DEBUG
                 endif
              enddo
           enddo
@@ -966,12 +975,6 @@ contains
 
 
 
-
-  !+------------------------------------------------------------------+
-  !PURPOSE  : constructs the sectors by storing the map to the 
-  !states i\in Hilbert_space from the states count in H_sector.
-  !|ImpUP,BathUP>|ImpDW,BathDW >
-  !+------------------------------------------------------------------+
   subroutine build_sector_2(isector)
     integer                   :: isector
     integer                   :: nup,ndw,sz,nt

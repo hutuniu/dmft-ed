@@ -47,6 +47,9 @@
                  call c(beta,m,k1,sg1)
                  call cdg(alfa,k1,k2,sg2)
                  j = binary_search(H%map,k2)
+    !DEBUG>>
+    write(*,*)"Hbath 1",j
+    !>>DEBUG
                  htmp = dmft_bath%h(1,1,iorb,jorb,kp)*sg1*sg2
                  !
                  call sp_insert_element(spH0,htmp,impi,j)
@@ -63,6 +66,9 @@
                  call c(beta,m,k1,sg1)
                  call cdg(alfa,k1,k2,sg2)
                  j = binary_search(H%map,k2)
+    !DEBUG>>
+    write(*,*)"Hbath 2",j
+    !>>DEBUG
                  htmp = dmft_bath%h(Nspin,Nspin,iorb,jorb,kp)*sg1*sg2
                  !
                  call sp_insert_element(spH0,htmp,impi,j)
@@ -89,6 +95,9 @@
                        call c(beta,m,k1,sg1)
                        call cdg(alfa,k1,k2,sg2)
                        j = binary_search(H%map,k2)
+    !DEBUG>>
+    write(*,*)"Hbath 3",j,ispin,jspin,iorb,jorb
+    !>>DEBUG
                        htmp = dmft_bath%h(ispin,jspin,iorb,jorb,kp)*sg1*sg2
                        !
                        call sp_insert_element(spH0,htmp,impi,j)

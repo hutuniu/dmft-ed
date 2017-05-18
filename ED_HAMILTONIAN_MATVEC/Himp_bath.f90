@@ -8,6 +8,9 @@
            call c(iorb,m,k1,sg1)
            call cdg(ms,k1,k2,sg2)
            j = binary_search(H%map,k2)
+    !DEBUG>>
+    write(*,*)"imp-Hbath 1",j
+    !>>DEBUG
            htmp = diag_hybr(1,iorb,kp)*sg1*sg2
            call sp_insert_element(spH0,htmp,impi,j)
         endif
@@ -15,6 +18,9 @@
            call c(ms,m,k1,sg1)
            call cdg(iorb,k1,k2,sg2)
            j=binary_search(H%map,k2)
+    !DEBUG>>
+    write(*,*)"imp-Hbath 2",j
+    !>>DEBUG
            htmp = diag_hybr(1,iorb,kp)*sg1*sg2
            call sp_insert_element(spH0,htmp,impi,j)
         endif
@@ -24,6 +30,9 @@
            call c(iorb+Ns,m,k1,sg1)
            call cdg(ms+Ns,k1,k2,sg2)
            j=binary_search(H%map,k2)
+    !DEBUG>>
+    write(*,*)"imp-Hbath 3",j
+    !>>DEBUG
            htmp=diag_hybr(Nspin,iorb,kp)*sg1*sg2
            call sp_insert_element(spH0,htmp,impi,j)
         endif
@@ -31,6 +40,9 @@
            call c(ms+Ns,m,k1,sg1)
            call cdg(iorb+Ns,k1,k2,sg2)
            j=binary_search(H%map,k2)
+    !DEBUG>>
+    write(*,*)"imp-Hbath 4",j
+    !>>DEBUG
            htmp=diag_hybr(Nspin,iorb,kp)*sg1*sg2
            call sp_insert_element(spH0,htmp,impi,j)
         endif

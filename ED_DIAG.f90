@@ -110,9 +110,6 @@ contains
     if(ed_verbose<0)lanc_verbose=.true.
     !
     iter=0
-    !DEBUG>>
-    write(*,*)"ed_diag",Nsectors
-    !>>DEBUG
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        iter=iter+1
@@ -150,7 +147,7 @@ contains
                 if(Jz_basis)then
                    nt   = getn(isector)
                    Jz   = gettwoJz(isector)/2.
-                    write(LOGfile,"(1X,I4,A,I4,A4,I4,A4,F5.2,A6,I15,A12,3I6)")&
+                    write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,F5.1,A6,I15,A12,3I6)")&
                         iter,"-Solving sector:",isector," n:",nt," Jz:",Jz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
 
                 else
@@ -184,9 +181,13 @@ contains
           if(allocated(eig_basis))deallocate(eig_basis)
           allocate(eig_values(Dim),eig_basis(Dim,dim))
           eig_values=0d0 ; eig_basis=zero
+     write(*,*)"1-ed_diag"
           call setup_Hv_sector(isector)
+     write(*,*)"2-ed_diag"
           call ed_buildH_c(eig_basis)
+     write(*,*)"3-ed_diag"
           call delete_Hv_sector()
+     write(*,*)"4-ed_diag"
           call eigh(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=one
        endif

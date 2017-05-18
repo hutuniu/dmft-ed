@@ -316,15 +316,22 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      call build_sector(isector,HI)
      !
      !ADD ONE PARTICLE with ISPIN:
-     if(jsector/=Nsectors)then
-        !
-        if(Jz_basis)then
-           jsector = getCDGsector_Jz(iorb,ispin,isector)
-           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' add particle:',gettwoJz(jsector)/2.
-        else
-           jsector = getCDGsector(ispin,isector)
-           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-        endif
+     !
+     if(Jz_basis)then
+        jsector = getCDGsector_Jz(iorb,ispin,isector)
+    !DEBUG>>
+    write(*,*)iorb,ispin,isector,jsector
+    !>>DEBUG
+        !if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' add particle:',gettwoJz(jsector)/2.
+     else
+        jsector = getCDGsector(ispin,isector)
+        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
+     endif
+     !
+     if(jsector/=Nsectors.and.jsector>=0)then
+        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' add Jz:',Lzdiag(iorb)+Szdiag(ispin)/2.
+        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' start:',gettwoJz(isector)/2.
+        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' arriv:',gettwoJz(jsector)/2.
         !
         jdim  = getdim(jsector)
         allocate(vvinit(jdim))
@@ -365,15 +372,22 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      endif
      !
      !REMOVE ONE PARTICLE with ISPIN:
-     if(jsector/=0)then
-        !
-        if(Jz_basis)then
-           jsector = getCsector_Jz(iorb,ispin,isector)
-           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' del particle:',gettwoJz(jsector)/2.
-        else
-           jsector = getCsector(ispin,isector)
-           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-        endif
+     !
+     if(Jz_basis)then
+        jsector = getCsector_Jz(iorb,ispin,isector)
+    !DEBUG>>
+    write(*,*)iorb,ispin,isector,jsector
+    !>>DEBUG
+        !if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' del particle:',gettwoJz(jsector)/2.
+     else
+        jsector = getCsector(ispin,isector)
+        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+     endif
+     !
+     if(jsector/=0.and.jsector>=0)then
+        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' del Jz:',Lzdiag(iorb)+Szdiag(ispin)/2.
+        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' start:',gettwoJz(isector)/2.
+        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' arriv:',gettwoJz(jsector)/2.
         !
         jdim  = getdim(jsector)
         allocate(vvinit(jdim))
