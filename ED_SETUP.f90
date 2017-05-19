@@ -943,10 +943,6 @@ contains
                 if(nt_ == nt .and. twoJz==(twoSz_+twoLz_) )then
                    dim=dim+1
                    Hup%map(dim)=iup + idw*2**Ns
-                   !DEBUG>>
-                   !write(*,*)"build",isector,nt_,twoJz,dim,Hup%map(dim)
-                   !write(*,*)Hup%map(dim),ivec,"    ",jvec
-                   !>>DEBUG
                 endif
              enddo
           enddo

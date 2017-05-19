@@ -566,7 +566,6 @@ contains
 
 
 
-  !DEBUG>>
   subroutine ed_get_density_matrix(dm_,custom_rot,dm_eig_,dm_rot_)
     !passed
     complex(8),allocatable,intent(out)           :: dm_(:,:)
