@@ -61,7 +61,7 @@
               call cdg(iorb,k3,k4,sg4)
               j=binary_search(H%map,k4)
     !DEBUG>>
-    write(*,*)"Hint 1",j
+    !write(*,*)"Hint 1",j
     !>>DEBUG
               htmp = one*Jx*sg1*sg2*sg3*sg4
               !
@@ -91,7 +91,7 @@
               call cdg(iorb,k3,k4,sg4)
               j=binary_search(H%map,k4)
     !DEBUG>>
-    write(*,*)"Hint 2",j
+    !write(*,*)"Hint 2",j
     !>>DEBUG
               htmp = one*Jp*sg1*sg2*sg3*sg4
               !

@@ -233,8 +233,8 @@ contains
     allocate(getCsector(2,Nsectors));getCsector=0
     allocate(getCDGsector(2,Nsectors));getCDGsector=0
     !
-    allocate(getCsector_Jz(Norb,Nspin,Nsectors));getCsector_Jz=0
-    allocate(getCDGsector_Jz(Norb,Nspin,Nsectors));getCDGsector_Jz=0
+    allocate(getCsector_Jz(Norb,Nspin,Nsectors));  getCsector_Jz=-1
+    allocate(getCDGsector_Jz(Norb,Nspin,Nsectors));getCDGsector_Jz=-1
     !
     allocate(getBathStride(Norb,Nbath));getBathStride=0
     allocate(twin_mask(Nsectors));
@@ -622,7 +622,7 @@ contains
     integer,dimension(:),allocatable                  :: list_sector
     integer                                           :: maxtwoJz,twoJz
     integer                                           :: dimJz,inJz,shift
-    integer                                           :: twoJz_add,twoJz_del
+    integer                                           :: twoJz_add,twoJz_del,twoJz_trgt
     isector=0
     if(Jz_basis)then
        !pointers definition
@@ -654,7 +654,7 @@ contains
              getSector(in,twoJz)=isector
              dim = get_nonsu2_sector_dimension_Jz(in,twoJz)
              !DEBUG>>
-             write(*,*)"setup",isector,in,twoJz,maxtwoJz,dim
+             !write(*,*)"setup",isector,in,twoJz,maxtwoJz,dim
              !>>DEBUG
              getDim(isector)=dim
              neigen_sector(isector) = min(dim,lanc_nstates_sector)
@@ -760,10 +760,10 @@ contains
           twoJz=gettwoJz(isector)
           do iorb=1,Norb
              do ispin=1,Nspin
-                twoJz_del = 2 * Lzdiag(iorb) + Szdiag(ispin)
-                twoJz = twoJz - twoJz_del
-                if(abs(twoJz) > getmaxtwoJz(jn)) cycle
-                jsector=getSector(jn,twoJz)
+                twoJz_del  = 2 * Lzdiag(iorb) + Szdiag(ispin)
+                twoJz_trgt = twoJz - twoJz_del
+                if(abs(twoJz_trgt) > getmaxtwoJz(jn)) cycle
+                jsector=getSector(jn,twoJz_trgt)
                 getCsector_Jz(iorb,ispin,isector)=jsector
              enddo
           enddo
@@ -778,10 +778,10 @@ contains
           twoJz=gettwoJz(isector)
           do iorb=1,Norb
              do ispin=1,Nspin
-                twoJz_add = 2 * Lzdiag(iorb) + Szdiag(ispin)
-                twoJz = twoJz + twoJz_add
-                if(abs(twoJz) > getmaxtwoJz(jn)) cycle
-                jsector=getSector(jn,twoJz)
+                twoJz_add  = 2 * Lzdiag(iorb) + Szdiag(ispin)
+                twoJz_trgt = twoJz + twoJz_add
+                if(abs(twoJz_trgt) > getmaxtwoJz(jn)) cycle
+                jsector=getSector(jn,twoJz_trgt)
                 getCDGsector_Jz(iorb,ispin,isector)=jsector
              enddo
           enddo
@@ -944,8 +944,8 @@ contains
                    dim=dim+1
                    Hup%map(dim)=iup + idw*2**Ns
                    !DEBUG>>
-                   write(*,*)"build",isector,nt_,twoJz,dim,Hup%map(dim)
-                   write(*,*)Hup%map(dim),ivec,"    ",jvec
+                   !write(*,*)"build",isector,nt_,twoJz,dim,Hup%map(dim)
+                   !write(*,*)Hup%map(dim),ivec,"    ",jvec
                    !>>DEBUG
                 endif
              enddo

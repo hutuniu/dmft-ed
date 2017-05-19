@@ -27,7 +27,7 @@
            call cdg(iorb,k1,k2,sg2)
            j = binary_search(H%map,k2)
     !DEBUG>>
-    write(*,*)"Himp 1",j
+    !write(*,*)"Himp 1",j
     !>>DEBUG
            htmp = impHloc(1,1,iorb,jorb)*sg1*sg2
            !
@@ -44,7 +44,7 @@
            call cdg(iorb+Ns,k1,k2,sg2)
            j = binary_search(H%map,k2)
     !DEBUG>>
-    write(*,*)"Himp 2",j
+    !write(*,*)"Himp 2",j
     !>>DEBUG
            htmp = impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2
            !
@@ -71,7 +71,7 @@
                  call cdg(alfa,k1,k2,sg2)
                  j = binary_search(H%map,k2)
     !DEBUG>>
-    write(*,*)"Himp 3",j,ispin,jspin,iorb,jorb
+    !write(*,*)"Himp 3",j,ispin,jspin,iorb,jorb
     !>>DEBUG
                  htmp = impHloc(ispin,jspin,iorb,jorb)*sg1*sg2
                  !

@@ -314,37 +314,53 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      idim  = getdim(isector)
      call build_sector(isector,HI)
+
+     !DEBUG>>
+     write(*,*)
+     write(*,*)
+     write(*,*)"GS #",istate
+!     do m=1,idim                     !loop over |gs> components m
+!        write(*,*)"state where to act",bdecomp(HI%map(m),2*Ns)
+!     enddo
+     write(*,*)
+     write(*,*)
+     !>>DEBUG
+
      !
      !ADD ONE PARTICLE with ISPIN:
      !
      if(Jz_basis)then
         jsector = getCDGsector_Jz(iorb,ispin,isector)
-    !DEBUG>>
-    write(*,*)iorb,ispin,isector,jsector
-    !>>DEBUG
-        !if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' add particle:',gettwoJz(jsector)/2.
+        !DEBUG>>
+        write(*,*)
+        write(*,*)"Cdag(iorb,ispin)"
+        write(*,*)iorb,ispin,isector,jsector
+        !>>DEBUG
      else
         jsector = getCDGsector(ispin,isector)
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
      endif
      !
-     if(jsector/=Nsectors.and.jsector>=0)then
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' add Jz:',Lzdiag(iorb)+Szdiag(ispin)/2.
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' start:',gettwoJz(isector)/2.
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' arriv:',gettwoJz(jsector)/2.
+     if(getN(isector)/=Nlevels.and.jsector>=0)then
+        if(Jz_basis)then
+           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A15,1F5.1)")' add Jz:',Lzdiag(iorb)+Szdiag(ispin)/2.
+           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(2(A15,1F5.1,1X))")' starting Jz:',gettwoJz(isector)/2.,'  arrival Jz:',gettwoJz(jsector)/2.
+           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(2(A15,I5,1X))")   ' starting n:', getN(isector),       '  arrival n:', getN(jsector)
+        else
+           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A15,I3)")' add particle:',getn(jsector)
+        endif
         !
         jdim  = getdim(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
         !
         vvinit=zero
-        do m=1,idim                     !loop over |gs> components m
-           i=HI%map(m)                    !map m to Hilbert space state i
-           ib = bdecomp(i,2*Ns)            !i into binary representation
-           if(ib(isite)==0)then          !if impurity is empty: proceed
+        do m=1,idim
+           i=HI%map(m)
+           ib = bdecomp(i,2*Ns)
+           if(ib(isite)==0)then
               call cdg(isite,i,r,sgn)
-              j=binary_search(HJ%map,r)      !map r back to  jsector
-              vvinit(j) = sgn*state_cvec(m)  !build the cdg_ispin|gs> state
+              j=binary_search(HJ%map,r)
+              vvinit(j) = sgn*state_cvec(m)
            endif
         enddo
         deallocate(HJ%map)
@@ -375,19 +391,23 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      !
      if(Jz_basis)then
         jsector = getCsector_Jz(iorb,ispin,isector)
-    !DEBUG>>
-    write(*,*)iorb,ispin,isector,jsector
-    !>>DEBUG
-        !if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' del particle:',gettwoJz(jsector)/2.
+        !DEBUG>>
+        write(*,*)
+        write(*,*)"C(iorb,ispin)"
+        write(*,*)iorb,ispin,isector,jsector
+        !>>DEBUG
      else
-        jsector = getCsector(ispin,isector)
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
+        jsector = getCDGsector(ispin,isector)
      endif
      !
-     if(jsector/=0.and.jsector>=0)then
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' del Jz:',Lzdiag(iorb)+Szdiag(ispin)/2.
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' start:',gettwoJz(isector)/2.
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,1F5.1)")' arriv:',gettwoJz(jsector)/2.
+     if(getN(isector)/=0.and.jsector>=0)then
+        if(Jz_basis)then
+           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A15,1F5.1)")' del Jz:',Lzdiag(iorb)+Szdiag(ispin)/2.
+           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(2(A15,1F5.1,1X))")' starting Jz:',gettwoJz(isector)/2.,'  arrival Jz:',gettwoJz(jsector)/2.
+           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(2(A15,I5,1X))")   ' starting n:', getN(isector),       '  arrival n:', getN(jsector)
+        else
+           if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A15,I3)")' del particle:',getn(jsector)
+        endif
         !
         jdim  = getdim(jsector)
         allocate(vvinit(jdim))
@@ -450,7 +470,8 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
   complex(8),allocatable           :: vvinit(:)
   real(8),allocatable              :: alfa_(:),beta_(:)
   integer                          :: Nitermax,Nlanc
-  type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
+  type(sector_map)                 :: HI,HJ
+  stop
   !
   isite=impIndex(iorb,ispin)  !orbital 1
   jsite=impIndex(jorb,jspin)  !orbital 2

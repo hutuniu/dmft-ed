@@ -191,9 +191,7 @@ contains
           call MPI_AllReduce(Hredux,Hmat,dim*dim,MPI_Double_Complex,MPI_Sum,MpiComm,MpiIerr)
 #endif
        else
-     write(*,*)"1-build_H_c"
           call sp_dump_matrix(spH0,Hmat)
-     write(*,*)"2-build_H_c"
        endif
     endif
     !
