@@ -681,11 +681,11 @@ contains
        !endif
        !vedo se la densità è troppa o troppo poca
        if (diffdens.gt.0.d0) then  
-  !        ilarge=1
+          ilarge=1
           xmularge=xmu_tmp
           denslarge=dens_tmp
        elseif (diffdens.lt.0.d0) then
-  !        ismall=1
+          ismall=1
           xmusmall=xmu_tmp
           denssmall=dens_tmp
        endif

@@ -139,14 +139,14 @@ subroutine init_dmft_bath(dmft_bath_)
      dmft_bath_%h=zero
      do i=1,Nbath
         !
-        dmft_bath_%h(:,:,:,:,i)=impHloc-noise_b(i)*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)
+        dmft_bath_%h(:,:,:,:,i)=-impHloc-noise_b(i)*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)
         !
      enddo
      !HYBR. INITIALIZATION
      dmft_bath_%vr=zero
      do i=1,Nbath
         noise_tot=noise_b(i)
-        dmft_bath_%vr(i)=cmplx(0.05d0+noise_b(i),0.0d0)!*(-1)**(i-1)
+        dmft_bath_%vr(i)=cmplx(0.1d0+noise_b(i),0.0d0)!*(-1)**(i-1)
      enddo
      !
      deallocate(noise_b,noise_s,noise_o)
@@ -719,12 +719,14 @@ subroutine set_dmft_bath(bath_,dmft_bath_)
            do ibath=1,Nbath
               hrep_aux=zero
               eps_k=0.0d0;lambda_k=0.0d0
-              !diagonal eps_k
-              i=i+1
-              eps_k=bath_(i)
+              !
               !off-diagonal lambda_k
               i=i+1
               lambda_k=bath_(i)
+              !
+              !diagonal eps_k
+              i=i+1
+              eps_k=bath_(i)
               !
               if(Jz_basis)then
                  U=orbital_Lz_rotation_NorbNspin()
@@ -962,15 +964,20 @@ subroutine get_dmft_bath(dmft_bath_,bath_)
         i = 0
         if(ed_para)then
            do ibath=1,Nbath
-              !all diagonal per bath *all equal*
-              i=i+1
-              bath_(i)=real(dmft_bath_%h(1,1,1,1,ibath))
-              !specific element for SOC
-              i=i+1
               if(Jz_basis)then
-                 bath_(i)=real(dmft_bath_%h(1,2,1,3,ibath))
+                 !off-diagonal lambda_k
+                 i=i+1
+                 bath_(i)=real(dmft_bath_%h(1,2,1,3,ibath))/sqrt(2.d0)
+                 !diagonal eps_k
+                 i=i+1
+                 bath_(i)=real(dmft_bath_%h(1,1,1,1,ibath))-bath_(i-1)
               else
+                 !off-diagonal lambda_k
+                 i=i+1
                  bath_(i)=real(dmft_bath_%h(1,2,3,1,ibath))
+                 !diagonal eps_k
+                 i=i+1
+                 bath_(i)=real(dmft_bath_%h(1,1,1,1,ibath))
               endif
            enddo
         else

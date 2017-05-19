@@ -966,14 +966,14 @@ contains
        w = linspace(wini,wfin,Lreal,mesh=dw)
        norm=dw
        fact=-1.d0/pi
-       if(master)write(LOGfile,'(A11,2F9.4)') "  real freq",norm,fact
+       if(master)write(LOGfile,'(A11,2F9.4)') "   real freq",norm,fact
     elseif(type_freq=="wm")then
        if(allocated(w))deallocate(w)
        allocate(w(Lmats));w=0.d0
        w = pi/beta*(2*arange(1,Lmats)-1)
        norm=1.d0/beta
        fact=1.d0
-       if(master)write(LOGfile,'(A11,2F9.4)') "  imag freq",norm,fact
+       if(master)write(LOGfile,'(A11,2F9.4)') "   imag freq",norm,fact
     endif
     !
     !function intake
