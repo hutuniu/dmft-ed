@@ -113,7 +113,7 @@ contains
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
        !DEBUG>>
-       if(Jz_basis.and.abs(gettwoJz(isector))>1)cycle
+       if(Jz_basis.and.Jz_max.and.abs(gettwoJz(isector))>int(2.*Jz_max_value))cycle
        !>>DEBUG
        iter=iter+1
        Tflag    = twin_mask(isector).AND.ed_twin

@@ -64,6 +64,8 @@ MODULE ED_INPUT_VARS
   integer              :: ed_verbose          !
   logical              :: ed_sparse_H         !flag to select  storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE
   logical              :: Jz_basis
+  logical              :: Jz_max
+  real(8)              :: Jz_max_value
 
 
   !Some parameters for function dimension:
@@ -179,6 +181,8 @@ contains
     call parse_input_variable(ed_verbose,"ED_VERBOSE",INPUTunit,default=0,comment="Verbosity level: 0=all --> 5:almost nothing on the screen.")
     call parse_input_variable(ed_file_suffix,"ED_FILE_SUFFIX",INPUTunit,default=".ed",comment="Suffix in the output files.")
     call parse_input_variable(Jz_basis,"JZ_BASIS",INPUTunit,default=.false.,comment="")
+    call parse_input_variable(Jz_max,"JZ_MAX",INPUTunit,default=.false.,comment="")
+    call parse_input_variable(Jz_max_value,"JZ_MAK_VALUE",INPUTunit,default=1000.d0,comment="")
 
 
     !
