@@ -100,6 +100,7 @@ contains
        Nhel     = 1
     case("nonsu2")
        if(Jz_basis)then
+          isector=0
           do in=0,Nlevels
              !algorithm to find the maximum Jz given the density
              if(in==0.or.in==2*Ns)then
