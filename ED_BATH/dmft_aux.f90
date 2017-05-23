@@ -139,7 +139,7 @@ subroutine init_dmft_bath(dmft_bath_)
      dmft_bath_%h=zero
      do i=1,Nbath
         !
-        dmft_bath_%h(:,:,:,:,i)=-impHloc-noise_b(i)*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)
+        dmft_bath_%h(:,:,:,:,i)=impHloc-noise_b(i)*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)
         !
      enddo
      !HYBR. INITIALIZATION
@@ -729,11 +729,11 @@ subroutine set_dmft_bath(bath_,dmft_bath_)
               eps_k=bath_(i)
               !
               if(Jz_basis)then
-                 U=orbital_Lz_rotation_NorbNspin()
-                 Udag=transpose(conjg(U))
-                 hrep_aux=cmplx(eps_k,0.0d0)*eye(Nspin*Norb)+lambda_k*2.d0*matmul(Udag,matmul(atomic_SOC(),U))
+                 U=zero;U=orbital_Lz_rotation_NorbNspin()
+                 Udag=zero;Udag=transpose(conjg(U))
+                 hrep_aux=cmplx(eps_k,0.0d0)*eye(Nspin*Norb)+lambda_k*matmul(Udag,matmul(atomic_SOC(),U))
               else
-                 hrep_aux=cmplx(eps_k,0.0d0)*eye(Nspin*Norb)+lambda_k*2.d0*atomic_SOC()
+                 hrep_aux=cmplx(eps_k,0.0d0)*eye(Nspin*Norb)+lambda_k*atomic_SOC()
               endif
               dmft_bath_%h(:,:,:,:,ibath)=so2nn_reshape(hrep_aux,Nspin,Norb)
               !
@@ -793,6 +793,9 @@ end subroutine set_dmft_bath
 subroutine get_dmft_bath(dmft_bath_,bath_)
   type(effective_bath)   :: dmft_bath_
   real(8),dimension(:)   :: bath_
+  complex(8)             :: hrep_aux(Nspin*Norb,Nspin*Norb)
+  complex(8)             :: U(Nspin*Norb,Nspin*Norb)
+  complex(8)             :: Udag(Nspin*Norb,Nspin*Norb)
   integer                :: stride,io,jo,i
   integer                :: iorb,ispin,jorb,jspin,ibath
   logical                :: check
@@ -965,12 +968,20 @@ subroutine get_dmft_bath(dmft_bath_,bath_)
         if(ed_para)then
            do ibath=1,Nbath
               if(Jz_basis)then
+                 !
+                 U=zero;U=orbital_Lz_rotation_NorbNspin()
+                 Udag=zero;Udag=transpose(conjg(U))
+                 hrep_aux=zero
+                 !
+                 hrep_aux=nn2so_reshape(dmft_bath_%h(:,:,:,:,ibath),Nspin,Norb)
+                 hrep_aux=matmul(U,matmul(hrep_aux,Udag))
+                 !
                  !off-diagonal lambda_k
                  i=i+1
-                 bath_(i)=real(dmft_bath_%h(1,2,1,3,ibath))/sqrt(2.d0)
+                 bath_(i)=real(hrep_aux(3,4))   !real(dmft_bath_%h(1,2,1,3,ibath))/sqrt(2.d0)
                  !diagonal eps_k
                  i=i+1
-                 bath_(i)=real(dmft_bath_%h(1,1,1,1,ibath))-bath_(i-1)
+                 bath_(i)=real(hrep_aux(1,1))   !real(dmft_bath_%h(1,1,1,1,ibath))-bath_(i-1)
               else
                  !off-diagonal lambda_k
                  i=i+1

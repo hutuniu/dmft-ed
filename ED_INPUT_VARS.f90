@@ -182,7 +182,7 @@ contains
     call parse_input_variable(ed_file_suffix,"ED_FILE_SUFFIX",INPUTunit,default=".ed",comment="Suffix in the output files.")
     call parse_input_variable(Jz_basis,"JZ_BASIS",INPUTunit,default=.false.,comment="")
     call parse_input_variable(Jz_max,"JZ_MAX",INPUTunit,default=.false.,comment="")
-    call parse_input_variable(Jz_max_value,"JZ_MAK_VALUE",INPUTunit,default=1000.d0,comment="")
+    call parse_input_variable(Jz_max_value,"JZ_MAX_VALUE",INPUTunit,default=1000.d0,comment="")
 
 
     !
