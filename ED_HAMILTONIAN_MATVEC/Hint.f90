@@ -60,12 +60,9 @@
               call cdg(jorb+Ns,k2,k3,sg3)
               call cdg(iorb,k3,k4,sg4)
               j=binary_search(H%map,k4)
-    !DEBUG>>
-    !write(*,*)"Hint 1",j
-    !>>DEBUG
               htmp = one*Jx*sg1*sg2*sg3*sg4
               !
-              call sp_insert_element(spH0,htmp,impi,j)
+              if(j/=0)call sp_insert_element(spH0,htmp,impi,j)
               !
            endif
         enddo
@@ -90,12 +87,9 @@
               call cdg(iorb+Ns,k2,k3,sg3)
               call cdg(iorb,k3,k4,sg4)
               j=binary_search(H%map,k4)
-    !DEBUG>>
-    !write(*,*)"Hint 2",j
-    !>>DEBUG
               htmp = one*Jp*sg1*sg2*sg3*sg4
               !
-              call sp_insert_element(spH0,htmp,impi,j)
+              if(j/=0)call sp_insert_element(spH0,htmp,impi,j)
               !
            endif
         enddo

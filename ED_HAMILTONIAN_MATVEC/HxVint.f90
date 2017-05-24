@@ -62,7 +62,7 @@
               j=binary_search(H%map,k4)
               htmp = one*Jx*sg1*sg2*sg3*sg4
               !
-              hv(impi) = hv(impi) + htmp*vin(j)
+              if(j/=0)hv(impi) = hv(impi) + htmp*vin(j)
               !
            endif
         enddo
@@ -89,7 +89,7 @@
               j=binary_search(H%map,k4)
               htmp = one*Jp*sg1*sg2*sg3*sg4
               !
-              hv(impi) = hv(impi) + htmp*vin(j)
+              if(j/=0)hv(impi) = hv(impi) + htmp*vin(j)
               !
            endif
         enddo
