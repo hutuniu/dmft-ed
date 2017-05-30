@@ -699,7 +699,7 @@ contains
     integer                           ::  unit_
     integer                           ::  iorb,ispin,jorb,jspin,io,ibath
     !
-    if(Norb/=3)stop"SOC_operators implemented for 3 orbitals"
+    if(Norb/=3)stop "SOC_operators implemented for 3 orbitals"
     !
     if((bath_type=="replica").and.(.not.Jz_basis))then
        !the impurity dm is in the {a,Sz} basis
