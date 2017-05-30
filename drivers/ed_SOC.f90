@@ -300,7 +300,7 @@ program ed_SOC
         deallocate(orb_dens)
         if(nread/=0.d0.and.look4n)then
            converged_n=.false.
-           if(iloop>=3)call search_chempot(xmu,sumdens,converged_n)
+           if(iloop>=2)call search_chempot(xmu,sumdens,converged_n)
         endif
         if(converged_n)then
            conv_n_loop=conv_n_loop+1

@@ -681,11 +681,11 @@ contains
        !endif
        !vedo se la densità è troppa o troppo poca
        if (diffdens.gt.0.d0) then  
-          ilarge=1
+       !   ilarge=1
           xmularge=xmu_tmp
           denslarge=dens_tmp
        elseif (diffdens.lt.0.d0) then
-          ismall=1
+       !   ismall=1
           xmusmall=xmu_tmp
           denssmall=dens_tmp
        endif
@@ -694,9 +694,9 @@ contains
           !non ho ancora trovato un xmu per cui diffdens cambia segno
           inotbound=inotbound+1
           if (inotbound>=8)  delta_xmu = 0.5d0
-          if (inotbound>=12) delta_xmu = 1.0d0
-          if (inotbound>=16) delta_xmu = 1.5d0
-          if (inotbound>=20) delta_xmu = 2.0d0
+          if (inotbound>=12) delta_xmu = 0.8d0
+          if (inotbound>=16) delta_xmu = 1.2d0
+          if (inotbound>=20) delta_xmu = 1.6d0
           xmu_shift = delta_xmu * diffdens
           xmu_old = xmu_tmp
           xmu_tmp = xmu_tmp - xmu_shift
