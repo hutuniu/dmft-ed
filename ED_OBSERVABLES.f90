@@ -226,7 +226,6 @@ contains
        enddo
     end if
     !
-    !<<DEBUG
     !IMPURITY DENSITY MATRIX
     if(allocated(imp_density_matrix)) deallocate(imp_density_matrix);allocate(imp_density_matrix(Nspin,Nspin,Norb,Norb))
     imp_density_matrix=zero
@@ -260,8 +259,9 @@ contains
           do jspin=1,Nspin
              do iorb=1,Norb
                 do jorb=1,Norb
-                   if((ed_mode=="normal").and.(ispin/=jspin))cycle !  ed_mode=="normal" ==>    spin off-dig term not calculated
-                   if((bath_type=="normal").and.(iorb/=jorb))cycle !bath_type=="normal" ==> orbital off-dig term not calculated
+                   if((ed_mode=="normal").and.(ispin/=jspin))cycle
+                   if((bath_type=="normal").and.(iorb/=jorb))cycle
+                   if(Jz_basis.and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,1)).and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,2)))cycle
                    isite=impIndex(iorb,ispin)
                    jsite=impIndex(jorb,jspin)
                    do m=1,idim
@@ -317,8 +317,9 @@ contains
              do jspin=1,Nspin
                 do iorb=1,Norb
                    do jorb=1,Norb
-                      if((ed_mode=="normal").and.(ispin/=jspin))cycle !  ed_mode=="normal" ==>    spin off-dig term not calculated
-                      if((bath_type=="normal").and.(iorb/=jorb))cycle !bath_type=="normal" ==> orbital off-dig term not calculated
+                      if((ed_mode=="normal").and.(ispin/=jspin))cycle
+                      if((bath_type=="normal").and.(iorb/=jorb))cycle
+                      if(Jz_basis.and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,1)).and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,2)))cycle
                       isite = iorb + ibath*Norb + (ispin-1)*Ns
                       jsite = jorb + ibath*Norb + (jspin-1)*Ns
                       do m=1,idim
@@ -412,9 +413,7 @@ contains
        impj_aplha_sq(3) = trace(matmul(nn2so_reshape(imp_density_matrix,Nspin,Norb),matmul(atomic_j("z"),atomic_j("z"))))
        !
     endif
-    !<<DEBUG
     !
-    !call get_szr
     if(MPI_MASTER)then
        call get_szr
        if(iolegend)call write_legend
@@ -529,14 +528,18 @@ contains
                    call c(jorb,m,k1,sg1)
                    call cdg(iorb,k1,k2,sg2)
                    j=binary_search(H%map,k2)
-                   ed_Eknot = ed_Eknot + impHloc(1,1,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))!gs_weight
+                   if(Jz_basis.and.j==0)cycle
+                   !WARNING: note that the previous line, and all the other hereafter, are equivalent to:
+                   !if(Jz_basis.and.(.not.dmft_bath%mask(1,1,iorb,jorb,1)).and.(.not.dmft_bath%mask(1,1,iorb,jorb,2)))cycle
+                   ed_Eknot = ed_Eknot + impHloc(1,1,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))
                 endif
                 !SPIN DW
                 if((ib(iorb+Ns)==0).AND.(ib(jorb+Ns)==1))then
                    call c(jorb+Ns,m,k1,sg1)
                    call cdg(iorb+Ns,k1,k2,sg2)
                    j=binary_search(H%map,k2)
-                   ed_Eknot = ed_Eknot + impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))!gs_weight
+                   if(Jz_basis.and.j==0)cycle
+                   ed_Eknot = ed_Eknot + impHloc(Nspin,Nspin,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))
                 endif
              enddo
           enddo
@@ -549,14 +552,16 @@ contains
                       call c(jorb+Ns,m,k1,sg1)
                       call cdg(iorb,k1,k2,sg2)
                       j=binary_search(H%map,k2)
-                      ed_Eknot = ed_Eknot + impHloc(1,Nspin,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))!gs_weight
+                      if(Jz_basis.and.j==0)cycle
+                      ed_Eknot = ed_Eknot + impHloc(1,Nspin,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))
                    endif
                    !DW-UP
                    if((impHloc(Nspin,1,iorb,jorb)/=zero).AND.(ib(iorb+Ns)==0).AND.(ib(jorb)==1))then
                       call c(jorb,m,k1,sg1)
                       call cdg(iorb+Ns,k1,k2,sg2)
                       j=binary_search(H%map,k2)
-                      ed_Eknot = ed_Eknot + impHloc(Nspin,1,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))!gs_weight
+                      if(Jz_basis.and.j==0)cycle
+                      ed_Eknot = ed_Eknot + impHloc(Nspin,1,iorb,jorb)*sg1*sg2*gscvec(i)*conjg(gscvec(j))
                    endif
                 enddo
              enddo
@@ -610,6 +615,7 @@ contains
                       call cdg(jorb+Ns,k2,k3,sg3)
                       call cdg(iorb,k3,k4,sg4)
                       j=binary_search(H%map,k4)
+                      if(Jz_basis.and.j==0)cycle
                       ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
                       ed_Dse  = ed_Dse  + sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
                    endif
@@ -634,6 +640,7 @@ contains
                       call cdg(iorb+Ns,k2,k3,sg3)
                       call cdg(iorb,k3,k4,sg4)
                       j=binary_search(H%map,k4)
+                      if(Jz_basis.and.j==0)cycle
                       ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
                       ed_Dph  = ed_Dph  + sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
                    endif

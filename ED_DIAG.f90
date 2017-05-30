@@ -95,7 +95,7 @@ contains
     integer                :: isect,izero,sz,nt
     integer                :: i,j,iter,unit
     integer                :: Nitermax,Neigen,Nblock
-    real(8)                :: oldzero,enemin,Ei
+    real(8)                :: oldzero,enemin,Ei,Jz
     real(8),allocatable    :: eig_values(:)
     complex(8),allocatable :: eig_basis(:,:)
     logical                :: lanc_solve,Tflag,lanc_verbose
@@ -112,6 +112,9 @@ contains
     iter=0
     sector: do isector=1,Nsectors
        if(.not.twin_mask(isector))cycle sector !cycle loop if this sector should not be investigated
+       !DEBUG>>
+       if(Jz_basis.and.Jz_max.and.abs(gettwoJz(isector))>int(2.*Jz_max_value))cycle
+       !>>DEBUG
        iter=iter+1
        Tflag    = twin_mask(isector).AND.ed_twin
        select case(ed_mode)
@@ -137,16 +140,24 @@ contains
              case default
                 nup  = getnup(isector)
                 ndw  = getndw(isector)
-                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15,A12,3I4)")&
+                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15,A12,3I6)")&
                      iter,"-Solving sector:",isector,", nup:",nup,", ndw:",ndw,", dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
              case ("superc")
                 sz   = getsz(isector)
-                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15,A12,3I4)")&
+                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15,A12,3I6)")&
                      iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
              case ("nonsu2")
-                nt   = getn(isector)
-                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15,A12,3I4)")&
-                     iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+                if(Jz_basis)then
+                   nt   = getn(isector)
+                   Jz   = gettwoJz(isector)/2.
+                    write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,F5.1,A6,I15,A12,3I6)")&
+                        iter,"-Solving sector:",isector," n:",nt," Jz:",Jz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+
+                else
+                   nt   = getn(isector)
+                    write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15,A12,3I6)")&
+                        iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+                endif
              end select
           elseif(ed_verbose>0.AND.ed_verbose<3)then
              call eta(iter,count(twin_mask),LOGfile)
@@ -179,6 +190,11 @@ contains
           call eigh(eig_basis,eig_values,'V','U')
           if(dim==1)eig_basis(dim,dim)=one
        endif
+       !
+       !if(MPI_MASTER.AND.ed_verbose<=0)then
+       !   write(LOGfile,*)"Evals: ",eig_values
+       !   print*,""
+       !endif
        !
        if(spH0%status)call sp_delete_matrix(spH0)
        !
@@ -386,7 +402,7 @@ contains
     integer :: nup,ndw,sz,n,isector
     integer :: istate
     integer :: unit
-    real(8) :: Estate
+    real(8) :: Estate,Jz
     if(MPI_MASTER)then
        select case(ed_mode)
        case default
@@ -394,7 +410,11 @@ contains
        case ("superc")
           write(unit,"(A)")"# i       E_i           exp(-(E-E0)/T)       Sz     Sect     Dim"
        case ("nonsu2")
-          write(unit,"(A)")"# i       E_i           exp(-(E-E0)/T)       n    Sect     Dim"
+          if(Jz_basis)then
+             write(unit,"(A3,A18,2x,A19,1x,A3,3x,A4,3x,A3,A10)")"# i","E_i","exp(-(E-E0)/T)","n","Jz","Sect","Dim"
+          else
+             write(unit,"(A3,A18,2x,A19,1x,A3,3x,A3,A10)")"# i","E_i","exp(-(E-E0)/T)","n","Sect","Dim"
+          endif
        end select
        do istate=1,state_list%size
           Estate  = es_return_energy(state_list,istate)
@@ -411,8 +431,14 @@ contains
                   istate,Estate,exp(-beta*(Estate-state_list%emin)),sz,isector,getdim(isector)
           case("nonsu2")
              n    = getn(isector)
-             write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)")&
-                  istate,Estate,exp(-beta*(Estate-state_list%emin)),n,isector,getdim(isector)
+             if(Jz_basis)then
+                Jz   = gettwoJz(isector)/2.
+                write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,F4.1,3x,i3,i10)")&
+                     istate,Estate,exp(-beta*(Estate-state_list%emin)),n,Jz,isector,getdim(isector)
+             else
+                write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)")&
+                     istate,Estate,exp(-beta*(Estate-state_list%emin)),n,isector,getdim(isector)
+             endif
           end select
        enddo
     endif
@@ -425,13 +451,13 @@ contains
     if(MPI_MASTER)then
        select case(ed_mode)
        case default
-          write(unit,"(A7,A3,A3)")" Sector","Nup","Ndw"
+          write(unit,"(A7,A3,A3)")" # Sector","Nup","Ndw"
           write(unit,"(I4,2x,I3,I3)")isector,getnup(isector),getndw(isector)
        case ("superc")
-          write(unit,"(A7,A4)")" Sector","Sz"
+          write(unit,"(A7,A4)")" # Sector","Sz"
           write(unit,"(I4,2x,I4)")isector,getsz(isector)
        case ("nonsu2")
-          write(unit,"(A7,A3)")" Sector","N"
+          write(unit,"(A7,A3)")" # Sector","N"
           write(unit,"(I4,2x,I4)")isector,getn(isector)
        end select
        do i=1,size(eig_values)

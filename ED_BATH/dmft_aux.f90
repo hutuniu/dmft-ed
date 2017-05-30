@@ -43,7 +43,7 @@ subroutine allocate_dmft_bath(dmft_bath_)
      allocate(dmft_bath_%h(Nspin,Nspin,Norb,Norb,Nbath))     !replica hamilt of the bath
      allocate(dmft_bath_%vr(Nbath))                          !hybridization 
      allocate(dmft_bath_%mask(Nspin,Nspin,Norb,Norb,2))      !mask on components 
-     allocate(dmft_bath_%LS(Nspin,Nspin,Norb,Norb,2))        !rotations
+     !allocate(dmft_bath_%LS(Nspin,Nspin,Norb,Norb,2))        !rotations
      !
   end select
   dmft_bath_%status=.true.
@@ -64,7 +64,7 @@ subroutine deallocate_dmft_bath(dmft_bath_)
   if(allocated(dmft_bath_%vr))  deallocate(dmft_bath_%vr)
   if(allocated(dmft_bath_%h))   deallocate(dmft_bath_%h)
   if(allocated(dmft_bath_%mask))deallocate(dmft_bath_%mask)
-  if(allocated(dmft_bath_%LS))  deallocate(dmft_bath_%LS)
+  !if(allocated(dmft_bath_%LS))  deallocate(dmft_bath_%LS)
   dmft_bath_%status=.false.
 end subroutine deallocate_dmft_bath
 
@@ -77,10 +77,10 @@ end subroutine deallocate_dmft_bath
 !+------------------------------------------------------------------+
 subroutine init_dmft_bath(dmft_bath_)
   type(effective_bath) :: dmft_bath_
-  complex(8)           :: himp_aux(Nspin*Norb,Nspin*Norb)
+  complex(8)           :: hrep_aux(Nspin*Norb,Nspin*Norb)
   real(8)              :: hybr_aux_R,hybr_aux_I
-  real(8)              :: himp_aux_R(Nspin*Norb,Nspin*Norb)
-  real(8)              :: himp_aux_I(Nspin*Norb,Nspin*Norb)
+  real(8)              :: hrep_aux_R(Nspin*Norb,Nspin*Norb)
+  real(8)              :: hrep_aux_I(Nspin*Norb,Nspin*Norb)
   real(8)              :: re,im
   integer              :: i,unit,flen,Nh
   integer              :: io,jo,iorb,ispin,jorb,jspin
@@ -139,14 +139,14 @@ subroutine init_dmft_bath(dmft_bath_)
      dmft_bath_%h=zero
      do i=1,Nbath
         !
-        dmft_bath_%h(:,:,:,:,i)=so2nn_reshape((-0.1d0*eye(Nspin*Norb)+0.1d0*atomic_SOC()),Nspin,Norb)+noise_b(i)
+        dmft_bath_%h(:,:,:,:,i)=impHloc-noise_b(i)*so2nn_reshape(eye(Nspin*Norb),Nspin,Norb)
         !
      enddo
      !HYBR. INITIALIZATION
      dmft_bath_%vr=zero
      do i=1,Nbath
         noise_tot=noise_b(i)
-        dmft_bath_%vr(i)=cmplx(0.1d0+noise_tot,0.0d0)!*(-1)**(i-1)
+        dmft_bath_%vr(i)=cmplx(0.1d0+noise_b(i),0.0d0)!*(-1)**(i-1)
      enddo
      !
      deallocate(noise_b,noise_s,noise_o)
@@ -233,16 +233,16 @@ subroutine init_dmft_bath(dmft_bath_)
         select case(ed_mode)
         case ("normal","nonsu2")
            do i=1,Nbath
-              himp_aux_R=0.0d0;himp_aux_I=0.0d0
+              hrep_aux_R=0.0d0;hrep_aux_I=0.0d0
               hybr_aux_R=0.0d0;hybr_aux_I=0.0d0
-              himp_aux=zero
+              hrep_aux=zero
               do io=1,Nspin*Norb
-                 if(io==1)read(unit,"(90(F21.12,1X))")     hybr_aux_R,hybr_aux_I,(himp_aux_R(io,jo),jo=1,Nspin*Norb),(himp_aux_I(io,jo),jo=1,Nspin*Norb)
-                 if(io/=1)read(unit,"(2a21,90(F21.12,1X))")   space  ,   space  ,(himp_aux_R(io,jo),jo=1,Nspin*Norb),(himp_aux_I(io,jo),jo=1,Nspin*Norb)
+                 if(io==1)read(unit,"(90(F21.12,1X))")     hybr_aux_R,hybr_aux_I,(hrep_aux_R(io,jo),jo=1,Nspin*Norb),(hrep_aux_I(io,jo),jo=1,Nspin*Norb)
+                 if(io/=1)read(unit,"(2a21,90(F21.12,1X))")   space  ,   space  ,(hrep_aux_R(io,jo),jo=1,Nspin*Norb),(hrep_aux_I(io,jo),jo=1,Nspin*Norb)
               enddo
               read(unit,*)
-              himp_aux=cmplx(himp_aux_R,himp_aux_I)
-              dmft_bath_%h(:,:,:,:,i)=so2nn_reshape(himp_aux,Nspin,Norb)
+              hrep_aux=cmplx(hrep_aux_R,hrep_aux_I)
+              dmft_bath_%h(:,:,:,:,i)=so2nn_reshape(hrep_aux,Nspin,Norb)
               dmft_bath_%vr(i)=cmplx(hybr_aux_R,hybr_aux_I)
            enddo
            !
@@ -269,7 +269,7 @@ subroutine init_dmft_bath_mask(dmft_bath_)
      stop "impHloc not allocated on mask initialization"
   endif
   dmft_bath_%mask=.false.
-  dmft_bath_%LS=zero
+  !dmft_bath_%LS=zero
   !
   ! MASK INITIALIZATION
   !
@@ -301,62 +301,62 @@ subroutine init_dmft_bath_mask(dmft_bath_)
   !
   ! LS
   !
-  LS=zero
-  LS(1:2,3:4)= +Xi * pauli_z !/ 2.d0
-  LS(1:2,5:6)= -Xi * pauli_y !/ 2.d0
-  LS(3:4,5:6)= +Xi * pauli_x !/ 2.d0
-  do io=1,Nspin*Norb
-     do jo=io+1,Nspin*Norb
-        LS(jo,io)=conjg(LS(io,jo))
-     enddo
-  enddo
-  LS=so2os_reshape(LS,Nspin,Norb)
-  !
-  ! LS eigenvectors
-  !
-  LS_rot=zero
-  !J=1/2 jz=-1/2
-  LS_rot(1,1)=-Xi
-  LS_rot(3,1)=-1.0d0
-  LS_rot(6,1)=+Xi
-  LS_rot(:,1)=LS_rot(:,1)/sqrt(3.)
-  !J=1/2 jz=+1/2
-  LS_rot(2,2)=-Xi
-  LS_rot(4,2)=+1.0d0
-  LS_rot(5,2)=-Xi
-  LS_rot(:,2)=LS_rot(:,2)/sqrt(3.)
-  !J=3/2 jz=-3/2
-  LS_rot(2,3)=-Xi
-  LS_rot(4,3)=+1.0d0
-  LS_rot(5,3)=+2.0d0*Xi
-  LS_rot(:,3)=LS_rot(:,3)/sqrt(6.)
-  !J=3/2 jz=-1/2
-  LS_rot(1,4)=+Xi
-  LS_rot(3,4)=-1.0d0
-  LS_rot(:,4)=LS_rot(:,4)/sqrt(2.)
-  !J=3/2 jz=+1/2
-  LS_rot(2,5)=-Xi 
-  LS_rot(4,5)=-1.0d0
-  LS_rot(:,5)=LS_rot(:,5)/sqrt(2.)
-  !J=3/2 jz=+3/2
-  LS_rot(1,6)=+Xi
-  LS_rot(3,6)=+1.0d0
-  LS_rot(6,6)=+2.0d0*Xi
-  LS_rot(:,6)=LS_rot(:,6)/sqrt(6.)
-  LS_rot=so2os_reshape(LS_rot,Nspin,Norb)
-  !
-  do ispin=1,Nspin
-     do jspin=1,Nspin
-        do iorb=1,Norb
-           do jorb=1,Norb
-              io = iorb + (ispin-1)*Norb
-              jo = jorb + (jspin-1)*Norb
-              dmft_bath_%LS(ispin,jspin,iorb,jorb,1)=LS(io,jo)
-              dmft_bath_%LS(ispin,jspin,iorb,jorb,2)=LS_rot(io,jo)
-           enddo
-        enddo
-     enddo
-  enddo
+!  LS=zero
+!  LS(1:2,3:4)= +Xi * pauli_z !/ 2.d0
+!  LS(1:2,5:6)= -Xi * pauli_y !/ 2.d0
+!  LS(3:4,5:6)= +Xi * pauli_x !/ 2.d0
+!  do io=1,Nspin*Norb
+!     do jo=io+1,Nspin*Norb
+!        LS(jo,io)=conjg(LS(io,jo))
+!     enddo
+!  enddo
+!  LS=so2os_reshape(LS,Nspin,Norb)
+!  !
+!  ! LS eigenvectors
+!  !
+!  LS_rot=zero
+!  !J=1/2 jz=-1/2
+!  LS_rot(1,1)=-Xi
+!  LS_rot(3,1)=-1.0d0
+!  LS_rot(6,1)=+Xi
+!  LS_rot(:,1)=LS_rot(:,1)/sqrt(3.)
+!  !J=1/2 jz=+1/2
+!  LS_rot(2,2)=-Xi
+!  LS_rot(4,2)=+1.0d0
+!  LS_rot(5,2)=-Xi
+!  LS_rot(:,2)=LS_rot(:,2)/sqrt(3.)
+!  !J=3/2 jz=-3/2
+!  LS_rot(2,3)=-Xi
+!  LS_rot(4,3)=+1.0d0
+!  LS_rot(5,3)=+2.0d0*Xi
+!  LS_rot(:,3)=LS_rot(:,3)/sqrt(6.)
+!  !J=3/2 jz=-1/2
+!  LS_rot(1,4)=+Xi
+!  LS_rot(3,4)=-1.0d0
+!  LS_rot(:,4)=LS_rot(:,4)/sqrt(2.)
+!  !J=3/2 jz=+1/2
+!  LS_rot(2,5)=-Xi 
+!  LS_rot(4,5)=-1.0d0
+!  LS_rot(:,5)=LS_rot(:,5)/sqrt(2.)
+!  !J=3/2 jz=+3/2
+!  LS_rot(1,6)=+Xi
+!  LS_rot(3,6)=+1.0d0
+!  LS_rot(6,6)=+2.0d0*Xi
+!  LS_rot(:,6)=LS_rot(:,6)/sqrt(6.)
+!  LS_rot=so2os_reshape(LS_rot,Nspin,Norb)
+!  !
+!  do ispin=1,Nspin
+!     do jspin=1,Nspin
+!        do iorb=1,Norb
+!           do jorb=1,Norb
+!              io = iorb + (ispin-1)*Norb
+!              jo = jorb + (jspin-1)*Norb
+!              dmft_bath_%LS(ispin,jspin,iorb,jorb,1)=LS(io,jo)
+!              dmft_bath_%LS(ispin,jspin,iorb,jorb,2)=LS_rot(io,jo)
+!           enddo
+!        enddo
+!     enddo
+!  enddo
   !
 end subroutine init_dmft_bath_mask
 
@@ -373,7 +373,7 @@ subroutine write_dmft_bath(dmft_bath_,unit)
   integer              :: i
   integer              :: io,jo,iorb,ispin
   complex(8)           :: hybr_aux
-  complex(8)           :: himp_aux(Nspin*Norb,Nspin*Norb)
+  complex(8)           :: hrep_aux(Nspin*Norb,Nspin*Norb)
   ! if(ED_MPI_ID==0)then
   unit_=LOGfile;if(present(unit))unit_=unit
   if(.not.dmft_bath_%status)stop "write_dmft_bath error: bath not allocated"
@@ -471,23 +471,17 @@ subroutine write_dmft_bath(dmft_bath_,unit)
      select case(ed_mode)
      case ("normal","nonsu2")
         do i=1,Nbath
-           himp_aux=zero;himp_aux=nn2so_reshape(dmft_bath_%h(:,:,:,:,i),Nspin,Norb)
+           hrep_aux=zero;hrep_aux=nn2so_reshape(dmft_bath_%h(:,:,:,:,i),Nspin,Norb)
            hybr_aux=dmft_bath_%vr(i)
            do io=1,Nspin*Norb
               if(unit_==LOGfile)then
-                 ! if(ed_type=="d") then
-                 !    if(io==1)write(unit_,"(F8.3,a5,90(F8.3,1X))")  real(hybr_aux),"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                 !    if(io/=1)write(unit_,"(a8,a5,90(F8.3,1X))")        "  "      ,"|",(real(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                 ! endif
-                 ! if(ed_type=="c") then
-                 if(io==1) write(unit_,"(2F8.3,a5,90(F8.3,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
-                      (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                 if(io/=1) write(unit_,"(2a8,a5,90(F8.3,1X))")        "  "     ,      "  "     ,"|",( real(himp_aux(io,jo)),jo=1,Nspin*Norb),&
-                      (aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                 ! endif
+                 if(io==1) write(unit_,"(2F8.3,a5,90(F8.3,1X))") real(hybr_aux),aimag(hybr_aux),"|",( real(hrep_aux(io,jo)),jo=1,Nspin*Norb),&
+                     (aimag(hrep_aux(io,jo)),jo=1,Nspin*Norb)
+                 if(io/=1) write(unit_,"(2a8,a5,90(F8.3,1X))")        "  "     ,      "  "     ,"|",( real(hrep_aux(io,jo)),jo=1,Nspin*Norb),&
+                      (aimag(hrep_aux(io,jo)),jo=1,Nspin*Norb)
               else
-                 if(io==1)write(unit_,"(90(F21.12,1X))")      real(hybr_aux),aimag(hybr_aux),(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
-                 if(io/=1)write(unit_,"(2a21,90(F21.12,1X))")      "  "     ,     "  "      ,(real(himp_aux(io,jo)),jo=1,Nspin*Norb),(aimag(himp_aux(io,jo)),jo=1,Nspin*Norb)
+                 if(io==1)write(unit_,"(90(F21.12,1X))")         real(hybr_aux),aimag(hybr_aux),(real(hrep_aux(io,jo)),jo=1,Nspin*Norb),(aimag(hrep_aux(io,jo)),jo=1,Nspin*Norb)
+                 if(io/=1)write(unit_,"(2a21,90(F21.12,1X))")         "  "     ,     "  "      ,(real(hrep_aux(io,jo)),jo=1,Nspin*Norb),(aimag(hrep_aux(io,jo)),jo=1,Nspin*Norb)
               endif
            enddo
            write(unit_,*)
@@ -547,7 +541,10 @@ subroutine set_dmft_bath(bath_,dmft_bath_)
   integer                :: stride,io,jo,i
   integer                :: iorb,ispin,jorb,jspin,ibath
   logical                :: check
-  real(8)                :: element_R,element_I
+  complex(8)             :: hrep_aux(Nspin*Norb,Nspin*Norb)
+  complex(8)             :: U(Nspin*Norb,Nspin*Norb)
+  complex(8)             :: Udag(Nspin*Norb,Nspin*Norb)
+  real(8)                :: element_R,element_I,eps_k,lambda_k
   if(.not.dmft_bath_%status)stop "set_dmft_bath error: bath not allocated"
   check = check_bath_dimension(bath_)
   if(.not.check)stop "set_dmft_bath error: wrong bath dimensions"
@@ -720,31 +717,26 @@ subroutine set_dmft_bath(bath_,dmft_bath_)
         i = 0
         if(ed_para)then
            do ibath=1,Nbath
-              i=i+1
-              element_R=0.0d0;element_I=0.0d0
-              !diagonal eps_k
-              element_R=bath_(i)
-              do ispin=1,Nspin
-                 do iorb=1,Norb
-                    dmft_bath_%h(ispin,ispin,iorb,iorb,ibath)=cmplx(element_R,element_I)
-                 enddo
-              enddo
-              i=i+1
-              element_R=0.0d0;element_I=0.0d0
+              hrep_aux=zero
+              eps_k=0.0d0;lambda_k=0.0d0
+              !
               !off-diagonal lambda_k
-              element_R=bath_(i)
-              !I can perform this sum since LS is purely non-diagonal while eps_k only diagonal
-              do ispin=1,Nspin
-                 do jspin=1,Nspin
-                    do iorb=1,Norb
-                       do jorb=1,Norb
-                          io = iorb + (ispin-1)*Norb
-                          jo = jorb + (jspin-1)*Norb
-                          dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)=dmft_bath_%h(ispin,jspin,iorb,jorb,ibath)+element_R*dmft_bath_%LS(ispin,jspin,iorb,jorb,1)
-                       enddo
-                    enddo
-                 enddo
-              enddo
+              i=i+1
+              lambda_k=bath_(i)
+              !
+              !diagonal eps_k
+              i=i+1
+              eps_k=bath_(i)
+              !
+              if(Jz_basis)then
+                 U=zero;U=orbital_Lz_rotation_NorbNspin()
+                 Udag=zero;Udag=transpose(conjg(U))
+                 hrep_aux=cmplx(eps_k,0.0d0)*eye(Nspin*Norb)+lambda_k*matmul(Udag,matmul(atomic_SOC(),U))
+              else
+                 hrep_aux=cmplx(eps_k,0.0d0)*eye(Nspin*Norb)+lambda_k*atomic_SOC()
+              endif
+              dmft_bath_%h(:,:,:,:,ibath)=so2nn_reshape(hrep_aux,Nspin,Norb)
+              !
            enddo
         else
            !all non-vanishing terms in imploc - all spin
@@ -801,6 +793,9 @@ end subroutine set_dmft_bath
 subroutine get_dmft_bath(dmft_bath_,bath_)
   type(effective_bath)   :: dmft_bath_
   real(8),dimension(:)   :: bath_
+  complex(8)             :: hrep_aux(Nspin*Norb,Nspin*Norb)
+  complex(8)             :: U(Nspin*Norb,Nspin*Norb)
+  complex(8)             :: Udag(Nspin*Norb,Nspin*Norb)
   integer                :: stride,io,jo,i
   integer                :: iorb,ispin,jorb,jspin,ibath
   logical                :: check
@@ -972,12 +967,29 @@ subroutine get_dmft_bath(dmft_bath_,bath_)
         i = 0
         if(ed_para)then
            do ibath=1,Nbath
-              !all diagonal per bath *all equal*
-              i=i+1
-              bath_(i)=real(dmft_bath_%h(1,1,1,1,ibath))
-              !specific element for SOC
-              i=i+1
-              bath_(i)=real(dmft_bath_%h(1,2,3,1,ibath))!*2.d0
+              if(Jz_basis)then
+                 !
+                 U=zero;U=orbital_Lz_rotation_NorbNspin()
+                 Udag=zero;Udag=transpose(conjg(U))
+                 hrep_aux=zero
+                 !
+                 hrep_aux=nn2so_reshape(dmft_bath_%h(:,:,:,:,ibath),Nspin,Norb)
+                 hrep_aux=matmul(U,matmul(hrep_aux,Udag))
+                 !
+                 !off-diagonal lambda_k
+                 i=i+1
+                 bath_(i)=real(hrep_aux(3,4))   !real(dmft_bath_%h(1,2,1,3,ibath))/sqrt(2.d0)
+                 !diagonal eps_k
+                 i=i+1
+                 bath_(i)=real(hrep_aux(1,1))   !real(dmft_bath_%h(1,1,1,1,ibath))-bath_(i-1)
+              else
+                 !off-diagonal lambda_k
+                 i=i+1
+                 bath_(i)=real(dmft_bath_%h(1,2,3,1,ibath))
+                 !diagonal eps_k
+                 i=i+1
+                 bath_(i)=real(dmft_bath_%h(1,1,1,1,ibath))
+              endif
            enddo
         else
            !all non-vanishing terms in imploc - all spin

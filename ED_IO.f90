@@ -566,13 +566,12 @@ contains
 
 
 
-  !DEBUG>>
-  subroutine ed_get_density_matrix(dm_,dm_eig_,dm_rot_,custom_rot)
+  subroutine ed_get_density_matrix(dm_,custom_rot,dm_eig_,dm_rot_)
     !passed
     complex(8),allocatable,intent(out)           :: dm_(:,:)
+    complex(8),allocatable,intent(in)            :: custom_rot(:,:)
     real(8),allocatable,intent(out),optional     :: dm_eig_(:)
     complex(8),allocatable,intent(out),optional  :: dm_rot_(:,:)
-    complex(8),allocatable,intent(in),optional   :: custom_rot(:,:)
     !internal
     integer                                      :: unit  
     integer                                      :: iorb,jorb,ispin,jspin,io,jo
@@ -583,8 +582,6 @@ contains
        write(*,*) "imp_density_matrix is not allocated"
        stop
     endif
-    !(teporary)
-    if(.not.present(custom_rot))stop"I need custom rot in density matrix to go into J basis"
     !
     if(present(dm_eig_))then
        if(allocated(dm_eig_))deallocate(dm_eig_)
@@ -611,12 +608,13 @@ contains
           enddo
        enddo
        !
-       dm_rot_=dm_
-       call eigh(dm_rot_,dm_eig_,'V','U')
-       !
-       if(present(custom_rot))then
-          dm_diag=matmul(transpose(conjg(custom_rot)),matmul(dm_,custom_rot))
+       if(present(dm_eig_).and.present(dm_rot_))then
+          dm_rot_=dm_
+          call eigh(dm_rot_,dm_eig_,'V','U')
        endif
+       !
+       ! rotate from the impurity basis to the J diagonal basis
+       dm_diag=matmul(transpose(conjg(custom_rot)),matmul(dm_,custom_rot))
        !
     elseif(bath_type=="normal")then
        !
@@ -629,8 +627,10 @@ contains
        !
        dm_=matmul(custom_rot,matmul(dm_diag,transpose(conjg(custom_rot))))
        !
-       dm_rot_=dm_
-       call eigh(dm_rot_,dm_eig_,'V','U')
+       if(present(dm_eig_).and.present(dm_rot_))then
+          dm_rot_=dm_
+          call eigh(dm_rot_,dm_eig_,'V','U')
+       endif
        !
     endif
     !
@@ -649,21 +649,23 @@ contains
     enddo
     write(unit,*)
     !
-    write(unit,"(A30)")"# rho_tilda"
-    write(unit,'(10F22.12)') dm_eig_
-    write(unit,*)
-    !
-    write(unit,"(A30)")"# Re{theta}:"
-    do io=1,Nspin*Norb
-       write(unit,"(90(F15.9,1X))") (real(dm_rot_(io,jo)),jo=1,Nspin*Norb)
-    enddo
-    write(unit,*)
-    !
-    write(unit,"(A30)")"# Im{theta}:"
-    do io=1,Nspin*Norb
-       write(unit,"(90(F15.9,1X))") (aimag(dm_rot_(io,jo)),jo=1,Nspin*Norb)
-    enddo
-    write(unit,*)
+    if(present(dm_eig_).and.present(dm_rot_))then
+       write(unit,"(A30)")"# rho_tilda"
+       write(unit,'(10F22.12)') dm_eig_
+       write(unit,*)
+       !
+       write(unit,"(A30)")"# Re{theta}:"
+       do io=1,Nspin*Norb
+          write(unit,"(90(F15.9,1X))") (real(dm_rot_(io,jo)),jo=1,Nspin*Norb)
+       enddo
+       write(unit,*)
+       !
+       write(unit,"(A30)")"# Im{theta}:"
+       do io=1,Nspin*Norb
+          write(unit,"(90(F15.9,1X))") (aimag(dm_rot_(io,jo)),jo=1,Nspin*Norb)
+       enddo
+       write(unit,*)
+    endif
     !
     write(unit,"(A30)")"# Re{rho_Jj}"
     do io=1,Nspin*Norb
@@ -681,24 +683,15 @@ contains
     !
     close(unit)
     !
-  !  if(ed_verbose<1) then
-  !     Tr=zero;Tr=trace(dm_)
-  !     write(LOGfile,'(A25,6F15.7)') 'test #1: Tr[rho]:    ',real(Tr),aimag(Tr)
-  !     Tr=zero;Tr=trace(matmul(dm_,dm_))
-  !     write(LOGfile,'(A25,6F15.7)') 'test #2: Tr[rho^2]:  ',real(Tr),aimag(Tr)
-  !     Tr=zero;Tr=sum(dm_eig_)
-  !     write(LOGfile,'(A25,6F15.7)') 'test #3: Tr[rot(rho)]:',Tr
-  !  endif
   end subroutine ed_get_density_matrix
 
 
-  subroutine ed_get_quantum_SOC_operators(custom_rot)
-    complex(8),intent(in),optional    ::  custom_rot(:,:)
+  subroutine ed_get_quantum_SOC_operators()
     complex(8)                        ::  Simp(3,Norb,Norb)
     complex(8)                        ::  Limp(3,Nspin,Nspin)
     complex(8)                        ::  Jimp(3)
     complex(8)                        ::  Jimp_sq(3)
-    complex(8),allocatable            ::  rho_so(:,:)
+    complex(8),allocatable            ::  rho_so(:,:),U(:,:),Udag(:,:)
     complex(8),allocatable            ::  rho_nn(:,:,:,:)
     complex(8)                        ::  Jsq
     complex(8)                        ::  LSimp
@@ -708,7 +701,8 @@ contains
     !
     if(Norb/=3)stop"SOC_operators implemented for 3 orbitals"
     !
-    if(.not.present(custom_rot))then
+    if((bath_type=="replica").and.(.not.Jz_basis))then
+       !the impurity dm is in the {a,Sz} basis
        Simp=impStot
        Limp=impLtot
        jimp=impj_aplha
@@ -718,16 +712,31 @@ contains
        do ibath=1,Nbath
           LSbth(ibath)=bthLdotS(ibath)
        enddo
-    else
+    elseif((bath_type=="replica".and.Jz_basis).or.(bath_type=="replica"))then
+       allocate(U(Nspin*Norb,Nspin*Norb));U=zero
+       allocate(Udag(Nspin*Norb,Nspin*Norb));Udag=zero
        allocate(rho_so(Nspin*Norb,Nspin*Norb));rho_so=zero
        allocate(rho_nn(Nspin,Nspin,Norb,Norb));rho_nn=zero
-       do iorb=1,Norb
-          do ispin=1,Nspin
-             io = iorb + (ispin-1)*Norb
-             rho_so(io,io)=imp_density_matrix(ispin,ispin,iorb,iorb)
-          enddo
-       enddo
-       rho_so=matmul(custom_rot,matmul(rho_so,transpose(conjg(custom_rot))))
+       !
+       rho_so=nn2so_reshape(imp_density_matrix,Nspin,Norb)
+       !
+       if(bath_type=="replica".and.Jz_basis)then
+          !
+          !the impurity dm is in the {Lz,Sz} basis
+          !rotation {Lz,Sz}-->{a,Sz}
+          U=transpose(conjg(orbital_Lz_rotation_NorbNspin()))
+          Udag=transpose(conjg(U))
+          !
+       elseif(bath_type=="normal")then
+          !
+          !the impurity dm is in the {J} basis
+          !rotation {J}-->{a,Sz}
+          U=transpose(conjg(atomic_SOC_rotation()))
+          Udag=transpose(conjg(U))
+          !
+       endif
+       !
+       rho_so=matmul(Udag,matmul(rho_so,U))
        rho_nn=so2nn_reshape(rho_so,Nspin,Norb)
        !
        !#    <S>(iorb,jorb)   #

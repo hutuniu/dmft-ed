@@ -24,6 +24,7 @@ MODULE ED_SETUP
   public :: setup_pointers_superc
   public :: setup_pointers_nonsu2
   public :: build_sector
+  public :: build_sector_2
   public :: delete_sector
   public :: bdecomp
   public :: bjoin
@@ -78,6 +79,8 @@ contains
   ! Nlevels = 2*Ns = Total # of levels (counting spin degeneracy 2) 
   !+------------------------------------------------------------------+
   subroutine setup_ed_dimensions()
+    integer                                           :: maxtwoJz,inJz,dimJz
+    integer                                           :: isector,in,shift
     select case(bath_type)
     case default
        Ns = (Nbath+1)*Norb
@@ -96,8 +99,31 @@ contains
        Nsectors = Nlevels+1     !sz=-Ns:Ns=2*Ns+1=Nlevels+1
        Nhel     = 1
     case("nonsu2")
-       Nsectors = Nlevels+1     !n=0:2*Ns=2*Ns+1=Nlevels+1
-       Nhel     = 2
+       if(Jz_basis)then
+          isector=0
+          do in=0,Nlevels
+             !algorithm to find the maximum Jz given the density
+             if(in==0.or.in==2*Ns)then
+                maxtwoJz=0
+             else
+                shift=0
+                if(in<=Nbath+1)shift=Nbath-in+1
+                if(in>=2*Ns-Nbath)shift=Nbath-2*Ns+in+1
+                maxtwoJz = 5 + 5*Nbath - abs(in-Ns) - 2*shift
+             endif
+             !number of available Jz given the maximum value
+             dimJz = maxtwoJz + 1
+             !count of all the new Jz sectors
+             do inJz=1,dimJz
+                isector=isector+1
+             enddo
+          enddo
+          Nsectors=isector
+          Nhel     = 2
+       else
+          Nsectors = Nlevels+1     !n=0:2*Ns=2*Ns+1=Nlevels+1
+          Nhel     = 2
+       endif
     end select
   end subroutine setup_ed_dimensions
 
@@ -107,12 +133,12 @@ contains
   !PURPOSE  : Init ED structure and calculation
   !+------------------------------------------------------------------+
   subroutine init_ed_structure(MpiComm)
-    integer,optional                         :: MpiComm
-    logical                                  :: control
-    real(8),dimension(Nspin,Nspin,Norb,Norb) :: reHloc         !local hamiltonian, real part 
-    real(8),dimension(Nspin,Nspin,Norb,Norb) :: imHloc         !local hamiltonian, imag part
-    integer                                  :: i,dim_sector_max(2),iorb,jorb,ispin,jspin
-    logical                                  :: MPI_MASTER=.true.
+    integer,optional                                  :: MpiComm
+    logical                                           :: control
+    real(8),dimension(Nspin,Nspin,Norb,Norb)          :: reHloc         !local hamiltonian, real part 
+    real(8),dimension(Nspin,Nspin,Norb,Norb)          :: imHloc         !local hamiltonian, imag part
+    integer                                           :: i,dim_sector_max(2),iorb,jorb,ispin,jspin
+    logical                                           :: MPI_MASTER=.true.
     !
 #ifdef _MPI
     if(present(MpiComm))MPI_MASTER=get_Master_MPI(MpiComm)
@@ -180,21 +206,37 @@ contains
     !Allocate indexing arrays
     allocate(impIndex(Norb,2));impIndex=0
     allocate(getDim(Nsectors));getDim=0
+    !
     allocate(getDimUp(Nsectors),getDimDw(Nsectors));getDimUp=0;getDimDw=0
     allocate(getNup(Nsectors),getNdw(Nsectors));getNup=0;getNdw=0
+    !
     allocate(getSz(Nsectors));getSz=0
+    !
     allocate(getN(Nsectors));getN=0
+    !
+    allocate(gettwoJz(Nsectors));gettwoJz=0
+    allocate(getmaxtwoJz(0:Nlevels));getmaxtwoJz=0
+    !
     select case(ed_mode)
     case default
        allocate(getSector(0:Ns,0:Ns))
     case ("superc")
        allocate(getSector(-Ns:Ns,1))
     case ("nonsu2")
-       allocate(getSector(0:Nlevels,1))
+       if(Jz_basis)then
+          allocate(getSector(0:Nlevels,-Nlevels:Nlevels));getSector=0
+       else
+          allocate(getSector(0:Nlevels,1));getSector=0
+       endif
     end select
     getSector=0
+    !
     allocate(getCsector(2,Nsectors));getCsector=0
     allocate(getCDGsector(2,Nsectors));getCDGsector=0
+    !
+    allocate(getCsector_Jz(Norb,Nspin,Nsectors));  getCsector_Jz=-1
+    allocate(getCDGsector_Jz(Norb,Nspin,Nsectors));getCDGsector_Jz=-1
+    !
     allocate(getBathStride(Norb,Nbath));getBathStride=0
     allocate(twin_mask(Nsectors));
     allocate(neigen_sector(Nsectors))
@@ -341,14 +383,14 @@ contains
   !NORMAL CASE
   !
   subroutine setup_pointers_normal
-    integer                          :: i,in,dim,isector,jsector
-    integer                          :: nup,ndw,jup,jdw,iorb
-    integer                          :: unit,status,istate
-    logical                          :: IOfile
-    integer                          :: anint
-    real(8)                          :: adouble
-    integer                          :: list_len
-    integer,dimension(:),allocatable :: list_sector
+    integer                                           :: i,in,dim,isector,jsector
+    integer                                           :: nup,ndw,jup,jdw,iorb
+    integer                                           :: unit,status,istate
+    logical                                           :: IOfile
+    integer                                           :: anint
+    real(8)                                           :: adouble
+    integer                                           :: list_len
+    integer,dimension(:),allocatable                  :: list_sector
     isector=0
     do nup=0,Ns
        do ndw=0,Ns
@@ -460,14 +502,14 @@ contains
   !SUPERCONDUCTING
   !
   subroutine setup_pointers_superc
-    integer                          :: i,isz,in,dim,isector,jsector
-    integer                          :: sz,iorb,jsz
-    integer                          :: unit,status,istate
-    logical                          :: IOfile
-    integer                          :: anint
-    real(8)                          :: adouble
-    integer                          :: list_len
-    integer,dimension(:),allocatable :: list_sector
+    integer                                           :: i,isz,in,dim,isector,jsector
+    integer                                           :: sz,iorb,jsz
+    integer                                           :: unit,status,istate
+    logical                                           :: IOfile
+    integer                                           :: anint
+    real(8)                                           :: adouble
+    integer                                           :: list_len
+    integer,dimension(:),allocatable                  :: list_sector
     isector=0
     do isz=-Ns,Ns
        sz=abs(isz)
@@ -571,23 +613,65 @@ contains
   !NON SU(2) SYMMETRIC
   !
   subroutine setup_pointers_nonsu2
-    integer                          :: i,dim,isector,jsector
-    integer                          :: in,jn,iorb
-    integer                          :: unit,status,istate
-    logical                          :: IOfile
-    integer                          :: anint
-    real(8)                          :: adouble
-    integer                          :: list_len
-    integer,dimension(:),allocatable :: list_sector
+    integer                                           :: i,dim,isector,jsector
+    integer                                           :: in,jn,iorb,ispin
+    integer                                           :: unit,status,istate
+    logical                                           :: IOfile
+    integer                                           :: anint
+    real(8)                                           :: adouble
+    integer                                           :: list_len
+    integer,dimension(:),allocatable                  :: list_sector
+    integer                                           :: maxtwoJz,twoJz
+    integer                                           :: dimJz,inJz,shift
+    integer                                           :: twoJz_add,twoJz_del,twoJz_trgt
     isector=0
-    do in=0,Nlevels
-       isector=isector+1
-       getSector(in,1)=isector
-       getN(isector)=in
-       dim = get_nonsu2_sector_dimension(in)
-       getDim(isector)=dim
-       neigen_sector(isector) = min(dim,lanc_nstates_sector)
-    enddo
+    if(Jz_basis)then
+       !pointers definition
+       do in=0,Nlevels
+          !
+          !algorithm to find the maximum Jz given the density
+          if(in==0.or.in==2*Ns)then
+             maxtwoJz=0
+          else
+             shift=0
+             if(in<=Nbath+1)shift=Nbath-in+1
+             if(in>=2*Ns-Nbath)shift=Nbath-2*Ns+in+1
+             maxtwoJz = 5 + 5*Nbath - abs(in-Ns) - 2*shift
+          endif
+          !
+          !number of available Jz given the maximum value
+          dimJz = maxtwoJz + 1
+          !
+          do inJz=1,dimJz
+             if(in==0.or.in==2*Ns)then
+                twoJz=0
+             else
+                twoJz = - maxtwoJz + 2*(inJz-1)
+             endif
+             isector=isector+1
+             getN(isector)=in
+             gettwoJz(isector)=twoJz
+             getmaxtwoJz(in)=maxtwoJz
+             getSector(in,twoJz)=isector
+             dim = get_nonsu2_sector_dimension_Jz(in,twoJz)
+             !DEBUG>>
+             !write(*,*)"setup",isector,in,twoJz,maxtwoJz,dim
+             !>>DEBUG
+             getDim(isector)=dim
+             neigen_sector(isector) = min(dim,lanc_nstates_sector)
+          enddo
+       enddo
+    else
+       do in=0,Nlevels
+          isector=isector+1
+          getSector(in,1)=isector
+          getN(isector)=in
+          dim = get_nonsu2_sector_dimension(in)
+          getDim(isector)=dim
+          neigen_sector(isector) = min(dim,lanc_nstates_sector)
+       enddo
+    endif
+    !
     inquire(file="state_list"//reg(ed_file_suffix)//".restart",exist=IOfile)
     if(IOfile)then
        list_len=file_length("state_list"//reg(ed_file_suffix)//".restart")
@@ -665,6 +749,46 @@ contains
        getCDGsector(1,isector)=jsector
        getCDGsector(2,isector)=jsector
     enddo
+
+    if(Jz_basis)then
+       !
+       getCsector_Jz=-1
+       !c_{Lz,Sz}
+       do isector=1,Nsectors
+          in=getn(isector);if(in==0)cycle
+          jn=in-1
+          !
+          twoJz=gettwoJz(isector)
+          do iorb=1,Norb
+             do ispin=1,Nspin
+                twoJz_del  = 2 * Lzdiag(iorb) + Szdiag(ispin)
+                twoJz_trgt = twoJz - twoJz_del
+                if(abs(twoJz_trgt) > getmaxtwoJz(jn)) cycle
+                jsector=getSector(jn,twoJz_trgt)
+                getCsector_Jz(iorb,ispin,isector)=jsector
+             enddo
+          enddo
+       enddo
+       !
+       getCDGsector_Jz=-1
+       !cdg_{Lz,Sz}
+       do isector=1,Nsectors
+          in=getn(isector);if(in==Nlevels)cycle
+          jn=in+1
+          !
+          twoJz=gettwoJz(isector)
+          do iorb=1,Norb
+             do ispin=1,Nspin
+                twoJz_add  = 2 * Lzdiag(iorb) + Szdiag(ispin)
+                twoJz_trgt = twoJz + twoJz_add
+                if(abs(twoJz_trgt) > getmaxtwoJz(jn)) cycle
+                jsector=getSector(jn,twoJz_trgt)
+                getCDGsector_Jz(iorb,ispin,isector)=jsector
+             enddo
+          enddo
+       enddo
+       !
+    endif
   end subroutine setup_pointers_nonsu2
 
 
@@ -676,9 +800,9 @@ contains
   !+------------------------------------------------------------------+
   !NORMAL
   function get_normal_sector_dimension(nup,ndw) result(dim)
-    integer          :: nup
+    integer :: nup
     integer,optional :: ndw
-    integer          :: dim,dimup,dimdw
+    integer :: dim,dimup,dimdw
     if(present(ndw))then
        dimup = binomial(Ns,nup)    !this ensures better evaluation of the dimension
        dimdw = binomial(Ns,ndw)    !as it avoids large numbers
@@ -704,12 +828,36 @@ contains
     integer :: dim
     dim=binomial(2*Ns,n)
   end function get_nonsu2_sector_dimension
-
-
-
-
-
-
+  !NONSU2 - Jz conserving
+  function get_nonsu2_sector_dimension_Jz(n,twoJz) result(dim)
+    integer :: n
+    integer :: twoJz
+    integer :: dim
+    integer :: ivec(Ns),jvec(Ns)
+    integer :: iup,idw,ibath,iorb
+    integer :: nt,twoLz,twoSz
+    !
+    dim=0
+    do idw=0,2**Ns-1
+       jvec = bdecomp(idw,Ns)
+       do iup=0,2**Ns-1
+          ivec = bdecomp(iup,Ns)
+          nt   = sum(ivec) + sum(jvec)
+          twoLz=0;twoSz=0
+          do ibath=0,Nbath
+             do iorb=1,Norb
+                twoLz = twoLz + 2 * Lzdiag(iorb) * ivec(iorb+Norb*ibath)  &
+                              + 2 * Lzdiag(iorb) * jvec(iorb+Norb*ibath)
+             enddo
+          enddo
+          twoSz = (sum(ivec) - sum(jvec))
+          !
+          if(nt == n .and. twoJz==(twoSz+twoLz) )then
+             dim=dim+1
+          endif
+       enddo
+    enddo
+  end function get_nonsu2_sector_dimension_Jz
 
 
 
@@ -719,46 +867,22 @@ contains
   !states i\in Hilbert_space from the states count in H_sector.
   !|ImpUP,BathUP>|ImpDW,BathDW >
   !+------------------------------------------------------------------+
-  subroutine build_sector(isector,Hup)!,Hdw)
-    integer                   :: isector
-    type(sector_map)          :: Hup
-    ! type(sector_map),optional :: Hdw
-    integer                   :: nup,ndw,sz,nt
-    integer                   :: nup_,ndw_,sz_,nt_
-    integer                   :: i
-    integer                   :: iup,idw
-    integer                   :: dim
-    integer                   :: ivec(Ns),jvec(Ns)
+  subroutine build_sector(isector,Hup)
+    integer                                      :: isector
+    type(sector_map)                             :: Hup
+    integer                                      :: nup,ndw,sz,nt,twoJz
+    integer                                      :: nup_,ndw_,sz_,nt_
+    integer                                      :: twoSz_,twoLz_
+    integer                                      :: i,ibath,iorb
+    integer                                      :: iup,idw
+    integer                                      :: dim
+    integer                                      :: ivec(Ns),jvec(Ns)
     select case(ed_mode)
+       !
+       !
     case default
        nup = getNup(isector)
        ndw = getNdw(isector)
-       ! if(present(Hdw))then
-       !    !UP
-       !    dim = getDimUp(isector)
-       !    call map_allocate(Hup,dim)
-       !    dim=0
-       !    do i=0,2**Ns-1
-       !       ivec  = bdecomp(i,Ns)
-       !       nup_  = sum(ivec) 
-       !       if(nup_ /= nup)cycle
-       !       dim       = dim+1
-       !       Hup%map(dim) = i
-       !    enddo
-       !    !DW
-       !    dim = getDimDw(isector)
-       !    call map_allocate(Hdw,dim)
-       !    dim=0
-       !    do i=0,2**Ns-1
-       !       ivec  = bdecomp(i,Ns)
-       !       ndw_  = sum(ivec) 
-       !       if(ndw_ /= ndw)cycle
-       !       dim       = dim+1
-       !       Hdw%map(dim) = i
-       !    enddo
-       !    !
-       ! else
-       !    !
        dim = getDim(isector)
        call map_allocate(Hup,dim)
        dim=0
@@ -774,8 +898,6 @@ contains
              Hup%map(dim) = iup + idw*2**Ns
           enddo
        enddo
-       !    !
-       ! endif
        !
        !
     case ("superc")
@@ -799,23 +921,132 @@ contains
        !
        !
     case ("nonsu2")
+       if(Jz_basis)then
+          nt  = getN(isector)
+          dim = getDim(isector)
+          twoJz = gettwoJz(isector)
+          call map_allocate(Hup,dim)
+          dim=0
+          do idw=0,2**Ns-1
+             jvec = bdecomp(idw,Ns)
+             do iup=0,2**Ns-1
+                ivec = bdecomp(iup,Ns)
+                nt_  = sum(ivec) + sum(jvec)
+                twoLz_=0;twoSz_=0
+                do ibath=0,Nbath
+                   do iorb=1,Norb
+                      twoLz_ = twoLz_ + 2 * Lzdiag(iorb) * ivec(iorb+Norb*ibath)  &
+                                      + 2 * Lzdiag(iorb) * jvec(iorb+Norb*ibath)
+                   enddo
+                enddo
+                twoSz_ = (sum(ivec) - sum(jvec))
+                !
+                if(nt_ == nt .and. twoJz==(twoSz_+twoLz_) )then
+                   dim=dim+1
+                   Hup%map(dim)=iup + idw*2**Ns
+                endif
+             enddo
+          enddo
+       else
+          nt  = getN(isector)
+          dim = getDim(isector)
+          call map_allocate(Hup,dim)
+          dim=0
+          do idw=0,2**Ns-1
+             jvec = bdecomp(idw,Ns)
+             do iup=0,2**Ns-1
+                ivec = bdecomp(iup,Ns)
+                nt_  = sum(ivec) + sum(jvec)
+                if(nt_ == nt)then
+                   dim=dim+1
+                   Hup%map(dim)=iup + idw*2**Ns
+                endif
+             enddo
+          enddo
+       endif
+    end select
+  end subroutine build_sector
+
+
+
+
+
+
+  subroutine build_sector_2(isector)
+    integer                   :: isector
+    integer                   :: nup,ndw,sz,nt
+    integer                   :: nup_,ndw_,sz_,nt_
+    integer                   :: i,ibath
+    integer                   :: iup,idw
+    integer                   :: dim
+    real(8)                   :: Sz_tot,Lz_tot,shift,stride,jzv
+    real(8),allocatable       :: Jz(:)
+    integer                   :: ivec(Ns),jvec(Ns)
+
+
+       stride=0.d0
        nt  = getN(isector)
        dim = getDim(isector)
-       call map_allocate(Hup,dim)
+
+       write(123,*)
+       write(123,'(A20,I5)') "sector N",nt
+       write(123,'(A20,I5)') "sector dim(N)",dim
+       write(123,*)
+
+       write(124,*)
+       write(124,'(A20,I5)') "sector N",nt
+       write(124,'(A20,I5)') "sector dim(N)",dim
+
+       if(allocated(Jz))deallocate(Jz);allocate(Jz(dim));Jz=0.d0
+
        dim=0
+       !mi guardo tutti i possibili valori di nup,ndw 
+       !anche quelli con la densità diversa da quella del settore
        do idw=0,2**Ns-1
           jvec = bdecomp(idw,Ns)
           do iup=0,2**Ns-1
              ivec = bdecomp(iup,Ns)
+             !ivec e jvec sono la decomposizione in vettore
+             !qui controllo la densità che ho ottenuto con lo specifico vettore
              nt_  = sum(ivec) + sum(jvec)
+             Lz_tot=0.d0;Sz_tot=0.d0
+             do ibath=0,Nbath
+                Lz_tot = Lz_tot + 1.d0 * ivec(1+Norb*ibath) + 1.d0 * jvec(1+Norb*ibath)
+                Lz_tot = Lz_tot - 1.d0 * ivec(2+Norb*ibath) - 1.d0 * jvec(2+Norb*ibath)
+             enddo
+             Sz_tot = 0.5*(sum(ivec) - sum(jvec))
+
+             !se la densità è quella del settore metto lo stato in rappresentazione decimale dentro la mappa
              if(nt_ == nt)then
                 dim=dim+1
-                Hup%map(dim)=iup + idw*2**Ns
+                Jz(dim)=(Lz_tot+Sz_tot)
+                !write(123,'(3I3,4X,3I3,4X,3(1F5.2,4X))')ivec,jvec,Lz_tot,Sz_tot,Jz(dim)
+                !write(123,'(6I3,4X,6I3,4X,3(1F5.2,4X))')ivec,jvec,Lz_tot,Sz_tot,Jz(dim)
+                write(123,'(9I3,4X,9I3,4X,3(1F5.2,4X),9I5)')ivec,jvec,Lz_tot,Sz_tot,Jz(dim),dim
              endif
           enddo
        enddo
-    end select
-  end subroutine build_sector
+       !
+       ! algorithm
+       if(nt==0.or.nt==2*Ns)then
+          jzv=0
+       else
+          shift=0.
+          if(nt<=Nbath+1)shift=Nbath-nt+1
+          if(nt>=2*Ns-Nbath)shift=Nbath-2*Ns+nt+1
+          jzv = 5/2. +(5/2.*Nbath) -(1/2.)*abs(nt-Ns)-shift
+       endif
+       !
+       write(124,*)
+       write(124,*)"-----------------------------"
+       write(124,'(2(A20,3X,1F5.2),30F5.2)')"maxval(Jz)",maxval(Jz),"algorithm",Jzv
+       write(124,*)
+       write(124,'(2(A20,3X,1F5.2))')"minval(Jz)",minval(Jz)
+       write(124,*)
+       write(124,'(2(A20,3X,1I5))')"degeneracy",int(2.d0*maxval(Jz))+1
+       write(124,*)"-----------------------------"
+       write(124,*)
+  end subroutine build_sector_2
 
   subroutine delete_sector(isector,Hup)!,Hdw)
     integer                   :: isector
@@ -823,9 +1054,6 @@ contains
     ! type(sector_map),optional :: Hdw
     call map_deallocate(Hup)
   end subroutine delete_sector
-
-
-
 
 
   !+-------------------------------------------------------------------+

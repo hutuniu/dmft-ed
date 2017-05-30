@@ -45,7 +45,10 @@ MODULE ED_AUX_FUNX
      module procedure c_nn2nso
   end interface nn2so_reshape
 
-
+!  interface orbital_Lz_rotation
+!     module procedure orbital_Lz_rotation_Norb
+!     module procedure orbital_Lz_rotation_NorbNspin
+!  end interface orbital_Lz_rotation
 
 
   public :: set_Hloc
@@ -63,6 +66,9 @@ MODULE ED_AUX_FUNX
   public :: search_chempot
   public :: SOC_jz_symmetrize
   public :: atomic_SOC
+  public :: atomic_SOC_rotation
+  public :: orbital_Lz_rotation_NorbNspin
+  public :: orbital_Lz_rotation_Norb
   public :: atomic_j
   public :: tql2
 contains
@@ -675,11 +681,11 @@ contains
        !endif
        !vedo se la densità è troppa o troppo poca
        if (diffdens.gt.0.d0) then  
-  !        ilarge=1
+       !   ilarge=1
           xmularge=xmu_tmp
           denslarge=dens_tmp
        elseif (diffdens.lt.0.d0) then
-  !        ismall=1
+       !   ismall=1
           xmusmall=xmu_tmp
           denssmall=dens_tmp
        endif
@@ -688,9 +694,9 @@ contains
           !non ho ancora trovato un xmu per cui diffdens cambia segno
           inotbound=inotbound+1
           if (inotbound>=8)  delta_xmu = 0.5d0
-          if (inotbound>=12) delta_xmu = 1.0d0
-          if (inotbound>=16) delta_xmu = 1.5d0
-          if (inotbound>=20) delta_xmu = 2.0d0
+          if (inotbound>=12) delta_xmu = 0.8d0
+          if (inotbound>=16) delta_xmu = 1.2d0
+          if (inotbound>=20) delta_xmu = 1.6d0
           xmu_shift = delta_xmu * diffdens
           xmu_old = xmu_tmp
           xmu_tmp = xmu_tmp - xmu_shift
@@ -729,7 +735,7 @@ contains
 
 
 
-  subroutine SOC_jz_symmetrize(funct)
+  subroutine SOC_jz_symmetrize_old(funct)
     !passed
     complex(8),allocatable,intent(inout)         ::  funct(:,:,:,:,:)
     complex(8),allocatable                       ::  symmetrized_funct(:,:,:,:,:)
@@ -782,7 +788,79 @@ contains
     funct = symmetrized_funct
     !
     deallocate(symmetrized_funct)
+  end subroutine SOC_jz_symmetrize_old
+
+
+
+
+  subroutine SOC_jz_symmetrize(funct)
+    !passed
+    complex(8),allocatable,intent(inout)         ::  funct(:,:,:,:,:)
+    complex(8),allocatable                       ::  funct_in(:,:,:),funct_out(:,:,:)
+    complex(8),allocatable                       ::  a_funct(:),b_funct(:)
+    integer                                      ::  ispin,io
+    integer                                      ::  ifreq,Lfreq
+    complex(8),allocatable                       ::  U(:,:),Udag(:,:)
+    if(size(funct,dim=1)/=Nspin)stop "wrong size 1 in SOC symmetrize input f"
+    if(size(funct,dim=2)/=Nspin)stop "wrong size 2 in SOC symmetrize input f"
+    if(size(funct,dim=3)/=Norb) stop "wrong size 3 in SOC symmetrize input f"
+    if(size(funct,dim=4)/=Norb) stop "wrong size 4 in SOC symmetrize input f"
+    Lfreq=size(funct,dim=5)
+    allocate(funct_in(Nspin*Norb,Nspin*Norb,Lfreq)); funct_in=zero
+    allocate(funct_out(Nspin*Norb,Nspin*Norb,Lfreq));funct_out=zero
+    allocate(U(Nspin*Norb,Nspin*Norb));U=zero
+    allocate(Udag(Nspin*Norb,Nspin*Norb));Udag=zero
+    allocate(a_funct(Lfreq));a_funct=zero
+    allocate(b_funct(Lfreq));b_funct=zero
+    !
+    !function intake
+    do ifreq=1,Lfreq
+       funct_in(:,:,ifreq)=nn2so_reshape(funct(:,:,:,:,ifreq),Nspin,Norb)
+    enddo
+    !
+    !function diagonalization
+    if(Jz_basis)then
+       U=matmul(transpose(conjg(orbital_Lz_rotation_NorbNspin())),atomic_SOC_rotation())
+       Udag=transpose(conjg(U))
+    else
+       U=atomic_SOC_rotation()
+       Udag=transpose(conjg(U))
+    endif
+    !
+    do ifreq=1,Lfreq
+       funct_out(:,:,ifreq)=matmul(Udag,matmul(funct_in(:,:,ifreq),U))
+    enddo
+    !
+    !function symmetrization in the rotated basis
+    do io=1,2
+       a_funct(:)=a_funct(:)+funct_out(io,io,:)
+    enddo
+    a_funct = a_funct/2.d0
+    do io=3,6
+       b_funct(:)=b_funct(:)+funct_out(io,io,:)
+    enddo
+    b_funct = b_funct/4.d0
+    funct_out=zero
+    do io=1,2
+       funct_out(io,io,:)=a_funct(:)
+    enddo
+    do io=3,6
+       funct_out(io,io,:)=b_funct(:)
+    enddo
+    !
+    !function rotation in the non-diagonal basis
+    funct_in=zero
+    do ifreq=1,Lfreq
+       funct_in(:,:,ifreq)=matmul(U,matmul(funct_out(:,:,ifreq),Udag))
+    enddo
+    !
+    !founction out
+    funct=zero
+    do ifreq=1,Lfreq
+       funct(:,:,:,:,ifreq)=so2nn_reshape(funct_in(:,:,ifreq),Nspin,Norb)
+    enddo
   end subroutine SOC_jz_symmetrize
+
 
 
 
@@ -804,6 +882,85 @@ contains
     enddo
     LS=so2os_reshape(LS_,Nspin,Norb)
   end function atomic_SOC
+
+  function atomic_SOC_rotation() result (LS_rot)
+    complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: LS_rot,LS_rot_
+    integer                                      :: i,j
+    LS_rot_=zero;LS_rot=zero
+    !
+    ! {a,Sz}-->{J}
+    !
+    ![Norb*Norb]*Nspin notation
+    !J=1/2 jz=-1/2
+    LS_rot_(1,1)=+1.d0
+    LS_rot_(2,1)=-Xi
+    LS_rot_(6,1)=-1.d0
+    LS_rot_(:,1)=LS_rot_(:,1)/sqrt(3.)
+    !J=1/2 jz=+1/2
+    LS_rot_(4,2)=+1.d0
+    LS_rot_(5,2)=+Xi
+    LS_rot_(3,2)=+1.d0
+    LS_rot_(:,2)=LS_rot_(:,2)/sqrt(3.)
+    !J=3/2 jz=-3/2
+    LS_rot_(4,3)=+1.d0
+    LS_rot_(5,3)=-Xi
+    LS_rot_(:,3)=LS_rot_(:,3)/sqrt(2.)
+    !J=3/2 jz=+3/2
+    LS_rot_(1,4)=-1.d0
+    LS_rot_(2,4)=-Xi
+    LS_rot_(:,4)=LS_rot_(:,4)/sqrt(2.)
+    !J=3/2 jz=-1/2
+    LS_rot_(1,5)=+1.d0
+    LS_rot_(2,5)=-Xi
+    LS_rot_(6,5)=+2.d0
+    LS_rot_(:,5)=LS_rot_(:,5)/sqrt(6.)
+    !J=3/2 jz=+1/2
+    LS_rot_(4,6)=-1.d0
+    LS_rot_(5,6)=-Xi
+    LS_rot_(3,6)=+2.d0
+    LS_rot_(:,6)=LS_rot_(:,6)/sqrt(6.)
+    !
+    LS_rot=LS_rot_
+    !
+  end function atomic_SOC_rotation
+
+  function orbital_Lz_rotation_Norb() result (U_rot)
+    complex(8),dimension(Norb,Norb)              :: U_rot,U_rot_
+    integer                                      :: i,j
+    U_rot=zero;U_rot_=zero
+    !
+    ! {a}-->{Lz}
+    !
+    ![Norb*Norb] notation
+    U_rot_(1,1)=-Xi/sqrt(2.)
+    U_rot_(2,2)=+1.d0/sqrt(2.)
+    U_rot_(3,3)=+Xi
+    U_rot_(1,2)=-Xi/sqrt(2.)
+    U_rot_(2,1)=-1.d0/sqrt(2.)
+    !
+    U_rot=U_rot_
+    !
+  end function orbital_Lz_rotation_Norb
+
+  function orbital_Lz_rotation_NorbNspin() result (U_rot)
+    complex(8),dimension(Norb,Norb)              :: U_rot_
+    complex(8),dimension(Norb*Nspin,Norb*Nspin)  :: U_rot
+    integer                                      :: i,j
+    U_rot=zero;U_rot_=zero
+    !
+    ! {a,Sz}-->{Lz,Sz}
+    !
+    ![Norb*Norb]*Nspin notation
+    U_rot_(1,1)=-Xi/sqrt(2.)
+    U_rot_(2,2)=+1.d0/sqrt(2.)
+    U_rot_(3,3)=+Xi
+    U_rot_(1,2)=-Xi/sqrt(2.)
+    U_rot_(2,1)=-1.d0/sqrt(2.)
+    !
+    U_rot(1:Norb,1:Norb)=U_rot_
+    U_rot(1+Norb:2*Norb,1+Norb:2*Norb)=U_rot_
+    !
+  end function orbital_Lz_rotation_NorbNspin
 
   function atomic_j(component) result (ja)
     complex(8),dimension(Nspin*Norb,Nspin*Norb)  :: ja,ja_

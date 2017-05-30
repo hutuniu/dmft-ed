@@ -40,8 +40,8 @@
               alfa = getBathStride(iorb,kp)
               beta = getBathStride(jorb,kp)
               Jcondition = &
-                   (dmft_bath%h(1,1,iorb,jorb,kp)/=zero) .AND. &
-                   (ib(beta)==1)                         .AND. &
+                   (dmft_bath%h(1,1,iorb,jorb,kp)/=zero)               .AND. &
+                   (ib(beta)==1)                                       .AND. &
                    (ib(alfa)==0)
               if (Jcondition)then
                  call c(beta,m,k1,sg1)
@@ -56,8 +56,8 @@
               alfa = getBathStride(iorb,kp) + Ns
               beta = getBathStride(jorb,kp) + Ns
               Jcondition = &
-                   (dmft_bath%h(Nspin,Nspin,iorb,jorb,kp)/=zero) .AND. &
-                   (ib(beta)==1)                                 .AND. &
+                   (dmft_bath%h(Nspin,Nspin,iorb,jorb,kp)/=zero)       .AND. &
+                   (ib(beta)==1)                                       .AND. &
                    (ib(alfa)==0)
               if (Jcondition)then
                  call c(beta,m,k1,sg1)
@@ -83,7 +83,7 @@
                     beta = getBathStride(jorb,kp) + (jspin-1)*Ns
                     Jcondition=&
                          (dmft_bath%h(ispin,jspin,iorb,jorb,kp)/=zero) .AND. &
-                         (ib(beta)==1)                          .AND. &
+                         (ib(beta)==1)                                 .AND. &
                          (ib(alfa)==0)
                     if(Jcondition)then
                        call c(beta,m,k1,sg1)
