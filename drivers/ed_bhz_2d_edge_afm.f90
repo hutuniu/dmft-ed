@@ -175,33 +175,6 @@ program ed_bhz_2d_edge
   endif
 
 
-  if(rebuild_sigma)then
-     if(master)then
-        call ed_rebuild_sigma(Bath_ineq,Hloc_ineq,iprint=1)
-        call ed_get_sigma_matsubara(Smats_ineq,Nineq)
-        do ilat=1,Nlat
-           Smats(ilat,:,:,:,:,:) = Smats_ineq(ilat2ineq(ilat),:,:,:,:,:)
-        enddo
-        if(neelsym)then
-           do ilat=2,Nlat,2
-              do ispin=1,2
-                 Smats(ilat,ispin,ispin,:,:,:)=Smats(ilat-1,3-ispin,3-ispin,:,:,:)
-              enddo
-           enddo
-        endif
-        S0 = Smats(:,:,:,:,:,1)![Nlat][Nspin][Nspin][Norb][Norb]
-        do ilat=1,Nlat
-           Zfoo(ilat,:,:) = select_block(ilat,S0)
-           do iorb=1,Nso
-              i = iorb + (ilat-1)*Nso
-              Zmats(i,i)  = 1.d0/( 1.d0 + abs( dimag(Zfoo(ilat,iorb,iorb))/(pi/beta) ))
-           enddo
-        enddo
-        call build_eigenbands()
-     endif
-     stop
-  endif
-
 
 
   !DMFT loop:
@@ -374,7 +347,7 @@ contains
     colors(1,:) = [red1,gray88,blue1,gray88,red1,gray88,blue1,gray88]
     colors(Ly,:) =[blue1,gray88,red1,gray88,blue1,gray88,red1,gray88]
     !
-    call TB_solve_path(bhz_afm2_edge_model,Ly,Ncell*Nso,kpath,Nkpath,&
+    call TB_solve_model(bhz_afm2_edge_model,Ly,Ncell*Nso,kpath,Nkpath,&
          colors_name=colors,&
          points_name=[character(len=10) :: "-pi","0","pi"],&
          file=reg(file),pbc=.false.)
