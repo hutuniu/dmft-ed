@@ -311,7 +311,7 @@ contains
          lambda*sin(-kx)*pauli_tau_x + lambda*sin(-ky)*pauli_tau_y +&
          by*pauli_tau_y - bz*pauli_tau_z)
     Hk(1:2,3:4) = lambda*sin(kz)*pauli_tau_x - BIA*pauli_tau_x + bx*pauli_tau_z
-    Hk(3:4,1:2) = lambda*sin(kz)*pauli_tau_x + BIA*pauli_tau_x + bx*pauli_tau_z
+    Hk(3:4,1:2) = lambda*sin(kz)*pauli_tau_x +xi*BIA*pauli_tau_y + bx*pauli_tau_z
     !
     !add the SigmaWSM term to get Topologial Hamiltonian if required:
     Hk = Hk + dreal(SigmaWSM)
