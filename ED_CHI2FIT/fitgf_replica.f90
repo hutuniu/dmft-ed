@@ -135,21 +135,19 @@ subroutine chi2_fitgf_replica(fg,bath_)
   !
   write(LOGfile,"(A,ES18.9,A,I5,A)")"chi^2|iter"//reg(ed_file_suffix)//'= ',chi," | ",iter,"  <--  All Orbs, All Spins"
   !
-  if(ed_verbose<2)then
-     suffix="_ALLorb_ALLspins"//reg(ed_file_suffix)
-     unit=free_unit()
-     open(unit,file="chi2fit_results"//reg(suffix)//".ed",position="append")
-     write(unit,"(ES18.9,1x,I5)") chi,iter
-     close(unit)
-  endif
+  suffix="_ALLorb_ALLspins"//reg(ed_file_suffix)
+  unit=free_unit()
+  open(unit,file="chi2fit_results"//reg(suffix)//".ed",position="append")
+  write(unit,"(ES18.9,1x,I5)") chi,iter
+  close(unit)
   !
   call set_dmft_bath(array_bath,dmft_bath)           ! *** array_bath --> dmft_bath ***    (per write fit result)
   !
-  if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
+  call write_dmft_bath(dmft_bath,LOGfile)
   !
   call save_dmft_bath(dmft_bath)
   !
-  if(ed_verbose<3)call write_fit_result()
+  call write_fit_result()
   !
   call get_dmft_bath(dmft_bath,bath_)                ! ***  dmft_bath --> bath_ ***    (bath in output)
   !bath_=array_bath                                  ! *** array_bath --> bath_ ***    (analogo della riga sopra)

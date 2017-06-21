@@ -14,10 +14,8 @@ DIREXE=$(HOME)/.bin
 EXE=ed_hm_bethe
 
 ##$ SET INCLUDE AND LINK OPTIONS USING pkg-config
-#INCARGS=$(shell pkg-config --cflags --libs-only-L dmft_tools scifor)
 INCARGS=$(shell pkg-config --cflags dmft_tools scifor)
 LIBARGS=$(shell pkg-config --libs   dmft_tools scifor)
-#-ldmft_tools -lscifor
 
 
 ifeq ($(PLAT),intel)
@@ -47,6 +45,7 @@ endif
 
 
 ##$ Extends the implicit support of the Makefile to .f90 files
+
 .SUFFIXES: .f90
 
 
@@ -82,7 +81,7 @@ compile: $(OBJS)
 	@echo "created" $(DIREXE)/$(EXE)$(BRANCH)
 
 .f90.o:	
-	$(FC) $(FPPFLAG) $(FFLAG) $(INCARGS) -c $< 
+	$(FC) $(FPPFLAG) $(FFLAG) $(INCARGS) -c $<
 
 completion:
 	scifor_completion.sh $(DIR)/$(EXE).f90

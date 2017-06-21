@@ -45,10 +45,10 @@ MODULE ED_AUX_FUNX
      module procedure c_nn2nso
   end interface nn2so_reshape
 
-!  interface orbital_Lz_rotation
-!     module procedure orbital_Lz_rotation_Norb
-!     module procedure orbital_Lz_rotation_NorbNspin
-!  end interface orbital_Lz_rotation
+  !  interface orbital_Lz_rotation
+  !     module procedure orbital_Lz_rotation_Norb
+  !     module procedure orbital_Lz_rotation_NorbNspin
+  !  end interface orbital_Lz_rotation
 
 
   public :: set_Hloc
@@ -168,7 +168,7 @@ contains
     impHloc(ispin,ispin,1:Norb,1:Norb) = Hloc
     write(LOGfile,"(A)")""
     write(LOGfile,"(A)")"Updated impHloc:"
-    if(ed_verbose<4)call print_Hloc(impHloc)
+    if(ed_verbose>2)call print_Hloc(impHloc)
   end subroutine set_Hloc_1
   !
   subroutine set_Hloc_2(hloc)
@@ -178,7 +178,7 @@ contains
     impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = Hloc
     write(LOGfile,"(A)")""
     write(LOGfile,"(A)")"Updated impHloc:"
-    if(ed_verbose<4)call print_Hloc(impHloc)
+    if(ed_verbose>2)call print_Hloc(impHloc)
   end subroutine set_Hloc_2
   !
   subroutine set_Hloc_3d(hloc)
@@ -186,7 +186,7 @@ contains
     impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = hloc
     write(LOGfile,"(A)")""
     write(LOGfile,"(A)")"Updated impHloc:"
-    if(ed_verbose<4)call print_Hloc(impHloc)
+    if(ed_verbose>2)call print_Hloc(impHloc)
   end subroutine set_Hloc_3d
   !
   subroutine set_Hloc_3c(hloc)
@@ -194,7 +194,7 @@ contains
     impHloc(1:Nspin,1:Nspin,1:Norb,1:Norb) = hloc
     write(LOGfile,"(A)")""
     write(LOGfile,"(A)")"Updated impHloc:"
-    if(ed_verbose<4)call print_Hloc(impHloc)
+    if(ed_verbose>2)call print_Hloc(impHloc)
   end subroutine set_Hloc_3c
 
 
@@ -655,17 +655,17 @@ contains
        converged_=.TRUE.
        inotbound=0
        !if(write_6)then
-          write(LOGfile,*)
-          write(LOGfile,*) "   ------------------- search chempot -----------------"
-          write(LOGfile,'(A30,I3)')    "   Density ok in attempt: ",iattempt
-          write(LOGfile,'(A30,F10.6)') "   tolerance: ",nerr
-          write(LOGfile,'(A30,F10.6)') "   density: ",dens_tmp
-          write(LOGfile,'(A30,F10.6)') "   error: ",diffdens
-          write(LOGfile,'(A30,F10.6)') "   target desity: ",nread
-          write(LOGfile,'(A30,F10.6)') "   xmu: ",xmu_tmp
-          write(LOGfile,"(A30,L3)")    "   Converged(n): ",converged_
-          write(LOGfile,*) "   ----------------------------------------------------"
-          write(LOGfile,*)
+       write(LOGfile,*)
+       write(LOGfile,*) "   ------------------- search chempot -----------------"
+       write(LOGfile,'(A30,I3)')    "   Density ok in attempt: ",iattempt
+       write(LOGfile,'(A30,F10.6)') "   tolerance: ",nerr
+       write(LOGfile,'(A30,F10.6)') "   density: ",dens_tmp
+       write(LOGfile,'(A30,F10.6)') "   error: ",diffdens
+       write(LOGfile,'(A30,F10.6)') "   target desity: ",nread
+       write(LOGfile,'(A30,F10.6)') "   xmu: ",xmu_tmp
+       write(LOGfile,"(A30,L3)")    "   Converged(n): ",converged_
+       write(LOGfile,*) "   ----------------------------------------------------"
+       write(LOGfile,*)
        !endif
        unit=free_unit()
        open(unit,file="search_mu_iteration"//reg(ed_file_suffix)//".ed",position="append")
@@ -674,18 +674,18 @@ contains
     else
        converged_=.FALSE.
        !if(write_6)then
-          write(LOGfile,*)
-          write(LOGfile,*) "   ------------------- search chempot -----------------"
-          write(LOGfile,'(A30,2I5)')    "   Adjusting xmu #",iattempt,inotbound
-          write(LOGfile,'(A10,F10.6,A8,F10.6,A8,F10.6)') "    n:",dens_tmp,"!= n:",nread,"error:",abs(dens_tmp-nread)
+       write(LOGfile,*)
+       write(LOGfile,*) "   ------------------- search chempot -----------------"
+       write(LOGfile,'(A30,2I5)')    "   Adjusting xmu #",iattempt,inotbound
+       write(LOGfile,'(A10,F10.6,A8,F10.6,A8,F10.6)') "    n:",dens_tmp,"!= n:",nread,"error:",abs(dens_tmp-nread)
        !endif
        !vedo se la densità è troppa o troppo poca
        if (diffdens.gt.0.d0) then  
-       !   ilarge=1
+          !   ilarge=1
           xmularge=xmu_tmp
           denslarge=dens_tmp
        elseif (diffdens.lt.0.d0) then
-       !   ismall=1
+          !   ismall=1
           xmusmall=xmu_tmp
           denssmall=dens_tmp
        endif
@@ -708,7 +708,7 @@ contains
           write(LOGfile,*)
           !
        else
-       !elseif((ilarge*ismall.ne.0).and.(ibound.ne.1))then
+          !elseif((ilarge*ismall.ne.0).and.(ibound.ne.1))then
           !ho trovato un xmu per cui diffdens cambia segno
           write(LOGfile,*)"   xmu is bound",xmularge,"-",xmusmall
           xmu_shift =  sign(1.0d0,diffdens)*abs((xmusmall-xmularge)/2.)

@@ -19,10 +19,12 @@ MODULE DMFT_ED
 
 
   USE ED_IO,      only:                        &
-                                ! ed_print_PolesWeights                  ,&
        ed_print_impSigma                      ,&
        ed_print_impG                          ,&
-       ed_print_impG0                         ,&       
+       ed_print_impG0                         ,&
+       ed_read_impSigma                       ,&
+       ed_read_impG                           ,&
+       ed_read_impG0                          ,&       
        ed_print_impChi                        ,&       
        ed_get_sigma_matsubara                 ,&
        ed_get_self_matsubara                  ,&
@@ -65,8 +67,7 @@ MODULE DMFT_ED
 
   USE ED_MAIN,      only:                      &
        ed_init_solver                         ,&
-       ed_solve!                                ,&
-  ! ed_rebuild_sigma       
+       ed_solve
 
 
   USE ED_CHI2FIT,  only: ed_chi2_fitgf

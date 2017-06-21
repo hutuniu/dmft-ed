@@ -5,7 +5,7 @@ subroutine build_chi_dens()
   integer :: iorb,jorb
   write(LOGfile,"(A)")"Get impurity dens Chi:"
   do iorb=1,Norb
-     if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_diag_l"//reg(txtfy(iorb))
+     if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_diag_l"//reg(txtfy(iorb))
      call lanc_ed_build_densChi_diag_c(iorb)
   enddo
   !
@@ -13,7 +13,7 @@ subroutine build_chi_dens()
   if(Norb>1)then
      do iorb=1,Norb
         do jorb=iorb+1,Norb
-           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_offdiag_l"//reg(txtfy(iorb))//reg(txtfy(jorb))
+           if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_offdiag_l"//reg(txtfy(iorb))//reg(txtfy(jorb))
            call lanc_ed_build_densChi_offdiag_c(iorb,jorb)
         end do
      end do
@@ -25,12 +25,12 @@ subroutine build_chi_dens()
      !
      do iorb=1,Norb
         do jorb=1,Norb
-           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_offdiag_l"//reg(txtfy(iorb))//reg(txtfy(jorb))
+           if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_offdiag_l"//reg(txtfy(iorb))//reg(txtfy(jorb))
            call lanc_ed_build_densChi_mix_c(iorb,jorb)
         end do
      end do
      !
-     if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_tot"
+     if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_tot"
      call lanc_ed_build_densChi_tot_c()     
   endif
   !
@@ -61,7 +61,7 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
   !
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+  if(MPI_MASTER)call start_timer
   !
   do izero=1,state_list%size
      isector    =  es_return_sector(state_list,izero)
@@ -71,7 +71,7 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      allocate(vvinit(idim))
-     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
+     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=zero
      do m=1,idim                     !loop over |gs> components m
@@ -106,7 +106,7 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+  if(MPI_MASTER)call stop_timer
 end subroutine lanc_ed_build_densChi_diag_c
 
 
@@ -129,7 +129,7 @@ subroutine lanc_ed_build_densChi_tot_c()
   integer                :: Nitermax
   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+  if(MPI_MASTER)call start_timer
   !
   do izero=1,state_list%size
      isector    =  es_return_sector(state_list,izero)
@@ -139,7 +139,7 @@ subroutine lanc_ed_build_densChi_tot_c()
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      allocate(vvinit(idim))
-     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
+     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=zero
      do m=1,idim
@@ -174,7 +174,7 @@ subroutine lanc_ed_build_densChi_tot_c()
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+  if(MPI_MASTER)call stop_timer
 end subroutine lanc_ed_build_densChi_tot_c
 
 
@@ -200,7 +200,7 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
   integer                :: Nitermax
   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+  if(MPI_MASTER)call start_timer
   !
   do izero=1,state_list%size
      ! properties of the ground states
@@ -214,7 +214,7 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      call build_sector(isector,HI)
      !
      !build the (N_iorb+N_jorb)|gs> state
-     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + N_jorb:'
+     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + N_jorb:'
      vvinit=zero
      do m=1,idim                     !loop over |gs> components m
         i=HI%map(m)
@@ -250,7 +250,7 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      !
      !
      !build the (N_iorb - xi*N_jorb)|gs> state
-     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
+     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
      cvinit=zero
      do m=1,idim
         i=HI%map(m)
@@ -283,7 +283,7 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      !
      !
      !build the (N_iorb + xi*N_jorb)|gs> state
-     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
+     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
      cvinit=zero
      do m=1,idim
         i=HI%map(m)
@@ -319,7 +319,7 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+  if(MPI_MASTER)call stop_timer
 end subroutine lanc_ed_build_densChi_offdiag_c
 
 
@@ -351,7 +351,7 @@ subroutine lanc_ed_build_densChi_mix_c(iorb,jorb)
   integer             :: Nitermax,Nlanc
   !
   !   
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+  if(MPI_MASTER)call start_timer
   !
   do istate=1,state_list%size
      isector     =  es_return_sector(state_list,istate)
@@ -486,7 +486,7 @@ subroutine lanc_ed_build_densChi_mix_c(iorb,jorb)
      deallocate(HI%map)
      !
   enddo
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+  if(MPI_MASTER)call stop_timer
 end subroutine lanc_ed_build_densChi_mix_c
 
 
@@ -757,7 +757,7 @@ end subroutine add_to_lanczos_densChi_tot
 !   type(sector_map)    :: HI    !map of the Sector S to Hilbert space H
 !   !
 !   !
-!   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+!   if(MPI_MASTER)call start_timer
 !   !
 !   do izero=1,state_list%size
 !      isector    =  es_return_sector(state_list,izero)
@@ -767,7 +767,7 @@ end subroutine add_to_lanczos_densChi_tot
 !      norm0=sqrt(dot_product(state_vec,state_vec))
 !      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
 !      allocate(vvinit(idim))
-!      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
+!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
 !      call build_sector(isector,HI)
 !      vvinit=0.d0
 !      do m=1,idim                     !loop over |gs> components m
@@ -796,7 +796,7 @@ end subroutine add_to_lanczos_densChi_tot
 !      if(spH0%status)call sp_delete_matrix(spH0)
 !      nullify(state_vec)
 !   enddo
-!   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+!   if(MPI_MASTER)call stop_timer
 ! end subroutine lanc_ed_build_densChi_diag_d
 
 
@@ -815,7 +815,7 @@ end subroutine add_to_lanczos_densChi_tot
 !   integer             :: Nitermax
 !   type(sector_map)    :: HI    !map of the Sector S to Hilbert space H
 !   !
-!   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+!   if(MPI_MASTER)call start_timer
 !   !
 !   do izero=1,state_list%size
 !      isector    =  es_return_sector(state_list,izero)
@@ -825,7 +825,7 @@ end subroutine add_to_lanczos_densChi_tot
 !      norm0=sqrt(dot_product(state_vec,state_vec))
 !      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
 !      allocate(vvinit(idim))
-!      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
+!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
 !      call build_sector(isector,HI)
 !      vvinit=0.d0
 !      do m=1,idim  
@@ -854,7 +854,7 @@ end subroutine add_to_lanczos_densChi_tot
 !      if(spH0%status)call sp_delete_matrix(spH0)
 !      nullify(state_vec)
 !   enddo
-!   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+!   if(MPI_MASTER)call stop_timer
 ! end subroutine lanc_ed_build_densChi_tot_d
 
 
@@ -874,7 +874,7 @@ end subroutine add_to_lanczos_densChi_tot
 !   integer                :: Nitermax
 !   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
 !   !
-!   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+!   if(MPI_MASTER)call start_timer
 !   !
 !   do izero=1,state_list%size
 !      ! properties of the ground states
@@ -888,7 +888,7 @@ end subroutine add_to_lanczos_densChi_tot
 !      call build_sector(isector,HI)
 !      !
 !      !build the (N_iorb+N_jorb)|gs> state
-!      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + N_jorb:'
+!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + N_jorb:'
 !      vvinit=0.d0
 !      do m=1,idim                     !loop over |gs> components m
 !         i=HI%map(m)
@@ -918,7 +918,7 @@ end subroutine add_to_lanczos_densChi_tot
 !      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
 !      !
 !      !build the (N_iorb - xi*N_jorb)|gs> state
-!      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
+!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
 !      cvinit=zero
 !      do m=1,idim
 !         i=HI%map(m)
@@ -945,7 +945,7 @@ end subroutine add_to_lanczos_densChi_tot
 !      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
 !      !
 !      !build the (N_iorb + xi*N_jorb)|gs> state
-!      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
+!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
 !      cvinit=zero
 !      do m=1,idim
 !         i=HI%map(m)
@@ -975,7 +975,7 @@ end subroutine add_to_lanczos_densChi_tot
 !      if(spH0%status)call sp_delete_matrix(spH0)
 !      nullify(state_vec)
 !   enddo
-!   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+!   if(MPI_MASTER)call stop_timer
 ! end subroutine lanc_ed_build_densChi_offdiag_d
 
 
@@ -994,7 +994,7 @@ end subroutine add_to_lanczos_densChi_tot
 !   integer             :: Nitermax,Nlanc
 !   !
 !   !   
-!   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+!   if(MPI_MASTER)call start_timer
 !   !
 !   do istate=1,state_list%size
 !      isector    =  es_return_sector(state_list,istate)
@@ -1116,7 +1116,7 @@ end subroutine add_to_lanczos_densChi_tot
 !      deallocate(HI%map)
 !      !
 !   enddo
-!   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+!   if(MPI_MASTER)call stop_timer
 ! end subroutine lanc_ed_build_densChi_mix_d
 
 

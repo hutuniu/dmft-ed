@@ -5,11 +5,11 @@ subroutine build_chi_spin()
   integer :: iorb
   write(LOGfile,"(A)")"Get impurity spin Chi:"
   do iorb=1,Norb
-     if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_spin_l"//reg(txtfy(iorb))
+     if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_spin_l"//reg(txtfy(iorb))
      call lanc_ed_build_spinChi_c(iorb)
   enddo
   if(Norb>1)then
-     if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get Chi_spin_tot"
+     if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_spin_tot"
      call lanc_ed_build_spinChi_tot_c()
   endif
   spinChi_tau = SpinChi_tau/zeta_function
@@ -40,7 +40,7 @@ subroutine lanc_ed_build_spinChi_c(iorb)
   type(sector_map) :: HI    !map of the Sector S to Hilbert space H
   !
   !
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+  if(MPI_MASTER)call start_timer
   !
   do izero=1,state_list%size
      isector     =  es_return_sector(state_list,izero)
@@ -50,7 +50,7 @@ subroutine lanc_ed_build_spinChi_c(iorb)
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      allocate(vvinit(idim))
-     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim                     !loop over |gs> components m
@@ -86,7 +86,7 @@ subroutine lanc_ed_build_spinChi_c(iorb)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+  if(MPI_MASTER)call stop_timer
 end subroutine lanc_ed_build_spinChi_c
 
 
@@ -119,7 +119,7 @@ subroutine lanc_ed_build_spinChi_tot_c()
   type(sector_map) :: HI    !map of the Sector S to Hilbert space H
   !
   !
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+  if(MPI_MASTER)call start_timer
   !
   do izero=1,state_list%size
      isector     =  es_return_sector(state_list,izero)
@@ -129,7 +129,7 @@ subroutine lanc_ed_build_spinChi_tot_c()
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      allocate(vvinit(idim))
-     if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=0.d0
      do m=1,idim  
@@ -165,7 +165,7 @@ subroutine lanc_ed_build_spinChi_tot_c()
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+  if(MPI_MASTER)call stop_timer
 end subroutine lanc_ed_build_spinChi_tot_c
 
 
@@ -278,7 +278,7 @@ end subroutine add_to_lanczos_spinChi
 !   type(sector_map) :: HI    !map of the Sector S to Hilbert space H
 !   !
 !   !
-!   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+!   if(MPI_MASTER)call start_timer
 !   !
 !   do izero=1,state_list%size
 !      isector     =  es_return_sector(state_list,izero)
@@ -288,7 +288,7 @@ end subroutine add_to_lanczos_spinChi
 !      norm0=sqrt(dot_product(state_vec,state_vec))
 !      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
 !      allocate(vvinit(idim))
-!      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
 !      call build_sector(isector,HI)
 !      vvinit=0.d0
 !      do m=1,idim                     !loop over |gs> components m
@@ -318,7 +318,7 @@ end subroutine add_to_lanczos_spinChi
 !      if(spH0%status)call sp_delete_matrix(spH0)
 !      nullify(state_vec)
 !   enddo
-!   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+!   if(MPI_MASTER)call stop_timer
 ! end subroutine lanc_ed_build_spinChi_d
 
 
@@ -336,7 +336,7 @@ end subroutine add_to_lanczos_spinChi
 !   type(sector_map) :: HI    !map of the Sector S to Hilbert space H
 !   !
 !   !  
-!   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+!   if(MPI_MASTER)call start_timer
 !   !
 !   do izero=1,state_list%size
 !      isector     =  es_return_sector(state_list,izero)
@@ -346,7 +346,7 @@ end subroutine add_to_lanczos_spinChi
 !      norm0=sqrt(dot_product(state_vec,state_vec))
 !      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
 !      allocate(vvinit(idim))
-!      if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
+!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply Sz:',getnup(isector),getndw(isector)
 !      call build_sector(isector,HI)
 !      vvinit=0.d0
 !      do m=1,idim  
@@ -376,5 +376,5 @@ end subroutine add_to_lanczos_spinChi
 !      if(spH0%status)call sp_delete_matrix(spH0)
 !      nullify(state_vec)
 !   enddo
-!   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+!   if(MPI_MASTER)call stop_timer
 ! end subroutine lanc_ed_build_spinChi_tot_d

@@ -4,7 +4,7 @@ MODULE ED_IO
   USE ED_AUX_FUNX
   USE SF_LINALG
   USE SF_ARRAYS, only: linspace,arange
-  USE SF_IOTOOLS, only: reg,store_data,txtfy,free_unit,free_units
+  USE SF_IOTOOLS, only: str,reg,free_unit,splot,sread
   implicit none
   private
 
@@ -191,99 +191,6 @@ MODULE ED_IO
 
 
 
-  ! interface ed_get_sigma_matsubara_lattice
-  !    module procedure ed_get_sigma_matsubara_lattice_1
-  !    module procedure ed_get_sigma_matsubara_lattice_2
-  !    module procedure ed_get_sigma_matsubara_lattice_3
-  !    module procedure ed_get_sigma_matsubara_lattice_11
-  !    module procedure ed_get_sigma_matsubara_lattice_21
-  !    module procedure ed_get_sigma_matsubara_lattice_31
-  ! end interface ed_get_sigma_matsubara_lattice
-
-  ! interface ed_get_self_matsubara_lattice
-  !    module procedure ed_get_self_matsubara_lattice_1
-  !    module procedure ed_get_self_matsubara_lattice_2
-  !    module procedure ed_get_self_matsubara_lattice_3
-  !    module procedure ed_get_self_matsubara_lattice_11
-  !    module procedure ed_get_self_matsubara_lattice_21
-  !    module procedure ed_get_self_matsubara_lattice_31
-  ! end interface ed_get_self_matsubara_lattice
-
-  ! interface ed_get_sigma_real_lattice
-  !    module procedure ed_get_sigma_real_lattice_1
-  !    module procedure ed_get_sigma_real_lattice_2
-  !    module procedure ed_get_sigma_real_lattice_3
-  !    module procedure ed_get_sigma_real_lattice_11
-  !    module procedure ed_get_sigma_real_lattice_21
-  !    module procedure ed_get_sigma_real_lattice_31
-  ! end interface ed_get_sigma_real_lattice
-
-  ! interface ed_get_self_real_lattice
-  !    module procedure ed_get_self_real_lattice_1
-  !    module procedure ed_get_self_real_lattice_2
-  !    module procedure ed_get_self_real_lattice_3
-  !    module procedure ed_get_self_real_lattice_11
-  !    module procedure ed_get_self_real_lattice_21
-  !    module procedure ed_get_self_real_lattice_31
-  ! end interface ed_get_self_real_lattice
-
-
-  ! interface ed_get_gimp_matsubara_lattice
-  !    module procedure ed_get_gimp_matsubara_lattice_1
-  !    module procedure ed_get_gimp_matsubara_lattice_2
-  !    module procedure ed_get_gimp_matsubara_lattice_3
-  !    module procedure ed_get_gimp_matsubara_lattice_11
-  !    module procedure ed_get_gimp_matsubara_lattice_21
-  !    module procedure ed_get_gimp_matsubara_lattice_31
-  ! end interface ed_get_gimp_matsubara_lattice
-
-  ! interface ed_get_fimp_matsubara_lattice
-  !    module procedure ed_get_fimp_matsubara_lattice_1
-  !    module procedure ed_get_fimp_matsubara_lattice_2
-  !    module procedure ed_get_fimp_matsubara_lattice_3
-  !    module procedure ed_get_fimp_matsubara_lattice_11
-  !    module procedure ed_get_fimp_matsubara_lattice_21
-  !    module procedure ed_get_fimp_matsubara_lattice_31
-  ! end interface ed_get_fimp_matsubara_lattice
-
-  ! interface ed_get_gimp_real_lattice
-  !    module procedure ed_get_gimp_real_lattice_1
-  !    module procedure ed_get_gimp_real_lattice_2
-  !    module procedure ed_get_gimp_real_lattice_3
-  !    module procedure ed_get_gimp_real_lattice_11
-  !    module procedure ed_get_gimp_real_lattice_21
-  !    module procedure ed_get_gimp_real_lattice_31
-  ! end interface ed_get_gimp_real_lattice
-
-  ! interface ed_get_fimp_real_lattice
-  !    module procedure ed_get_fimp_real_lattice_1
-  !    module procedure ed_get_fimp_real_lattice_2
-  !    module procedure ed_get_fimp_real_lattice_3
-  !    module procedure ed_get_fimp_real_lattice_11
-  !    module procedure ed_get_fimp_real_lattice_21
-  !    module procedure ed_get_fimp_real_lattice_31
-  ! end interface ed_get_fimp_real_lattice
-
-  ! interface ed_get_dens_lattice
-  !    module procedure ed_get_dens_lattice_1
-  !    module procedure ed_get_dens_lattice_2
-  ! end interface ed_get_dens_lattice
-
-  ! interface ed_get_mag_lattice
-  !    module procedure ed_get_mag_lattice_1
-  !    module procedure ed_get_mag_lattice_2
-  ! end interface ed_get_mag_lattice
-
-  ! interface ed_get_docc_lattice
-  !    module procedure ed_get_docc_lattice_1
-  !    module procedure ed_get_docc_lattice_2
-  ! end interface ed_get_docc_lattice
-
-  ! interface ed_get_phisc_lattice
-  !    module procedure ed_get_phisc_lattice_1
-  !    module procedure ed_get_phisc_lattice_2
-  ! end interface ed_get_phisc_lattice
-
 
 
   public :: ed_get_sigma_matsubara
@@ -316,97 +223,29 @@ MODULE ED_IO
   public :: ed_get_density_matrix
   public :: ed_get_quantum_SOC_operators
 
+  !****************************************************************************************!
+  !****************************************************************************************!
 
-
-
-  ! public :: ed_get_eimp_lattice
-  ! public :: ed_get_epot_lattice
-  ! public :: ed_get_eint_lattice
-  ! public :: ed_get_ehartree_lattice
-  ! public :: ed_get_eknot_lattice
-
-  ! public :: ed_get_doubles_lattice
-  ! public :: ed_get_dust_lattice
-  ! public :: ed_get_dund_lattice
-  ! public :: ed_get_dse_lattice
-  ! public :: ed_get_dph_lattice
-
-
-
-
-  ! public :: ed_get_sigma_matsubara_lattice
-  ! public :: ed_get_self_matsubara_lattice
-  ! public :: ed_get_sigma_real_lattice
-  ! public :: ed_get_self_real_lattice
-
-  ! public :: ed_get_gimp_matsubara_lattice
-  ! public :: ed_get_fimp_matsubara_lattice
-  ! public :: ed_get_gimp_real_lattice
-  ! public :: ed_get_fimp_real_lattice
-
-  ! public :: ed_get_dens_lattice
-  ! public :: ed_get_mag_lattice
-  ! public :: ed_get_docc_lattice
-  ! public :: ed_get_phisc_lattice
-
-
-
-
-  interface ed_print_impSigma
-     module procedure :: ed_print_impSigma_single
-     module procedure :: ed_print_impSigma_lattice
-  end interface ed_print_impSigma
-
-  interface  ed_print_impG
-     module procedure :: ed_print_impG_single
-     module procedure :: ed_print_impG_lattice
-  end interface ed_print_impG
-
-  ! public :: ed_print_PolesWeights
   public :: ed_print_impSigma
   public :: ed_print_impG
   public :: ed_print_impG0
   public :: ed_print_impChi
+  !
+  public :: ed_read_impSigma
+  public :: ed_read_impG
+  public :: ed_read_impG0
 
-  !FOR INTERNAL USE ONLY:
-  ! public :: print_poles_weights_normal
-  ! public :: print_poles_weights_superc
-  ! public :: print_poles_weights_nonsu2
-  !
-  public :: print_impSigma_normal
-  public :: print_impSigma_superc
-  public :: print_impSigma_nonsu2
-  !
-  public :: print_impSigma_normal_lattice
-  public :: print_impSigma_superc_lattice
-  public :: print_impSigma_nonsu2_lattice
-  !
-  public :: print_impG_normal
-  public :: print_impG_superc
-  public :: print_impG_nonsu2
-  !
-  public :: print_impG_normal_lattice
-  public :: print_impG_superc_lattice
-  public :: print_impG_nonsu2_lattice
-  !
-  public :: print_impG0_normal
-  public :: print_impG0_superc
-  public :: print_impG0_nonsu2
-  !
-  public :: print_chi_spin
-  public :: print_chi_dens
-  public :: print_chi_dens_mix
-  public :: print_chi_dens_tot
-  public :: print_chi_pair
+
 
 
 
   !Frequency and time arrays:
   !=========================================================
   real(8),dimension(:),allocatable :: wm,tau,wr,vm
-
-
   character(len=64)                :: suffix
+
+
+
 
 
 contains
@@ -414,99 +253,85 @@ contains
 
   !+------------------------------------------------------------------+
   !PURPOSE  : Print impurity Functions case:
-  ! - Poles&Weights
   ! - impSigma
   ! - impG
   ! - impG0
   ! NORMAL - SUPERConducting - NONSU2
   !+------------------------------------------------------------------+
-  ! subroutine ed_print_PolesWeights
-  !   select case(ed_mode)
-  !   case ("normal")
-  !      call print_poles_weights_normal
-  !   case ("superc")
-  !      call print_poles_weights_superc
-  !   case ("nonsu2")
-  !      call print_poles_weights_nonsu2
-  !   case default
-  !      stop "ed_print_PolesWeights error: ed_mode not in the list"
-  !   end select
-  ! end subroutine ed_print_PolesWeights
-
-
-  subroutine ed_print_impSigma_single
+  include "ED_IO/print_impSigma.f90"
+  include "ED_IO/read_impSigma.f90"
+  subroutine ed_print_impSigma
     select case(ed_mode)
-    case ("normal")
-       call print_impSigma_normal
-    case ("superc")
-       call print_impSigma_superc
-    case ("nonsu2")
-       call print_impSigma_nonsu2
-    case default
-       stop "ed_print_impSigma error: ed_mode not in the list"
+    case ("normal");call print_impSigma_normal
+    case ("superc");call print_impSigma_superc
+    case ("nonsu2");call print_impSigma_nonsu2
+    case default;stop "ed_print_impSigma error: ed_mode not in the list"
     end select
-  end subroutine ed_print_impSigma_single
-  !
-  subroutine ed_print_impSigma_lattice(iprint)
-    integer :: iprint
+  end subroutine ed_print_impSigma
+
+  subroutine ed_read_impSigma
     select case(ed_mode)
-    case ("normal")
-       call print_impSigma_normal_lattice(iprint)
-    case ("superc")
-       call print_impSigma_superc_lattice(iprint)
-    case ("nonsu2")
-       call print_impSigma_nonsu2_lattice(iprint)
-    case default
-       stop " print_impSigma_lattice error: ed_mode not in the list"
+    case ("normal");call read_impSigma_normal
+    case ("superc");call read_impSigma_superc
+    case ("nonsu2");call read_impSigma_nonsu2
+    case default;stop "ed_read_impSigma error: ed_mode not in the list"
     end select
-  end subroutine ed_print_impSigma_lattice
+  end subroutine ed_read_impSigma
+
+  !****************************************************************************************!
+  !****************************************************************************************!
 
 
-
-  subroutine ed_print_impG_single
+  include "ED_IO/print_impG.f90"
+  include "ED_IO/read_impG.f90"
+  subroutine ed_print_impG
     select case(ed_mode)
-    case ("normal")
-       call print_impG_normal
-    case ("superc")
-       call print_impG_superc
-    case ("nonsu2")
-       call print_impG_nonsu2
-    case default
-       stop "ed_print_impG error: ed_mode not in the list"
+    case ("normal");call print_impG_normal
+    case ("superc");call print_impG_superc
+    case ("nonsu2");call print_impG_nonsu2
+    case default;stop "ed_print_impG error: ed_mode not in the list"
     end select
-  end subroutine ed_print_impG_single
-  !
-  subroutine ed_print_impG_lattice(iprint)
-    integer :: iprint
+  end subroutine ed_print_impG
+
+  subroutine ed_read_impG
     select case(ed_mode)
-    case ("normal")
-       call print_impG_normal_lattice(iprint)
-    case ("superc")
-       call print_impG_superc_lattice(iprint)
-    case ("nonsu2")
-       call print_impG_nonsu2_lattice(iprint)
-    case default
-       stop " print_impG_lattice error: ed_mode not in the list"
+    case ("normal");call read_impG_normal
+    case ("superc");call read_impG_superc
+    case ("nonsu2");call read_impG_nonsu2
+    case default;stop "ed_read_impG error: ed_mode not in the list"
     end select
-  end subroutine ed_print_impG_lattice
+  end subroutine ed_read_impG
 
 
+  !****************************************************************************************!
+  !****************************************************************************************!
 
+
+  include "ED_IO/print_impG0.f90"
+  include "ED_IO/read_impG0.f90"
   subroutine ed_print_impG0
     select case(ed_mode)
-    case ("normal")
-       call print_impG0_normal
-    case ("superc")
-       call print_impG0_superc
-    case ("nonsu2")
-       call print_impG0_nonsu2
-    case default
-       stop "ed_print_impG0 error: ed_mode not in the list"
+    case ("normal");call print_impG0_normal
+    case ("superc");call print_impG0_superc
+    case ("nonsu2");call print_impG0_nonsu2
+    case default;stop "ed_print_impG0 error: ed_mode not in the list"
     end select
   end subroutine ed_print_impG0
 
+  subroutine ed_read_impG0
+    select case(ed_mode)
+    case ("normal");call read_impG0_normal
+    case ("superc");call read_impG0_superc
+    case ("nonsu2");call read_impG0_nonsu2
+    case default;stop "ed_read_impG0 error: ed_mode not in the list"
+    end select
+  end subroutine ed_read_impG0
+
+  !****************************************************************************************!
+  !****************************************************************************************!
 
 
+  include "ED_IO/print_impChi.f90"
   subroutine ed_print_impChi
     call print_chi_spin
     call print_chi_dens
@@ -518,11 +343,9 @@ contains
 
 
 
-  ! include "ED_IO/print_PolesWeights.f90"
-  include "ED_IO/print_impSigma.f90"
-  include "ED_IO/print_impG.f90"
-  include "ED_IO/print_impG0.f90"
-  include "ED_IO/print_impChi.f90"
+
+
+
 
 
 
@@ -793,8 +616,8 @@ contains
     write(unit_,*)
     write(unit_,'(30(a20,1X))')"#1-Re{Tr[Sx]}","2-Im{Tr[Sx]}","3-Re{Tr[Sy]}","4-Im{Tr[Sy]}","5-Re{Tr[Sz]}","6-Im{Tr[Sz]}"
     write(unit_,'(30(F20.12,1X))') real(trace(Simp(1,:,:))),aimag(trace(Simp(1,:,:))),&
-                                   real(trace(Simp(2,:,:))),aimag(trace(Simp(2,:,:))),&
-                                   real(trace(Simp(3,:,:))),aimag(trace(Simp(3,:,:)))
+         real(trace(Simp(2,:,:))),aimag(trace(Simp(2,:,:))),&
+         real(trace(Simp(3,:,:))),aimag(trace(Simp(3,:,:)))
     close(unit_)
     !
     !   IMPURITY ORBITAL ANGULAR MOMENTUM OPERATOR - (L)
@@ -818,8 +641,8 @@ contains
     write(unit_,*)
     write(unit_,'(30(a20,1X))')"#1-Re{Tr[Lx]}","2-Im{Tr[Lx]}","3-Re{Tr[Ly]}","4-Im{Tr[ly]}","5-Re{Tr[Lz]}","6-Im{Tr[Lz]}"
     write(unit_,'(30(F20.12,1X))') real(trace(Limp(1,:,:))),aimag(trace(Limp(1,:,:))),&
-                                   real(trace(Limp(2,:,:))),aimag(trace(Limp(2,:,:))),&
-                                   real(trace(Limp(3,:,:))),aimag(trace(Limp(3,:,:)))
+         real(trace(Limp(2,:,:))),aimag(trace(Limp(2,:,:))),&
+         real(trace(Limp(3,:,:))),aimag(trace(Limp(3,:,:)))
     close(unit_)
     !
     !   IMPURITY TOTAL ANGULAR MOMENTUM OPERATOR - (J = S + L)
@@ -827,11 +650,11 @@ contains
     unit_ = free_unit()
     open(unit=unit_,file='J_imp.dat',status='unknown',position='rewind',action='write',form='formatted')
     write(unit_,'(30(a20,1X))') "# 1-Re{jx}   "," 2-Im{jx}   "," 3-Re{jy}   "," 4-Im{jy}   "," 5-Re{jz}   "," 6-Im{jz}   ", &
-                                 " 7-Re{jx_sq}"," 8-Im{jx_sq}"," 9-Re{jy_sq}","10-Im{jy_sq}","11-Re{jz_sq}","12-Im{jz_sq}", &
-                                 "13-Re{L.S}","14-Im{L.S}"
+         " 7-Re{jx_sq}"," 8-Im{jx_sq}"," 9-Re{jy_sq}","10-Im{jy_sq}","11-Re{jz_sq}","12-Im{jz_sq}", &
+         "13-Re{L.S}","14-Im{L.S}"
     write(unit_,'(30(F20.12,1X))') real(jimp(1))   ,aimag(jimp(1))   ,real(jimp(2))   ,aimag(jimp(2))   ,real(jimp(3))   ,aimag(jimp(3))   , &
-                                   real(jimp_sq(1)),aimag(jimp_sq(1)),real(jimp_sq(2)),aimag(jimp_sq(2)),real(jimp_sq(3)),aimag(jimp_sq(3)), &
-                                   real(LSimp),aimag(LSimp),(real(LSbth(io)),io=1,Nbath)
+         real(jimp_sq(1)),aimag(jimp_sq(1)),real(jimp_sq(2)),aimag(jimp_sq(2)),real(jimp_sq(3)),aimag(jimp_sq(3)), &
+         real(LSimp),aimag(LSimp),(real(LSbth(io)),io=1,Nbath)
     close(unit_)
     !
   end subroutine ed_get_quantum_SOC_operators

@@ -90,15 +90,16 @@ contains
     integer                         :: ispin_
     ispin_=1;if(present(ispin))ispin_=ispin
     call assert_shape(fg,[Nspin,Nspin,Norb,Norb,size(fg,5)],"chi2_fitgf_generic_normal","fg")
+    !
     select case(cg_method)
-    case (0)
-       if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
-    case (1)
-       if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
-    case(2)
-       if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
     case default
-       stop "chi2_fitgf_generic_normal error: cg_method > 2"
+       stop "ED Error: cg_method > 2"
+    case (0)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
+    case (1)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
+    case (2)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
     end select
     !
     select case(bath_type)
@@ -165,14 +166,14 @@ contains
     call assert_shape(fg,[Nspin,Nspin,Norb,Norb,size(fg,5)],"chi2_fitgf_generic_normal","fg")
     if(MPI_MASTER)then
        select case(cg_method)
-       case (0)
-          if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
-       case (1)
-          if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
-       case(2)
-          if(ed_verbose<3)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
        case default
-          stop "chi2_fitgf_generic_normal error: cg_method > 2"
+          stop "ED Error: cg_method > 2"
+       case (0)
+          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
+       case (1)
+          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
+       case (2)
+          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
        end select
        !
        select case(bath_type)
@@ -245,16 +246,18 @@ contains
     integer                         :: ispin_
     ispin_=1;if(present(ispin))ispin_=ispin
     call assert_shape(fg,[2,Nspin,Nspin,Norb,Norb,size(fg,6)],"chi2_fitgf_generic_superc","fg")
+    !
     select case(cg_method)
-    case (0)
-       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
-    case (1)
-       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-minimize"
-    case(2)
-       if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
     case default
-       stop "chi2_fitgf_generic_superc error: cg_method > 2"
+       stop "ED Error: cg_method > 2"
+    case (0)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
+    case (1)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
+    case (2)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
     end select
+    !
     select case(bath_type)
     case default
        select case(ed_mode)
@@ -307,16 +310,18 @@ contains
     ispin_=1;if(present(ispin))ispin_=ispin
     call assert_shape(fg,[2,Nspin,Nspin,Norb,Norb,size(fg,6)],"chi2_fitgf_generic_superc","fg")
     if(MPI_MASTER)then
+       !
        select case(cg_method)
-       case (0)
-          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-nr"
-       case (1)
-          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-minimize"
-       case(2)
-          if(ed_verbose<3)write(LOGfile,"(A)")"\Chi2 fit with CG-plus"
        case default
-          stop "chi2_fitgf_generic_superc error: cg_method > 2"
+          stop "ED Error: cg_method > 2"
+       case (0)
+          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
+       case (1)
+          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
+       case (2)
+          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
        end select
+       !
        select case(bath_type)
        case default
           select case(ed_mode)

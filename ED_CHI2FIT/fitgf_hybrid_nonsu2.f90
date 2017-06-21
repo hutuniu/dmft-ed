@@ -191,13 +191,11 @@ subroutine chi2_fitgf_hybrid_nonsu2(fg,bath_)
        "chi^2|iter"//reg(ed_file_suffix)//'= ',chi," | ",iter,&
        "  <--  All Orbs, All Spins"
   !
-  if(ed_verbose<2)then
-     suffix="_ALLorb_ALLspins"//reg(ed_file_suffix)
-     unit=free_unit()
-     open(unit,file="chi2fit_results"//reg(suffix)//".ed",position="append")
-     write(unit,"(ES18.9,1x,I5)") chi,iter
-     close(unit)
-  endif
+  suffix="_ALLorb_ALLspins"//reg(ed_file_suffix)
+  unit=free_unit()
+  open(unit,file="chi2fit_results"//reg(suffix)//".ed",position="append")
+  write(unit,"(ES18.9,1x,I5)") chi,iter
+  close(unit)
   !
   select case(ed_para)
   case (.true.)
@@ -254,11 +252,11 @@ subroutine chi2_fitgf_hybrid_nonsu2(fg,bath_)
      enddo
   end select
   !
-  if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
+  call write_dmft_bath(dmft_bath,LOGfile)
   !
   call save_dmft_bath(dmft_bath)
   !
-  if(ed_verbose<3)call write_fit_result(ispin)
+  call write_fit_result(ispin)
   !
   call get_dmft_bath(dmft_bath,bath_)
   call deallocate_dmft_bath(dmft_bath)

@@ -50,6 +50,9 @@ MODULE ED_INPUT_VARS
   integer              :: cg_stop             !fit stop condition:0-3, 0=default
   real(8)              :: cg_eps              !fit eps tolerance
   logical              :: finiteT             !flag for finite temperature calculation
+  logical              :: ed_print_Sigma   !flag to print impurity Self-energies
+  logical              :: ed_print_G       !flag to print impurity Green`s functions
+  logical              :: ed_print_G0      !flag to print impurity non-interacting Green`s functions
   logical              :: ed_twin             !flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.
   character(len=7)     :: ed_mode             !flag to set ed symmetry type: normal=normal (default), superc=superconductive, nonsu2=broken SU(2)
   logical              :: ed_para             !flag to enforce non-magnetic solution
@@ -88,24 +91,6 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : READ THE INPUT FILE AND SETUP GLOBAL VARIABLES
   !+-------------------------------------------------------------------+
-  ! #ifdef _MPI
-  ! #define INPUT_LIST INPUTunit,comm
-  ! #else
-  ! #define INPUT_LIST INPUTunit
-  ! #endif  
-  !   subroutine ed_read_input(INPUT_LIST)
-  ! #ifdef _MPI
-  !     USE MPI
-  !     USE SF_MPI
-  ! #endif
-  !     character(len=*) :: INPUTunit
-  ! #ifdef _MPI
-  !     integer,optional :: comm
-  ! #endif
-  !     logical          :: master=.true.
-  ! #ifdef _MPI
-  !     if(present(comm))master=get_Master_MPI(comm)
-  ! #endif
 
   subroutine ed_read_input(INPUTunit,comm)
 #ifdef _MPI
@@ -137,6 +122,11 @@ contains
     call parse_input_variable(sb_field,"SB_FIELD",INPUTunit,default=0.1d0,comment="Value of a symmetry breaking field for magnetic solutions.")
     call parse_input_variable(ed_twin,"ED_TWIN",INPUTunit,default=.false.,comment="flag to reduce (T) or not (F,default) the number of visited sector using twin symmetry.")
     call parse_input_variable(ed_sparse_H,"ED_SPARSE_H",INPUTunit,default=.true.,comment="flag to select  storage of sparse matrix H (mem--, cpu++) if TRUE, or direct on-the-fly H*v product (mem++, cpu--) if FALSE ")
+    !
+    call parse_input_variable(ed_print_Sigma,"ED_PRINT_SIGMA",INPUTunit,default=.true.,comment="flag to print impurity Self-energies")
+    call parse_input_variable(ed_print_G,"ED_PRINT_G",INPUTunit,default=.true.,comment="flag to print impurity Greens function")
+    call parse_input_variable(ed_print_G0,"ED_PRINT_G0",INPUTunit,default=.true.,comment="flag to print non-interacting impurity Greens function")
+    !
     call parse_input_variable(nsuccess,"NSUCCESS",INPUTunit,default=1,comment="Number of successive iterations below threshold for convergence")
     call parse_input_variable(Lmats,"LMATS",INPUTunit,default=5000,comment="Number of Matsubara frequencies.")
     call parse_input_variable(Lreal,"LREAL",INPUTunit,default=5000,comment="Number of real-axis frequencies.")
@@ -178,7 +168,7 @@ contains
     call parse_input_variable(Hfile,"HFILE",INPUTunit,default="hamiltonian",comment="File where to retrieve/store the bath parameters.")
     call parse_input_variable(HLOCfile,"impHfile",INPUTunit,default="inputHLOC.in",comment="File read the input local H.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
-    call parse_input_variable(ed_verbose,"ED_VERBOSE",INPUTunit,default=0,comment="Verbosity level: 0=all --> 5:almost nothing on the screen.")
+    call parse_input_variable(ed_verbose,"ED_VERBOSE",INPUTunit,default=3,comment="Verbosity level: 0=almost nothing --> 3:all.")
     call parse_input_variable(ed_file_suffix,"ED_FILE_SUFFIX",INPUTunit,default=".ed",comment="Suffix in the output files.")
     call parse_input_variable(Jz_basis,"JZ_BASIS",INPUTunit,default=.false.,comment="")
     call parse_input_variable(Jz_max,"JZ_MAX",INPUTunit,default=.false.,comment="")

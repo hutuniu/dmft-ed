@@ -158,21 +158,10 @@ contains
        call get_sigma_nonsu2()
     end select
     !
-    if(mpi_master)then
-       select case(ed_mode)
-       case default
-          call print_impSigma_normal()
-          call print_impG_normal()
-          call print_impG0_normal()
-       case ("superc")
-          call print_impSigma_superc()
-          call print_impG_superc()
-          call print_impG0_superc()
-       case ("nonsu2")
-          call print_impSigma_nonsu2()
-          call print_impG_nonsu2()
-          call print_impG0_nonsu2()
-       end select
+    if(MPI_MASTER)then
+       if(ed_print_Sigma)call ed_print_impSigma()
+       if(ed_print_G)call ed_print_impG()
+       if(ed_print_G0)call ed_print_impG0()
     endif
     !
     if(allocated(wm))deallocate(wm)
@@ -245,7 +234,6 @@ contains
     spinChi_w=zero
     spinChi_iv=zero
     call build_chi_spin()
-    if(MPI_MASTER)call print_chi_spin()
     !
     !BUILD CHARGE SUSCEPTIBILITY
     if(.not.allocated(densChi_tau)) stop "buildChi_impurity: densChi_tau not allocated"
@@ -267,9 +255,6 @@ contains
     densChi_tot_w=zero
     densChi_tot_iv=zero
     call build_chi_dens()
-    if(MPI_MASTER)call print_chi_dens()
-    if(MPI_MASTER)call print_chi_dens_mix()
-    if(MPI_MASTER)call print_chi_dens_tot()
     !
     !BUILD PAIR SUSCEPTIBILITY
     if(.not.allocated(pairChi_tau))stop "buildChi_impurity: pairChi_tau not allocated"
@@ -279,7 +264,9 @@ contains
     pairChi_w=zero
     pairChi_iv=zero
     call build_chi_pair()
-    if(MPI_MASTER)call print_chi_pair()
+    !
+    !PRINTING:
+    if(MPI_MASTER)call ed_print_impChi()
     !
     !
     call deallocate_grids

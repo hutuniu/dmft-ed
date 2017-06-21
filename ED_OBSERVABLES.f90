@@ -250,7 +250,7 @@ contains
                 i=H%map(m)
                 ib = bdecomp(i,2*Ns)
                 imp_density_matrix(ispin,ispin,iorb,iorb) = imp_density_matrix(ispin,ispin,iorb,iorb) + &
-                                                            peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
+                     peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
              enddo
           enddo
        enddo
@@ -272,7 +272,7 @@ contains
                          call cdg(isite,r,k,sgn2)
                          j=binary_search(H%map,k)
                          imp_density_matrix(ispin,jspin,iorb,jorb) = imp_density_matrix(ispin,jspin,iorb,jorb) + &
-                                                                     peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                              peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
                       endif
                    enddo
                 enddo
@@ -308,7 +308,7 @@ contains
                    i=H%map(m)
                    ib = bdecomp(i,2*Ns)
                    bth_density_matrix(ispin,ispin,iorb,iorb,ibath) = bth_density_matrix(ispin,ispin,iorb,iorb,ibath) + &
-                                                                     peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
+                        peso*ib(isite)*conjg(gscvec(m))*gscvec(m)
                 enddo
              enddo
           enddo
@@ -330,7 +330,7 @@ contains
                             call cdg(isite,r,k,sgn2)
                             j=binary_search(H%map,k)
                             bth_density_matrix(ispin,jspin,iorb,jorb,ibath) = bth_density_matrix(ispin,jspin,iorb,jorb,ibath) + &
-                                                                              peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
+                                 peso*sgn1*gscvec(m)*sgn2*conjg(gscvec(j))
                          endif
                       enddo
                    enddo
@@ -425,12 +425,10 @@ contains
        case("superc")
           write(LOGfile,"(A,20f18.12,A)")    "phi "//reg(ed_file_suffix)//"=",(phisc(iorb),iorb=1,Norb),(abs(uloc(iorb))*phisc(iorb),iorb=1,Norb)
        end select
-       if(ed_verbose<3)then
-          if(Nspin==2)then
-             write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magz(iorb),iorb=1,Norb)
-             if(Norb==3)write(LOGfile,"(A,10f18.12,A)") " Ji "//reg(ed_file_suffix)//"=",(real(impj_aplha(i)),i=1,3)
-             if(Norb==3)write(LOGfile,"(A,10f18.12,A)") " Ji^2 "//reg(ed_file_suffix)//"=",(real(impj_aplha_sq(i)),i=1,3)
-          endif
+       if(Nspin==2)then
+          write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magz(iorb),iorb=1,Norb)
+          if(Norb==3)write(LOGfile,"(A,10f18.12,A)") " Ji "//reg(ed_file_suffix)//"=",(real(impj_aplha(i)),i=1,3)
+          if(Norb==3)write(LOGfile,"(A,10f18.12,A)") " Ji^2 "//reg(ed_file_suffix)//"=",(real(impj_aplha_sq(i)),i=1,3)
        endif
     endif
     !
@@ -616,7 +614,7 @@ contains
                       call cdg(iorb,k3,k4,sg4)
                       j=binary_search(H%map,k4)
                       if(Jz_basis.and.j==0)cycle
-                      ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
+                      ed_Epot = ed_Epot + Jx*sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
                       ed_Dse  = ed_Dse  + sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
                    endif
                 enddo
@@ -641,7 +639,7 @@ contains
                       call cdg(iorb,k3,k4,sg4)
                       j=binary_search(H%map,k4)
                       if(Jz_basis.and.j==0)cycle
-                      ed_Epot = ed_Epot + Jh*sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
+                      ed_Epot = ed_Epot + Jp*sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
                       ed_Dph  = ed_Dph  + sg1*sg2*sg3*sg4*gscvec(i)*conjg(gscvec(j))!gs_weight
                    endif
                 enddo
@@ -670,7 +668,7 @@ contains
     ed_Epot = ed_Epot + ed_Ehartree
     !
     if(MPI_MASTER)then
-       if(ed_verbose<0)then
+       if(ed_verbose==3)then
           write(LOGfile,"(A,10f18.12)")"<Hint>  =",ed_Epot
           write(LOGfile,"(A,10f18.12)")"<V>     =",ed_Epot-ed_Ehartree
           write(LOGfile,"(A,10f18.12)")"<E0>    =",ed_Eknot
@@ -781,43 +779,41 @@ contains
   subroutine write_observables()
     integer :: unit
     integer :: iorb,jorb,ispin
-    if(ed_verbose<2)then
-       unit = free_unit()
-       open(unit,file="parameters_last"//reg(ed_file_suffix)//".ed")
-       write(unit,"(90F15.9)")xmu,beta,(uloc(iorb),iorb=1,Norb),Ust,Jh
-       close(unit)
-       !
-       unit = free_unit()
-       open(unit,file="observables_all"//reg(ed_file_suffix)//".ed",position='append')
-       select case(ed_mode)
-       case default
-          write(unit,"(90(F15.9,1X))")&
-               (dens(iorb),iorb=1,Norb),&
-               (docc(iorb),iorb=1,Norb),&
-               (dens_up(iorb),iorb=1,Norb),&
-               (dens_dw(iorb),iorb=1,Norb),&
-               (magz(iorb),iorb=1,Norb),&
-               s2tot,egs,&
-               ((sz2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
-               ((n2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
-               ((zimp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin),&
-               ((simp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin)
-       case ("superc")
-          write(unit,"(90(F15.9,1X))")&
-               (dens(iorb),iorb=1,Norb),&
-               (phisc(iorb),iorb=1,Norb),&
-               (docc(iorb),iorb=1,Norb),&
-               (dens_up(iorb),iorb=1,Norb),&
-               (dens_dw(iorb),iorb=1,Norb),&
-               (magz(iorb),iorb=1,Norb),&
-               s2tot,egs,&
-               ((sz2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
-               ((n2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
-               ((zimp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin),&
-               ((simp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin)
-       end select
-       close(unit)    
-    endif
+    unit = free_unit()
+    open(unit,file="observables_all"//reg(ed_file_suffix)//".ed",position='append')
+    select case(ed_mode)
+    case default
+       write(unit,"(90(F15.9,1X))")&
+            (dens(iorb),iorb=1,Norb),&
+            (docc(iorb),iorb=1,Norb),&
+            (dens_up(iorb),iorb=1,Norb),&
+            (dens_dw(iorb),iorb=1,Norb),&
+            (magz(iorb),iorb=1,Norb),&
+            s2tot,egs,&
+            ((sz2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
+            ((n2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
+            ((zimp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin),&
+            ((simp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin)
+    case ("superc")
+       write(unit,"(90(F15.9,1X))")&
+            (dens(iorb),iorb=1,Norb),&
+            (phisc(iorb),iorb=1,Norb),&
+            (docc(iorb),iorb=1,Norb),&
+            (dens_up(iorb),iorb=1,Norb),&
+            (dens_dw(iorb),iorb=1,Norb),&
+            (magz(iorb),iorb=1,Norb),&
+            s2tot,egs,&
+            ((sz2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
+            ((n2(iorb,jorb),jorb=1,Norb),iorb=1,Norb),&
+            ((zimp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin),&
+            ((simp(iorb,ispin),iorb=1,Norb),ispin=1,Nspin)
+    end select
+    close(unit)    
+    !
+    unit = free_unit()
+    open(unit,file="parameters_last"//reg(ed_file_suffix)//".ed")
+    write(unit,"(90F15.9)")xmu,beta,(uloc(iorb),iorb=1,Norb),Ust,Jh,Jx,Jp
+    close(unit)
     !
     unit = free_unit()
     open(unit,file="observables_last"//reg(ed_file_suffix)//".ed")

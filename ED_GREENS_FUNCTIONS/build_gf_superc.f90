@@ -17,7 +17,7 @@ subroutine build_gf_superc()
   do iorb=1,Norb
      auxGmats=zero
      auxGreal=zero
-     if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G&F_l"//str(iorb)//"_s"//str(ispin)
+     if(MPI_MASTER)write(LOGfile,"(A)")"Get G&F_l"//str(iorb)//"_s"//str(ispin)
      call lanc_build_gf_superc_c(iorb)
      !
      impGmats(ispin,ispin,iorb,iorb,:) = auxGmats(1,:) !this is G_{iorb,iorb} = G_{up,up;iorb,iorb}
@@ -39,7 +39,7 @@ subroutine build_gf_superc()
   if(bath_type=='hybrid')then
      do iorb=1,Norb
         do jorb=iorb+1,Norb
-           if(ed_verbose<3.AND.MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//"_m"//str(jorb)//"_s"//str(ispin)
+           if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//"_m"//str(jorb)//"_s"//str(ispin)
            call lanc_build_gf_superc_mix_c(iorb,jorb)
            impGmats(ispin,ispin,iorb,jorb,:) = auxGmats(3,:)
            impGreal(ispin,ispin,iorb,jorb,:) = auxGreal(3,:)
@@ -80,7 +80,7 @@ subroutine lanc_build_gf_superc_c(iorb)
   integer                :: Nitermax,Nlanc
   type(sector_map)       :: HI,HJ
   !
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+  if(MPI_MASTER)call start_timer
   !
   do istate=1,state_list%size
      isector    =  es_return_sector(state_list,istate)
@@ -95,7 +95,7 @@ subroutine lanc_build_gf_superc_c(iorb)
      jsector = getCDGsector(1,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up:',getsz(jsector)
+        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up:',getsz(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
         vvinit=zero
@@ -134,7 +134,7 @@ subroutine lanc_build_gf_superc_c(iorb)
      jsector = getCsector(1,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c_up:',getsz(jsector)
+        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c_up:',getsz(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
         vvinit=zero
@@ -173,7 +173,7 @@ subroutine lanc_build_gf_superc_c(iorb)
      jsector = getCsector(2,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.MPI_MASTER)&
+        if(ed_verbose==3.AND.MPI_MASTER)&
              write(LOGfile,"(A23,I3)")'apply c_dw:',getsz(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
@@ -213,7 +213,7 @@ subroutine lanc_build_gf_superc_c(iorb)
      jsector = getCDGsector(2,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.MPI_MASTER)&
+        if(ed_verbose==3.AND.MPI_MASTER)&
              write(LOGfile,"(A23,I3)")'apply c^+_dw:',getsz(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ) !note that here you are doing twice the map building...
@@ -255,7 +255,7 @@ subroutine lanc_build_gf_superc_c(iorb)
         jsz   = isz+1
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up + c_dw:',getsz(jsector)
+        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up + c_dw:',getsz(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
         vvinit=zero
@@ -305,7 +305,7 @@ subroutine lanc_build_gf_superc_c(iorb)
         jsz   = isz-1
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.MPI_MASTER)&
+        if(ed_verbose==3.AND.MPI_MASTER)&
              write(LOGfile,"(A23,I3)")'apply c_up + c^+_dw:',getsz(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
@@ -354,7 +354,7 @@ subroutine lanc_build_gf_superc_c(iorb)
      deallocate(HI%map)
      !
   enddo
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+  if(MPI_MASTER)call stop_timer
 end subroutine lanc_build_gf_superc_c
 
 
@@ -382,7 +382,7 @@ subroutine lanc_build_gf_superc_mix_c(iorb,jorb)
   !
   numstates=state_list%size
   !   
-  if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+  if(MPI_MASTER)call start_timer
   !
   do istate=1,numstates
      isector    =  es_return_sector(state_list,istate)
@@ -399,7 +399,7 @@ subroutine lanc_build_gf_superc_mix_c(iorb,jorb)
         jsz   = isz+1
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_{up,iorb} + c_{dw,jorb}:',getsz(jsector)
+        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_{up,iorb} + c_{dw,jorb}:',getsz(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
         vvinit=zero
@@ -449,7 +449,7 @@ subroutine lanc_build_gf_superc_mix_c(iorb,jorb)
         jsz   = isz-1
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.MPI_MASTER)&
+        if(ed_verbose==3.AND.MPI_MASTER)&
              write(LOGfile,"(A23,I3)")'apply c_{up,iorb} + c^+_{dw,jorb}:',getsz(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
@@ -500,7 +500,7 @@ subroutine lanc_build_gf_superc_mix_c(iorb,jorb)
         jsz   = isz+1
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_{up,iorb} + xi*c_{dw,horb}:',getsz(jsector)
+        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_{up,iorb} + xi*c_{dw,horb}:',getsz(jsector)
         allocate(cvinit(jdim))
         call build_sector(jsector,HJ)
         cvinit=zero
@@ -550,7 +550,7 @@ subroutine lanc_build_gf_superc_mix_c(iorb,jorb)
         jsz   = isz-1
         jsector = getsector(jsz,1)
         jdim  = getdim(jsector)
-        if(ed_verbose<1.AND.MPI_MASTER)&
+        if(ed_verbose==3.AND.MPI_MASTER)&
              write(LOGfile,"(A23,I3)")'apply c_{up,iorb} - xi*c^+_{dw,jorb}:',getsz(jsector)
         allocate(cvinit(jdim))
         call build_sector(jsector,HJ)
@@ -600,7 +600,7 @@ subroutine lanc_build_gf_superc_mix_c(iorb,jorb)
      !
   enddo
   !
-  if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+  if(MPI_MASTER)call stop_timer
 end subroutine lanc_build_gf_superc_mix_c
 
 
@@ -685,7 +685,7 @@ end subroutine add_to_lanczos_gf_superc
 !   integer                :: Nitermax,Nlanc
 !   type(sector_map)       :: HI,HJ
 !   !
-!   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+!   if(MPI_MASTER)call start_timer
 !   !
 !   do istate=1,state_list%size
 !      isector    =  es_return_sector(state_list,istate)
@@ -700,7 +700,7 @@ end subroutine add_to_lanczos_gf_superc
 !      jsector = getCDGsector(1,isector)
 !      if(jsector/=0)then 
 !         jdim  = getdim(jsector)
-!         if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up:',getsz(jsector)
+!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up:',getsz(jsector)
 !         allocate(vvinit(jdim))
 !         call build_sector(jsector,HJ)
 !         vvinit=0.d0
@@ -733,7 +733,7 @@ end subroutine add_to_lanczos_gf_superc
 !      jsector = getCsector(1,isector)
 !      if(jsector/=0)then 
 !         jdim  = getdim(jsector)
-!         if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c_up:',getsz(jsector)
+!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c_up:',getsz(jsector)
 !         allocate(vvinit(jdim))
 !         call build_sector(jsector,HJ)
 !         vvinit=0.d0
@@ -766,7 +766,7 @@ end subroutine add_to_lanczos_gf_superc
 !      jsector = getCsector(2,isector)
 !      if(jsector/=0)then 
 !         jdim  = getdim(jsector)
-!         if(ed_verbose<1.AND.MPI_MASTER)&
+!         if(ed_verbose==3.AND.MPI_MASTER)&
 !              write(LOGfile,"(A23,I3)")'apply c_dw:',getsz(jsector)
 !         allocate(vvinit(jdim))
 !         call build_sector(jsector,HJ)
@@ -800,7 +800,7 @@ end subroutine add_to_lanczos_gf_superc
 !      jsector = getCDGsector(2,isector)
 !      if(jsector/=0)then 
 !         jdim  = getdim(jsector)
-!         if(ed_verbose<1.AND.MPI_MASTER)&
+!         if(ed_verbose==3.AND.MPI_MASTER)&
 !              write(LOGfile,"(A23,I3)")'apply c^+_dw:',getsz(jsector)
 !         allocate(vvinit(jdim))
 !         call build_sector(jsector,HJ) !note that here you are doing twice the map building...
@@ -836,7 +836,7 @@ end subroutine add_to_lanczos_gf_superc
 !         jsz   = isz+1
 !         jsector = getsector(jsz,1)
 !         jdim  = getdim(jsector)
-!         if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up + c_dw:',getsz(jsector)
+!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up + c_dw:',getsz(jsector)
 !         allocate(vvinit(jdim))
 !         call build_sector(jsector,HJ)
 !         vvinit=0.d0
@@ -880,7 +880,7 @@ end subroutine add_to_lanczos_gf_superc
 !         jsz   = isz-1
 !         jsector = getsector(jsz,1)
 !         jdim  = getdim(jsector)
-!         if(ed_verbose<1.AND.MPI_MASTER)&
+!         if(ed_verbose==3.AND.MPI_MASTER)&
 !              write(LOGfile,"(A23,I3)")'apply c_up + c^+_dw:',getsz(jsector)
 !         allocate(vvinit(jdim))
 !         call build_sector(jsector,HJ)
@@ -926,7 +926,7 @@ end subroutine add_to_lanczos_gf_superc
 !      !    jsz   = isz+1
 !      !    jsector = getsector(jsz,1)
 !      !    jdim  = getdim(jsector)
-!      !    if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up + xi*c_dw:',getsz(jsector)
+!      !    if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up + xi*c_dw:',getsz(jsector)
 !      !    allocate(cvinit(jdim))
 !      !    call build_sector(jsector,HJ)
 !      !    cvinit=0.d0
@@ -966,7 +966,7 @@ end subroutine add_to_lanczos_gf_superc
 !      !    jsz   = isz-1
 !      !    jsector = getsector(jsz,1)
 !      !    jdim  = getdim(jsector)
-!      !    if(ed_verbose<1.AND.MPI_MASTER)&
+!      !    if(ed_verbose==3.AND.MPI_MASTER)&
 !      !         write(LOGfile,"(A23,I3)")'apply c_up - xi*c^+_dw:',getsz(jsector)
 !      !    allocate(cvinit(jdim))
 !      !    call build_sector(jsector,HJ)
@@ -1006,7 +1006,7 @@ end subroutine add_to_lanczos_gf_superc
 !      deallocate(HI%map)
 !      !
 !   enddo
-!   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+!   if(MPI_MASTER)call stop_timer
 ! end subroutine lanc_build_gf_superc_d
 
 
@@ -1019,7 +1019,7 @@ end subroutine add_to_lanczos_gf_superc
 !    jsz   = isz+1
 !    jsector = getsector(jsz,1)
 !    jdim  = getdim(jsector)
-!    if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up + xi*c_dw:',getsz(jsector)
+!    if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_up + xi*c_dw:',getsz(jsector)
 !    allocate(cvinit(jdim))
 !    call build_sector(jsector,HJ)
 !    cvinit=zero
@@ -1059,7 +1059,7 @@ end subroutine add_to_lanczos_gf_superc
 !    jsz   = isz-1
 !    jsector = getsector(jsz,1)
 !    jdim  = getdim(jsector)
-!    if(ed_verbose<1.AND.MPI_MASTER)&
+!    if(ed_verbose==3.AND.MPI_MASTER)&
 !         write(LOGfile,"(A23,I3)")'apply c_up - xi*c^+_dw:',getsz(jsector)
 !    allocate(cvinit(jdim))
 !    call build_sector(jsector,HJ)
@@ -1121,7 +1121,7 @@ end subroutine add_to_lanczos_gf_superc
 !   !
 !   numstates=state_list%size
 !   !   
-!   if(ed_verbose<3.AND.MPI_MASTER)call start_timer
+!   if(MPI_MASTER)call start_timer
 !   !
 !   do istate=1,numstates
 !      isector    =  es_return_sector(state_list,istate)
@@ -1138,7 +1138,7 @@ end subroutine add_to_lanczos_gf_superc
 !         jsz   = isz+1
 !         jsector = getsector(jsz,1)
 !         jdim  = getdim(jsector)
-!         if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_{up,iorb} + c_{dw,jorb}:',getsz(jsector)
+!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_{up,iorb} + c_{dw,jorb}:',getsz(jsector)
 !         allocate(vvinit(jdim))
 !         call build_sector(jsector,HJ)
 !         vvinit=0.d0
@@ -1182,7 +1182,7 @@ end subroutine add_to_lanczos_gf_superc
 !         jsz   = isz-1
 !         jsector = getsector(jsz,1)
 !         jdim  = getdim(jsector)
-!         if(ed_verbose<1.AND.MPI_MASTER)&
+!         if(ed_verbose==3.AND.MPI_MASTER)&
 !              write(LOGfile,"(A23,I3)")'apply c_{up,iorb} + c^+_{dw,jorb}:',getsz(jsector)
 !         allocate(vvinit(jdim))
 !         call build_sector(jsector,HJ)
@@ -1227,7 +1227,7 @@ end subroutine add_to_lanczos_gf_superc
 !         jsz   = isz+1
 !         jsector = getsector(jsz,1)
 !         jdim  = getdim(jsector)
-!         if(ed_verbose<1.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_{up,iorb} + xi*c_{dw,horb}:',getsz(jsector)
+!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A23,I3)")'apply c^+_{up,iorb} + xi*c_{dw,horb}:',getsz(jsector)
 !         allocate(cvinit(jdim))
 !         call build_sector(jsector,HJ)
 !         cvinit=0.d0
@@ -1271,7 +1271,7 @@ end subroutine add_to_lanczos_gf_superc
 !         jsz   = isz-1
 !         jsector = getsector(jsz,1)
 !         jdim  = getdim(jsector)
-!         if(ed_verbose<1.AND.MPI_MASTER)&
+!         if(ed_verbose==3.AND.MPI_MASTER)&
 !              write(LOGfile,"(A23,I3)")'apply c_{up,iorb} - xi*c^+_{dw,jorb}:',getsz(jsector)
 !         allocate(cvinit(jdim))
 !         call build_sector(jsector,HJ)
@@ -1315,6 +1315,6 @@ end subroutine add_to_lanczos_gf_superc
 !      !
 !   enddo
 !   !
-!   if(ed_verbose<3.AND.MPI_MASTER)call stop_timer
+!   if(MPI_MASTER)call stop_timer
 ! end subroutine lanc_build_gf_superc_mix_d
 

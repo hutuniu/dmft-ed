@@ -67,29 +67,25 @@ contains
   !+-----------------------------------------------------------------------------+!
   subroutine ed_init_solver_single(bath,Hloc)
     real(8),dimension(:),intent(inout) :: bath
-    complex(8),optional,intent(in)     :: Hloc(Nspin,Nspin,Norb,Norb)
+    complex(8),intent(in)              :: Hloc(Nspin,Nspin,Norb,Norb)
     logical                            :: check 
     logical,save                       :: isetup=.true.
     integer                            :: i
     logical                            :: MPI_MASTER=.true.
     integer                            :: MPI_ERR
     !
-    if(ed_verbose<2.AND.MPI_MASTER)write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(ed_file_suffix)
-    !
-    if(present(Hloc))then
-       check = check_bath_dimension(bath,Hloc)
-    else
-       check = check_bath_dimension(bath)
-    endif
-    if(.not.check)stop "init_ed_solver_single error: wrong bath dimensions"
-    !
-    bath = 0d0
+    if(MPI_MASTER)write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(ed_file_suffix)
     !
     !Init ED Structure & memory
     if(isetup)call init_ed_structure()
     !
     !Init bath:
-    if(present(Hloc))call set_hloc(Hloc)
+    call set_Hloc(Hloc)
+    !
+    check = check_bath_dimension(bath)
+    if(.not.check)stop "init_ed_solver_single error: wrong bath dimensions"
+    !
+    bath = 0d0
     !
     call allocate_dmft_bath(dmft_bath)
     if(bath_type=="replica")call init_dmft_bath_mask(dmft_bath)
@@ -115,7 +111,7 @@ contains
   subroutine ed_init_solver_single_mpi(MpiComm,bath,Hloc)
     integer                            :: MpiComm
     real(8),dimension(:),intent(inout) :: bath
-    complex(8),optional,intent(in)     :: Hloc(Nspin,Nspin,Norb,Norb)
+    complex(8),intent(in)              :: Hloc(Nspin,Nspin,Norb,Norb)
     logical                            :: check 
     logical,save                       :: isetup=.true.
     integer                            :: i
@@ -124,22 +120,18 @@ contains
     !
     MPI_MASTER = get_Master_MPI(MpiComm)
     !
-    if(ed_verbose<2.AND.MPI_MASTER)write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(ed_file_suffix)
-    !
-    if(present(Hloc))then
-       check = check_bath_dimension(bath,Hloc)
-    else
-       check = check_bath_dimension(bath)
-    endif
-    if(.not.check)stop "init_ed_solver_single error: wrong bath dimensions"
-    !
-    bath = 0d0
+    if(MPI_MASTER)write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(ed_file_suffix)
     !
     !Init ED Structure & memory
     if(isetup)call init_ed_structure(MpiComm)
     !
     !Init bath:
-    if(present(Hloc))call set_hloc(Hloc)
+    call set_hloc(Hloc)
+    !
+    check = check_bath_dimension(bath)
+    if(.not.check)stop "init_ed_solver_single error: wrong bath dimensions"
+    !
+    bath = 0d0
     !
     call allocate_dmft_bath(dmft_bath)
     if(bath_type=="replica")call init_dmft_bath_mask(dmft_bath)
@@ -168,7 +160,7 @@ contains
 
 
 
-  
+
 
 
   !+-----------------------------------------------------------------------------+!
@@ -176,7 +168,7 @@ contains
   !+-----------------------------------------------------------------------------+!
   subroutine ed_init_solver_lattice(bath,Hloc)
     real(8),dimension(:,:)         :: bath ![Nlat][:]
-    complex(8),optional,intent(in) :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    complex(8),intent(in)          :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
     integer                        :: ilat,Nineq,Nsect
     logical                        :: check_dim
     character(len=5)               :: tmp_suffix
@@ -188,20 +180,21 @@ contains
     if(allocated(neigen_sectorii))deallocate(neigen_sectorii) ; allocate(neigen_sectorii(Nineq,Nsect))
     if(allocated(neigen_totalii))deallocate(neigen_totalii) ; allocate(neigen_totalii(Nineq))
     do ilat=1,Nineq             !all nodes check the bath, u never know...
-       if(present(Hloc))then
-          check_dim = check_bath_dimension(bath(ilat,:),Hloc(ilat,:,:,:,:))
-       else
-          check_dim = check_bath_dimension(bath(ilat,:))
-       endif
-       if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
+       !
+       ! if(present(Hloc))then
+       !    check_dim = check_bath_dimension(bath(ilat,:),Hloc(ilat,:,:,:,:))
+       ! else
+       !    check_dim = check_bath_dimension(bath(ilat,:))
+       ! endif
+       ! if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
        !
        ed_file_suffix="_site"//str(ilat,Npad=4)
        !
-       if(present(Hloc))then
-          call ed_init_solver_single(bath(ilat,:),Hloc(ilat,:,:,:,:))
-       else
-          call ed_init_solver_single(bath(ilat,:))
-       endif
+       ! if(present(Hloc))then
+       call ed_init_solver_single(bath(ilat,:),Hloc(ilat,:,:,:,:))
+       ! else
+       !    call ed_init_solver_single(bath(ilat,:))
+       ! endif
        neigen_sectorii(ilat,:) = neigen_sector(:)
        neigen_totalii(ilat)    = lanc_nstates_total
     end do
@@ -214,7 +207,7 @@ contains
   subroutine ed_init_solver_lattice_mpi(MpiComm,bath,Hloc)
     integer                        :: MpiComm
     real(8),dimension(:,:)         :: bath ![Nlat][:]
-    complex(8),optional,intent(in) :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
+    complex(8),intent(in)          :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
     integer                        :: ilat,Nineq,Nsect
     logical                        :: check_dim
     character(len=5)               :: tmp_suffix
@@ -226,20 +219,20 @@ contains
     if(allocated(neigen_sectorii))deallocate(neigen_sectorii) ; allocate(neigen_sectorii(Nineq,Nsect))
     if(allocated(neigen_totalii))deallocate(neigen_totalii) ; allocate(neigen_totalii(Nineq))
     do ilat=1,Nineq             !all nodes check the bath, u never know...
-       if(present(Hloc))then
-          check_dim = check_bath_dimension(bath(ilat,:),Hloc(ilat,:,:,:,:))
-       else
-          check_dim = check_bath_dimension(bath(ilat,:))
-       endif
-       if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
+       ! if(present(Hloc))then
+       !    check_dim = check_bath_dimension(bath(ilat,:),Hloc(ilat,:,:,:,:))
+       ! else
+       !    check_dim = check_bath_dimension(bath(ilat,:))
+       ! endif
+       ! if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
        !
        ed_file_suffix="_site"//str(ilat,Npad=4)
        !
-       if(present(Hloc))then
-          call ed_init_solver_single_mpi(MpiComm,bath(ilat,:),Hloc(ilat,:,:,:,:))
-       else
-          call ed_init_solver_single_mpi(MpiComm,bath(ilat,:))
-       endif
+       ! if(present(Hloc))then
+       call ed_init_solver_single_mpi(MpiComm,bath(ilat,:),Hloc(ilat,:,:,:,:))
+       ! else
+       !    call ed_init_solver_single_mpi(MpiComm,bath(ilat,:))
+       ! endif
        neigen_sectorii(ilat,:) = neigen_sector(:)
        neigen_totalii(ilat)    = lanc_nstates_total
     end do
@@ -262,7 +255,7 @@ contains
 
 
 
-  
+
 
 
 
@@ -273,11 +266,14 @@ contains
   !+-----------------------------------------------------------------------------+!
   !                              SINGLE SITE                                      !
   !+-----------------------------------------------------------------------------+!
-  subroutine ed_solve_single(bath)
+  subroutine ed_solve_single(bath,Hloc)
     integer                         :: MpiComm
     real(8),dimension(:),intent(in) :: bath
+    complex(8),optional,intent(in)  :: Hloc(Nspin,Nspin,Norb,Norb)
     logical                         :: check
     logical                         :: MPI_MASTER=.true.
+    !
+    if(present(Hloc))call set_Hloc(Hloc)
     !
     check = check_bath_dimension(bath)
     if(.not.check)stop "ED_SOLVE_SINGLE Error: wrong bath dimensions"
@@ -286,7 +282,7 @@ contains
     if(bath_type=="replica")call init_dmft_bath_mask(dmft_bath)
     call set_dmft_bath(bath,dmft_bath)
     if(MPI_MASTER)then
-       if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
+       call write_dmft_bath(dmft_bath,LOGfile)
        call save_dmft_bath(dmft_bath,used=.true.)
     endif
     !
@@ -320,13 +316,16 @@ contains
   !+-----------------------------------------------------------------------------+!
   !                              SINGLE SITE                                      !
   !+-----------------------------------------------------------------------------+!
-  subroutine ed_solve_single_mpi(MpiComm,bath)
+  subroutine ed_solve_single_mpi(MpiComm,bath,Hloc)
     integer                         :: MpiComm
     real(8),dimension(:),intent(in) :: bath
+    complex(8),optional,intent(in)  :: Hloc(Nspin,Nspin,Norb,Norb)
     logical                         :: check
     logical                         :: MPI_MASTER=.true.
     !
     MPI_MASTER = get_Master_MPI(MpiComm)
+    !
+    if(present(Hloc))call set_Hloc(Hloc)
     !
     check = check_bath_dimension(bath)
     if(.not.check)stop "ED_SOLVE_SINGLE Error: wrong bath dimensions"
@@ -335,7 +334,7 @@ contains
     if(bath_type=="replica")call init_dmft_bath_mask(dmft_bath)
     call set_dmft_bath(bath,dmft_bath)
     if(MPI_MASTER)then
-       if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
+       call write_dmft_bath(dmft_bath,LOGfile)
        call save_dmft_bath(dmft_bath,used=.true.)
     endif
     !
@@ -392,11 +391,10 @@ contains
   !+-----------------------------------------------------------------------------+!
   !                          INEQUIVALENT SITES                                   !
   !+-----------------------------------------------------------------------------+!
-  subroutine ed_solve_lattice(bath,Hloc,iprint,Uloc_ii,Ust_ii,Jh_ii)
+  subroutine ed_solve_lattice(bath,Hloc,Uloc_ii,Ust_ii,Jh_ii)
     !inputs
     real(8)          :: bath(:,:) ![Nlat][Nb]
     complex(8)       :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
-    integer          :: iprint
     real(8),optional :: Uloc_ii(size(bath,1),Norb)
     real(8),optional :: Ust_ii(size(bath,1))
     real(8),optional :: Jh_ii(size(bath,1))
@@ -483,15 +481,12 @@ contains
        if(present(Ust_ii)) Ust          = Ust_ii(ilat) 
        if(present(Jh_ii))  Jh           = Jh_ii(ilat) 
        !
-       !Set the local part of the Hamiltonian.
-       call set_Hloc(Hloc(ilat,:,:,:,:))
-       !
        !Solve the impurity problem for the ilat-th site
        neigen_sector(:)   = neigen_sectorii(ilat,:)
        lanc_nstates_total = neigen_totalii(ilat)
        !
        !Call ed_solve in SERIAL MODE!! This is parallel on the ineq. sites
-       call ed_solve_single(bath(ilat,:))
+       call ed_solve_single(bath(ilat,:),Hloc(ilat,:,:,:,:))
        !
        neigen_sectorii(ilat,:)   = neigen_sector(:)
        neigen_totalii(ilat)      = lanc_nstates_total
@@ -515,19 +510,16 @@ contains
     !
     ed_file_suffix=""
     !
-    call ed_print_impSigma(iprint)
-    !
   end subroutine ed_solve_lattice
 
 
   !FALL BACK: DO A VERSION THAT DOES THE SITES IN PARALLEL USING SERIAL ED CODE
 #ifdef _MPI
-  subroutine ed_solve_lattice_mpi(MpiComm,bath,Hloc,iprint,Uloc_ii,Ust_ii,Jh_ii)
+  subroutine ed_solve_lattice_mpi(MpiComm,bath,Hloc,Uloc_ii,Ust_ii,Jh_ii)
     integer          :: MpiComm
     !inputs
     real(8)          :: bath(:,:) ![Nlat][Nb]
     complex(8)       :: Hloc(size(bath,1),Nspin,Nspin,Norb,Norb)
-    integer          :: iprint
     real(8),optional :: Uloc_ii(size(bath,1),Norb)
     real(8),optional :: Ust_ii(size(bath,1))
     real(8),optional :: Jh_ii(size(bath,1))
@@ -643,15 +635,12 @@ contains
        if(present(Ust_ii)) Ust          = Ust_ii(ilat) 
        if(present(Jh_ii))  Jh           = Jh_ii(ilat) 
        !
-       !Set the local part of the Hamiltonian.
-       call set_Hloc(Hloc(ilat,:,:,:,:))
-       !
        !Solve the impurity problem for the ilat-th site
        neigen_sector(:)   = neigen_sectorii(ilat,:)
        lanc_nstates_total = neigen_totalii(ilat)
        !
        !Call ed_solve in SERIAL MODE!! This is parallel on the ineq. sites
-       call ed_solve_single(bath(ilat,:))
+       call ed_solve_single(bath(ilat,:),Hloc(ilat,:,:,:,:))
        !
        neigen_sectortmp(ilat,:)   = neigen_sector(:)
        neigen_totaltmp(ilat)      = lanc_nstates_total
@@ -710,8 +699,6 @@ contains
     call MPI_ALLREDUCE(pii_tmp,pii,Nsites*Norb,MPI_DOUBLE_PRECISION,MPI_SUM,MpiComm,mpi_err)
     call MPI_ALLREDUCE(eii_tmp,eii,Nsites*4,MPI_DOUBLE_PRECISION,MPI_SUM,MpiComm,mpi_err)
     call MPI_ALLREDUCE(ddii_tmp,ddii,Nsites*4,MPI_DOUBLE_PRECISION,MPI_SUM,MpiComm,mpi_err)
-    !
-    if(MPI_MASTER)call ed_print_impSigma(iprint)
     !
   end subroutine ed_solve_lattice_mpi
 #endif

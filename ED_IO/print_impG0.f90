@@ -35,42 +35,19 @@ subroutine print_impG0_normal
   if(l/=totNorb)stop "print_gf_normal error counting the orbitals"
   !!
   !Print the impurity functions:
-  do l=1,totNorb
-     iorb=getIorb(l)
-     jorb=getJorb(l)
-     suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
-     call open_units(reg(suffix))
-     if(ed_verbose<1)then
-        do i=1,Lmats
-           write(unit(1),"(F20.12,6(F20.12))")wm(i),(dimag(impG0mats(ispin,ispin,iorb,jorb,i)),dreal(impG0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-        enddo
-        do i=1,Lreal
-           write(unit(2),"(F20.12,6(F20.12))")wr(i),(dimag(impG0real(ispin,ispin,iorb,jorb,i)),dreal(impG0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-        enddo
-     endif
-     call close_units()
+  do ispin=1,Nspin
+     do l=1,totNorb
+        iorb=getIorb(l)
+        jorb=getJorb(l)
+        suffix="_l"//str(iorb)//str(jorb)//"_s"//str(ispin)
+        call splot("impG"//reg(suffix)//"_iw"//reg(ed_file_suffix)//".ed"   ,wm,impG0mats(ispin,ispin,iorb,jorb,:))
+        call splot("impG"//reg(suffix)//"_realw"//reg(ed_file_suffix)//".ed",wr,impG0real(ispin,ispin,iorb,jorb,:))
+     enddo
   enddo
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
   !
-contains
-  !
-  subroutine open_units(string)
-    character(len=*) :: string
-    unit=free_units(size(unit))
-    if(ed_verbose<1)then
-       open(unit(1),file="impG0"//string//"_iw"//reg(ed_file_suffix)//".ed")
-       open(unit(2),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
-    endif
-  end subroutine open_units
-  !
-  subroutine close_units()
-    if(ed_verbose<1)then
-       close(unit(1))
-       close(unit(2))
-    endif
-  end subroutine close_units
 end subroutine print_impG0_normal
 
 
@@ -116,57 +93,21 @@ subroutine print_impG0_superc
   !!
   !!
   !!PRINT OUT GF:
-  do l=1,totNorb
-     iorb=getIorb(l)
-     jorb=getJorb(l)
-     suffix="_l"//reg(txtfy(iorb))//"_m"//reg(txtfy(jorb))
-     call open_units(reg(suffix))
-     if(ed_verbose<1)then
-        do i=1,Lmats
-           write(unit(1),"(F20.12,6(F20.12))")wm(i),&
-                (dimag(impG0mats(ispin,ispin,iorb,jorb,i)),dreal(impG0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-        enddo
-        do i=1,Lmats
-           write(unit(2),"(F20.12,6(F20.12))")wm(i),&
-                (dimag(impF0mats(ispin,ispin,iorb,jorb,i)),dreal(impF0mats(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-        enddo
-        do i=1,Lreal
-           write(unit(3),"(F20.12,6(F20.12))")wr(i),&
-                (dimag(impG0real(ispin,ispin,iorb,jorb,i)),dreal(impG0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-        enddo
-        do i=1,Lreal
-           write(unit(4),"(F20.12,6(F20.12))")wr(i),&
-                (dimag(impF0real(ispin,ispin,iorb,jorb,i)),dreal(impF0real(ispin,ispin,iorb,jorb,i)),ispin=1,Nspin)
-        enddo
-     endif
-     call close_units
+  do ispin=1,Nspin
+     do l=1,totNorb
+        iorb=getIorb(l)
+        jorb=getJorb(l)
+        suffix="_l"//str(iorb)//str(jorb)//"_s"//str(ispin)
+        call splot("impG0"//reg(suffix)//"_iw"//reg(ed_file_suffix)//".ed"  ,wm,impG0mats(ispin,ispin,iorb,jorb,:))
+        call splot("impF0"//reg(suffix)//"_iw"//reg(ed_file_suffix)//".ed"   ,wm,impF0mats(ispin,ispin,iorb,jorb,:))
+        !
+        call splot("impG0"//reg(suffix)//"_realw"//reg(ed_file_suffix)//".ed",wr,impG0real(ispin,ispin,iorb,jorb,:))
+        call splot("impF0"//reg(suffix)//"_realw"//reg(ed_file_suffix)//".ed" ,wr,impF0real(ispin,ispin,iorb,jorb,:))
+     enddo
   enddo
-  !
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
-  !
-contains
-  !
-  subroutine open_units(string)
-    character(len=*) :: string
-    unit=free_units(size(unit))
-    if(ed_verbose<1)then
-       open(unit(1),file="impG0"//string//"_iw"//reg(ed_file_suffix)//".ed")
-       open(unit(2),file="impF0"//string//"_iw"//reg(ed_file_suffix)//".ed")
-       open(unit(3),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
-       open(unit(4),file="impF0"//string//"_realw"//reg(ed_file_suffix)//".ed")
-    endif
-  end subroutine open_units
-  !
-  subroutine close_units()
-    if(ed_verbose<1)then
-       close(unit(1))
-       close(unit(2))
-       close(unit(3))
-       close(unit(4))
-    endif
-  end subroutine close_units
   !
 end subroutine print_impG0_superc
 
@@ -236,7 +177,7 @@ subroutine print_impG0_nonsu2
               do jspin=1,Nspin
                  io = iorb + (ispin-1)*Norb
                  jo = jorb + (jspin-1)*Norb
-                 if(ed_verbose>=0.and.io<jo)cycle
+                 if(io<jo)cycle
                  if(dmft_bath%mask(ispin,jspin,iorb,jorb,1).or.dmft_bath%mask(ispin,jspin,iorb,jorb,2)) l=l+1
               enddo
            enddo
@@ -251,7 +192,7 @@ subroutine print_impG0_nonsu2
               do jspin=1,Nspin
                  io = iorb + (ispin-1)*Norb
                  jo = jorb + (jspin-1)*Norb
-                 if(ed_verbose>=0.and.io<jo)cycle
+                 if(io<jo)cycle
                  if((.not.dmft_bath%mask(ispin,jspin,iorb,jorb,1)).and.(.not.dmft_bath%mask(ispin,jspin,iorb,jorb,2))) cycle
                  l=l+1
                  getIorb(l)=iorb
@@ -272,38 +213,14 @@ subroutine print_impG0_nonsu2
      ispin=getIspin(l)
      jspin=getJspin(l)
      !
-     suffix="_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))
-     call open_units(reg(suffix))
-     !
-     if(ed_verbose<1)then
-        do i=1,Lmats
-           write(unit(1),"(F20.12,2(F20.12))")wm(i),dimag(impG0mats(ispin,jspin,iorb,jorb,i)),dreal(impG0mats(ispin,jspin,iorb,jorb,i))
-        enddo
-        do i=1,Lreal
-           write(unit(2),"(F20.12,2(F20.12))")wr(i),dimag(impG0real(ispin,jspin,iorb,jorb,i)),dreal(impG0real(ispin,jspin,iorb,jorb,i))
-        enddo
-     endif
-     call close_units()
+     suffix="_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
+     call splot("impG0"//reg(suffix)//"_iw"//reg(ed_file_suffix)//".ed"   ,wm,impG0mats(ispin,jspin,iorb,jorb,:))
+     call splot("impG0"//reg(suffix)//"_realw"//reg(ed_file_suffix)//".ed",wr,impG0real(ispin,jspin,iorb,jorb,:))
   enddo
   !
   if(allocated(wm))deallocate(wm)
   if(allocated(wr))deallocate(wr)
   !
-contains
-  subroutine open_units(string)
-    character(len=*) :: string
-    unit=free_units(size(unit))
-    if(ed_verbose<1)then
-       open(unit(1),file="impG0"//string//"_iw"//reg(ed_file_suffix)//".ed")
-       open(unit(2),file="impG0"//string//"_realw"//reg(ed_file_suffix)//".ed")
-    endif
-  end subroutine open_units
-  subroutine close_units()
-    if(ed_verbose<1)then
-       close(unit(1))
-       close(unit(2))
-    endif
-  end subroutine close_units
 end subroutine print_impG0_nonsu2
 
 

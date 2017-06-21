@@ -132,13 +132,11 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
           'chi^2|iter'//reg(ed_file_suffix)//'=',chi," | ",iter,&
           "  <--  Orb"//reg(txtfy(iorb))//" Spin"//reg(txtfy(ispin))
      !
-     if(ed_verbose<2)then
-        suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
-        unit=free_unit()
-        open(unit,file="chi2fit_results"//reg(suffix)//".ed",position="append")
-        write(unit,"(ES18.9,1x,I5)") chi,iter
-        close(unit)
-     endif
+     suffix="_orb"//reg(txtfy(iorb))//"_s"//reg(txtfy(ispin))//reg(ed_file_suffix)
+     unit=free_unit()
+     open(unit,file="chi2fit_results"//reg(suffix)//".ed",position="append")
+     write(unit,"(ES18.9,1x,I5)") chi,iter
+     close(unit)
      !
      stride = 0
      do i=1,Nbath
@@ -157,11 +155,11 @@ subroutine chi2_fitgf_normal_superc(fg,bath_,ispin)
      enddo
      !
   enddo
-  if(ed_verbose<2)call write_dmft_bath(dmft_bath,LOGfile)
+  call write_dmft_bath(dmft_bath,LOGfile)
   !
   call save_dmft_bath(dmft_bath)
   !
-  if(ed_verbose<3)call write_fit_result(ispin)
+  call write_fit_result(ispin)
   call get_dmft_bath(dmft_bath,bath_)
   call deallocate_dmft_bath(dmft_bath)
   deallocate(Gdelta,Fdelta,Xdelta,Wdelta)

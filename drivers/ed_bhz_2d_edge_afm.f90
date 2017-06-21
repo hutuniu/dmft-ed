@@ -18,13 +18,13 @@ program ed_bhz_2d_edge
   real(8),allocatable,dimension(:,:)            :: Bath_ineq
   real(8),allocatable,dimension(:,:)            :: Bath_prev
   !The local hybridization function:
-  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Weiss
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Smats
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Gmats
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Sreal
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Greal
   !Nineq:
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Weiss_ineq
+  complex(8),allocatable,dimension(:,:,:,:,:,:) :: Weiss_ineq_prev
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Smats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Gmats_ineq
   complex(8),allocatable,dimension(:,:,:,:,:,:) :: Sreal_ineq
@@ -41,11 +41,11 @@ program ed_bhz_2d_edge
   !
   integer                                       :: Nk,Nkpath                           
   real(8)                                       :: e0,mh,lambda,wmixing
-  logical                                       :: spinsym,lysym,neelsym,rebuild_sigma
+  logical                                       :: spinsym,lysym,neelsym,mix_weiss
   character(len=60)                             :: finput
   character(len=32)                             :: hkfile
   !
-  integer                                       :: comm,rank
+  integer                                       :: comm,rank,ierr
   logical                                       :: master
 
 
@@ -68,7 +68,7 @@ program ed_bhz_2d_edge
   call parse_input_variable(lysym,"LYSYM",finput,default=.true.,comment="Enforce symmetry on half of the stripe")
   call parse_input_variable(spinsym,"SPINSYM",finput,default=.true.,comment="Enforce spin symmetry (PM solution)")
   call parse_input_variable(neelsym,"NEELSYM",finput,default=.false.,comment="Enforce Neel symmetry on ineq. atoms in the same cell")
-  call parse_input_variable(rebuild_sigma,"REBUILD_SIGMA",finput,default=.false.)
+  call parse_input_variable(mix_weiss,"MIX_WEISS",finput,default=.true.)
   call parse_input_variable(wmixing,"WMIXING",finput,default=0.5d0)
   !
   call ed_read_input(trim(finput),comm)
@@ -106,16 +106,15 @@ program ed_bhz_2d_edge
      call print_structure(Ly)
      call print_structure(Ly,"Structure_Lattice.dat")
   endif
-  call sleep(2)
 
 
   !Allocate Full Functions:
   allocate(Weiss_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats));Weiss_ineq=zero
+  allocate(Weiss_ineq_prev(Nineq,Nspin,Nspin,Norb,Norb,Lmats));Weiss_ineq_prev=zero
   allocate(Smats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats));Smats_ineq=zero
   allocate(Gmats_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lmats));Gmats_ineq=zero
   allocate(Sreal_ineq(Nineq,Nspin,Nspin,Norb,Norb,Lreal));Sreal_ineq=zero
   !
-  allocate(Weiss(Nlat,Nspin,Nspin,Norb,Norb,Lmats)) ;Weiss=zero
   allocate(Smats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)) ;Smats=zero
   allocate(Gmats(Nlat,Nspin,Nspin,Norb,Norb,Lmats)) ;Gmats=zero
   allocate(Sreal(Nlat,Nspin,Nspin,Norb,Norb,Lreal)) ;Sreal=zero
@@ -128,6 +127,8 @@ program ed_bhz_2d_edge
 
   !Buil the Hamiltonian on a grid or on  path
   call build_hkr(trim(hkfile))
+
+
   !allocate to Ncell[2] times the number of layers[Ly]:1A-1B,...,NA-NB
   allocate(Hloc(Nlat,Nspin,Nspin,Norb,Norb));Hloc     =zero
   !allocate to Nineq: only consider 1 per cell and half of the layers: 1A,...,NA
@@ -144,13 +145,17 @@ program ed_bhz_2d_edge
 
 
 
-  !======================> DMFT <========================+!
+
   !Setup solver
   Nb=get_bath_dimension()
-  allocate(Bath_ineq(Nineq,Nb) )
-  allocate(Bath_prev(Nineq,Nb) )
-  call ed_init_solver(Comm,Bath_ineq)
-  call MPI_Barrier(Comm,ineq)
+  allocate(Bath_ineq(Nineq,Nb))
+  allocate(Bath_prev(Nineq,Nb))
+  !
+  call ed_init_solver(Comm,Bath_ineq,Hloc_ineq)
+
+
+
+  call MPI_Barrier(Comm,ierr)
   write(*,"(A)")"Breaking Symmetry pattern:"
   allocate(sbpattern(Nineq))
   if(neelsym)then
@@ -163,7 +168,8 @@ program ed_bhz_2d_edge
   do ineq=1,Nineq
      call break_symmetry_bath(Bath_ineq(ineq,:),sb_field,sbpattern(ineq))
   enddo
-  call MPI_Barrier(Comm,ineq)
+  call MPI_Barrier(Comm,ierr)
+
 
   if(master)then
      open(10,file="Symmetry_breaking_pattern.dat")
@@ -186,7 +192,7 @@ program ed_bhz_2d_edge
      !
      !
      ! solve the impurities on each inequivalent y-layer
-     call ed_solve(comm,Bath_ineq,Hloc_ineq,iprint=1)
+     call ed_solve(comm,Bath_ineq,Hloc_ineq)
      !
      !
      !
@@ -202,14 +208,7 @@ program ed_bhz_2d_edge
            enddo
         enddo
      endif
-     S0 = Smats(:,:,:,:,:,1)![Nlat][Nspin][Nspin][Norb][Norb]
-     do ilat=1,Nlat
-        Zfoo(ilat,:,:) = select_block(ilat,S0)
-        do iorb=1,Nso
-           i = iorb + (ilat-1)*Nso
-           Zmats(i,i)  = 1.d0/( 1.d0 + abs( dimag(Zfoo(ilat,iorb,iorb))/(pi/beta) ))
-        enddo
-     enddo
+     !
      !
      !
      !
@@ -222,6 +221,10 @@ program ed_bhz_2d_edge
      !
      !
      ! compute the Weiss field (only the Nineq ones)
+     if(mix_weiss)then
+        if(iloop>1)Weiss_ineq=wmixing*Weiss_ineq + (1.d0-wmixing)*Weiss_ineq_prev
+        Weiss_ineq_prev=Weiss_ineq
+     endif
      if(cg_scheme=='weiss')then
         call dmft_weiss(Comm,Gmats_ineq,Smats_ineq,Weiss_ineq,Hloc_ineq,iprint=4)
      else
@@ -239,8 +242,10 @@ program ed_bhz_2d_edge
      endif
      !
      !
-     if(iloop>1)Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
-     Bath_prev=Bath_ineq
+     if(.not.mix_weiss)then
+        if(iloop>1)Bath_ineq=wmixing*Bath_ineq + (1.d0-wmixing)*Bath_prev
+        Bath_prev=Bath_ineq
+     endif
      !
      if(master)converged = check_convergence(Weiss_ineq(:,1,1,1,1,:),dmft_error,nsuccess,nloop)
      call Bcast_MPI(Comm,converged)
@@ -263,10 +268,23 @@ program ed_bhz_2d_edge
   call dmft_gloc_realaxis(Comm,Hkr,Wtk,Greal,Sreal,iprint=4)
 
 
-  call build_eigenbands()
 
+
+  S0 = Smats(:,:,:,:,:,1)![Nlat][Nspin][Nspin][Norb][Norb]
+  do ilat=1,Nlat
+     Zfoo(ilat,:,:) = select_block(ilat,S0)
+     do iorb=1,Nso
+        i = iorb + (ilat-1)*Nso
+        Zmats(i,i)  = 1.d0/( 1.d0 + abs( dimag(Zfoo(ilat,iorb,iorb))/(pi/beta) ))
+     enddo
+  enddo
+  if(master)call build_eigenbands()
+  call MPI_Barrier(comm,ierr)
 
   call finalize_MPI()
+
+  stop
+
 
 
 
