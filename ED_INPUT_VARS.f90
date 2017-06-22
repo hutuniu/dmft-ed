@@ -59,7 +59,6 @@ MODULE ED_INPUT_VARS
   real(8)              :: ed_vsf_ratio        !
   real(8)              :: ed_bath_noise_thr   !
   character(len=7)     :: bath_type           !flag to set bath type: normal (1bath/imp), hybrid(1bath)
-  character(len=64)    :: ed_file_suffix      !suffix string attached to the output files.
   real(8)              :: nread               !fixed density. if 0.d0 fixed chemical potential calculation.
   real(8)              :: nerr                !fix density threshold. a loop over from 1.d-1 to required nerr is performed
   real(8)              :: ndelta              !initial chemical potential step
@@ -114,7 +113,7 @@ contains
     call parse_input_variable(Nspin,"NSPIN",INPUTunit,default=1,comment="Number of spin degeneracy (max 2)")
     call parse_input_variable(uloc,"ULOC",INPUTunit,default=[2.d0,0.d0,0.d0],comment="Values of the local interaction per orbital (max 3)")
     call parse_input_variable(ust,"UST",INPUTunit,default=0.d0,comment="Value of the inter-orbital interaction term")
-    call parse_input_variable(Jh,"JH",INPUTunit,default=0.d0,comment="Hund`s coupling")
+    call parse_input_variable(Jh,"JH",INPUTunit,default=0.d0,comment="Hunds coupling")
     call parse_input_variable(Jx,"JX",INPUTunit,default=0.d0,comment="S-E coupling")
     call parse_input_variable(Jp,"JP",INPUTunit,default=0.d0,comment="P-H coupling")
     call parse_input_variable(beta,"BETA",INPUTunit,default=1000.d0,comment="Inverse temperature, at T=0 is used as a IR cut-off.")
@@ -172,7 +171,6 @@ contains
     call parse_input_variable(HLOCfile,"impHfile",INPUTunit,default="inputHLOC.in",comment="File read the input local H.")
     call parse_input_variable(LOGfile,"LOGFILE",INPUTunit,default=6,comment="LOG unit.")
     call parse_input_variable(ed_verbose,"ED_VERBOSE",INPUTunit,default=3,comment="Verbosity level: 0=almost nothing --> 3:all.")
-    call parse_input_variable(ed_file_suffix,"ED_FILE_SUFFIX",INPUTunit,default=".ed",comment="Suffix in the output files.")
     call parse_input_variable(Jz_basis,"JZ_BASIS",INPUTunit,default=.false.,comment="")
     call parse_input_variable(Jz_max,"JZ_MAX",INPUTunit,default=.false.,comment="")
     call parse_input_variable(Jz_max_value,"JZ_MAX_VALUE",INPUTunit,default=1000.d0,comment="")
@@ -199,7 +197,6 @@ contains
     !Act on the input variable only after printing.
     !In the new parser variables are hard-linked into the list:
     !any change to the variable is immediately copied into the list... (if you delete .ed it won't be printed out)
-    call substring_delete(ed_file_suffix,".ed")
     call substring_delete(Hfile,".restart")
     call substring_delete(Hfile,".ed")
   end subroutine ed_read_input

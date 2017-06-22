@@ -183,20 +183,10 @@ contains
     if(allocated(neigen_totalii))deallocate(neigen_totalii) ; allocate(neigen_totalii(Nineq))
     do ilat=1,Nineq             !all nodes check the bath, u never know...
        !
-       ! if(present(Hloc))then
-       !    check_dim = check_bath_dimension(bath(ilat,:),Hloc(ilat,:,:,:,:))
-       ! else
-       !    check_dim = check_bath_dimension(bath(ilat,:))
-       ! endif
-       ! if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
+       ed_file_suffix=reg(ineq_site_suffix)//str(ilat,site_indx_padding)
        !
-       ed_file_suffix="_site"//str(ilat,Npad=4)
-       !
-       ! if(present(Hloc))then
        call ed_init_solver_single(bath(ilat,:),Hloc(ilat,:,:,:,:))
-       ! else
-       !    call ed_init_solver_single(bath(ilat,:))
-       ! endif
+       !
        neigen_sectorii(ilat,:) = neigen_sector(:)
        neigen_totalii(ilat)    = lanc_nstates_total
     end do
@@ -221,20 +211,11 @@ contains
     if(allocated(neigen_sectorii))deallocate(neigen_sectorii) ; allocate(neigen_sectorii(Nineq,Nsect))
     if(allocated(neigen_totalii))deallocate(neigen_totalii) ; allocate(neigen_totalii(Nineq))
     do ilat=1,Nineq             !all nodes check the bath, u never know...
-       ! if(present(Hloc))then
-       !    check_dim = check_bath_dimension(bath(ilat,:),Hloc(ilat,:,:,:,:))
-       ! else
-       !    check_dim = check_bath_dimension(bath(ilat,:))
-       ! endif
-       ! if(.not.check_dim) stop "init_lattice_bath: wrong bath size dimension 1 or 2 "
        !
-       ed_file_suffix="_site"//str(ilat,Npad=4)
+       ed_file_suffix=reg(ineq_site_suffix)//str(ilat,site_indx_padding)
        !
-       ! if(present(Hloc))then
        call ed_init_solver_single_mpi(MpiComm,bath(ilat,:),Hloc(ilat,:,:,:,:))
-       ! else
-       !    call ed_init_solver_single_mpi(MpiComm,bath(ilat,:))
-       ! endif
+       !
        neigen_sectorii(ilat,:) = neigen_sector(:)
        neigen_totalii(ilat)    = lanc_nstates_total
     end do
@@ -286,9 +267,6 @@ contains
     call write_dmft_bath(dmft_bath,LOGfile)
     if(MPI_MASTER)call save_dmft_bath(dmft_bath,used=.true.)
     !
-    !ASSOCIATE THE GLOBAL PROCEDURES
-    ed_buildh_c  => build_H_c
-    !
     select case(ed_sparse_H)
     case (.true.)
        spHtimesV_cc => spMatVec_cc
@@ -308,7 +286,6 @@ contains
     call deallocate_dmft_bath(dmft_bath)   
     call es_delete_espace(state_list)
     !
-    nullify(ed_buildh_c)
     nullify(spHtimesV_cc)
   end subroutine ed_solve_single
 
@@ -335,9 +312,6 @@ contains
     call set_dmft_bath(bath,dmft_bath)
     call write_dmft_bath(dmft_bath,LOGfile)
     if(MPI_MASTER)call save_dmft_bath(dmft_bath,used=.true.)
-    !
-    !ASSOCIATE THE GLOBAL PROCEDURES
-    ed_buildh_c  => build_H_c
     !
     select case(ed_sparse_H)
     case (.true.)
@@ -369,7 +343,6 @@ contains
     call ed_diag_del_MPI()
     call ed_observables_del_MPI()
     call ed_greens_functions_del_MPI()    
-    nullify(ed_buildh_c)
     nullify(spHtimesV_cc)
   end subroutine ed_solve_single_mpi
 #endif
@@ -470,9 +443,9 @@ contains
     call start_timer
     !
     do ilat = 1, Nsites
-       write(*,*)" solves site: "//str(ilat,Npad=4)
+       write(LOGfile,*)" SOLVING INEQ SITE: "//str(ilat,Npad=4)
        !
-       ed_file_suffix="_site"//str(ilat,Npad=4)
+       ed_file_suffix=reg(ineq_site_suffix)//str(ilat,site_indx_padding)
        !
        !If required set the local value of U per each site
        if(present(Uloc_ii))Uloc(1:Norb) = Uloc_ii(ilat,1:Norb)
@@ -623,9 +596,9 @@ contains
     call start_timer
     !
     do ilat = 1 + MPI_ID, Nsites, MPI_SIZE
-       write(*,*)str(MPI_ID)//" solves site: "//str(ilat,Npad=4)
+       write(LOGfile,*)str(MPI_ID)//" SOLVES INEQ SITE: "//str(ilat,Npad=4)
        !
-       ed_file_suffix="_site"//str(ilat,Npad=4)
+       ed_file_suffix=reg(ineq_site_suffix)//str(ilat,site_indx_padding)
        !
        !If required set the local value of U per each site
        if(present(Uloc_ii))Uloc(1:Norb) = Uloc_ii(ilat,1:Norb)

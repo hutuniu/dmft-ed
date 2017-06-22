@@ -648,9 +648,6 @@ contains
              getmaxtwoJz(in)=maxtwoJz
              getSector(in,twoJz)=isector
              dim = get_nonsu2_sector_dimension_Jz(in,twoJz)
-             !DEBUG>>
-             !write(*,*)"setup",isector,in,twoJz,maxtwoJz,dim
-             !>>DEBUG
              getDim(isector)=dim
              neigen_sector(isector) = min(dim,lanc_nstates_sector)
           enddo

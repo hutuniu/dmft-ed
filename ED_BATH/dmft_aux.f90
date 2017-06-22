@@ -520,9 +520,6 @@ subroutine save_dmft_bath(dmft_bath_,file,used)
   if(present(file))file_=reg(file)
   unit_=free_unit()
   open(unit_,file=reg(file_))
-  !<DEBUG
-  write(*,*) reg(file_)
-  !DEBUG>
   call write_dmft_bath(dmft_bath_,unit_)
   close(unit_)
   ! endif

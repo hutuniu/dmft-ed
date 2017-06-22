@@ -53,7 +53,7 @@ program lancED
   Nb=get_bath_dimension()
   allocate(bath(Nb))
   allocate(bath_(Nb))
-  call ed_init_solver(bath)
+  call ed_init_solver(bath,Hloc)
 
   !DMFT loop
   iloop=0;converged=.false.
