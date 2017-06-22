@@ -230,13 +230,17 @@ MODULE ED_IO
   public :: ed_print_impG
   public :: ed_print_impG0
   public :: ed_print_impChi
-  !
+
+
+  !****************************************************************************************!
+  !****************************************************************************************!
+
+
+  interface ed_read_impSigma
+     module procedure :: ed_read_impSigma_single
+     module procedure :: ed_read_impSigma_lattice
+  end interface ed_read_impSigma
   public :: ed_read_impSigma
-  public :: ed_read_impG
-  public :: ed_read_impG0
-
-
-
 
 
   !Frequency and time arrays:
@@ -259,7 +263,6 @@ contains
   ! NORMAL - SUPERConducting - NONSU2
   !+------------------------------------------------------------------+
   include "ED_IO/print_impSigma.f90"
-  include "ED_IO/read_impSigma.f90"
   subroutine ed_print_impSigma
     select case(ed_mode)
     case ("normal");call print_impSigma_normal
@@ -269,21 +272,8 @@ contains
     end select
   end subroutine ed_print_impSigma
 
-  subroutine ed_read_impSigma
-    select case(ed_mode)
-    case ("normal");call read_impSigma_normal
-    case ("superc");call read_impSigma_superc
-    case ("nonsu2");call read_impSigma_nonsu2
-    case default;stop "ed_read_impSigma error: ed_mode not in the list"
-    end select
-  end subroutine ed_read_impSigma
-
-  !****************************************************************************************!
-  !****************************************************************************************!
-
 
   include "ED_IO/print_impG.f90"
-  include "ED_IO/read_impG.f90"
   subroutine ed_print_impG
     select case(ed_mode)
     case ("normal");call print_impG_normal
@@ -293,22 +283,8 @@ contains
     end select
   end subroutine ed_print_impG
 
-  subroutine ed_read_impG
-    select case(ed_mode)
-    case ("normal");call read_impG_normal
-    case ("superc");call read_impG_superc
-    case ("nonsu2");call read_impG_nonsu2
-    case default;stop "ed_read_impG error: ed_mode not in the list"
-    end select
-  end subroutine ed_read_impG
-
-
-  !****************************************************************************************!
-  !****************************************************************************************!
-
 
   include "ED_IO/print_impG0.f90"
-  include "ED_IO/read_impG0.f90"
   subroutine ed_print_impG0
     select case(ed_mode)
     case ("normal");call print_impG0_normal
@@ -317,18 +293,6 @@ contains
     case default;stop "ed_print_impG0 error: ed_mode not in the list"
     end select
   end subroutine ed_print_impG0
-
-  subroutine ed_read_impG0
-    select case(ed_mode)
-    case ("normal");call read_impG0_normal
-    case ("superc");call read_impG0_superc
-    case ("nonsu2");call read_impG0_nonsu2
-    case default;stop "ed_read_impG0 error: ed_mode not in the list"
-    end select
-  end subroutine ed_read_impG0
-
-  !****************************************************************************************!
-  !****************************************************************************************!
 
 
   include "ED_IO/print_impChi.f90"
@@ -343,10 +307,47 @@ contains
 
 
 
+  !+-----------------------------------------------------------------------------+!
+  ! PURPOSE: Read self-energy function(s) - also for inequivalent sites.
+  !+-----------------------------------------------------------------------------+!
+  include "ED_IO/read_impSigma.f90"
+  subroutine ed_read_impSigma_single
+    select case(ed_mode)
+    case ("normal");call read_impSigma_normal
+    case ("superc");call read_impSigma_superc
+    case ("nonsu2");call read_impSigma_nonsu2
+    case default;stop "ed_read_impSigma error: ed_mode not in the list"
+    end select
+  end subroutine ed_read_impSigma_single
 
-
-
-
+  subroutine ed_read_impSigma_lattice(Nineq)
+    integer :: Nineq
+    integer :: ilat
+    !
+    if(allocated(Smatsii))deallocate(Smatsii)
+    if(allocated(Srealii))deallocate(Srealii)
+    if(allocated(SAmatsii))deallocate(SAmatsii)
+    if(allocated(SArealii))deallocate(SArealii)
+    allocate(Smatsii(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(Srealii(Nineq,Nspin,Nspin,Norb,Norb,Lreal))
+    allocate(SAmatsii(Nineq,Nspin,Nspin,Norb,Norb,Lmats))
+    allocate(SArealii(Nineq,Nspin,Nspin,Norb,Norb,Lreal))
+    !
+    Smatsii  = zero 
+    Srealii  = zero 
+    SAmatsii = zero 
+    SArealii = zero
+    !
+    do ilat=1,Nineq
+       ed_file_suffix=ineq_site_suffix//str(ilat,site_indx_padding)
+       call ed_read_impSigma_single
+       Smatsii(ilat,:,:,:,:,:)  = impSmats
+       Srealii(ilat,:,:,:,:,:)  = impSreal
+       SAmatsii(ilat,:,:,:,:,:) = impSAmats
+       SArealii(ilat,:,:,:,:,:) = impSAreal
+    enddo
+    ed_file_suffix=""
+  end subroutine ed_read_impSigma_lattice
 
 
 
@@ -358,12 +359,6 @@ contains
   include "ED_IO/get_self_matsubara.f90"
   include "ED_IO/get_sigma_realaxis.f90"
   include "ED_IO/get_self_realaxis.f90"
-
-
-
-
-
-
 
 
   !+-----------------------------------------------------------------------------+!
@@ -402,7 +397,7 @@ contains
     complex(8),allocatable                       :: dm_diag(:,:)
     !
     if (.not.allocated(imp_density_matrix)) then
-       write(*,*) "imp_density_matrix is not allocated"
+       write(LOGfile,"(A)") "imp_density_matrix is not allocated"
        stop
     endif
     !

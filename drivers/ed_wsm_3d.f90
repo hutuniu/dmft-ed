@@ -3,7 +3,7 @@ program ed_wsm_3d
   USE SCIFOR
   USE DMFT_TOOLS
   implicit none
-  integer                       :: iloop,Lk,Nso
+  integer                       :: iloop,Lk,Nso,test=0
   logical                       :: converged
   !Bath:
   integer                       :: Nb
@@ -27,7 +27,7 @@ program ed_wsm_3d
 
   call parse_cmd_variable(finput,"FINPUT",default='inputED_WSM.conf')
   call parse_input_variable(hkfile,"HKFILE",finput,default="hkfile.in")
-  call parse_input_variable(nk,"NK",finput,default=100)
+  call parse_input_variable(nk,"NK",finput,default=30)
   call parse_input_variable(nkpath,"NKPATH",finput,default=500)
   call parse_input_variable(mh,"MH",finput,default=1d0)
   call parse_input_variable(e0,"E0",finput,default=1d0)
@@ -149,6 +149,10 @@ program ed_wsm_3d
 
   !Get 3d Bands from Top. Hamiltonian
   call solve_hk_topological( so2j(Smats(:,:,:,:,1),Nso) )
+
+  !Find out if it is a semimetal
+  !call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
+  call is_weyl( Nso )
 
 
 
@@ -318,13 +322,105 @@ contains
     !
   end function hk_weyl
 
+  !--------------------------------------------------------------------!
+  !WSM REGION FINDER:
+  !--------------------------------------------------------------------!
+
+  subroutine is_weyl_brutal(N,sigma)
+    integer                                 :: weyl_index, unit,test_brutal=0
+    complex(8),dimension(Nso,Nso)           :: sigma(Nso,Nso)
+    integer                                 :: N
+    real(8),dimension(:),allocatable        :: kpoint
+    real(8),dimension(N)                    :: eval
+    complex(8),dimension(N,N)               :: ham
+    if(N/=4)stop "hk_weyl: error in N dimensions"
+    !
+    !
+    weyl_index=0
+    call set_sigmaWSM(sigma)
+    !
+    kpoint=[-pi,-pi,-pi]
+    do while (kpoint(1).lt.pi .and. weyl_index.ne.1)
+      kpoint(2)=-pi
+      kpoint(3)=-pi
+      do while (kpoint(2).lt.pi .and. weyl_index.ne.1)
+        kpoint(3)=-pi
+        do while (kpoint(3).lt.pi .and. weyl_index.ne.1)
+          test_brutal=test_brutal+1
+          ham=hk_weyl(kpoint,N)
+          call eigh(ham,Eval)
+          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.1) then
+            weyl_index=1
+          end if
+          kpoint(3)=kpoint(3)+2*pi/(3*Nk)
+          end do
+        kpoint(2)=kpoint(2)+2*pi/(3*Nk)
+        end do
+      kpoint(1)=kpoint(1)+2*pi/(3*Nk)
+    end do
+    write(*,*) "Brutal iterations: ",test_brutal,". Is it Weyl? ",weyl_index
+    unit=free_unit()
+    open(unit,file="is_weyl.ed")
+    write(unit,*)weyl_index
+    close(unit)
+  end subroutine is_weyl_brutal
 
 
 
+  subroutine is_weyl(N)
+    real(8)                                 :: tol
+    integer                                 :: i,N,info,weyl_index,unit,counter
+    real(8),dimension(3)                                :: kpoint,x,fvec
+    real(8),dimension(:,:),allocatable      :: kpts
+    if(N/=4)stop "hk_weyl: error in N dimensions"
+    !
+    allocate(kpts(8,3))
+    kpts(1,:)=kpoint_gamma
+    kpts(2,:)=kpoint_x1
+    kpts(3,:)=kpoint_x2
+    kpts(4,:)=kpoint_x3
+    kpts(5,:)=kpoint_m1
+    kpts(6,:)=kpoint_m2
+    kpts(7,:)=kpoint_m3
+    kpts(8,:)=kpoint_r
+    !
+    weyl_index=0
+    !
+    do i = 1, 8    
+      x=kpts(i,:)
+      tol = 1.d-10;
+      call fsolve(retrieve_third_band,x,tol,info)
+      counter=counter+1
+      if (info .eq. 1) then
+        weyl_index=1
+        x(1)=mod(x(1),2*pi)
+        x(2)=mod(x(2),2*pi)
+        x(3)=mod(x(3),2*pi)
+        write(*,*) "Weyl point found at ",x," after ",test," iterations."
+        exit
+      endif
+    enddo       
+    unit=free_unit()
+    open(unit,file="is_weyl.ed")
+    write(unit,*)weyl_index
+    close(unit)
+  end subroutine is_weyl
 
-
-
-
+  subroutine retrieve_third_band(n,x,fvec,iflag)
+    integer                                 :: iflag,n, INFO
+    real(8),dimension(N)                    :: x
+    real(8),dimension(N)                    :: fvec
+        complex(8),dimension(Nso,Nso)           :: ham
+        complex(8),dimension(Nso,Nso)           :: sigma
+    real(8),dimension(Nso)                  :: eval
+        !
+    sigma=so2j(Smats(:,:,:,:,1),Nso)
+    call set_sigmaWSM(sigma)
+        ham=hk_weyl(x,Nso)
+        call eigh(ham,Eval)
+        fvec=[Eval(3),0.0d0,0.0d0]
+        test=test+1
+  end subroutine retrieve_third_band
 
 
   !--------------------------------------------------------------------!
@@ -380,12 +476,6 @@ contains
 
 
 
-
-
-
-
-
-
   function so2j_index(ispin,iorb) result(isporb)
     integer :: ispin,iorb
     integer :: isporb
@@ -431,6 +521,4 @@ contains
 
 
 end program ed_wsm_3d
-
-
 

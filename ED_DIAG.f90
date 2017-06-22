@@ -391,8 +391,7 @@ contains
           endif
           !
           lanc_nstates_total=max(state_list%size,lanc_nstates_step)+lanc_nstates_step
-          ! if(ed_verbose>=1.AND.MPI_MASTER)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
-          write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
+          write(LOGfile,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
           !
        endif
     endif

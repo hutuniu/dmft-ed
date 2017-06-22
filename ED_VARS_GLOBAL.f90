@@ -38,23 +38,14 @@ MODULE ED_VARS_GLOBAL
 
 
   !------------------ ABTRACT INTERFACES PROCEDURES ------------------!
+  !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
+  !cmplxMat*cmplxVec
   abstract interface
-
-     !HAMILTONIAN CONSTUCTORS
-     !CMPLX
-     subroutine c_build_hamiltonian(Hmat)
-       complex(8),dimension(:,:),optional :: Hmat
-     end subroutine c_build_hamiltonian
-
-
-     !SPARSE MATRIX-VECTOR PRODUCTS USED IN ED_MATVEC
-     !cmplxMat*cmplxVec
      subroutine cc_sparse_HxV(Nloc,v,Hv)
        integer                    :: Nloc
        complex(8),dimension(Nloc) :: v
        complex(8),dimension(Nloc) :: Hv
      end subroutine cc_sparse_HxV
-
   end interface
 
 
@@ -100,13 +91,12 @@ MODULE ED_VARS_GLOBAL
   !=========================================================
   type(effective_bath)                               :: dmft_bath
 
+
   !Variables for DIAGONALIZATION
   !PRIVATE
   !=========================================================  
   type(sparse_matrix)                                :: spH0
   type(sparse_matrix)                                :: spH0up,spH0dw
-  procedure(c_build_hamiltonian),pointer             :: ed_buildH_c=>null()
-  !
   procedure(cc_sparse_HxV),pointer                   :: spHtimesV_cc=>null()
 
 
@@ -139,10 +129,6 @@ MODULE ED_VARS_GLOBAL
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: SAmatsii,SArealii        ![Nlat][Nspin][Nspin][Norb][Norb][L]
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Gmatsii,Grealii          ![Nlat][Nspin][Nspin][Norb][Norb][L]
   complex(8),dimension(:,:,:,:,:,:),allocatable,save :: Fmatsii,Frealii          ![Nlat][Nspin][Nspin][Norb][Norb][L]
-
-  ! !Poles & Weights 
-  ! !=========================================================
-  ! real(8),allocatable,dimension(:,:,:,:,:,:)         :: GFpoles,GFweights
 
 
   !Spin Susceptibilities
@@ -221,7 +207,19 @@ MODULE ED_VARS_GLOBAL
   integer,parameter,dimension(2)                     :: Szdiag = [1,-1]
 
 
+
+
+  !File suffixes for printing fine tuning.
+  !=========================================================
+  character(len=32)                                  :: ed_file_suffix=""       !suffix string attached to the output files.
+  character(len=5)                                   :: ineq_site_suffix="_ineq"
+  integer                                            :: site_indx_padding=4
+
+
+
 contains
+
+
 
   subroutine map_allocate_scalar(H,N)
     type(sector_map) :: H

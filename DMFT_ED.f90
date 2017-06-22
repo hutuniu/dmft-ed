@@ -1,8 +1,9 @@
 MODULE DMFT_ED
   USE ED_INPUT_VARS
+  
 
-  use ED_AUX_FUNX, only:                       &
-       stride_index                           ,&       
+  USE ED_AUX_FUNX, only:                       &
+       set_Hloc                               ,&
        lso2nnn_reshape                        ,&
        nnn2lso_reshape                        ,&
        so2nn_reshape                          ,&
@@ -22,10 +23,8 @@ MODULE DMFT_ED
        ed_print_impSigma                      ,&
        ed_print_impG                          ,&
        ed_print_impG0                         ,&
+       ed_print_impChi                        ,&
        ed_read_impSigma                       ,&
-       ed_read_impG                           ,&
-       ed_read_impG0                          ,&       
-       ed_print_impChi                        ,&       
        ed_get_sigma_matsubara                 ,&
        ed_get_self_matsubara                  ,&
        ed_get_sigma_real                      ,&

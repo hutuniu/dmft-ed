@@ -435,7 +435,7 @@ contains
        bath_tmp(ilat,:)=bath(ilat,:)
        call set_Hloc(Hloc(ilat,:,:,:,:))
        !
-       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))!trim(tmp_suffix)
+       ed_file_suffix=ineq_site_suffix//str(ilat,site_indx_padding)
        !
        if(present(ispin))then
           ispin_=ispin
@@ -482,7 +482,7 @@ contains
        bath_tmp(ilat,:)=bath(ilat,:)
        call set_Hloc(Hloc(ilat,:,:,:,:))
        !
-       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))!trim(tmp_suffix)
+       ed_file_suffix=ineq_site_suffix//str(ilat,site_indx_padding)
        !
        if(present(ispin))then
           ispin_=ispin
@@ -623,7 +623,7 @@ contains
        !
        call set_Hloc(Hloc(ilat,:,:,:,:))
        !
-       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))!trim(tmp_suffix)
+       ed_file_suffix=ineq_site_suffix//str(ilat,site_indx_padding)
        !
        if(present(ispin))then
           ispin_=ispin
@@ -671,7 +671,7 @@ contains
        !
        call set_Hloc(Hloc(ilat,:,:,:,:))
        !
-       ed_file_suffix="_site"//reg(txtfy(ilat,Npad=4))!trim(tmp_suffix)
+       ed_file_suffix=ineq_site_suffix//str(ilat,site_indx_padding)
        !
        if(present(ispin))then
           ispin_=ispin
