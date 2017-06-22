@@ -5,7 +5,7 @@ subroutine build_chi_dens()
   integer :: iorb,jorb
   write(LOGfile,"(A)")"Get impurity dens Chi:"
   do iorb=1,Norb
-     if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_diag_l"//reg(txtfy(iorb))
+     write(LOGfile,"(A)")"Get Chi_dens_diag_l"//reg(txtfy(iorb))
      call lanc_ed_build_densChi_diag_c(iorb)
   enddo
   !
@@ -13,7 +13,7 @@ subroutine build_chi_dens()
   if(Norb>1)then
      do iorb=1,Norb
         do jorb=iorb+1,Norb
-           if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_offdiag_l"//reg(txtfy(iorb))//reg(txtfy(jorb))
+           write(LOGfile,"(A)")"Get Chi_dens_offdiag_l"//reg(txtfy(iorb))//reg(txtfy(jorb))
            call lanc_ed_build_densChi_offdiag_c(iorb,jorb)
         end do
      end do
@@ -25,12 +25,12 @@ subroutine build_chi_dens()
      !
      do iorb=1,Norb
         do jorb=1,Norb
-           if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_offdiag_l"//reg(txtfy(iorb))//reg(txtfy(jorb))
+           write(LOGfile,"(A)")"Get Chi_dens_offdiag_l"//reg(txtfy(iorb))//reg(txtfy(jorb))
            call lanc_ed_build_densChi_mix_c(iorb,jorb)
         end do
      end do
      !
-     if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_dens_tot"
+     write(LOGfile,"(A)")"Get Chi_dens_tot"
      call lanc_ed_build_densChi_tot_c()     
   endif
   !
@@ -61,7 +61,7 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
   !
-  if(MPI_MASTER)call start_timer
+  call start_timer
   !
   do izero=1,state_list%size
      isector    =  es_return_sector(state_list,izero)
@@ -71,7 +71,7 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      allocate(vvinit(idim))
-     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
+     if(ed_verbose==3)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=zero
      do m=1,idim                     !loop over |gs> components m
@@ -106,7 +106,7 @@ subroutine lanc_ed_build_densChi_diag_c(iorb)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(MPI_MASTER)call stop_timer
+  call stop_timer(LOGfile)
 end subroutine lanc_ed_build_densChi_diag_c
 
 
@@ -129,7 +129,7 @@ subroutine lanc_ed_build_densChi_tot_c()
   integer                :: Nitermax
   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
-  if(MPI_MASTER)call start_timer
+  call start_timer
   !
   do izero=1,state_list%size
      isector    =  es_return_sector(state_list,izero)
@@ -139,7 +139,7 @@ subroutine lanc_ed_build_densChi_tot_c()
      norm0=sqrt(dot_product(state_cvec,state_cvec))
      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
      allocate(vvinit(idim))
-     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
+     if(ed_verbose==3)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
      call build_sector(isector,HI)
      vvinit=zero
      do m=1,idim
@@ -174,7 +174,7 @@ subroutine lanc_ed_build_densChi_tot_c()
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(MPI_MASTER)call stop_timer
+  call stop_timer(LOGfile)
 end subroutine lanc_ed_build_densChi_tot_c
 
 
@@ -200,7 +200,7 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
   integer                :: Nitermax
   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
   !
-  if(MPI_MASTER)call start_timer
+  call start_timer
   !
   do izero=1,state_list%size
      ! properties of the ground states
@@ -214,7 +214,7 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      call build_sector(isector,HI)
      !
      !build the (N_iorb+N_jorb)|gs> state
-     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + N_jorb:'
+     if(ed_verbose==3)write(LOGfile,"(A)")'Apply N_iorb + N_jorb:'
      vvinit=zero
      do m=1,idim                     !loop over |gs> components m
         i=HI%map(m)
@@ -250,7 +250,7 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      !
      !
      !build the (N_iorb - xi*N_jorb)|gs> state
-     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
+     if(ed_verbose==3)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
      cvinit=zero
      do m=1,idim
         i=HI%map(m)
@@ -283,7 +283,7 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      !
      !
      !build the (N_iorb + xi*N_jorb)|gs> state
-     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
+     if(ed_verbose==3)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
      cvinit=zero
      do m=1,idim
         i=HI%map(m)
@@ -319,7 +319,7 @@ subroutine lanc_ed_build_densChi_offdiag_c(iorb,jorb)
      if(spH0%status)call sp_delete_matrix(spH0)
      nullify(state_cvec)
   enddo
-  if(MPI_MASTER)call stop_timer
+  call stop_timer(LOGfile)
 end subroutine lanc_ed_build_densChi_offdiag_c
 
 
@@ -351,7 +351,7 @@ subroutine lanc_ed_build_densChi_mix_c(iorb,jorb)
   integer             :: Nitermax,Nlanc
   !
   !   
-  if(MPI_MASTER)call start_timer
+  call start_timer
   !
   do istate=1,state_list%size
      isector     =  es_return_sector(state_list,istate)
@@ -486,7 +486,7 @@ subroutine lanc_ed_build_densChi_mix_c(iorb,jorb)
      deallocate(HI%map)
      !
   enddo
-  if(MPI_MASTER)call stop_timer
+  call stop_timer(LOGfile)
 end subroutine lanc_ed_build_densChi_mix_c
 
 
@@ -738,386 +738,6 @@ end subroutine add_to_lanczos_densChi_tot
 
 
 
-
-
-
-
-! subroutine lanc_ed_build_densChi_diag_d(iorb)
-!   integer             :: iorb,isite,isector,izero
-!   integer             :: numstates
-!   integer             :: nlanc,idim
-!   integer             :: iup0,idw0,isign
-!   integer             :: ib(Nlevels)
-!   integer             :: m,i,j,r
-!   real(8)             :: norm0,sgn
-!   complex(8)          :: cnorm2
-!   real(8),allocatable :: alfa_(:),beta_(:)
-!   real(8),allocatable :: vvinit(:)
-!   integer             :: Nitermax
-!   type(sector_map)    :: HI    !map of the Sector S to Hilbert space H
-!   !
-!   !
-!   if(MPI_MASTER)call start_timer
-!   !
-!   do izero=1,state_list%size
-!      isector    =  es_return_sector(state_list,izero)
-!      idim       = getdim(isector)
-!      state_e    =  es_return_energy(state_list,izero)
-!      state_vec  => es_return_vector(state_list,izero)
-!      norm0=sqrt(dot_product(state_vec,state_vec))
-!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!      allocate(vvinit(idim))
-!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
-!      call build_sector(isector,HI)
-!      vvinit=0.d0
-!      do m=1,idim                     !loop over |gs> components m
-!         i=HI%map(m)
-!         ib = bdecomp(i,2*Ns)
-!         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
-!         vvinit(m) = sgn*state_vec(m)   !build the cdg_up|gs> state
-!      enddo
-!      deallocate(HI%map)
-!      norm0=dot_product(vvinit,vvinit)
-!      vvinit=vvinit/sqrt(norm0)
-!      call ed_buildH_d(isector)
-!      nlanc=min(idim,lanc_nGFiter)
-!      allocate(alfa_(nlanc),beta_(nlanc))
-!      if(MpiStatus)then
-!         call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!      else
-!         call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!      endif
-!      cnorm2=one*norm0
-!      isign=1
-!      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,iorb)
-!      isign=-1
-!      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,iorb)
-!      deallocate(vvinit,alfa_,beta_)
-!      if(spH0%status)call sp_delete_matrix(spH0)
-!      nullify(state_vec)
-!   enddo
-!   if(MPI_MASTER)call stop_timer
-! end subroutine lanc_ed_build_densChi_diag_d
-
-
-
-! subroutine lanc_ed_build_densChi_tot_d()
-!   integer             :: iorb,isite,isector,izero
-!   integer             :: numstates
-!   integer             :: nlanc,idim
-!   integer             :: iup0,idw0,isign
-!   integer             :: ib(Nlevels)
-!   integer             :: m,i,j,r
-!   complex(8)          :: cnorm2
-!   real(8)             :: norm0,sgn
-!   real(8),allocatable :: alfa_(:),beta_(:)
-!   real(8),allocatable :: vvinit(:)
-!   integer             :: Nitermax
-!   type(sector_map)    :: HI    !map of the Sector S to Hilbert space H
-!   !
-!   if(MPI_MASTER)call start_timer
-!   !
-!   do izero=1,state_list%size
-!      isector    =  es_return_sector(state_list,izero)
-!      idim       = getdim(isector)
-!      state_e    =  es_return_energy(state_list,izero)
-!      state_vec  => es_return_vector(state_list,izero)
-!      norm0=sqrt(dot_product(state_vec,state_vec))
-!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!      allocate(vvinit(idim))
-!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply N:',getnup(isector),getndw(isector)
-!      call build_sector(isector,HI)
-!      vvinit=0.d0
-!      do m=1,idim  
-!         i=HI%map(m)
-!         ib = bdecomp(i,2*Ns)
-!         sgn = sum(dble(ib(1:Norb)))+sum(dble(ib(Ns+1:Ns+Norb)))
-!         vvinit(m) = sgn*state_vec(m) 
-!      enddo
-!      deallocate(HI%map)
-!      norm0=dot_product(vvinit,vvinit)
-!      vvinit=vvinit/sqrt(norm0)
-!      call ed_buildH_d(isector)
-!      nlanc=min(idim,lanc_nGFiter)
-!      allocate(alfa_(nlanc),beta_(nlanc))
-!      if(MpiStatus)then
-!         call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!      else
-!         call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!      endif
-!      cnorm2=one*norm0
-!      isign=1
-!      call add_to_lanczos_densChi_tot(cnorm2,state_e,alfa_,beta_,isign)
-!      isign=-1
-!      call add_to_lanczos_densChi_tot(cnorm2,state_e,alfa_,beta_,isign)     
-!      deallocate(vvinit,alfa_,beta_)
-!      if(spH0%status)call sp_delete_matrix(spH0)
-!      nullify(state_vec)
-!   enddo
-!   if(MPI_MASTER)call stop_timer
-! end subroutine lanc_ed_build_densChi_tot_d
-
-
-
-! subroutine lanc_ed_build_densChi_offdiag_d(iorb,jorb)
-!   integer                :: iorb,jorb,isite,isector,izero,isign
-!   integer                :: numstates
-!   integer                :: nlanc,idim
-!   integer                :: iup0,idw0
-!   integer                :: ib(Nlevels)
-!   integer                :: m,i,j,r
-!   complex(8)             :: cnorm2
-!   real(8)                :: norm0,sgn
-!   real(8),allocatable    :: alfa_(:),beta_(:)
-!   real(8),allocatable    :: vvinit(:)
-!   complex(8),allocatable :: cvinit(:)
-!   integer                :: Nitermax
-!   type(sector_map)       :: HI    !map of the Sector S to Hilbert space H
-!   !
-!   if(MPI_MASTER)call start_timer
-!   !
-!   do izero=1,state_list%size
-!      ! properties of the ground states
-!      isector     =  es_return_sector(state_list,izero)
-!      idim       = getdim(isector)
-!      state_e    =  es_return_energy(state_list,izero)
-!      state_vec  => es_return_vector(state_list,izero)
-!      norm0=sqrt(dot_product(state_vec,state_vec))
-!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!      allocate(vvinit(idim),cvinit(idim))
-!      call build_sector(isector,HI)
-!      !
-!      !build the (N_iorb+N_jorb)|gs> state
-!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + N_jorb:'
-!      vvinit=0.d0
-!      do m=1,idim                     !loop over |gs> components m
-!         i=HI%map(m)
-!         ib = bdecomp(i,2*Ns)
-!         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
-!         vvinit(m) = sgn*state_vec(m)   
-!         !
-!         sgn = dble(ib(jorb))+dble(ib(jorb+Ns))
-!         vvinit(m) = vvinit(m) + sgn*state_vec(m)   
-!         !
-!      enddo
-!      norm0=dot_product(vvinit,vvinit)
-!      vvinit=vvinit/sqrt(norm0)
-!      call ed_buildH_d(isector)
-!      nlanc=min(idim,lanc_nGFiter)
-!      allocate(alfa_(nlanc),beta_(nlanc))
-!      if(MpiStatus)then
-!         call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!      else
-!         call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!      endif
-!      cnorm2=one*norm0
-!      !particle and holes excitations all at once
-!      isign=1                    !<---
-!      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
-!      isign=-1                   !<---
-!      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
-!      !
-!      !build the (N_iorb - xi*N_jorb)|gs> state
-!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
-!      cvinit=zero
-!      do m=1,idim
-!         i=HI%map(m)
-!         ib = bdecomp(i,2*Ns)
-!         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
-!         cvinit(m) = sgn*state_vec(m)   
-!         !
-!         sgn = dble(ib(jorb))+dble(ib(jorb+Ns))
-!         cvinit(m) = cvinit(m) - xi*sgn*state_vec(m)   
-!         !
-!      enddo
-!      norm0=dot_product(cvinit,cvinit)
-!      cvinit=cvinit/sqrt(norm0)
-!      call ed_buildH_d(isector)
-!      nlanc=min(idim,lanc_nGFiter)
-!      allocate(alfa_(nlanc),beta_(nlanc))
-!      if(MpiStatus)then
-!         call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
-!      else
-!         call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
-!      endif
-!      cnorm2=xi*norm0
-!      isign=1
-!      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
-!      !
-!      !build the (N_iorb + xi*N_jorb)|gs> state
-!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A)")'Apply N_iorb + xi*N_jorb:'
-!      cvinit=zero
-!      do m=1,idim
-!         i=HI%map(m)
-!         ib = bdecomp(i,2*Ns)
-!         sgn = dble(ib(iorb))+dble(ib(iorb+Ns))
-!         cvinit(m) = sgn*state_vec(m)   
-!         !
-!         sgn = dble(ib(jorb))+dble(ib(jorb+Ns))
-!         cvinit(m) = cvinit(m) + xi*sgn*state_vec(m)   
-!         !
-!      enddo
-!      norm0=dot_product(cvinit,cvinit)
-!      cvinit=cvinit/sqrt(norm0)
-!      call ed_buildH_d(isector)
-!      nlanc=min(idim,lanc_nGFiter)
-!      allocate(alfa_(nlanc),beta_(nlanc))
-!      if(MpiStatus)then
-!         call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
-!      else
-!         call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
-!      endif
-!      cnorm2=xi*norm0
-!      isign=-1
-!      call add_to_lanczos_densChi(cnorm2,state_e,alfa_,beta_,isign,iorb,jorb)
-!      deallocate(cvinit,vvinit,alfa_,beta_)
-!      deallocate(HI%map)
-!      if(spH0%status)call sp_delete_matrix(spH0)
-!      nullify(state_vec)
-!   enddo
-!   if(MPI_MASTER)call stop_timer
-! end subroutine lanc_ed_build_densChi_offdiag_d
-
-
-! subroutine lanc_ed_build_densChi_mix_d(iorb,jorb)
-!   integer             :: iorb,jorb,ispin
-!   real(8),allocatable :: vvinit(:),vvinit_tmp(:)
-!   real(8),allocatable :: alfa_(:),beta_(:)
-!   integer             :: isite,jsite,istate
-!   integer             :: isector,jsector,ksector
-!   integer             :: idim,jdim,kdim
-!   type(sector_map)    :: HI,HJ,HK
-!   integer             :: ib(Nlevels)
-!   integer             :: m,i,j,r,numstates
-!   real(8)             :: sgn,norm2,norm0
-!   complex(8)          :: cnorm2
-!   integer             :: Nitermax,Nlanc
-!   !
-!   !   
-!   if(MPI_MASTER)call start_timer
-!   !
-!   do istate=1,state_list%size
-!      isector    =  es_return_sector(state_list,istate)
-!      idim       = getdim(isector)
-!      state_e    =  es_return_energy(state_list,istate)
-!      state_vec  => es_return_vector(state_list,istate)
-!      norm0=sqrt(dot_product(state_vec,state_vec))
-!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!      call build_sector(isector,HI)
-!      !
-!      !+- Apply Sum_ispin c^dg_{jorb,ispin} c_{iorb,ispin} -+!
-!      do ispin=1,Nspin
-!         isite=impIndex(iorb,ispin)
-!         jsector = getCsector(ispin,isector)
-!         if(jsector/=0)then
-!            jdim  = getdim(jsector)
-!            allocate(vvinit_tmp(jdim))
-!            call build_sector(jsector,HJ)
-!            vvinit_tmp=0d0
-!            do m=1,idim
-!               i=HI%map(m)
-!               ib = bdecomp(i,2*Ns)
-!               if(ib(isite)==1)then
-!                  call c(isite,i,r,sgn)
-!                  j=binary_search(HJ%map,r)
-!                  vvinit_tmp(j) = sgn*state_vec(m)
-!               end if
-!            enddo
-!         endif
-!         jsite = impIndex(jorb,ispin)
-!         ksector = getCDGsector(ispin,jsector)
-!         if(ksector/=0) then       
-!            kdim  = getdim(ksector)
-!            allocate(vvinit(kdim)) !<==== ACTHUNG! 
-!            call build_sector(ksector,HK)
-!            vvinit=0d0              !<==== ACTHUNG! 
-!            do m=1,jdim
-!               i=HJ%map(m)
-!               ib = bdecomp(i,2*Ns)
-!               if(ib(jsite)==0)then
-!                  call cdg(jsite,i,r,sgn)
-!                  j=binary_search(HK%map,r)
-!                  vvinit(j) = sgn*vvinit_tmp(m)
-!               endif
-!            enddo
-!         end if
-!         deallocate(HJ%map,HK%map,vvinit_tmp)
-!         !
-!         norm2=dot_product(vvinit,vvinit)
-!         vvinit=vvinit/sqrt(norm2)
-!         call ed_buildH_d(ksector)
-!         nlanc=min(kdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!         endif
-!         cnorm2=one*norm2
-!         call add_to_lanczos_densChi_mix(cnorm2,state_e,alfa_,beta_,1,iorb,jorb)
-!         deallocate(vvinit,alfa_,beta_)
-!      enddo
-!      !
-!      !
-!      !+- Apply Sum_ispin c^dg_{iorb,ispin} c_{jorb,ispin} -+!
-!      do ispin=1,Nspin
-!         jsite=impIndex(jorb,ispin)
-!         jsector = getCsector(ispin,isector)
-!         if(jsector/=0)then
-!            jdim  = getdim(jsector)
-!            allocate(vvinit_tmp(jdim))
-!            call build_sector(jsector,HJ)
-!            vvinit_tmp=0d0
-!            do m=1,idim
-!               i=HI%map(m)
-!               ib = bdecomp(i,2*Ns)
-!               if(ib(jsite)==1)then
-!                  call c(jsite,i,r,sgn)
-!                  j=binary_search(HJ%map,r)
-!                  vvinit_tmp(j) = sgn*state_vec(m)
-!               endif
-!            enddo
-!         endif
-!         isite = impIndex(iorb,ispin)
-!         ksector = getCDGsector(ispin,jsector)
-!         if(ksector/=0) then       
-!            kdim  = getdim(ksector)
-!            allocate(vvinit(kdim))
-!            call build_sector(ksector,HK)
-!            vvinit=0d0
-!            do m=1,jdim
-!               i=HJ%map(m)
-!               ib = bdecomp(i,2*Ns)
-!               if(ib(isite)==0)then
-!                  call cdg(isite,i,r,sgn)
-!                  j=binary_search(HK%map,r)
-!                  vvinit(j) = sgn*vvinit_tmp(m)
-!               endif
-!            enddo
-!         end if
-!         deallocate(HJ%map,HK%map,vvinit_tmp)
-!         !
-!         norm2=dot_product(vvinit,vvinit)
-!         vvinit=vvinit/sqrt(norm2)
-!         call ed_buildH_d(ksector)
-!         nlanc=min(kdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!         endif
-!         cnorm2=one*norm2
-!         call add_to_lanczos_densChi_mix(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb)
-!         deallocate(vvinit,alfa_,beta_)
-!      enddo
-!      !
-!      nullify(state_vec)
-!      deallocate(HI%map)
-!      !
-!   enddo
-!   if(MPI_MASTER)call stop_timer
-! end subroutine lanc_ed_build_densChi_mix_d
 
 
 

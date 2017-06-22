@@ -164,18 +164,18 @@ contains
     !
     ispin_=1;if(present(ispin))ispin_=ispin
     call assert_shape(fg,[Nspin,Nspin,Norb,Norb,size(fg,5)],"chi2_fitgf_generic_normal","fg")
+    select case(cg_method)
+    case default
+       stop "ED Error: cg_method > 2"
+    case (0)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"master: Chi^2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
+    case (1)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"master: Chi^2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
+    case (2)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"master: Chi^2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
+    end select
+    !
     if(MPI_MASTER)then
-       select case(cg_method)
-       case default
-          stop "ED Error: cg_method > 2"
-       case (0)
-          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
-       case (1)
-          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
-       case (2)
-          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
-       end select
-       !
        select case(bath_type)
        case default
           select case(ed_mode)
@@ -209,6 +209,7 @@ contains
     endif
     !
     call Bcast_MPI(comm,bath)
+    if(.not.MPI_MASTER)write(LOGfile,"(A)")"Bath received from master node"
     !
     !set trim_state_list to true after the first fit has been done: this 
     !marks the ends of the cycle of the 1st DMFT loop.
@@ -309,18 +310,18 @@ contains
     !
     ispin_=1;if(present(ispin))ispin_=ispin
     call assert_shape(fg,[2,Nspin,Nspin,Norb,Norb,size(fg,6)],"chi2_fitgf_generic_superc","fg")
+    select case(cg_method)
+    case default
+       stop "ED Error: cg_method > 2"
+    case (0)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"master: Chi^2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
+    case (1)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"master: Chi^2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
+    case (2)
+       if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"master: Chi^2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
+    end select
+    !
     if(MPI_MASTER)then
-       !
-       select case(cg_method)
-       case default
-          stop "ED Error: cg_method > 2"
-       case (0)
-          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-nr and CG-weight: ",cg_weight," on: ",cg_scheme
-       case (1)
-          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-minimize and CG-weight: ",cg_weight," on: ",cg_scheme
-       case (2)
-          if(ed_verbose>2)write(LOGfile,"(A,I1,A,A)")"\Chi2 fit with CG-plus and CG-weight: ",cg_weight," on: ",cg_scheme
-       end select
        !
        select case(bath_type)
        case default
@@ -345,6 +346,7 @@ contains
     endif
     !
     call Bcast_MPI(comm,bath)
+    if(.not.MPI_MASTER)write(LOGfile,"(A)")"Bath received from master node"
     !
     !set trim_state_list to true after the first fit has been done: this 
     !marks the ends of the cycle of the 1st DMFT loop.

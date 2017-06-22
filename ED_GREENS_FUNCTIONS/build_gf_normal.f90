@@ -9,7 +9,7 @@ subroutine build_gf_normal()
   !NORMAL: (default)
   do ispin=1,Nspin
      do iorb=1,Norb
-        if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//"_s"//str(ispin)
+        write(LOGfile,"(A)")"Get G_l"//str(iorb)//"_s"//str(ispin)
         call lanc_build_gf_normal_c(iorb,ispin)
      enddo
   enddo
@@ -20,7 +20,7 @@ subroutine build_gf_normal()
      do ispin=1,Nspin
         do iorb=1,Norb
            do jorb=iorb+1,Norb
-              if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//"_m"//str(jorb)//"_s"//str(ispin)
+              write(LOGfile,"(A)")"Get G_l"//str(iorb)//"_m"//str(jorb)//"_s"//str(ispin)
               !if(hybrid)always T; if(replica)T iff following condition is T
               MaskBool=.true.   
               if(bath_type=="replica")MaskBool=(dmft_bath%mask(ispin,ispin,iorb,jorb,1)).OR.(dmft_bath%mask(ispin,ispin,iorb,jorb,2))
@@ -83,7 +83,7 @@ subroutine lanc_build_gf_normal_c(iorb,ispin)
   !
   isite=impIndex(iorb,ispin)
   !
-  if(MPI_MASTER)call start_timer
+  call start_timer
   !
   do istate=1,state_list%size
      isector    =  es_return_sector(state_list,istate)
@@ -97,7 +97,7 @@ subroutine lanc_build_gf_normal_c(iorb,ispin)
      !ADD ONE PARTICLE:
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
-        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")' add particle:',getnup(jsector),getndw(jsector)
+        if(ed_verbose==3)write(LOGfile,"(A,2I3)")' add particle:',getnup(jsector),getndw(jsector)
         jdim  = getdim(jsector)
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
@@ -136,7 +136,7 @@ subroutine lanc_build_gf_normal_c(iorb,ispin)
      !REMOVE ONE PARTICLE:
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
-        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")' del particle:',getnup(jsector),getndw(jsector)
+        if(ed_verbose==3)write(LOGfile,"(A,2I3)")' del particle:',getnup(jsector),getndw(jsector)
         jdim  = getdim(jsector)        
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
@@ -176,7 +176,7 @@ subroutine lanc_build_gf_normal_c(iorb,ispin)
      deallocate(HI%map)
      !
   enddo
-  if(MPI_MASTER)call stop_timer
+  call stop_timer(LOGfile)
 end subroutine lanc_build_gf_normal_c
 
 
@@ -206,7 +206,7 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
   isite=impIndex(iorb,ispin)  !orbital 1
   jsite=impIndex(jorb,ispin)  !orbital 2
   !
-  if(MPI_MASTER)call start_timer
+  call start_timer
   !
   do istate=1,state_list%size
      isector    =  es_return_sector(state_list,istate)
@@ -222,7 +222,7 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose==3.AND.MPI_MASTER)write(*,"(A,2I3,I15)")' add particle:',getnup(jsector),getndw(jsector),jdim
+        if(ed_verbose==3)write(*,"(A,2I3,I15)")' add particle:',getnup(jsector),getndw(jsector),jdim
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
         vvinit=zero
@@ -270,7 +270,7 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose==3.AND.MPI_MASTER)write(*,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
+        if(ed_verbose==3)write(*,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
         vvinit=zero
@@ -318,7 +318,7 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose==3.AND.MPI_MASTER)write(*,"(A,2I3,I15)")' add particle:',getnup(jsector),getndw(jsector),jdim
+        if(ed_verbose==3)write(*,"(A,2I3,I15)")' add particle:',getnup(jsector),getndw(jsector),jdim
         allocate(cvinit(jdim))
         call build_sector(jsector,HJ)
         cvinit=zero
@@ -366,7 +366,7 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose==3.AND.MPI_MASTER)write(*,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
+        if(ed_verbose==3)write(*,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
         allocate(cvinit(jdim))
         call build_sector(jsector,HJ)
         cvinit=zero
@@ -415,7 +415,7 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      !
   enddo
   !
-  if(MPI_MASTER)call stop_timer
+  call stop_timer(LOGfile)
   !
 end subroutine lanc_build_gf_normal_mix_c
 

@@ -63,7 +63,7 @@ program lancED
   Nb=get_bath_dimension()
   allocate(bath(Nb))
   allocate(bath_(Nb))
-  call ed_init_solver(comm,bath)
+  call ed_init_solver(comm,bath,Hloc)
 
   !DMFT loop
   iloop=0;converged=.false.
@@ -110,7 +110,7 @@ program lancED
 
 
   call dmft_gloc_realaxis(Comm,one*He,Wte,Greal,Sreal,iprint=1)
-  Eout = dmft_kinetic_energy(Comm,one*He,Wte,Smats)
+  call dmft_kinetic_energy(Comm,one*He,Wte,Smats)
 
   ! allocate(Wte(Le),He(Le))
   ! call bethe_lattice(Wte,He,Le,wband)

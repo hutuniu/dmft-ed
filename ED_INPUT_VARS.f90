@@ -1,7 +1,7 @@
 MODULE ED_INPUT_VARS
   USE SF_VERSION
   USE SF_PARSE_INPUT
-
+  USE SF_IOTOOLS, only:str
   implicit none
 
   !GIT VERSION
@@ -81,7 +81,7 @@ MODULE ED_INPUT_VARS
   !LOG AND Hamiltonian UNITS
   !=========================================================
   character(len=100)   :: Hfile,HLOCfile
-  integer              :: LOGfile
+  integer,save         :: LOGfile
 
 
 
@@ -91,7 +91,6 @@ contains
   !+-------------------------------------------------------------------+
   !PURPOSE  : READ THE INPUT FILE AND SETUP GLOBAL VARIABLES
   !+-------------------------------------------------------------------+
-
   subroutine ed_read_input(INPUTunit,comm)
 #ifdef _MPI
     USE MPI
@@ -100,8 +99,12 @@ contains
     character(len=*) :: INPUTunit
     integer,optional :: comm
     logical          :: master=.true.
+    integer          :: i,rank=0
 #ifdef _MPI
-    if(present(comm))master=get_Master_MPI(comm)
+    if(present(comm))then
+       master=get_Master_MPI(comm)
+       rank  =get_Rank_MPI(comm)
+    endif
 #endif
 
 
@@ -174,7 +177,17 @@ contains
     call parse_input_variable(Jz_max,"JZ_MAX",INPUTunit,default=.false.,comment="")
     call parse_input_variable(Jz_max_value,"JZ_MAX_VALUE",INPUTunit,default=1000.d0,comment="")
 
-
+#ifdef _MPI
+    if(present(comm))then
+       if(.not.master)then
+          LOGfile=1000-rank
+          open(LOGfile,file="stdOUT.rank"//str(rank)//".ed")
+          do i=1,get_Size_MPI(comm)
+             if(i==rank)write(*,"(A,I0,A,I0)")"Rank ",rank," writing to unit: ",LOGfile
+          enddo
+       endif
+    endif
+#endif
     !
     !
     Ltau=max(int(beta),Ltau)

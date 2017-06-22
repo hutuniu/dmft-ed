@@ -157,18 +157,16 @@ contains
        dim_sector_max(1)=get_nonsu2_sector_dimension(Ns)
     end select
     !
-    if(MPI_MASTER)then
-       write(LOGfile,"(A)")"Summary:"
-       write(LOGfile,"(A)")"--------------------------------------------"
-       write(LOGfile,"(A,I15)")'# of levels/spin      = ',Ns
-       write(LOGfile,"(A,I15)")'Total size            = ',Nlevels
-       write(LOGfile,"(A,I15)")'# of impurities       = ',Norb
-       write(LOGfile,"(A,I15)")'# of bath/impurity    = ',Nbath
-       write(LOGfile,"(A,I15)")'# of Bath levels/spin = ',Ns-Norb
-       write(LOGfile,"(A,2I15)")'Largest Sector(s)    = ',dim_sector_max
-       write(LOGfile,"(A,I15)")'Number of sectors     = ',Nsectors
-       write(LOGfile,"(A)")"--------------------------------------------"
-    endif
+    write(LOGfile,"(A)")"Summary:"
+    write(LOGfile,"(A)")"--------------------------------------------"
+    write(LOGfile,"(A,I15)")'# of levels/spin      = ',Ns
+    write(LOGfile,"(A,I15)")'Total size            = ',Nlevels
+    write(LOGfile,"(A,I15)")'# of impurities       = ',Norb
+    write(LOGfile,"(A,I15)")'# of bath/impurity    = ',Nbath
+    write(LOGfile,"(A,I15)")'# of Bath levels/spin = ',Ns-Norb
+    write(LOGfile,"(A,2I15)")'Largest Sector(s)    = ',dim_sector_max
+    write(LOGfile,"(A,I15)")'Number of sectors     = ',Nsectors
+    write(LOGfile,"(A)")"--------------------------------------------"
     !
     allocate(impHloc(Nspin,Nspin,Norb,Norb))
     reHloc = 0d0 ; imHloc = 0d0
@@ -176,7 +174,7 @@ contains
     !Search and read impHloc
     inquire(file=trim(HLOCfile),exist=control)
     if(control)then
-       if(MPI_MASTER)write(LOGfile,*)"Reading impHloc from file: "//reg(HLOCfile)
+       write(LOGfile,*)"Reading impHloc from file: "//reg(HLOCfile)
        open(50,file=trim(HLOCfile),status='old')
        do ispin=1,Nspin
           do iorb=1,Norb
@@ -190,14 +188,12 @@ contains
        enddo
        close(50)
     else
-       if(MPI_MASTER)then
-          write(LOGfile,*)"impHloc file not found."
-          write(LOGfile,*)"impHloc should be defined elsewhere..."
-          call sleep(2)
-       endif
+       write(LOGfile,*)"impHloc file not found."
+       write(LOGfile,*)"impHloc should be defined elsewhere..."
+       call sleep(2)
     endif
     impHloc = dcmplx(reHloc,imHloc)
-    if(MPI_MASTER)then
+    if(control)then
        write(LOGfile,"(A)")"H_local:"
        call print_Hloc(impHloc)
     endif
@@ -246,7 +242,7 @@ contains
     finiteT=.true.              !assume doing finite T per default
     if(lanc_nstates_total==1)then     !is you only want to keep 1 state
        finiteT=.false.          !set to do zero temperature calculations
-       if(MPI_MASTER)write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
+       write(LOGfile,"(A)")"Required Lanc_nstates_total=1 => set T=0 calculation"
     endif
     !
     !
@@ -254,25 +250,23 @@ contains
     if(finiteT)then
        if(mod(lanc_nstates_sector,2)/=0)then
           lanc_nstates_sector=lanc_nstates_sector+1
-          if(MPI_MASTER)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_sector:",lanc_nstates_sector
+          write(LOGfile,"(A,I10)")"Increased Lanc_nstates_sector:",lanc_nstates_sector
        endif
        if(mod(lanc_nstates_total,2)/=0)then
           lanc_nstates_total=lanc_nstates_total+1
-          if(MPI_MASTER)write(LOGfile,"(A,I10)")"Increased Lanc_nstates_total:",lanc_nstates_total
+          write(LOGfile,"(A,I10)")"Increased Lanc_nstates_total:",lanc_nstates_total
        endif
     endif
     !
     !
-    if(MPI_MASTER)then
-       if(finiteT)then
-          write(LOGfile,"(A)")"Lanczos FINITE temperature calculation:"
-          write(LOGfile,"(A,I3)")"Nstates x Sector = ", lanc_nstates_sector
-          write(LOGfile,"(A,I3)")"Nstates   Total  = ", lanc_nstates_total
-          call sleep(1)
-       else
-          write(LOGfile,"(A)")"Lanczos ZERO temperature calculation:"
-          call sleep(1)
-       endif
+    if(finiteT)then
+       write(LOGfile,"(A)")"Lanczos FINITE temperature calculation:"
+       write(LOGfile,"(A,I3)")"Nstates x Sector = ", lanc_nstates_sector
+       write(LOGfile,"(A,I3)")"Nstates   Total  = ", lanc_nstates_total
+       call sleep(1)
+    else
+       write(LOGfile,"(A)")"Lanczos ZERO temperature calculation:"
+       call sleep(1)
     endif
     !
     !

@@ -145,7 +145,7 @@ contains
     invimpGreal=zero
     invimpG0real=zero
     !
-    if(MPI_MASTER) write(LOGfile,"(A)")"Get impurity Greens functions:"
+    write(LOGfile,"(A)")"Get impurity Greens functions:"
     select case(ed_mode)
     case default
        call build_gf_normal()

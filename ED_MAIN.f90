@@ -74,7 +74,7 @@ contains
     logical                            :: MPI_MASTER=.true.
     integer                            :: MPI_ERR
     !
-    if(MPI_MASTER)write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(ed_file_suffix)
+    write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(ed_file_suffix)
     !
     !Init ED Structure & memory
     if(isetup)call init_ed_structure()
@@ -116,11 +116,13 @@ contains
     logical,save                       :: isetup=.true.
     integer                            :: i
     logical                            :: MPI_MASTER=.true.
+    integer                            :: MPI_RANK
     integer                            :: MPI_ERR
     !
+    MPI_RANK   = get_Rank_MPI(MpiComm)
     MPI_MASTER = get_Master_MPI(MpiComm)
     !
-    if(MPI_MASTER)write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(ed_file_suffix)
+    write(LOGfile,"(A)")"INIT SOLVER FOR "//trim(ed_file_suffix)
     !
     !Init ED Structure & memory
     if(isetup)call init_ed_structure(MpiComm)
@@ -281,10 +283,8 @@ contains
     call allocate_dmft_bath(dmft_bath)
     if(bath_type=="replica")call init_dmft_bath_mask(dmft_bath)
     call set_dmft_bath(bath,dmft_bath)
-    if(MPI_MASTER)then
-       call write_dmft_bath(dmft_bath,LOGfile)
-       call save_dmft_bath(dmft_bath,used=.true.)
-    endif
+    call write_dmft_bath(dmft_bath,LOGfile)
+    if(MPI_MASTER)call save_dmft_bath(dmft_bath,used=.true.)
     !
     !ASSOCIATE THE GLOBAL PROCEDURES
     ed_buildh_c  => build_H_c
@@ -333,10 +333,8 @@ contains
     call allocate_dmft_bath(dmft_bath)
     if(bath_type=="replica")call init_dmft_bath_mask(dmft_bath)
     call set_dmft_bath(bath,dmft_bath)
-    if(MPI_MASTER)then
-       call write_dmft_bath(dmft_bath,LOGfile)
-       call save_dmft_bath(dmft_bath,used=.true.)
-    endif
+    call write_dmft_bath(dmft_bath,LOGfile)
+    if(MPI_MASTER)call save_dmft_bath(dmft_bath,used=.true.)
     !
     !ASSOCIATE THE GLOBAL PROCEDURES
     ed_buildh_c  => build_H_c
@@ -506,7 +504,7 @@ contains
        ddii(ilat,:)           = [ed_Dust,ed_Dund,ed_Dse,ed_Dph]
     enddo
     !
-    call stop_timer
+    call stop_timer(LOGfile)
     !
     ed_file_suffix=""
     !
@@ -622,8 +620,7 @@ contains
     eii_tmp    = 0d0
     ddii_tmp   = 0d0
     !
-    if(MPI_MASTER)call start_timer
-    if(.not.MPI_MASTER)LOGfile = 800+MPI_ID
+    call start_timer
     !
     do ilat = 1 + MPI_ID, Nsites, MPI_SIZE
        write(*,*)str(MPI_ID)//" solves site: "//str(ilat,Npad=4)
@@ -662,7 +659,7 @@ contains
     !
     call MPI_Barrier(MpiComm,MPI_ERR)
     !
-    if(MPI_MASTER)call stop_timer
+    call stop_timer(LOGfile)
     !
     ed_file_suffix=""
     !

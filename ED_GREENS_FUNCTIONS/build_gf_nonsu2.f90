@@ -17,7 +17,7 @@ subroutine build_gf_nonsu2()
      !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
      do ispin=1,Nspin
         do iorb=1,Norb
-           if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(iorb)//"_s"//str(ispin)//str(ispin)
+           write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(iorb)//"_s"//str(ispin)//str(ispin)
            call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
         enddo
      enddo
@@ -27,7 +27,7 @@ subroutine build_gf_nonsu2()
            do iorb=1,Norb
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
-                    if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
+                    write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
                  endif
               enddo
@@ -58,7 +58,7 @@ subroutine build_gf_nonsu2()
      !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
      do ispin=1,Nspin
         do iorb=1,Norb
-           if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(iorb)//"_s"//str(ispin)//str(ispin)
+           write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(iorb)//"_s"//str(ispin)//str(ispin)
            call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
         enddo
      enddo
@@ -69,7 +69,7 @@ subroutine build_gf_nonsu2()
            do iorb=1,Norb
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
-                    if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
+                    write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
                  endif
               enddo
@@ -101,7 +101,7 @@ subroutine build_gf_nonsu2()
            do iorb=1,Norb
               do jorb=1,Norb
                  if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
-                    if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
+                    write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
                  endif
               enddo
@@ -133,7 +133,7 @@ subroutine build_gf_nonsu2()
            do iorb=1,Norb
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
-                    if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
+                    write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
                  endif
               enddo
@@ -164,7 +164,7 @@ subroutine build_gf_nonsu2()
      !Here we evaluate the same orbital, same spin GF: G_{aa}^{ss}(z)
      do ispin=1,Nspin
         do iorb=1,Norb
-           if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(iorb)//"_s"//str(ispin)//str(ispin)
+           write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(iorb)//"_s"//str(ispin)//str(ispin)
            call lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
         enddo
      enddo
@@ -176,7 +176,7 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.eq.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
+                    write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
                  endif
               enddo
@@ -210,7 +210,7 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.eq.jspin).and.(iorb.ne.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
+                    write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
                  endif
               enddo
@@ -244,7 +244,7 @@ subroutine build_gf_nonsu2()
               do jorb=1,Norb
                  if((ispin.ne.jspin).and.(iorb.ne.jorb)) then
                     if((dmft_bath%mask(ispin,jspin,iorb,jorb,1).eqv. .false.).and.(dmft_bath%mask(ispin,jspin,iorb,jorb,2).eqv. .false.))cycle
-                    if(MPI_MASTER)write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
+                    write(LOGfile,"(A)")"Get G_l"//str(iorb)//str(jorb)//"_s"//str(ispin)//str(jspin)
                     call lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
                  endif
               enddo
@@ -305,7 +305,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
   !
   isite=impIndex(iorb,ispin)
   !
-  if(MPI_MASTER)call start_timer
+  call start_timer
   do istate=1,state_list%size
      isector    =  es_return_sector(state_list,istate)
      state_e    =  es_return_energy(state_list,istate)
@@ -325,10 +325,10 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      !
      if(getN(isector)/=Nlevels.and.jsector>=0)then
         if(Jz_basis)then
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(3(A,1F5.1,1X))")"  add Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
+           if(ed_verbose==3)write(LOGfile,"(3(A,1F5.1,1X))")"  add Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
+           if(ed_verbose==3)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
         else
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A15,I3)")' add particle:',getn(jsector)
+           if(ed_verbose==3)write(LOGfile,"(A15,I3)")' add particle:',getn(jsector)
         endif
         !
         jdim  = getdim(jsector)
@@ -379,10 +379,10 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      !
      if(getN(isector)/=0.and.jsector>=0)then
         if(Jz_basis)then
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(3(A,1F5.1,1X))")"  del Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
-           if(ed_verbose==2.AND.MPI_MASTER)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
+           if(ed_verbose==3)write(LOGfile,"(3(A,1F5.1,1X))")"  del Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
+           if(ed_verbose==2)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
         else
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A15,I3)")' del particle:',getn(jsector)
+           if(ed_verbose==3)write(LOGfile,"(A15,I3)")' del particle:',getn(jsector)
         endif
         !
         jdim  = getdim(jsector)
@@ -427,7 +427,7 @@ subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c(iorb,ispin)
      deallocate(HI%map)
      !
   enddo
-  if(MPI_MASTER)call stop_timer
+  call stop_timer(LOGfile)
 end subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_c
 
 
@@ -451,7 +451,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
   isite=impIndex(iorb,ispin)
   jsite=impIndex(jorb,jspin)
   !
-  if(MPI_MASTER)call start_timer
+  call start_timer
   !
   do istate=1,state_list%size
      isector     =  es_return_sector(state_list,istate)
@@ -474,10 +474,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      !
      if(getN(isector)/=Nlevels.and.jsector>=0)then
         if(Jz_basis)then
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(3(A,1F5.1,1X))")"  add Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
+           if(ed_verbose==3)write(LOGfile,"(3(A,1F5.1,1X))")"  add Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
+           if(ed_verbose==3)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
         else
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A15,I3)")' add particle:',getn(jsector)
+           if(ed_verbose==3)write(LOGfile,"(A15,I3)")' add particle:',getn(jsector)
         endif
         !
         jdim_old  = getdim(jsector)
@@ -500,8 +500,8 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
            !
            jsector = getCDGsector_Jz(jorb,jspin,isector)
            !
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(3(A,1F5.1,1X))")"  add Jz:",Lzdiag(jorb)+Szdiag(jspin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
+           if(ed_verbose==3)write(LOGfile,"(3(A,1F5.1,1X))")"  add Jz:",Lzdiag(jorb)+Szdiag(jspin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
+           if(ed_verbose==3)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
            jdim  = getdim(jsector)
            if(jdim/=jdim_old)stop "lanczos builgf dimensional error"
            deallocate(HJ%map)
@@ -550,10 +550,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      !
      if(getN(isector)/=0.and.jsector>=0)then
         if(Jz_basis)then
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(3(A,1F5.1,1X))")"  del Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
+           if(ed_verbose==3)write(LOGfile,"(3(A,1F5.1,1X))")"  del Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
+           if(ed_verbose==3)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
         else
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A15,I3)")' del particle:',getn(jsector)
+           if(ed_verbose==3)write(LOGfile,"(A15,I3)")' del particle:',getn(jsector)
         endif
         !
         jdim_old  = getdim(jsector)
@@ -576,8 +576,8 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
            !
            jsector = getCsector_Jz(jorb,jspin,isector)
            !
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(3(A,1F5.1,1X))")"  del Jz:",Lzdiag(jorb)+Szdiag(jspin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
+           if(ed_verbose==3)write(LOGfile,"(3(A,1F5.1,1X))")"  del Jz:",Lzdiag(jorb)+Szdiag(jspin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
+           if(ed_verbose==3)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
            jdim  = getdim(jsector)
            if(jdim/=jdim_old)stop "lanczos builgf dimensional error"
            deallocate(HJ%map)
@@ -627,10 +627,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      !
      if(getN(isector)/=Nlevels.and.jsector>=0)then
         if(Jz_basis)then
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(3(A,1F5.1,1X))")"  add Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
+           if(ed_verbose==3)write(LOGfile,"(3(A,1F5.1,1X))")"  add Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
+           if(ed_verbose==3)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
         else
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A15,I3)")' add particle:',getn(jsector)
+           if(ed_verbose==3)write(LOGfile,"(A15,I3)")' add particle:',getn(jsector)
         endif
         !
         jdim_old  = getdim(jsector)
@@ -653,8 +653,8 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
            !
            jsector = getCDGsector_Jz(jorb,jspin,isector)
            !
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(3(A,1F5.1,1X))")"  add Jz:",Lzdiag(jorb)+Szdiag(jspin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
+           if(ed_verbose==3)write(LOGfile,"(3(A,1F5.1,1X))")"  add Jz:",Lzdiag(jorb)+Szdiag(jspin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
+           if(ed_verbose==3)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
            jdim  = getdim(jsector)
            if(jdim/=jdim_old)stop "lanczos builgf dimensional error"
            deallocate(HJ%map)
@@ -703,10 +703,10 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      !
      if(getN(isector)/=0.and.jsector>=0)then
         if(Jz_basis)then
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(3(A,1F5.1,1X))")"  del Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
+           if(ed_verbose==3)write(LOGfile,"(3(A,1F5.1,1X))")"  del Jz:",Lzdiag(iorb)+Szdiag(ispin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
+           if(ed_verbose==3)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
         else
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A15,I3)")' del particle:',getn(jsector)
+           if(ed_verbose==3)write(LOGfile,"(A15,I3)")' del particle:',getn(jsector)
         endif
         !
         jdim_old  = getdim(jsector)
@@ -729,8 +729,8 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
            !
            jsector = getCsector_Jz(jorb,jspin,isector)
            !
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(3(A,1F5.1,1X))")"  del Jz:",Lzdiag(jorb)+Szdiag(jspin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
-           if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
+           if(ed_verbose==3)write(LOGfile,"(3(A,1F5.1,1X))")"  del Jz:",Lzdiag(jorb)+Szdiag(jspin)/2.,"  from:",gettwoJz(isector)/2.,"  to:",gettwoJz(jsector)/2.
+           if(ed_verbose==3)write(LOGfile,"(2(A,I5,1X))")   "  starting n:", getN(isector),"  arrival n:",getN(jsector)
            jdim  = getdim(jsector)
            if(jdim/=jdim_old)stop "lanczos builgf dimensional error"
            deallocate(HJ%map)
@@ -774,7 +774,7 @@ subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c(iorb,jorb,ispin,jspin)
      deallocate(HI%map)
      !
   enddo
-  if(MPI_MASTER)call stop_timer
+  call stop_timer(LOGfile)
 end subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_c
 
 
@@ -851,1243 +851,3 @@ end subroutine add_to_lanczos_gf_nonsu2
 
 
 
-
-! !+------------------------------------------------------------------+
-! !PURPOSE  : DOUBLE PRECISION
-! !+------------------------------------------------------------------+
-! !PURPOSE: Evaluate the same orbital IORB, same spin ISPIN impurity GF.
-! subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d(iorb,ispin)
-!   real(8),allocatable              :: vvinit(:)
-!   real(8),allocatable              :: alfa_(:),beta_(:)  
-!   integer                          :: iorb,ispin,isite,isector,istate
-!   integer                          :: idim,jsector
-!   integer                          :: jdim
-!   integer                          :: ib(Nlevels)
-!   integer                          :: m,i,j,r,numstates
-!   real(8)                          :: sgn,norm2,norm0
-!   complex(8)                       :: cnorm2
-!   integer                          :: Nitermax,Nlanc
-!   type(sector_map) :: HI,HJ
-!   !
-!   Nitermax=lanc_nGFiter
-!   allocate(alfa_(Nitermax),beta_(Nitermax))
-!   !
-!   isite=impIndex(iorb,ispin)
-!   !
-!   numstates=state_list%size
-!   !   
-!   if(MPI_MASTER)call start_timer
-!   do istate=1,numstates
-!      isector    =  es_return_sector(state_list,istate)
-!      state_e    =  es_return_energy(state_list,istate)
-!      state_vec  => es_return_vector(state_list,istate)
-!      norm0=sqrt(dot_product(state_vec,state_vec))
-!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!      idim  = getdim(isector)
-!      call build_sector(isector,HI)
-!      !
-!      !APPLY c^+_{iorb,ispin}|gs>
-!      jsector = getCDGsector(ispin,isector)
-!      if(jsector/=0)then 
-!         jdim  = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!         allocate(vvinit(jdim))
-!         call build_sector(jsector,HJ) !note that here you are doing twice the map building...
-!         vvinit=zero
-!         do m=1,idim                     !loop over |gs> components m
-!            i=HI%map(m)                    !map m to Hilbert space state i
-!            ib = bdecomp(i,2*Ns)            !i into binary representation
-!            if(ib(isite)==0)then          !if impurity is empty: proceed
-!               call cdg(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)      !map r back to  jsector
-!               vvinit(j) = sgn*state_vec(m)  !build the cdg_ispin|gs> state
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(vvinit,vvinit)
-!         vvinit=vvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!         endif
-!         cnorm2=one*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,ispin)
-!         deallocate(vvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      !APPLY c_{iorb,ispin}|gs>
-!      jsector = getCsector(ispin,isector)
-!      if(jsector/=0)then
-!         jdim  = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-!         allocate(vvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         vvinit=0.d0
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==1)then
-!               call c(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(vvinit,vvinit)
-!         vvinit=vvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!         endif
-!         cnorm2=one*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,ispin)
-!         deallocate(vvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      nullify(state_vec)
-!      deallocate(HI%map)
-!      !
-!   enddo
-!   if(MPI_MASTER)call stop_timer
-!   deallocate(alfa_,beta_)
-! end subroutine lanc_build_gf_nonsu2_diagOrb_diagSpin_d
-
-
-! !PURPOSE: Evaluate the  different orbital IORB,JORB, same spin ISPIN impurity GF.
-! subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d(iorb,jorb,ispin)
-!   integer                          :: iorb,jorb,ispin,isite,jsite,isector,istate
-!   integer                          :: idim,jsector
-!   integer                          :: jdim
-!   integer                          :: ib(Nlevels)
-!   integer                          :: m,i,j,r,numstates
-!   real(8)                          :: sgn,norm2,norm0
-!   complex(8)                       :: cnorm2
-!   real(8),allocatable              :: vvinit(:)
-!   complex(8),allocatable           :: cvinit(:)
-!   real(8),allocatable              :: alfa_(:),beta_(:)
-!   integer                          :: Nitermax,Nlanc
-!   type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
-!   !
-!   Nitermax=lanc_nGFiter
-!   allocate(alfa_(Nitermax),beta_(Nitermax))
-!   isite=impIndex(iorb,ispin)  !orbital 1
-!   jsite=impIndex(jorb,ispin)  !orbital 2
-!   !
-!   numstates=state_list%size
-!   !   
-!   if(MPI_MASTER)call start_timer
-!   do istate=1,numstates
-!      isector    =  es_return_sector(state_list,istate)
-!      state_e    =  es_return_energy(state_list,istate)
-!      state_vec  => es_return_vector(state_list,istate)
-!      norm0=sqrt(dot_product(state_vec,state_vec))
-!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!      !
-!      idim  = getdim(isector)
-!      call build_sector(isector,HI)
-!      !
-!      !
-!      !APPLY (c^+_{iorb,ispin} + c^+_{jorb,ispin})|gs>
-!      jsector = getCDGsector(ispin,isector)
-!      if(jsector/=0)then 
-!         jdim  = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!         allocate(vvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         vvinit=0.d0
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==0)then
-!               call cdg(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==0)then
-!               call cdg(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = vvinit(j) + sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(vvinit,vvinit)
-!         vvinit=vvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!         endif
-!         cnorm2=one*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,ispin)
-!         deallocate(vvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      !APPLY (c_{iorb,ispin} + c_{jorb,ispin})|gs>
-!      jsector = getCsector(ispin,isector)
-!      if(jsector/=0)then
-!         jdim   = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-!         allocate(vvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         vvinit=0.d0
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==1)then
-!               call c(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==1)then
-!               call c(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = vvinit(j) + sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(vvinit,vvinit)
-!         vvinit=vvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!         endif
-!         cnorm2=one*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
-!         deallocate(vvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      !
-!      !EVALUATE (c^+_{iorb,ispin} + i*c^+_{jorb,ispin})|gs>
-!      jsector = getCDGsector(ispin,isector)
-!      if(jsector/=0)then 
-!         jdim  = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!         allocate(cvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         cvinit=zero
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==0)then
-!               call cdg(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==0)then
-!               call cdg(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(cvinit,cvinit)
-!         cvinit=cvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
-!         endif
-!         cnorm2=+xi*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,ispin)
-!         deallocate(cvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      !EVALUATE (c_{iorb,ispin} - xi*c_{jorb,ispin})|gs>
-!      jsector = getCsector(ispin,isector)
-!      if(jsector/=0)then
-!         jdim   = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-!         allocate(cvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         cvinit=zero
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==1)then
-!               call c(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==1)then
-!               call c(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(cvinit,cvinit)
-!         cvinit=cvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
-!         endif
-!         cnorm2=+xi*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
-!         deallocate(cvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      nullify(state_vec)
-!      deallocate(HI%map)
-!      !
-!   enddo
-!   if(MPI_MASTER)call stop_timer
-!   deallocate(alfa_,beta_)
-! end subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_d
-
-
-! !PURPOSE: Evaluate the same same orbital IORB, different spin ISPIN,JSPIN impurity GF.
-! subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d(iorb,ispin,jspin)
-!   integer                          :: iorb,jorb,ispin,jspin,isite,jsite,isector,istate
-!   integer                          :: idim,jsector
-!   integer                          :: jdim
-!   integer                          :: ib(Nlevels)
-!   integer                          :: m,i,j,r,numstates
-!   real(8)                          :: sgn,norm2,norm0
-!   complex(8)                       :: cnorm2
-!   real(8),allocatable              :: vvinit(:)
-!   complex(8),allocatable           :: cvinit(:)
-!   real(8),allocatable              :: alfa_(:),beta_(:)
-!   integer                          :: Nitermax,Nlanc
-!   type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
-!   !
-!   Nitermax=lanc_nGFiter
-!   allocate(alfa_(Nitermax),beta_(Nitermax))
-!   isite=impIndex(iorb,ispin)  !orbital 1
-!   jsite=impIndex(iorb,jspin)  !orbital 2
-!   !
-!   numstates=state_list%size
-!   !   
-!   if(MPI_MASTER)call start_timer
-!   do istate=1,numstates
-!      isector     =  es_return_sector(state_list,istate)
-!      state_e    =  es_return_energy(state_list,istate)
-!      state_vec  => es_return_vector(state_list,istate)
-!      norm0=sqrt(dot_product(state_vec,state_vec))
-!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!      !
-!      idim  = getdim(isector)
-!      call build_sector(isector,HI)
-!      !
-!      !
-!      !APPLY (c^+_{iorb,ispin} + c^+_{iorb,jspin})|gs>
-!      jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
-!      if(jsector/=0)then 
-!         jdim  = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!         allocate(vvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         vvinit=0.d0
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==0)then
-!               call cdg(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==0)then
-!               call cdg(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = vvinit(j) + sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(vvinit,vvinit)
-!         vvinit=vvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!         endif
-!         cnorm2=one*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,jspin)
-!         deallocate(vvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      !APPLY (c_{iorb,ispin} + c_{iorb,jspin})|gs>
-!      jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
-!      if(jsector/=0)then
-!         jdim   = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-!         allocate(vvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         vvinit=0.d0
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==1)then
-!               call c(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==1)then
-!               call c(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = vvinit(j) + sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(vvinit,vvinit)
-!         vvinit=vvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!         endif
-!         cnorm2=one*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
-!         deallocate(vvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      !
-!      !EVALUATE (c^+_{iorb,ispin} + i*c^+_{iorb,jspin})|gs>
-!      jsector = getCDGsector(ispin,isector)
-!      if(jsector/=0)then 
-!         jdim  = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!         allocate(cvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         cvinit=zero
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==0)then
-!               call cdg(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==0)then
-!               call cdg(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(cvinit,cvinit)
-!         cvinit=cvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
-!         endif
-!         cnorm2=+xi*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,jspin)
-!         deallocate(cvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      !EVALUATE (c_{iorb,ispin} - xi*c_{iorb,jspin})|gs>
-!      jsector = getCsector(ispin,isector)
-!      if(jsector/=0)then
-!         jdim   = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!         allocate(cvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         cvinit=zero
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==1)then
-!               call c(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==1)then
-!               call c(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(cvinit,cvinit)
-!         cvinit=cvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
-!         endif
-!         cnorm2=+xi*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
-!         deallocate(cvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      nullify(state_vec)
-!      deallocate(HI%map)
-!      !
-!   enddo
-!   if(MPI_MASTER)call stop_timer
-!   deallocate(alfa_,beta_)
-! end subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_d
-
-
-! !PURPOSE: Evaluate the same different orbital IORB,JORB, different spin ISPIN,JSPIN impurity GF.
-! subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d(iorb,jorb,ispin,jspin)
-!   integer                          :: iorb,jorb,ispin,jspin,isite,jsite,isector,istate
-!   integer                          :: idim,jsector
-!   integer                          :: jdim
-!   integer                          :: ib(Nlevels)
-!   integer                          :: m,i,j,r,numstates
-!   real(8)                          :: sgn,norm2,norm0
-!   complex(8)                       :: cnorm2
-!   real(8),allocatable              :: vvinit(:)
-!   complex(8),allocatable           :: cvinit(:)
-!   real(8),allocatable              :: alfa_(:),beta_(:)
-!   integer                          :: Nitermax,Nlanc
-!   type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
-!   !
-!   Nitermax=lanc_nGFiter
-!   allocate(alfa_(Nitermax),beta_(Nitermax))
-!   isite=impIndex(iorb,ispin)  !orbital 1
-!   jsite=impIndex(jorb,jspin)  !orbital 2
-!   !
-!   numstates=state_list%size
-!   !   
-!   if(MPI_MASTER)call start_timer
-!   do istate=1,numstates
-!      isector     =  es_return_sector(state_list,istate)
-!      state_e    =  es_return_energy(state_list,istate)
-!      state_vec  => es_return_vector(state_list,istate)
-!      norm0=sqrt(dot_product(state_vec,state_vec))
-!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!      !
-!      idim  = getdim(isector)
-!      call build_sector(isector,HI)
-!      !
-!      !
-!      !APPLY (c^+_{iorb,ispin} + c^+_{jorb,jspin})|gs>
-!      jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
-!      if(jsector/=0)then 
-!         jdim  = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!         allocate(vvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         vvinit=0.d0
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==0)then
-!               call cdg(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==0)then
-!               call cdg(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = vvinit(j) + sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(vvinit,vvinit)
-!         vvinit=vvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!         endif
-!         cnorm2=one*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,jspin)
-!         deallocate(vvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      !APPLY (c_{iorb,ispin} + c_{jorb,jspin})|gs>
-!      jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
-!      if(jsector/=0)then
-!         jdim   = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-!         allocate(vvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         vvinit=0.d0
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==1)then
-!               call c(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==1)then
-!               call c(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               vvinit(j) = vvinit(j) + sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(vvinit,vvinit)
-!         vvinit=vvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!         endif
-!         cnorm2=one*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
-!         deallocate(vvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      !
-!      !EVALUATE (c^+_{iorb,ispin} + i*c^+_{jorb,jspin})|gs>
-!      jsector = getCDGsector(ispin,isector)
-!      if(jsector/=0)then 
-!         jdim  = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!         allocate(cvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         cvinit=zero
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==0)then
-!               call cdg(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==0)then
-!               call cdg(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = cvinit(j) + xi*sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(cvinit,cvinit)
-!         cvinit=cvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
-!         endif
-!         cnorm2=+xi*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,jspin)
-!         deallocate(cvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      !EVALUATE (c_{iorb,ispin} - xi*c_{jorb,jspin})|gs>
-!      jsector = getCsector(ispin,isector)
-!      if(jsector/=0)then
-!         jdim   = getdim(jsector)
-!         if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-!         allocate(cvinit(jdim))
-!         call build_sector(jsector,HJ)
-!         cvinit=zero
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(isite)==1)then
-!               call c(isite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = sgn*state_vec(m)
-!            endif
-!         enddo
-!         do m=1,idim
-!            i=HI%map(m)
-!            ib = bdecomp(i,2*Ns)
-!            if(ib(jsite)==1)then
-!               call c(jsite,i,r,sgn)
-!               j=binary_search(HJ%map,r)
-!               cvinit(j) = cvinit(j) - xi*sgn*state_vec(m)
-!            endif
-!         enddo
-!         deallocate(HJ%map)
-!         norm2=dot_product(cvinit,cvinit)
-!         cvinit=cvinit/sqrt(norm2)
-!         call ed_buildH_d(jsector)
-!         nlanc=min(jdim,lanc_nGFiter)
-!         allocate(alfa_(nlanc),beta_(nlanc))
-!         if(MpiStatus)then
-!            call sp_lanc_tridiag(MpiComm,spHtimesV_dc,cvinit,alfa_,beta_)
-!         else
-!            call sp_lanc_tridiag(spHtimesV_dc,cvinit,alfa_,beta_)
-!         endif
-!         cnorm2=+xi*norm2
-!         call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,jspin)
-!         deallocate(cvinit)
-!         if(spH0%status)call sp_delete_matrix(spH0)
-!      endif
-!      !
-!      nullify(state_vec)
-!      deallocate(HI%map)
-!      !
-!   enddo
-!   if(MPI_MASTER)call stop_timer
-!   deallocate(alfa_,beta_)
-! end subroutine lanc_build_gf_nonsu2_mixOrb_mixSpin_d
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-!!PURPOSE: Evaluate the same different orbital IORB,JORB, same spin ISPIN impurity GF.
-!subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c(iorb,jorb,ispin)
-!  integer                          :: iorb,jorb,ispin,isite,jsite,isector,istate
-!  integer                          :: idim,jsector
-!  integer                          :: jdim
-!  integer                          :: ib(Nlevels)
-!  integer                          :: m,i,j,r
-!  real(8)                          :: sgn,norm2,norm0
-!  complex(8)                       :: cnorm2
-!  complex(8),allocatable           :: vvinit(:)
-!  real(8),allocatable              :: alfa_(:),beta_(:)
-!  integer                          :: Nitermax,Nlanc
-!  type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
-!  !
-!  isite=impIndex(iorb,ispin)  !orbital 1
-!  jsite=impIndex(jorb,ispin)  !orbital 2
-!  !
-!  if(MPI_MASTER)call start_timer
-!  !
-!  do istate=1,state_list%size
-!     isector     =  es_return_sector(state_list,istate)
-!     state_e     =  es_return_energy(state_list,istate)
-!     state_cvec  => es_return_cvector(state_list,istate)
-!     norm0=sqrt(dot_product(state_cvec,state_cvec))
-!     if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!     !
-!     idim  = getdim(isector)
-!     call build_sector(isector,HI)
-!     !
-!     !
-!     !APPLY (c^+_{iorb,ispin} + c^+_{jorb,ispin})|gs>
-!     jsector = getCDGsector(ispin,isector)
-!     if(jsector/=0)then 
-!        jdim  = getdim(jsector)
-!        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!        allocate(vvinit(jdim))
-!        call build_sector(jsector,HJ)
-!        vvinit=zero
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(isite)==0)then
-!              call cdg(isite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = sgn*state_cvec(m)
-!           endif
-!        enddo
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(jsite)==0)then
-!              call cdg(jsite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = vvinit(j) + sgn*state_cvec(m)
-!           endif
-!        enddo
-!        deallocate(HJ%map)
-!        norm2=dot_product(vvinit,vvinit)
-!        vvinit=vvinit/sqrt(norm2)
-!        !
-!        call setup_Hv_sector(jsector)
-!        if(ed_sparse_H)call ed_buildH_c()
-!        !
-!        nlanc=min(jdim,lanc_nGFiter)
-!        allocate(alfa_(nlanc),beta_(nlanc))
-!        if(MpiStatus)then
-!           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
-!        else
-!           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-!        endif
-!        cnorm2=one*norm2
-!        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,ispin)
-!        !
-!        call delete_Hv_sector()
-!        !
-!        if(spH0%status)call sp_delete_matrix(spH0)
-!     endif
-!     !
-!     !APPLY (c_{iorb,ispin} + c_{jorb,ispin})|gs>
-!     jsector = getCsector(ispin,isector)
-!     if(jsector/=0)then
-!        jdim   = getdim(jsector)
-!        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-!        allocate(vvinit(jdim))
-!        call build_sector(jsector,HJ)
-!        vvinit=zero
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(isite)==1)then
-!              call c(isite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = sgn*state_cvec(m)
-!           endif
-!        enddo
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(jsite)==1)then
-!              call c(jsite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = vvinit(j) + sgn*state_cvec(m)
-!           endif
-!        enddo
-!        deallocate(HJ%map)
-!        norm2=dot_product(vvinit,vvinit)
-!        vvinit=vvinit/sqrt(norm2)
-!        !
-!        call setup_Hv_sector(jsector)
-!        if(ed_sparse_H)call ed_buildH_c()
-!        !
-!        nlanc=min(jdim,lanc_nGFiter)
-!        allocate(alfa_(nlanc),beta_(nlanc))
-!        if(MpiStatus)then
-!           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
-!        else
-!           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-!        endif
-!        cnorm2=one*norm2
-!        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
-!        !
-!        call delete_Hv_sector()
-!        !
-!        if(spH0%status)call sp_delete_matrix(spH0)
-!     endif
-!     !
-!     !
-!     !EVALUATE (c^+_{iorb,ispin} + i*c^+_{jorb,ispin})|gs>
-!     jsector = getCDGsector(ispin,isector)
-!     if(jsector/=0)then 
-!        jdim  = getdim(jsector)
-!        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!        allocate(vvinit(jdim))
-!        call build_sector(jsector,HJ)
-!        vvinit=zero
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(isite)==0)then
-!              call cdg(isite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = sgn*state_cvec(m)
-!           endif
-!        enddo
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(jsite)==0)then
-!              call cdg(jsite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = vvinit(j) + xi*sgn*state_cvec(m)
-!           endif
-!        enddo
-!        deallocate(HJ%map)
-!        norm2=dot_product(vvinit,vvinit)
-!        vvinit=vvinit/sqrt(norm2)
-!        !
-!        call setup_Hv_sector(jsector)
-!        if(ed_sparse_H)call ed_buildH_c()
-!        !
-!        nlanc=min(jdim,lanc_nGFiter)
-!        allocate(alfa_(nlanc),beta_(nlanc))
-!        if(MpiStatus)then
-!           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
-!        else
-!           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-!        endif
-!        cnorm2=+xi*norm2
-!        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,jorb,ispin,ispin)
-!        !
-!        call delete_Hv_sector()
-!        !
-!        if(spH0%status)call sp_delete_matrix(spH0)
-!     endif
-!     !
-!     !EVALUATE (c_{iorb,ispin} - xi*c_{jorb,ispin})|gs>
-!     jsector = getCsector(ispin,isector)
-!     if(jsector/=0)then
-!        jdim   = getdim(jsector)
-!        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-!        allocate(vvinit(jdim))
-!        call build_sector(jsector,HJ)
-!        vvinit=zero
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(isite)==1)then
-!              call c(isite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = sgn*state_cvec(m)
-!           endif
-!        enddo
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(jsite)==1)then
-!              call c(jsite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = vvinit(j) - xi*sgn*state_cvec(m)
-!           endif
-!        enddo
-!        deallocate(HJ%map)
-!        norm2=dot_product(vvinit,vvinit)
-!        vvinit=vvinit/sqrt(norm2)
-!        !
-!        call setup_Hv_sector(jsector)
-!        if(ed_sparse_H)call ed_buildH_c()
-!        !
-!        nlanc=min(jdim,lanc_nGFiter)
-!        allocate(alfa_(nlanc),beta_(nlanc))
-!        if(MpiStatus)then
-!           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
-!        else
-!           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-!        endif
-!        cnorm2=+xi*norm2
-!        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,jorb,ispin,ispin)
-!        !
-!        call delete_Hv_sector()
-!        !
-!        if(spH0%status)call sp_delete_matrix(spH0)
-!     endif
-!     !
-!     nullify(state_vec)
-!     deallocate(HI%map)
-!     !
-!  enddo
-!  if(MPI_MASTER)call stop_timer
-!  deallocate(alfa_,beta_)
-!end subroutine lanc_build_gf_nonsu2_mixOrb_diagSpin_c
-
-
-
-!!PURPOSE: Evaluate the same same orbital IORB, different spin ISPIN,JSPIN impurity GF.
-!subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c(iorb,ispin,jspin)
-!  integer                          :: iorb,jorb,ispin,jspin,isite,jsite,isector,istate
-!  integer                          :: idim,jsector
-!  integer                          :: jdim
-!  integer                          :: ib(Nlevels)
-!  integer                          :: m,i,j,r
-!  real(8)                          :: sgn,norm2,norm0
-!  complex(8)                       :: cnorm2
-!  complex(8),allocatable           :: vvinit(:)
-!  real(8),allocatable              :: alfa_(:),beta_(:)
-!  integer                          :: Nitermax,Nlanc
-!  type(sector_map) :: HI,HJ    !map of the Sector S to Hilbert space H
-!  !
-!  isite=impIndex(iorb,ispin)  !orbital 1
-!  jsite=impIndex(iorb,jspin)  !orbital 2
-!  !
-!  if(MPI_MASTER)call start_timer
-!  !
-!  do istate=1,state_list%size
-!     isector     =  es_return_sector(state_list,istate)
-!     state_e    =  es_return_energy(state_list,istate)
-!     state_cvec  => es_return_cvector(state_list,istate)
-!     norm0=sqrt(dot_product(state_cvec,state_cvec))
-!     if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!     !
-!     idim  = getdim(isector)
-!     call build_sector(isector,HI)
-!     !
-!     !
-!     !APPLY (c^+_{iorb,ispin} + c^+_{iorb,jspin})|gs>
-!     jsector = getCDGsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
-!     if(jsector/=0)then 
-!        jdim  = getdim(jsector)
-!        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!        allocate(vvinit(jdim))
-!        call build_sector(jsector,HJ)
-!        vvinit=zero
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(isite)==0)then
-!              call cdg(isite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = sgn*state_cvec(m)
-!           endif
-!        enddo
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(jsite)==0)then
-!              call cdg(jsite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = vvinit(j) + sgn*state_cvec(m)
-!           endif
-!        enddo
-!        deallocate(HJ%map)
-!        norm2=dot_product(vvinit,vvinit)
-!        vvinit=vvinit/sqrt(norm2)
-!        !
-!        call setup_Hv_sector(jsector)
-!        if(ed_sparse_H)call ed_buildH_c()
-!        !
-!        nlanc=min(jdim,lanc_nGFiter)
-!        allocate(alfa_(nlanc),beta_(nlanc))
-!        if(MpiStatus)then
-!           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
-!        else
-!           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-!        endif
-!        cnorm2=one*norm2
-!        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,jspin)
-!        !
-!        call delete_Hv_sector()
-!        !
-!        if(spH0%status)call sp_delete_matrix(spH0)
-!     endif
-!     !
-!     !APPLY (c_{iorb,ispin} + c_{iorb,jspin})|gs>
-!     jsector = getCsector(ispin,isector) !this is the same sector I'd get using getCDGsector(JSPIN,isector)
-!     if(jsector/=0)then
-!        jdim   = getdim(jsector)
-!        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-!        allocate(vvinit(jdim))
-!        call build_sector(jsector,HJ)
-!        vvinit=zero
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(isite)==1)then
-!              call c(isite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = sgn*state_cvec(m)
-!           endif
-!        enddo
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(jsite)==1)then
-!              call c(jsite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = vvinit(j) + sgn*state_cvec(m)
-!           endif
-!        enddo
-!        deallocate(HJ%map)
-!        norm2=dot_product(vvinit,vvinit)
-!        vvinit=vvinit/sqrt(norm2)
-!        !
-!        call setup_Hv_sector(jsector)
-!        if(ed_sparse_H)call ed_buildH_c()
-!        !
-!        nlanc=min(jdim,lanc_nGFiter)
-!        allocate(alfa_(nlanc),beta_(nlanc))
-!        if(MpiStatus)then
-!           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
-!        else
-!           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-!        endif
-!        cnorm2=one*norm2
-!        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
-!        !
-!        call delete_Hv_sector()
-!        !
-!        if(spH0%status)call sp_delete_matrix(spH0)
-!     endif
-!     !
-!     !
-!     !EVALUATE (c^+_{iorb,ispin} + i*c^+_{iorb,jspin})|gs>
-!     jsector = getCDGsector(ispin,isector)
-!     if(jsector/=0)then 
-!        jdim  = getdim(jsector)
-!        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' add particle:',getn(jsector)
-!        allocate(vvinit(jdim))
-!        call build_sector(jsector,HJ)
-!        vvinit=zero
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(isite)==0)then
-!              call cdg(isite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = sgn*state_cvec(m)
-!           endif
-!        enddo
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(jsite)==0)then
-!              call cdg(jsite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = vvinit(j) + xi*sgn*state_cvec(m)
-!           endif
-!        enddo
-!        deallocate(HJ%map)
-!        norm2=dot_product(vvinit,vvinit)
-!        vvinit=vvinit/sqrt(norm2)
-!        !
-!        call setup_Hv_sector(jsector)
-!        if(ed_sparse_H)call ed_buildH_c()
-!        !
-!        nlanc=min(jdim,lanc_nGFiter)
-!        allocate(alfa_(nlanc),beta_(nlanc))
-!        if(MpiStatus)then
-!           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
-!        else
-!           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-!        endif
-!        cnorm2=+xi*norm2
-!        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,1,iorb,iorb,ispin,jspin)
-!        !
-!        call delete_Hv_sector()
-!        !
-!        if(spH0%status)call sp_delete_matrix(spH0)
-!     endif
-!     !
-!     !EVALUATE (c_{iorb,ispin} - xi*c_{iorb,jspin})|gs>
-!     jsector = getCsector(ispin,isector)
-!     if(jsector/=0)then
-!        jdim   = getdim(jsector)
-!        if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,I3)")' del particle:',getn(jsector)
-!        allocate(vvinit(jdim))
-!        call build_sector(jsector,HJ)
-!        vvinit=zero
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(isite)==1)then
-!              call c(isite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = sgn*state_cvec(m)
-!           endif
-!        enddo
-!        do m=1,idim
-!           i=HI%map(m)
-!           ib = bdecomp(i,2*Ns)
-!           if(ib(jsite)==1)then
-!              call c(jsite,i,r,sgn)
-!              j=binary_search(HJ%map,r)
-!              vvinit(j) = vvinit(j) - xi*sgn*state_cvec(m)
-!           endif
-!        enddo
-!        deallocate(HJ%map)
-!        norm2=dot_product(vvinit,vvinit)
-!        vvinit=vvinit/sqrt(norm2)
-!        !
-!        call setup_Hv_sector(jsector)
-!        if(ed_sparse_H)call ed_buildH_c()
-!        !
-!        nlanc=min(jdim,lanc_nGFiter)
-!        allocate(alfa_(nlanc),beta_(nlanc))
-!        if(MpiStatus)then
-!           call sp_lanc_tridiag(MpiComm,spHtimesV_cc,vvinit,alfa_,beta_)
-!        else
-!           call sp_lanc_tridiag(spHtimesV_cc,vvinit,alfa_,beta_)
-!        endif
-!        cnorm2=+xi*norm2
-!        call add_to_lanczos_gf_nonsu2(cnorm2,state_e,alfa_,beta_,-1,iorb,iorb,ispin,jspin)
-!        !
-!        call delete_Hv_sector()
-!        !
-!        if(spH0%status)call sp_delete_matrix(spH0)
-!     endif
-!     !
-!     nullify(state_cvec)
-!     deallocate(HI%map)
-!     !
-!  enddo
-!  if(MPI_MASTER)call stop_timer
-!  deallocate(alfa_,beta_)
-!end subroutine lanc_build_gf_nonsu2_diagOrb_mixSpin_c

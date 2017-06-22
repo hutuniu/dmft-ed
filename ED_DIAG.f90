@@ -103,10 +103,10 @@ contains
     if(state_list%status)call es_delete_espace(state_list)
     state_list=es_init_espace()
     oldzero=1000.d0
-    if(MPI_MASTER)then
-       write(LOGfile,"(A)")"Diagonalize impurity H:"
-       call start_timer()
-    endif
+    ! if(MPI_MASTER)then
+    write(LOGfile,"(A)")"Diagonalize impurity H:"
+    call start_timer()
+    ! endif
     !
     lanc_verbose=.false.
     if(ed_verbose>2)lanc_verbose=.true.
@@ -136,35 +136,35 @@ contains
        if(Neigen==dim)lanc_solve=.false.
        if(dim<=max(lanc_dim_threshold,MPI_SIZE))lanc_solve=.false.
        !
-       if(MPI_MASTER)then
-          if(ed_verbose==3)then
-             select case(ed_mode)
-             case default
-                nup  = getnup(isector)
-                ndw  = getndw(isector)
-                write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15,A12,3I6)")&
-                     iter,"-Solving sector:",isector,", nup:",nup,", ndw:",ndw,", dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
-             case ("superc")
-                sz   = getsz(isector)
-                write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15,A12,3I6)")&
-                     iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
-             case ("nonsu2")
-                if(Jz_basis)then
-                   nt   = getn(isector)
-                   Jz   = gettwoJz(isector)/2.
-                   write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,F5.1,A6,I15,A12,3I6)")&
-                        iter,"-Solving sector:",isector," n:",nt," Jz:",Jz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+       ! if(MPI_MASTER)then
+       if(ed_verbose==3)then
+          select case(ed_mode)
+          case default
+             nup  = getnup(isector)
+             ndw  = getndw(isector)
+             write(LOGfile,"(1X,I4,A,I4,A6,I2,A6,I2,A6,I15,A12,3I6)")&
+                  iter,"-Solving sector:",isector,", nup:",nup,", ndw:",ndw,", dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+          case ("superc")
+             sz   = getsz(isector)
+             write(LOGfile,"(1X,I4,A,I4,A5,I4,A6,I15,A12,3I6)")&
+                  iter,"-Solving sector:",isector," sz:",sz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+          case ("nonsu2")
+             if(Jz_basis)then
+                nt   = getn(isector)
+                Jz   = gettwoJz(isector)/2.
+                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,F5.1,A6,I15,A12,3I6)")&
+                     iter,"-Solving sector:",isector," n:",nt," Jz:",Jz," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
 
-                else
-                   nt   = getn(isector)
-                   write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15,A12,3I6)")&
-                        iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
-                endif
-             end select
-          elseif(ed_verbose==1.OR.ed_verbose==2)then
-             call eta(iter,count(twin_mask),LOGfile)
-          endif
+             else
+                nt   = getn(isector)
+                write(LOGfile,"(1X,I4,A,I4,A4,I4,A6,I15,A12,3I6)")&
+                     iter,"-Solving sector:",isector," n:",nt," dim=",getdim(isector),", Lanc Info:",Neigen,Nitermax,Nblock
+             endif
+          end select
+       elseif(ed_verbose==1.OR.ed_verbose==2)then
+          call eta(iter,count(twin_mask),LOGfile)
        endif
+       ! endif
        !
        if(lanc_solve)then
           if(allocated(eig_values))deallocate(eig_values)
@@ -212,16 +212,19 @@ contains
              endif
           enddo
        endif
-       unit=free_unit()
-       open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed",position='append',action='write')
-       call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
-       close(unit)
+       if(MPI_MASTER)then
+          unit=free_unit()
+          open(unit,file="eigenvalues_list"//reg(ed_file_suffix)//".ed",position='append',action='write')
+          call print_eigenvalues_list(isector,eig_values(1:Neigen),unit)
+          close(unit)
+       endif
        !
        if(allocated(eig_values))deallocate(eig_values)
        if(allocated(eig_basis))deallocate(eig_basis)
        !
     enddo sector
-    if(MPI_MASTER)call stop_timer
+    !if(MPI_MASTER)
+    call stop_timer(LOGfile)
   end subroutine ed_diag_c
 
 
@@ -254,10 +257,12 @@ contains
     integer             :: hist_n
     integer,allocatable :: list_sector(:),count_sector(:)    
     !POST PROCESSING:
-    unit=free_unit()
-    open(unit,file="state_list"//reg(ed_file_suffix)//".ed")
-    call print_state_list(unit)
-    close(unit)
+    if(MPI_MASTER)then
+       unit=free_unit()
+       open(unit,file="state_list"//reg(ed_file_suffix)//".ed")
+       call print_state_list(unit)
+       close(unit)
+    endif
     if(ed_verbose>=2)call print_state_list(LOGfile)
     !
     zeta_function=0d0
@@ -274,7 +279,8 @@ contains
     !
     numgs=es_return_gs_degeneracy(state_list,gs_threshold)
     if(numgs>Nsectors)stop "ed_diag: too many gs"
-    if(MPI_MASTER.AND.ed_verbose>=2)then
+    ! if(MPI_MASTER.AND.ed_verbose>=2)then
+    if(ed_verbose>=2)then
        do istate=1,numgs
           isector = es_return_sector(state_list,istate)
           Egs     = es_return_energy(state_list,istate)
@@ -352,14 +358,16 @@ contains
        Nsize= state_list%size
        if(exp(-beta*(Ec-Egs)) > cutoff)then
           lanc_nstates_total=lanc_nstates_total + lanc_nstates_step
-          if(MPI_MASTER)write(LOGfile,"(A,I4)")"Increasing lanc_nstates_total:",lanc_nstates_total
+          !if(MPI_MASTER)
+          write(LOGfile,"(A,I4)")"Increasing lanc_nstates_total:",lanc_nstates_total
        else
           ! !Find the energy level beyond which cutoff condition is verified & cut the list to that size
           write(LOGfile,*)
           isector = es_return_sector(state_list,state_list%size)
           Ei      = es_return_energy(state_list,state_list%size)
           do while ( exp(-beta*(Ei-Egs)) <= cutoff )
-             if(ed_verbose>=1.AND.MPI_MASTER)then
+             ! if(ed_verbose>=1.AND.MPI_MASTER)then
+             if(ed_verbose>=1)then
                 select case(ed_mode)
                 case default
                    write(LOGfile,"(A,I4,2x,2I4,2x,I5)")&
@@ -376,17 +384,16 @@ contains
              isector = es_return_sector(state_list,state_list%size)
              Ei      = es_return_energy(state_list,state_list%size)
           enddo
-          if(ed_verbose>=1.AND.MPI_MASTER)then
+          ! if(ed_verbose>=1.AND.MPI_MASTER)then
+          if(ed_verbose>=1)then
              write(LOGfile,*)"Trimmed state list:"          
              call print_state_list(LOGfile)
           endif
-          ! lanc_nstates_total=max(lanc_nstates_step,lanc_nstates_total-lanc_nstates_step)
-          ! if(MPI_MASTER)write(LOGfile,"(A,I4)")"Decreasing lanc_nstates_total:",lanc_nstates_total
           !
-          ! if(trim_state_list)then
           lanc_nstates_total=max(state_list%size,lanc_nstates_step)+lanc_nstates_step
-          if(ed_verbose>=1.AND.MPI_MASTER)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
-          ! endif
+          ! if(ed_verbose>=1.AND.MPI_MASTER)write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
+          write(*,"(A,I4)")"Adjusting lanc_nstates_total to:",lanc_nstates_total
+          !
        endif
     endif
   end subroutine ed_analysis
@@ -397,68 +404,68 @@ contains
     integer :: istate
     integer :: unit
     real(8) :: Estate,Jz
-    if(MPI_MASTER)then
+    ! if(MPI_MASTER)then
+    select case(ed_mode)
+    case default
+       write(unit,"(A)")"# i       E_i           exp(-(E-E0)/T)       nup ndw  Sect     Dim"
+    case ("superc")
+       write(unit,"(A)")"# i       E_i           exp(-(E-E0)/T)       Sz     Sect     Dim"
+    case ("nonsu2")
+       if(Jz_basis)then
+          write(unit,"(A3,A18,2x,A19,1x,A3,3x,A4,3x,A3,A10)")"# i","E_i","exp(-(E-E0)/T)","n","Jz","Sect","Dim"
+       else
+          write(unit,"(A3,A18,2x,A19,1x,A3,3x,A3,A10)")"# i","E_i","exp(-(E-E0)/T)","n","Sect","Dim"
+       endif
+    end select
+    do istate=1,state_list%size
+       Estate  = es_return_energy(state_list,istate)
+       isector = es_return_sector(state_list,istate)
        select case(ed_mode)
        case default
-          write(unit,"(A)")"# i       E_i           exp(-(E-E0)/T)       nup ndw  Sect     Dim"
-       case ("superc")
-          write(unit,"(A)")"# i       E_i           exp(-(E-E0)/T)       Sz     Sect     Dim"
-       case ("nonsu2")
+          nup   = getnup(isector)
+          ndw   = getndw(isector)
+          write(unit,"(i3,f18.12,2x,ES19.12,1x,2i3,3x,i3,i10)")&
+               istate,Estate,exp(-beta*(Estate-state_list%emin)),nup,ndw,isector,getdim(isector)
+       case("superc")
+          sz   = getsz(isector)
+          write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)")&
+               istate,Estate,exp(-beta*(Estate-state_list%emin)),sz,isector,getdim(isector)
+       case("nonsu2")
+          n    = getn(isector)
           if(Jz_basis)then
-             write(unit,"(A3,A18,2x,A19,1x,A3,3x,A4,3x,A3,A10)")"# i","E_i","exp(-(E-E0)/T)","n","Jz","Sect","Dim"
+             Jz   = gettwoJz(isector)/2.
+             write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,F4.1,3x,i3,i10)")&
+                  istate,Estate,exp(-beta*(Estate-state_list%emin)),n,Jz,isector,getdim(isector)
           else
-             write(unit,"(A3,A18,2x,A19,1x,A3,3x,A3,A10)")"# i","E_i","exp(-(E-E0)/T)","n","Sect","Dim"
+             write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)")&
+                  istate,Estate,exp(-beta*(Estate-state_list%emin)),n,isector,getdim(isector)
           endif
        end select
-       do istate=1,state_list%size
-          Estate  = es_return_energy(state_list,istate)
-          isector = es_return_sector(state_list,istate)
-          select case(ed_mode)
-          case default
-             nup   = getnup(isector)
-             ndw   = getndw(isector)
-             write(unit,"(i3,f18.12,2x,ES19.12,1x,2i3,3x,i3,i10)")&
-                  istate,Estate,exp(-beta*(Estate-state_list%emin)),nup,ndw,isector,getdim(isector)
-          case("superc")
-             sz   = getsz(isector)
-             write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)")&
-                  istate,Estate,exp(-beta*(Estate-state_list%emin)),sz,isector,getdim(isector)
-          case("nonsu2")
-             n    = getn(isector)
-             if(Jz_basis)then
-                Jz   = gettwoJz(isector)/2.
-                write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,F4.1,3x,i3,i10)")&
-                     istate,Estate,exp(-beta*(Estate-state_list%emin)),n,Jz,isector,getdim(isector)
-             else
-                write(unit,"(i3,f18.12,2x,ES19.12,1x,i3,3x,i3,i10)")&
-                     istate,Estate,exp(-beta*(Estate-state_list%emin)),n,isector,getdim(isector)
-             endif
-          end select
-       enddo
-    endif
+    enddo
+    ! endif
   end subroutine print_state_list
 
   subroutine print_eigenvalues_list(isector,eig_values,unit)
     integer              :: isector
     real(8),dimension(:) :: eig_values
     integer              :: unit,i
-    if(MPI_MASTER)then
-       select case(ed_mode)
-       case default
-          write(unit,"(A7,A3,A3)")" # Sector","Nup","Ndw"
-          write(unit,"(I4,2x,I3,I3)")isector,getnup(isector),getndw(isector)
-       case ("superc")
-          write(unit,"(A7,A4)")" # Sector","Sz"
-          write(unit,"(I4,2x,I4)")isector,getsz(isector)
-       case ("nonsu2")
-          write(unit,"(A7,A3)")" # Sector","N"
-          write(unit,"(I4,2x,I4)")isector,getn(isector)
-       end select
-       do i=1,size(eig_values)
-          write(unit,*)eig_values(i)
-       enddo
-       write(unit,*)""
-    endif
+    ! if(MPI_MASTER)then
+    select case(ed_mode)
+    case default
+       write(unit,"(A7,A3,A3)")" # Sector","Nup","Ndw"
+       write(unit,"(I4,2x,I3,I3)")isector,getnup(isector),getndw(isector)
+    case ("superc")
+       write(unit,"(A7,A4)")" # Sector","Sz"
+       write(unit,"(I4,2x,I4)")isector,getsz(isector)
+    case ("nonsu2")
+       write(unit,"(A7,A3)")" # Sector","N"
+       write(unit,"(I4,2x,I4)")isector,getn(isector)
+    end select
+    do i=1,size(eig_values)
+       write(unit,*)eig_values(i)
+    enddo
+    write(unit,*)""
+    ! endif
   end subroutine print_eigenvalues_list
 
 

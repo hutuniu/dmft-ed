@@ -418,19 +418,20 @@ contains
        call get_szr
        if(iolegend)call write_legend
        call write_observables()
-       write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(ed_file_suffix)//"=",(dens(iorb),iorb=1,Norb),sum(dens)
-       select case(ed_mode)
-       case default
-          write(LOGfile,"(A,10f18.12,A)")    "docc"//reg(ed_file_suffix)//"=",(docc(iorb),iorb=1,Norb)
-       case("superc")
-          write(LOGfile,"(A,20f18.12,A)")    "phi "//reg(ed_file_suffix)//"=",(phisc(iorb),iorb=1,Norb),(abs(uloc(iorb))*phisc(iorb),iorb=1,Norb)
-       end select
-       if(Nspin==2)then
-          write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magz(iorb),iorb=1,Norb)
-          if(Norb==3)write(LOGfile,"(A,10f18.12,A)") " Ji "//reg(ed_file_suffix)//"=",(real(impj_aplha(i)),i=1,3)
-          if(Norb==3)write(LOGfile,"(A,10f18.12,A)") " Ji^2 "//reg(ed_file_suffix)//"=",(real(impj_aplha_sq(i)),i=1,3)
-       endif
     endif
+    write(LOGfile,"(A,10f18.12,f18.12,A)")"dens"//reg(ed_file_suffix)//"=",(dens(iorb),iorb=1,Norb),sum(dens)
+    select case(ed_mode)
+    case default
+       write(LOGfile,"(A,10f18.12,A)")    "docc"//reg(ed_file_suffix)//"=",(docc(iorb),iorb=1,Norb)
+    case("superc")
+       write(LOGfile,"(A,20f18.12,A)")    "phi "//reg(ed_file_suffix)//"=",(phisc(iorb),iorb=1,Norb),(abs(uloc(iorb))*phisc(iorb),iorb=1,Norb)
+    end select
+    if(Nspin==2)then
+       write(LOGfile,"(A,10f18.12,A)") "mag "//reg(ed_file_suffix)//"=",(magz(iorb),iorb=1,Norb)
+       if(Norb==3)write(LOGfile,"(A,10f18.12,A)") " Ji "//reg(ed_file_suffix)//"=",(real(impj_aplha(i)),i=1,3)
+       if(Norb==3)write(LOGfile,"(A,10f18.12,A)") " Ji^2 "//reg(ed_file_suffix)//"=",(real(impj_aplha_sq(i)),i=1,3)
+    endif
+
     !
     do iorb=1,Norb
        ed_dens_up(iorb)=dens_up(iorb)
@@ -667,17 +668,17 @@ contains
     enddo
     ed_Epot = ed_Epot + ed_Ehartree
     !
+    if(ed_verbose==3)then
+       write(LOGfile,"(A,10f18.12)")"<Hint>  =",ed_Epot
+       write(LOGfile,"(A,10f18.12)")"<V>     =",ed_Epot-ed_Ehartree
+       write(LOGfile,"(A,10f18.12)")"<E0>    =",ed_Eknot
+       write(LOGfile,"(A,10f18.12)")"<Ehf>   =",ed_Ehartree    
+       write(LOGfile,"(A,10f18.12)")"Dust    =",ed_Dust
+       write(LOGfile,"(A,10f18.12)")"Dund    =",ed_Dund
+       write(LOGfile,"(A,10f18.12)")"Dse     =",ed_Dse
+       write(LOGfile,"(A,10f18.12)")"Dph     =",ed_Dph
+    endif
     if(MPI_MASTER)then
-       if(ed_verbose==3)then
-          write(LOGfile,"(A,10f18.12)")"<Hint>  =",ed_Epot
-          write(LOGfile,"(A,10f18.12)")"<V>     =",ed_Epot-ed_Ehartree
-          write(LOGfile,"(A,10f18.12)")"<E0>    =",ed_Eknot
-          write(LOGfile,"(A,10f18.12)")"<Ehf>   =",ed_Ehartree    
-          write(LOGfile,"(A,10f18.12)")"Dust    =",ed_Dust
-          write(LOGfile,"(A,10f18.12)")"Dund    =",ed_Dund
-          write(LOGfile,"(A,10f18.12)")"Dse     =",ed_Dse
-          write(LOGfile,"(A,10f18.12)")"Dph     =",ed_Dph
-       endif
        call write_energy_info()
        call write_energy()
     endif

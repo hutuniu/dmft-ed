@@ -5,7 +5,7 @@ subroutine build_chi_pair()
   integer :: iorb
   write(LOGfile,"(A)")"Get impurity pair Chi:"
   do iorb=1,Norb
-     if(MPI_MASTER)write(LOGfile,"(A)")"Get Chi_pair_l"//reg(txtfy(iorb))
+     write(LOGfile,"(A)")"Get Chi_pair_l"//reg(txtfy(iorb))
      call lanc_ed_build_pairChi_c(iorb)
   enddo
   pairChi_tau = PairChi_tau/zeta_function
@@ -33,7 +33,7 @@ subroutine lanc_ed_build_pairChi_c(iorb)
   integer                          :: Nitermax
   type(sector_map) :: HI    !map of the Sector S to Hilbert space H
   !
-  if(MPI_MASTER)call start_timer
+  call start_timer
   !
   do izero=1,state_list%size
      isector    =  es_return_sector(state_list,izero)
@@ -45,7 +45,7 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      call build_sector(isector,HI)
      !
      !Build the C_{iorb,up}C_{iorb,dw}|eigvec> 
-     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector)
+     if(ed_verbose==3)write(LOGfile,"(A,2I3)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector)
      allocate(vvinit(idim))
      vvinit=0.d0
      do m=1,idim
@@ -79,7 +79,7 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      deallocate(vvinit,alfa_,beta_)
      !
      !Build the CDG_{iorb,dw}CDG_{iorb,up}|eigvec> 
-     if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector)
+     if(ed_verbose==3)write(LOGfile,"(A,2I3)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector)
      allocate(vvinit(idim))
      vvinit=0.d0
      do m=1,idim
@@ -114,7 +114,7 @@ subroutine lanc_ed_build_pairChi_c(iorb)
      deallocate(HI%map)
      nullify(state_cvec)
   enddo
-  if(MPI_MASTER)call stop_timer
+  call stop_timer(LOGfile)
 end subroutine lanc_ed_build_pairChi_c
 
 
@@ -209,87 +209,3 @@ end subroutine add_to_lanczos_pairChi
 
 
 
-! subroutine lanc_ed_build_pairChi_d(iorb)
-!   integer                          :: iorb,isite,isector,izero
-!   integer                          :: numstates
-!   integer                          :: nlanc,idim
-!   integer                          :: iup0,idw0,isign
-!   integer                          :: ib(Nlevels)
-!   integer                          :: m,i,i1,i2,j,r
-!   real(8)                          :: norm0,sgn,sgn1,sgn2
-!   real(8),allocatable              :: alfa_(:),beta_(:)
-!   real(8),allocatable              :: vvinit(:)
-!   integer                          :: Nitermax
-!   type(sector_map) :: HI    !map of the Sector S to Hilbert space H
-!   !
-!   !
-!   if(MPI_MASTER)call start_timer
-!   !
-!   do izero=1,state_list%size
-!      isector    =  es_return_sector(state_list,izero)
-!      idim       =  getdim(isector)
-!      state_e    =  es_return_energy(state_list,izero)
-!      state_vec  => es_return_vector(state_list,izero)
-!      norm0=sqrt(dot_product(state_vec,state_vec))
-!      if(abs(norm0-1.d0)>1.d-9)stop "GS is not normalized"
-!      call build_sector(isector,HI)
-!      !
-!      !Build the C_{iorb,up}C_{iorb,dw}|eigvec> 
-!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply C_{iorb,up}C_{iorb,dw}:',getsz(isector)
-!      allocate(vvinit(idim))
-!      vvinit=0.d0
-!      do m=1,idim
-!         i=HI%map(m)
-!         ib = bdecomp(i,2*Ns)
-!         if(ib(iorb+Ns)==0.OR.ib(iorb)==0)cycle
-!         call c(iorb+Ns,i,i1,sgn1)
-!         call c(iorb,i1,i2,sgn2)
-!         j = binary_search(HI%map,i2)
-!         vvinit(j) = sgn1*sgn2*state_vec(m)
-!      enddo
-!      norm0=sqrt(dot_product(vvinit,vvinit))
-!      vvinit=vvinit/norm0
-!      call ed_buildH_d(isector)
-!      nlanc=min(idim,lanc_nGFiter)
-!      allocate(alfa_(nlanc),beta_(nlanc))
-!      if(MpiStatus)then
-!         call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!      else
-!         call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!      endif
-!      isign=-1 !<== ACTHUNG!!!! check this is the correct value of isign
-!      call add_to_lanczos_pairChi(norm0,state_e,alfa_,beta_,isign,iorb)
-!      deallocate(vvinit,alfa_,beta_)
-!      !
-!      !Build the CDG_{iorb,dw}CDG_{iorb,up}|eigvec> 
-!      if(ed_verbose==3.AND.MPI_MASTER)write(LOGfile,"(A,2I3)")'Apply CDG_{iorb,dw}CDG_{iorb,up}:',getsz(isector)
-!      allocate(vvinit(idim))
-!      vvinit=0.d0
-!      do m=1,idim
-!         i=HI%map(m)
-!         ib = bdecomp(i,2*Ns)
-!         if(ib(iorb+Ns)==1.OR.ib(iorb)==1)cycle
-!         call cdg(iorb,i,i1,sgn1)
-!         call cdg(iorb+Ns,i1,i2,sgn2)
-!         j = binary_search(HI%map,i2)
-!         vvinit(j) = sgn1*sgn2*state_vec(m)
-!      enddo
-!      norm0=sqrt(dot_product(vvinit,vvinit))
-!      vvinit=vvinit/norm0
-!      call ed_buildH_d(isector)
-!      nlanc=min(idim,lanc_nGFiter)
-!      allocate(alfa_(nlanc),beta_(nlanc))
-!      if(MpiStatus)then
-!         call sp_lanc_tridiag(MpiComm,spHtimesV_dd,vvinit,alfa_,beta_)
-!      else
-!         call sp_lanc_tridiag(spHtimesV_dd,vvinit,alfa_,beta_)
-!      endif
-!      isign=1 !<== ACTHUNG!!!! check this is the correct value of isign
-!      call add_to_lanczos_pairChi(norm0,state_e,alfa_,beta_,isign,iorb)
-!      if(spH0%status)call sp_delete_matrix(spH0)
-!      deallocate(vvinit,alfa_,beta_)
-!      deallocate(HI%map)
-!      nullify(state_vec)
-!   enddo
-!   if(MPI_MASTER)call stop_timer
-! end subroutine lanc_ed_build_pairChi_d
