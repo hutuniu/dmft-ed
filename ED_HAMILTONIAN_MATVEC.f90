@@ -17,7 +17,7 @@ MODULE ED_HAMILTONIAN_MATVEC
   private
 
   !>build sparse hamiltonian of the sector
-  public  :: build_H_c
+  public  :: ed_buildH_c
   !
   !
   !>Sparse Mat-Vec product using stored sparse matrix 
@@ -40,7 +40,7 @@ MODULE ED_HAMILTONIAN_MATVEC
   public  :: setup_Hv_sector
   public  :: delete_Hv_sector
 
-  
+
   !> MPI local variables (shared)
 #ifdef _MPI
   integer                      :: MpiComm=MPI_UNDEFINED
@@ -120,7 +120,7 @@ contains
   !####################################################################
   !             BUILD SPARSE HAMILTONIAN of the SECTOR
   !####################################################################
-  subroutine build_H_c(Hmat)
+  subroutine ed_buildH_c(Hmat)
     complex(8),dimension(:,:),optional     :: Hmat
     complex(8),dimension(:,:),allocatable  :: Hredux
     integer                                :: isector
@@ -143,7 +143,7 @@ contains
     integer                                :: first_state_up,last_state_up
     integer                                :: first_state_dw,last_state_dw
     !
-    if(.not.Hstatus)stop "build_H_c ERROR: Hsector NOT set"
+    if(.not.Hstatus)stop "ed_buildH_c ERROR: Hsector NOT set"
     isector=Hsector
     !
     if(spH0%status)call sp_delete_matrix(spH0) 
@@ -183,7 +183,7 @@ contains
     !-----------------------------------------------!
     !
     if(present(Hmat))then
-       if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "build_H_normal_c ERROR: size(Hmat) != dim**2"
+       if(size(Hmat,1)/=dim.OR.size(Hmat,2)/=dim)stop "ed_buildH_c ERROR: size(Hmat) != dim**2"
        if(MpiStatus)then
           allocate(Hredux(dim,dim));Hredux=zero
           call sp_dump_matrix(spH0,Hredux(first_state:last_state,:))
@@ -195,7 +195,7 @@ contains
        endif
     endif
     !
-  end subroutine build_H_c
+  end subroutine ed_buildH_c
 
 
 

@@ -222,7 +222,7 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose==3)write(*,"(A,2I3,I15)")' add particle:',getnup(jsector),getndw(jsector),jdim
+        if(ed_verbose==3)write(LOGfile,"(A,2I3,I15)")' add particle:',getnup(jsector),getndw(jsector),jdim
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
         vvinit=zero
@@ -270,7 +270,7 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose==3)write(*,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
+        if(ed_verbose==3)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
         allocate(vvinit(jdim))
         call build_sector(jsector,HJ)
         vvinit=zero
@@ -318,7 +318,7 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      jsector = getCDGsector(ispin,isector)
      if(jsector/=0)then 
         jdim  = getdim(jsector)
-        if(ed_verbose==3)write(*,"(A,2I3,I15)")' add particle:',getnup(jsector),getndw(jsector),jdim
+        if(ed_verbose==3)write(LOGfile,"(A,2I3,I15)")' add particle:',getnup(jsector),getndw(jsector),jdim
         allocate(cvinit(jdim))
         call build_sector(jsector,HJ)
         cvinit=zero
@@ -366,7 +366,7 @@ subroutine lanc_build_gf_normal_mix_c(iorb,jorb,ispin)
      jsector = getCsector(ispin,isector)
      if(jsector/=0)then
         jdim   = getdim(jsector)
-        if(ed_verbose==3)write(*,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
+        if(ed_verbose==3)write(LOGfile,"(A,2I3,I15)")' del particle:',getnup(jsector),getndw(jsector),jdim
         allocate(cvinit(jdim))
         call build_sector(jsector,HJ)
         cvinit=zero
