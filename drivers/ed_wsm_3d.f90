@@ -437,21 +437,21 @@ contains
       a=kpoint(1)
       b=kpoint(2)
       PLANE_INDEX=[3.0d0,kpoint(3)+e,1.0d0]
-      z2(i)=z2(i)-simps2d(chern_nk,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+      z2(i)=z2(i)-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
       PLANE_INDEX=[3.0d0,kpoint(3)-e,-1.0d0]
-      z2(i)=z2(i)-simps2d(chern_nk,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+      z2(i)=z2(i)-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
       a=kpoint(3)
       b=kpoint(1)
       PLANE_INDEX=[2.0d0,kpoint(2)+e,1.0d0]
-      z2(i)=z2(i)-simps2d(chern_nk,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+      z2(i)=z2(i)-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
       PLANE_INDEX=[2.0d0,kpoint(2)-e,-1.0d0]
-      z2(i)=z2(i)-simps2d(chern_nk,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+      z2(i)=z2(i)-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
       a=kpoint(2)
       b=kpoint(3)
       PLANE_INDEX=[1.0d0,kpoint(1)+e,1.0d0]
-      z2(i)=z2(i)-simps2d(chern_nk,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+      z2(i)=z2(i)-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
       PLANE_INDEX=[1.0d0,kpoint(1)-e,-1.0d0]
-      z2(i)=z2(i)-simps2d(chern_nk,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+      z2(i)=z2(i)-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
     enddo
     unit=free_unit()
     open(unit,file="Chern_Flux.ed")
@@ -461,15 +461,14 @@ contains
 
 
 
-  function chern_nk(kpoint_) result(ck)
+  function chern_flux_integrable(kpoint_) result(ck)
     real(8),dimension(3)                     :: kpoint
     real(8),dimension(:)                     :: kpoint_
-    real(8)                                  :: ck,norm
+    real(8)                                  :: ck
     real(8),dimension(:,:,:),allocatable     :: dk ![Noccupied][Noccupied][3]
     real(8),dimension(3)                     :: ddk
-    integer                                  :: Noccupied,i,j
+    integer                                  :: i,j
     !
-    Noccupied=2
     select case (CHERN_INDEX)
       case (1)
         i=1
@@ -489,59 +488,47 @@ contains
     kpoint=[kpoint_(1),kpoint_(2),PLANE_INDEX(2)]
     call get_Berry_Curvature(kpoint,dk)
     ck=dot_product(dk(i,j,:),ddk)  
-  end function chern_nk
+  end function chern_flux_integrable
 
 
 
 
 
 
-  function give_occupied(kpoint,M) result(BlochStates)
+  function get_occupied_state(kpoint,M) result(BlochStates)
     real(8),dimension(:),intent(in)        :: kpoint
     !
-    integer                                :: Nlso,Noccupied,M
-    real(8),dimension(:,:),allocatable     :: Eigvec ![Nlso][Nlso]
-    real(8),dimension(:),allocatable       :: Eigval ![Nlso]
+    integer                                :: M
+    real(8),dimension(M,M)                 :: Eigvec ![Nlso][Nlso]
+    real(8),dimension(M)                   :: Eigval ![Nlso]
     real(8),dimension(M)                   :: BlochStates ![Nlso]
     !
-    Nlso  = 4
-    Noccupied = 2
     !
-    !
-    !1. Get the Bloch states from H(:,:,k)
-    allocate(Eigvec(Nlso,Nlso))
-    allocate(Eigval(Nlso))
-    !    
-    Eigvec=hk_weyl(kpoint,Nlso)
+    Eigvec=hk_weyl(kpoint,M)
     call eigh(Eigvec,Eigval)
     BlochStates(:) = Eigvec(:,ICOMP)
-    deallocate(Eigvec,Eigval)
-  end function give_occupied
+  end function get_occupied_state
 
 
 
 
 
-  function give_Berry_connection(kpoint,M) result(BerryConnection)
+  function get_Berry_connection(kpoint) result(BerryConnection)
     real(8),dimension(:),intent(in)           :: kpoint
     !
-    integer                                   :: Nlso,Noccupied,M,i
+    integer                                   :: i
     real(8),dimension(4)                      :: BlochStates ![Nlso]
-    real(8),dimension(:,:),allocatable        :: TmpKmat ![Nlso][N_dimensions]
-    real(8),dimension(M)                      :: BerryConnection ![N_dimensions]    
+    real(8),dimension(4,size(kpoint))         :: TmpKmat ![Nlso][N_dimensions]
+    real(8),dimension(size(kpoint))           :: BerryConnection ![N_dimensions]    
     !
-    Noccupied = 2
     !
-    allocate(TmpKmat(M,size(kpoint)))
+    BlochStates(:)=get_occupied_state(kpoint,Nso)
     !
-    BlochStates(:)=give_occupied(kpoint,M)
-    !
-    call djacobian(give_occupied,kpoint,M,TmpKMat)
+    call djacobian(get_occupied_state,kpoint,Nso,TmpKMat)
     do i=1,size(kpoint)
       BerryConnection(i) = dot_product(BlochStates(:), TmpKMat(:,JCOMP))
     enddo
-    deallocate(TmpKMat)
-  end function give_Berry_connection
+  end function get_Berry_connection
 
 
 
@@ -549,20 +536,17 @@ contains
   subroutine get_Berry_Curvature(kpoint,BerryCurvature)
     real(8),dimension(:)                      :: kpoint
     !
-    integer                                   :: Nlso,Noccupied,k,M
     real(8),dimension(:,:),allocatable        :: TmpKmat ![N_dimension][N_dimension]
     real(8),dimension(:,:,:)                  :: BerryCurvature ![Nocc][Nocc][N_dimensions]    
     real(8)                                   :: norm
     !
-    Nlso  = 4
-    Noccupied = 2
-    allocate(TmpKMat(3,3)) 
+    allocate(TmpKMat(size(kpoint),size(kpoint))) 
     !
     !
     !3. Do the rotor to get Berry Curvature
-    do ICOMP=1,Noccupied
-      do JCOMP=1,Noccupied
-          call djacobian(give_Berry_connection,kpoint,3,TmpKMat)
+    do ICOMP=1,Norb
+      do JCOMP=1,Norb
+          call djacobian(get_Berry_connection,kpoint,TmpKMat)
           BerryCurvature(ICOMP,JCOMP,1)=TmpKMat(3,2)-TmpKMat(2,3)
           BerryCurvature(ICOMP,JCOMP,2)=TmpKMat(1,3)-TmpKMat(3,1)
           BerryCurvature(ICOMP,JCOMP,3)=TmpKMat(2,1)-TmpKMat(1,2)
@@ -571,7 +555,7 @@ contains
       enddo
     enddo
     deallocate(TmpKMat)
-  end subroutine Get_Berry_Curvature
+  end subroutine get_Berry_Curvature
 
  
 
