@@ -459,10 +459,10 @@ contains
     PLANE_INDEX=[1.0d0,kpoint(1)-e,-1.0d0]
     z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
     write(*,*) "Done face 6"
-    write(*,*) "Berry flux is ",z2
+    write(*,*) "Berry flux is ",z2/(2*pi)
     unit=free_unit()
     open(unit,file="Berry_Flux.ed")
-    write(unit,*)z2
+    write(unit,*) z2/(2*pi)
     close(unit)
   end subroutine chern_retriever
 
@@ -534,13 +534,17 @@ contains
     !
     !
     BerryConnection=[0,0,0]
-    call djacobian(get_occupied_state_rep,kpoint,Nso,TmpKMat_rep)
-    call djacobian(get_occupied_state_imp,kpoint,Nso,TmpKMat_imp)
     do ICOMP=1,Norb
         BlochStates_rep = get_occupied_state_rep(kpoint,Nso)
         BlochStates_imp = get_occupied_state_imp(kpoint,Nso)
+        call djacobian(get_occupied_state_rep,kpoint,Nso,TmpKMat_rep,0.01d0)
+        call djacobian(get_occupied_state_imp,kpoint,Nso,TmpKMat_imp,0.01d0)
+        !write(*,*) BlochStates_rep
+        !write(*,*) BlochStates_imp
+        !write(*,*) TmpKMat_rep
+        !write(*,*) TmpKMat_imp
         do i=1,size(kpoint)
-          BerryConnection(i) = BerryConnection(i) - dot_product(BlochStates_rep, TmpKMat_imp(:,ICOMP)) - dot_product(BlochStates_imp, TmpKMat_rep(:,ICOMP))
+          BerryConnection(i) = BerryConnection(i) - dot_product(BlochStates_rep, TmpKMat_imp(:,i)) - dot_product(BlochStates_imp,TmpKMat_rep(:,i))
         enddo
     enddo
   end function get_Berry_connection
@@ -564,13 +568,13 @@ contains
     BerryCurvature(2)=TmpKMat(1,3)-TmpKMat(3,1)
     BerryCurvature(3)=TmpKMat(2,1)-TmpKMat(1,2)
     !
-    norm=dot_product(BerryCurvature,BerryCurvature)
-    BerryCurvature=BerryCurvature/sqrt(norm)   
+    !norm=dot_product(BerryCurvature,BerryCurvature)
+    !BerryCurvature=BerryCurvature/sqrt(norm)   
     !
     deallocate(TmpKMat)
   end subroutine get_Berry_Curvature
 
- 
+
 
 
   !--------------------------------------------------------------------!
