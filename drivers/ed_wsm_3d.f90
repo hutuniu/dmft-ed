@@ -3,7 +3,7 @@ program ed_wsm_3d
   USE SCIFOR
   USE DMFT_TOOLS
   implicit none
-  integer                       :: iloop,Lk,Nso,test=0
+  integer                       :: iloop,Lk,Nso,test=0,uno,due,tre
   logical                       :: converged
   !Bath:
   integer                       :: Nb
@@ -18,7 +18,7 @@ program ed_wsm_3d
   integer,allocatable           :: ik2ix(:),ik2iy(:),ik2iz(:)
   !variables for the model:
   integer                       :: Nk,Nkpath,CHERN_INDEX,ICOMP,JCOMP
-  real(8)                       :: e0,mh,lambda,bx,by,bz,BIA
+  real(8)                       :: e0,mh,lambda,bx,by,bz,BIA,uno_r,due_r,tre_r
   real(8)                       :: wmixing
   real(8),dimension(5)          :: PLANE_INDEX
   character(len=16)             :: finput
@@ -158,7 +158,17 @@ program ed_wsm_3d
 
 
   !Find out weyl point chirality
-  call chern_retriever([0.0d0,0.0d0,0.0d0])  
+  do uno=0,20
+    uno_r=-pi+(pi/10)*uno
+    do due=0,20
+      due_r=-pi+(pi/10)*due
+      do tre=0,20
+       tre_r=-pi+(pi/10)*tre
+       write(*,*) uno_r,due_r,tre_r
+       call chern_retriever([uno_r,due_r,tre_r])
+      enddo
+    enddo
+  enddo
 contains
 
 
@@ -368,7 +378,6 @@ contains
     end do xloop
     if (weyl_index .eq. 1) then
       write(*,*) "Brutal iterations: found Weyl point at ",kpoint/pi, "value is ", abs(Eval(3))
-      !call find_accurate_zero(kpoint)
       call chern_retriever(kpoint)
     endif
     unit=free_unit()
@@ -377,31 +386,6 @@ contains
     close(unit)
   end subroutine is_weyl_brutal
 
-  !subroutine find_accurate_zero(kpoint)
-    !real(8)                                 :: tol
-    !integer                                 :: info,weyl_index,unit
-    !real(8),dimension(3)                    :: kpoint,x,fvec
-    !real(8),dimension(Nso)                  :: eval
-    !complex(8),dimension(Nso,Nso)           :: ham
-    !!
-    !weyl_index=0
-    !write(*,*)"Starting accurate search"
-    !x=kpoint
-    !tol = 1.d-10
-    !call fsolve(retrieve_third_band,x,tol,info)
-    !write(*,*) "Done ",test," iterations."
-    !if (info .eq. 1) then
-      !weyl_index=1
-      !ham=hk_weyl(x,Nso)
-      !call eigh(ham,Eval)
-      !write(*,*) "Minimization found Weyl point at ",x/pi,". Value is", abs(Eval(3)) 
-    !endif  
-    !write(*,*) "Info is ",info
-    !unit=free_unit()
-    !open(unit,file="is_weyl.ed")
-    !write(unit,*)weyl_index
-    !close(unit)
-  !end subroutine find_accurate_zero
 
   subroutine retrieve_third_band(n,x,fvec,iflag)
     integer                                 :: iflag,n, INFO
@@ -424,92 +408,165 @@ contains
   !CHERN NUMBER EVALUATION  (NEEDS FIXING AND OPTIMIZATION)
   !--------------------------------------------------------------------!
 
-  subroutine chern_retriever(kpoint)   !integrates Berry flux on a cubic surface around the point kpoint
+  !subroutine chern_retriever(kpoint)   !integrates Berry flux on a cubic surface around the point kpoint
+    !real(8)                         :: z2
+    !real(8),dimension(3)            :: kpoint
+    !real(8)                         :: e,a,b
+    !integer                         :: unit
+    !e=pi/10
+    !write(*,*) "Testing chirality"
+    !write(*,*) "Integrating on a cube around ",kpoint
+    !z2=0
+    !!
+    !a=kpoint(1)
+    !b=kpoint(2)
+    !!
+    !PLANE_INDEX=[kpoint(3)+e,1.0d0,1.0d0,2.0d0,3.0d0]
+    !!
+    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    !write(*,*) "Done face 1, Berry flux now is ",z2 
+    !!
+    !PLANE_INDEX=[kpoint(3)-e,-1.0d0,1.0d0,2.0d0,3.0d0]
+    !!
+    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    !write(*,*) "Done face 2, Berry flux now is ",z2
+    !!
+    !a=kpoint(3)
+    !b=kpoint(1)
+    !!
+    !PLANE_INDEX=[kpoint(2)+e,1.0d0,3.0d0,1.0d0,2.0d0]
+    !!
+    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    !write(*,*) "Done face 3, Berry flux now is ",z2 
+    !!
+    !PLANE_INDEX=[kpoint(2)-e,-1.0d0,3.0d0,1.0d0,2.0d0]
+    !!
+    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    !write(*,*) "Done face 4, Berry flux now is ",z2 
+    !!
+    !a=kpoint(2)
+    !b=kpoint(3)
+    !!
+    !PLANE_INDEX=[kpoint(1)+e,1.0d0,2.0d0,3.0d0,1.0d0]
+    !!
+    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    !write(*,*) "Done face 5, Berry flux now is ",z2    
+    !!
+    !PLANE_INDEX=[kpoint(1)-e,-1.0d0,2.0d0,3.0d0,1.0d0]
+    !!
+    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    !write(*,*) "Done face 6, Berry flux now is ",z2 
+    !!
+    !write(*,*) "Chirailty is ",z2/(2*pi)
+    !unit=free_unit()
+    !open(unit,file="Chirality.ed")
+    !write(unit,*) z2/(2*pi)
+    !close(unit)
+  !end subroutine chern_retriever
+
+
+  subroutine chern_retriever(kpoint)   !integrates Berry connection on a path round kpoint (Stokes theorem) 
     real(8)                         :: z2
-    real(8),dimension(3)            :: kpoint,tmp1,tmp2
+    real(8),dimension(3)            :: kpoint
     real(8)                         :: e,a,b
-    integer                         :: i
     integer                         :: unit
-    e=pi/10
-    i=1
+    e=pi/50
     write(*,*) "Testing chirality"
-    write(*,*) "Integrating on a cube around ",kpoint
+    write(*,*) "Integrating on a square around ",kpoint
     z2=0
     !
     a=kpoint(1)
-    b=kpoint(2)
     !
-    PLANE_INDEX=[kpoint(3)+e,1.0d0,1.0d0,2.0d0,3.0d0]
+    PLANE_INDEX=[kpoint(2)-e,kpoint(3),1.0d0,1.0d0,2.0d0]   ![fixed component on the square, fixed component overall, versor,
+                                                            !varying varying component index, fixed component index]
     !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 1, Berry flux now is ",z2 
+    z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
+    write(*,*) "Done side 1, Berry flux now is ",z2 
     !
-    PLANE_INDEX=[kpoint(3)-e,-1.0d0,1.0d0,2.0d0,3.0d0]
+    a=kpoint(1)
     !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 2, Berry flux now is ",z2
+    PLANE_INDEX=[kpoint(2)+e,kpoint(3),-1.0d0,1.0d0,2.0d0]
     !
-    a=kpoint(3)
-    b=kpoint(1)
-    !
-    PLANE_INDEX=[kpoint(2)+e,1.0d0,3.0d0,1.0d0,2.0d0]
-    !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 3, Berry flux now is ",z2 
-    !
-    PLANE_INDEX=[kpoint(2)-e,-1.0d0,3.0d0,1.0d0,2.0d0]
-    !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 4, Berry flux now is ",z2 
+    z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
+    write(*,*) "Done side 2, Berry flux now is ",z2 
     !
     a=kpoint(2)
-    b=kpoint(3)
     !
-    PLANE_INDEX=[kpoint(1)+e,1.0d0,2.0d0,3.0d0,1.0d0]
+    PLANE_INDEX=[kpoint(1)-e,kpoint(3),-1.0d0,2.0d0,1.0d0]
     !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 5, Berry flux now is ",z2    
+    z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
+    write(*,*) "Done side 3, Berry flux now is ",z2 
     !
-    PLANE_INDEX=[kpoint(1)-e,-1.0d0,2.0d0,3.0d0,1.0d0]
+    a=kpoint(2)
     !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 6, Berry flux now is ",z2 
+    PLANE_INDEX=[kpoint(1)+e,kpoint(3),1.0d0,2.0d0,1.0d0]
     !
-    write(*,*) "Berry flux is ",z2/(2*pi)
+    z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
+    write(*,*) "Done side 4, Berry flux now is ",z2 
+    !
+    !
+    z2=z2/(2*pi)
+    if (z2<0.01d0) then
+      z2=0.0d0
+    end if
+    write(*,*) "Chirailty is ",z2
     unit=free_unit()
-    open(unit,file="Berry_Flux.ed")
-    write(unit,*) z2/(2*pi)
+    open(unit,file="Chirality.ed")
+    write(unit,*) z2
     close(unit)
   end subroutine chern_retriever
+
+  !function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry flux and normal vector; takes 2d input,
+    !real(8),dimension(3)                     :: kpoint
+    !real(8),dimension(:)                     :: kpoint_
+    !real(8)                                  :: flux
+    !real(8),dimension(3)                     :: curvature 
+    !real(8),dimension(3)                     :: normal
+    !integer                                  :: i,j,k
+    !!
+    !normal=[0.0d0,0.0d0,0.0d0]
+    !kpoint=[0.0d0,0.0d0,0.0d0]
+    !i=IDINT(PLANE_INDEX(3))
+    !j=IDINT(PLANE_INDEX(4))
+    !k=IDINT(PLANE_INDEX(5))
+    !normal(k)=PLANE_INDEX(2)
+    !kpoint(i)=kpoint_(1)
+    !kpoint(j)=kpoint_(2)
+    !kpoint(k)=PLANE_INDEX(1)
+    !call get_Berry_Curvature(kpoint,curvature)
+    !flux=dot_product(curvature,normal)  
+  !end function chern_flux_integrable
+
 
 
 
   function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry flux and normal vector; takes 2d input,
-                                                       ! the third coordinate is passed as a global variable
     real(8),dimension(3)                     :: kpoint
-    real(8),dimension(:)                     :: kpoint_
+    real(8)                                  :: kpoint_
     real(8)                                  :: flux
-    real(8),dimension(3)                     :: curvature 
+    real(8),dimension(3)                     :: connection 
     real(8),dimension(3)                     :: normal
-    integer                                  :: i,j,k
+    integer                                  :: versor,varying_comp,fixed_comp
     !
     normal=[0.0d0,0.0d0,0.0d0]
     kpoint=[0.0d0,0.0d0,0.0d0]
-    i=IDINT(PLANE_INDEX(3))
-    j=IDINT(PLANE_INDEX(4))
-    k=IDINT(PLANE_INDEX(5))
-    normal(k)=PLANE_INDEX(2)
-    kpoint(i)=kpoint_(1)
-    kpoint(j)=kpoint_(2)
-    kpoint(k)=PLANE_INDEX(1)
-    call get_Berry_Curvature(kpoint,curvature)
-    flux=dot_product(curvature,normal)  
+    versor=IDINT(PLANE_INDEX(3))
+    varying_comp=IDINT(PLANE_INDEX(4))
+    fixed_comp=IDINT(PLANE_INDEX(5))
+    normal(varying_comp)=versor
+    kpoint(varying_comp)=kpoint_
+    kpoint(fixed_comp)=PLANE_INDEX(1)
+    kpoint(3)=PLANE_INDEX(2)
+    connection=get_Berry_Connection(kpoint)
+    flux=dot_product(connection,normal)  
   end function chern_flux_integrable
 
 
 
+
+
+
   function get_occupied_state(kpoint,M) result(BlochStates) !takes nth occupied state of Hamiltonian in kpoint (n is passed by
-                                                            !global variable)
     real(8),dimension(:),intent(in)        :: kpoint
     !
     integer                                :: M
@@ -524,72 +581,25 @@ contains
     if (REALPART(BlochStates(1))<0.0d0) then
       BlochStates=-1.0d0*BlochStates
     end if
-    !write(*,*) "Eigenvalue is ", Eigval
   end function get_occupied_state
-
-  
-
-
-
-  !function get_occupied_state_rep(kpoint,M) result(BlochStates)
-    !real(8),dimension(:),intent(in)        :: kpoint
-    !!
-    !integer                                :: M
-    !complex (8),dimension(M,M)             :: Eigvec ![Nlso][Nlso]
-    !real(8),dimension(M)                   :: Eigval ![Nlso]
-    !real(8),dimension(M)                   :: BlochStates ![Nlso]
-    !!
-    !!
-    !Eigvec=hk_weyl(kpoint,M)
-    !call eigh(Eigvec,Eigval)
-    !BlochStates = REALPART(Eigvec(:,ICOMP))
-    !!where(abs(BlochStates)<1.d-06)BlochStates=0d0
-  !end function get_occupied_state_rep
-
-
-
-
-  !function get_occupied_state_imp(kpoint,M) result(BlochStates)
-    !real(8),dimension(:),intent(in)        :: kpoint
-    !!
-    !integer                                :: M
-    !complex(8),dimension(M,M)              :: Eigvec ![Nlso][Nlso]
-    !real(8),dimension(M)                   :: Eigval ![Nlso]
-    !real(8),dimension(M)                   :: BlochStates ![Nlso]
-    !!
-    !!
-    !Eigvec=hk_weyl(kpoint,M)
-    !call eigh(Eigvec,Eigval)
-    !BlochStates = IMAGPART(Eigvec(:,ICOMP))
-    !!where(abs(BlochStates)<1.d-06)BlochStates=0d0
-  !end function get_occupied_state_imp
 
 
 
 
   function get_Berry_connection(kpoint) result(BerryConnection) !gives Berry Connection in kpoint by its definition (eg Turner 2013)
-    real(8),dimension(:),intent(in)           :: kpoint
+    real(8),dimension(:),intent(in)                    :: kpoint
     !
-    integer                                   :: i
-    real(8),dimension(4)                      :: BlochStates_rep ![Nlso]
-    real(8),dimension(4)                      :: BlochStates_imp ![Nlso]
-    real(8),dimension(4,size(kpoint))         :: TmpKmat_rep ![Nlso][N_dimensions]
-    real(8),dimension(4,size(kpoint))         :: TmpKmat_imp ![Nlso][N_dimensions]
-    real(8),dimension(size(kpoint))           :: BerryConnection ![N_dimensions]    
-    complex(8),dimension(4)                   :: BlochStates
-    complex(8),dimension(4,3)                 :: TmpKmat
+    integer                                            :: i
+    real(8),dimension(size(kpoint))                    :: BerryConnection ![N_dimensions]    
+    complex(8),dimension(Nso)                          :: BlochStates
+    complex(8),dimension(Nso,size(kpoint))             :: TmpKmat
     !
     !
-    BerryConnection=[0,0,0]
+    BerryConnection=[0.0d0,0.0d0,0.0d0]
     do ICOMP=1,Norb
-      !BlochStates_rep = get_occupied_state_rep(kpoint,Nso)
-      !BlochStates_imp = get_occupied_state_imp(kpoint,Nso)
-      !call djacobian(get_occupied_state_rep,kpoint,Nso,TmpKMat_rep)
-      !call djacobian(get_occupied_state_imp,kpoint,Nso,TmpKMat_imp)
       BlochStates=get_occupied_state(kpoint,Nso)
-      call djacobian_mio(kpoint,TmpKMat)
+      call djacobian_complex(kpoint,TmpKMat,Nso)
       do i = 1,size(kpoint)
-        !write(*,*) dot_product(BlochStates, TmpKmat(:,i))
         BerryConnection(i) = BerryConnection(i) - IMAGPART(dot_product(BlochStates, TmpKmat(:,i)))
       enddo
     enddo
@@ -603,19 +613,14 @@ contains
     !
     real(8),dimension(:,:),allocatable        :: TmpKmat ![N_dimension][N_dimension]
     real(8),dimension(3)                      :: BerryCurvature ![N_dimensions]    
-    real(8)                                   :: norm
     !
     allocate(TmpKMat(size(kpoint),size(kpoint))) 
-    !
     !
     !Do the rotor to get Berry Curvature
     call djacobian(get_Berry_connection,kpoint,TmpKMat)
     BerryCurvature(1)=TmpKMat(3,2)-TmpKMat(2,3)
     BerryCurvature(2)=TmpKMat(1,3)-TmpKMat(3,1)
     BerryCurvature(3)=TmpKMat(2,1)-TmpKMat(1,2)
-    !
-    !norm=dot_product(BerryCurvature,BerryCurvature)
-    !BerryCurvature=BerryCurvature/sqrt(norm)   
     !
     deallocate(TmpKMat)
   end subroutine get_Berry_Curvature
@@ -624,29 +629,23 @@ contains
 
 
 
-  subroutine djacobian_mio(kpoint,jacobiana)
-    real(8),dimension(3)             :: kpoint,kpoint1,kpoint2,delta
-    complex(8),dimension(4)          :: eigenstate1,eigenstate2
-    complex(8),dimension(4,3)        :: jacobiana
-    integer                          :: i,j
-    complex(8)                       :: asd,lol
+  subroutine djacobian_complex(kpoint,jacobian,M)
+    real(8),dimension(:)                        :: kpoint
+    real(8),dimension(size(kpoint))             :: kpoint1,kpoint2,delta
+    complex(8),dimension(M)                     :: eigenstate1,eigenstate2
+    complex(8),dimension(M,size(kpoint))        :: jacobian
+    integer                                     :: i,j,M
     !
-    do j=1,3
-      !write(*,*) "point is: ",kpoint
-      delta=[0.d0,0.d0,0.d0]
+    do j=1,size(kpoint)
+      delta=zero
       delta(j)=0.001d0
       kpoint1=kpoint+delta
-      !write(*,*) "moving to the right: ",kpoint1
       kpoint2=kpoint-delta
-      !write(*,*) "moving to the left: ",kpoint2
-      eigenstate1=get_occupied_state(kpoint1,Nso)
-      !write(*,*) "eigenstate right is", eigenstate1
-      eigenstate2=get_occupied_state(kpoint2,Nso)
-      !write(*,*) "eigenstate left is", eigenstate2
-      jacobiana(:,j)=(eigenstate1-eigenstate2)/(2*delta(j))
-      !write(*,*) "jacobian is", jacobiana(:,j)
+      eigenstate1=get_occupied_state(kpoint1,M)
+      eigenstate2=get_occupied_state(kpoint2,M)
+      jacobian(:,j)=(eigenstate1-eigenstate2)/(2*delta(j))
     enddo
-  end subroutine djacobian_mio
+  end subroutine djacobian_complex
 
   
 
