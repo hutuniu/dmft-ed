@@ -151,19 +151,20 @@ program ed_wsm_3d
 
 
   !Get 3d Bands from Top. Hamiltonian
-  !call solve_hk_topological( so2j(Smats(:,:,:,:,1),Nso) )
+  call solve_hk_topological( so2j(Smats(:,:,:,:,1),Nso) )
 
   !Find out if it is a semimetal
   call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
 
-
+  call chern_retriever([0.0d0,0.0d0,0.0d0])
+  write(*,*) "ADESSO DEI TEST"
   !Find out weyl point chirality
-  do uno=0,20
-    uno_r=-pi+(pi/10)*uno
-    do due=0,20
-      due_r=-pi+(pi/10)*due
-      do tre=0,20
-       tre_r=-pi+(pi/10)*tre
+  do uno=0,10
+    uno_r=-pi+(pi/5)*uno
+    do due=0,10
+      due_r=-pi+(pi/5)*due
+      do tre=0,10
+       tre_r=-pi+(pi/5)*tre
        write(*,*) uno_r,due_r,tre_r
        call chern_retriever([uno_r,due_r,tre_r])
       enddo
@@ -369,17 +370,15 @@ contains
           test_brutal=test_brutal+1
           ham=hk_weyl(kpoint,N)
           call eigh(ham,Eval)
-          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.05) then
+          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.1) then
             weyl_index=1
-            exit xloop
+            write(*,*) "Brutal iterations: found Weyl point at ",kpoint/pi, "value is ", abs(Eval(3))
+            call chern_retriever(kpoint)
+            !exit xloop
           end if
         end do zloop
       end do yloop
     end do xloop
-    if (weyl_index .eq. 1) then
-      write(*,*) "Brutal iterations: found Weyl point at ",kpoint/pi, "value is ", abs(Eval(3))
-      call chern_retriever(kpoint)
-    endif
     unit=free_unit()
     open(unit,file="is_weyl.ed")
     write(unit,*)weyl_index
@@ -408,158 +407,158 @@ contains
   !CHERN NUMBER EVALUATION  (NEEDS FIXING AND OPTIMIZATION)
   !--------------------------------------------------------------------!
 
-  !subroutine chern_retriever(kpoint)   !integrates Berry flux on a cubic surface around the point kpoint
-    !real(8)                         :: z2
-    !real(8),dimension(3)            :: kpoint
-    !real(8)                         :: e,a,b
-    !integer                         :: unit
-    !e=pi/10
-    !write(*,*) "Testing chirality"
-    !write(*,*) "Integrating on a cube around ",kpoint
-    !z2=0
-    !!
-    !a=kpoint(1)
-    !b=kpoint(2)
-    !!
-    !PLANE_INDEX=[kpoint(3)+e,1.0d0,1.0d0,2.0d0,3.0d0]
-    !!
-    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    !write(*,*) "Done face 1, Berry flux now is ",z2 
-    !!
-    !PLANE_INDEX=[kpoint(3)-e,-1.0d0,1.0d0,2.0d0,3.0d0]
-    !!
-    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    !write(*,*) "Done face 2, Berry flux now is ",z2
-    !!
-    !a=kpoint(3)
-    !b=kpoint(1)
-    !!
-    !PLANE_INDEX=[kpoint(2)+e,1.0d0,3.0d0,1.0d0,2.0d0]
-    !!
-    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    !write(*,*) "Done face 3, Berry flux now is ",z2 
-    !!
-    !PLANE_INDEX=[kpoint(2)-e,-1.0d0,3.0d0,1.0d0,2.0d0]
-    !!
-    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    !write(*,*) "Done face 4, Berry flux now is ",z2 
-    !!
-    !a=kpoint(2)
-    !b=kpoint(3)
-    !!
-    !PLANE_INDEX=[kpoint(1)+e,1.0d0,2.0d0,3.0d0,1.0d0]
-    !!
-    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    !write(*,*) "Done face 5, Berry flux now is ",z2    
-    !!
-    !PLANE_INDEX=[kpoint(1)-e,-1.0d0,2.0d0,3.0d0,1.0d0]
-    !!
-    !z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    !write(*,*) "Done face 6, Berry flux now is ",z2 
-    !!
-    !write(*,*) "Chirailty is ",z2/(2*pi)
-    !unit=free_unit()
-    !open(unit,file="Chirality.ed")
-    !write(unit,*) z2/(2*pi)
-    !close(unit)
-  !end subroutine chern_retriever
-
-
-  subroutine chern_retriever(kpoint)   !integrates Berry connection on a path round kpoint (Stokes theorem) 
+  subroutine chern_retriever(kpoint)   !integrates Berry flux on a cubic surface around the point kpoint
     real(8)                         :: z2
     real(8),dimension(3)            :: kpoint
     real(8)                         :: e,a,b
     integer                         :: unit
-    e=pi/50
+    e=pi/10
     write(*,*) "Testing chirality"
-    write(*,*) "Integrating on a square around ",kpoint
+    write(*,*) "Integrating on a cube around ",kpoint
     z2=0
     !
     a=kpoint(1)
+    b=kpoint(2)
     !
-    PLANE_INDEX=[kpoint(2)-e,kpoint(3),1.0d0,1.0d0,2.0d0]   ![fixed component on the square, fixed component overall, versor,
-                                                            !varying varying component index, fixed component index]
+    PLANE_INDEX=[kpoint(3)+e,1.0d0,1.0d0,2.0d0,3.0d0]
     !
-    z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
-    write(*,*) "Done side 1, Berry flux now is ",z2 
+    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    write(*,*) "Done face 1, Berry flux now is ",z2 
     !
-    a=kpoint(1)
+    PLANE_INDEX=[kpoint(3)-e,-1.0d0,1.0d0,2.0d0,3.0d0]
     !
-    PLANE_INDEX=[kpoint(2)+e,kpoint(3),-1.0d0,1.0d0,2.0d0]
+    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    write(*,*) "Done face 2, Berry flux now is ",z2
     !
-    z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
-    write(*,*) "Done side 2, Berry flux now is ",z2 
+    a=kpoint(3)
+    b=kpoint(1)
+    !
+    PLANE_INDEX=[kpoint(2)+e,1.0d0,3.0d0,1.0d0,2.0d0]
+    !
+    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    write(*,*) "Done face 3, Berry flux now is ",z2 
+    !
+    PLANE_INDEX=[kpoint(2)-e,-1.0d0,3.0d0,1.0d0,2.0d0]
+    !
+    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    write(*,*) "Done face 4, Berry flux now is ",z2 
     !
     a=kpoint(2)
+    b=kpoint(3)
     !
-    PLANE_INDEX=[kpoint(1)-e,kpoint(3),-1.0d0,2.0d0,1.0d0]
+    PLANE_INDEX=[kpoint(1)+e,1.0d0,2.0d0,3.0d0,1.0d0]
     !
-    z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
-    write(*,*) "Done side 3, Berry flux now is ",z2 
+    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    write(*,*) "Done face 5, Berry flux now is ",z2    
     !
-    a=kpoint(2)
+    PLANE_INDEX=[kpoint(1)-e,-1.0d0,2.0d0,3.0d0,1.0d0]
     !
-    PLANE_INDEX=[kpoint(1)+e,kpoint(3),1.0d0,2.0d0,1.0d0]
+    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
+    write(*,*) "Done face 6, Berry flux now is ",z2 
     !
-    z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
-    write(*,*) "Done side 4, Berry flux now is ",z2 
-    !
-    !
-    z2=z2/(2*pi)
-    if (z2<0.01d0) then
-      z2=0.0d0
-    end if
-    write(*,*) "Chirailty is ",z2
+    write(*,*) "Chirailty is ",z2/(2*pi)
     unit=free_unit()
     open(unit,file="Chirality.ed")
-    write(unit,*) z2
+    write(unit,*) z2/(2*pi)
     close(unit)
   end subroutine chern_retriever
 
-  !function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry flux and normal vector; takes 2d input,
-    !real(8),dimension(3)                     :: kpoint
-    !real(8),dimension(:)                     :: kpoint_
-    !real(8)                                  :: flux
-    !real(8),dimension(3)                     :: curvature 
-    !real(8),dimension(3)                     :: normal
-    !integer                                  :: i,j,k
+
+  !subroutine chern_retriever(kpoint)   !integrates Berry connection on a path round kpoint (Stokes theorem) 
+    !real(8)                         :: z2
+    !real(8),dimension(3)            :: kpoint
+    !real(8)                         :: e,a,b
+    !integer                         :: unit
+    !e=pi/50
+    !write(*,*) "Testing chirality"
+    !write(*,*) "Integrating on a square around ",kpoint
+    !z2=0
     !!
-    !normal=[0.0d0,0.0d0,0.0d0]
-    !kpoint=[0.0d0,0.0d0,0.0d0]
-    !i=IDINT(PLANE_INDEX(3))
-    !j=IDINT(PLANE_INDEX(4))
-    !k=IDINT(PLANE_INDEX(5))
-    !normal(k)=PLANE_INDEX(2)
-    !kpoint(i)=kpoint_(1)
-    !kpoint(j)=kpoint_(2)
-    !kpoint(k)=PLANE_INDEX(1)
-    !call get_Berry_Curvature(kpoint,curvature)
-    !flux=dot_product(curvature,normal)  
-  !end function chern_flux_integrable
-
-
-
+    !a=kpoint(1)
+    !!
+    !PLANE_INDEX=[kpoint(2)-e,kpoint(3),1.0d0,1.0d0,2.0d0]   ![fixed component on the square, fixed component overall, versor,
+                                                            !!varying varying component index, fixed component index]
+    !!
+    !z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
+    !write(*,*) "Done side 1, Berry flux now is ",z2 
+    !!
+    !a=kpoint(1)
+    !!
+    !PLANE_INDEX=[kpoint(2)+e,kpoint(3),-1.0d0,1.0d0,2.0d0]
+    !!
+    !z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
+    !write(*,*) "Done side 2, Berry flux now is ",z2 
+    !!
+    !a=kpoint(2)
+    !!
+    !PLANE_INDEX=[kpoint(1)-e,kpoint(3),-1.0d0,2.0d0,1.0d0]
+    !!
+    !z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
+    !write(*,*) "Done side 3, Berry flux now is ",z2 
+    !!
+    !a=kpoint(2)
+    !!
+    !PLANE_INDEX=[kpoint(1)+e,kpoint(3),1.0d0,2.0d0,1.0d0]
+    !!
+    !z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
+    !write(*,*) "Done side 4, Berry flux now is ",z2 
+    !!
+    !!
+    !z2=z2/(2*pi)
+    !if (z2<0.01d0) then
+      !z2=0.0d0
+    !end if
+    !write(*,*) "Chirailty is ",z2
+    !unit=free_unit()
+    !open(unit,file="Chirality.ed")
+    !write(unit,*) z2
+    !close(unit)
+  !end subroutine chern_retriever
 
   function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry flux and normal vector; takes 2d input,
     real(8),dimension(3)                     :: kpoint
-    real(8)                                  :: kpoint_
+    real(8),dimension(:)                     :: kpoint_
     real(8)                                  :: flux
-    real(8),dimension(3)                     :: connection 
+    real(8),dimension(3)                     :: curvature 
     real(8),dimension(3)                     :: normal
-    integer                                  :: versor,varying_comp,fixed_comp
+    integer                                  :: i,j,k
     !
     normal=[0.0d0,0.0d0,0.0d0]
     kpoint=[0.0d0,0.0d0,0.0d0]
-    versor=IDINT(PLANE_INDEX(3))
-    varying_comp=IDINT(PLANE_INDEX(4))
-    fixed_comp=IDINT(PLANE_INDEX(5))
-    normal(varying_comp)=versor
-    kpoint(varying_comp)=kpoint_
-    kpoint(fixed_comp)=PLANE_INDEX(1)
-    kpoint(3)=PLANE_INDEX(2)
-    connection=get_Berry_Connection(kpoint)
-    flux=dot_product(connection,normal)  
+    i=IDINT(PLANE_INDEX(3))
+    j=IDINT(PLANE_INDEX(4))
+    k=IDINT(PLANE_INDEX(5))
+    normal(k)=PLANE_INDEX(2)
+    kpoint(i)=kpoint_(1)
+    kpoint(j)=kpoint_(2)
+    kpoint(k)=PLANE_INDEX(1)
+    call get_Berry_Curvature(kpoint,curvature)
+    flux=dot_product(curvature,normal)  
   end function chern_flux_integrable
+
+
+
+
+  !function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry flux and normal vector; takes 2d input,
+    !real(8),dimension(3)                     :: kpoint
+    !real(8)                                  :: kpoint_
+    !real(8)                                  :: flux
+    !real(8),dimension(3)                     :: connection 
+    !real(8),dimension(3)                     :: normal
+    !integer                                  :: versor,varying_comp,fixed_comp
+    !!
+    !normal=[0.0d0,0.0d0,0.0d0]
+    !kpoint=[0.0d0,0.0d0,0.0d0]
+    !versor=IDINT(PLANE_INDEX(3))
+    !varying_comp=IDINT(PLANE_INDEX(4))
+    !fixed_comp=IDINT(PLANE_INDEX(5))
+    !normal(varying_comp)=versor
+    !kpoint(varying_comp)=kpoint_
+    !kpoint(fixed_comp)=PLANE_INDEX(1)
+    !kpoint(3)=PLANE_INDEX(2)
+    !connection=get_Berry_Connection(kpoint)
+    !flux=dot_product(connection,normal)  
+  !end function chern_flux_integrable
 
 
 
