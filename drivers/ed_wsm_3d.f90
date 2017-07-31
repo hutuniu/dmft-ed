@@ -156,20 +156,21 @@ program ed_wsm_3d
   !Find out if it is a semimetal
   call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
 
-  call chern_retriever([0.0d0,0.0d0,0.0d0])
-  write(*,*) "ADESSO DEI TEST"
-  !Find out weyl point chirality
-  do uno=0,10
-    uno_r=-pi+(pi/5)*uno
-    do due=0,10
-      due_r=-pi+(pi/5)*due
-      do tre=0,10
-       tre_r=-pi+(pi/5)*tre
-       write(*,*) uno_r,due_r,tre_r
-       call chern_retriever([uno_r,due_r,tre_r])
-      enddo
-    enddo
-  enddo
+  !call chern_retriever([0.0d0,0.0d0,0.0d0])
+  !write(*,*) "ADESSO DEI TEST"
+  !!Find out weyl point chirality
+  !do uno=0,20
+    !uno_r=-pi+(pi/10)*uno
+    !!do due=0,20
+      !!due_r=-pi+(pi/10)*due
+      !due=-pi
+      !do tre=0,20
+       !tre_r=-pi+(pi/10)*tre
+       !write(*,*) uno_r,due_r,tre_r
+       !call chern_retriever_stokes([uno_r,due_r,tre_r])
+      !enddo
+    !enddo
+  !!enddo
 contains
 
 
@@ -370,10 +371,10 @@ contains
           test_brutal=test_brutal+1
           ham=hk_weyl(kpoint,N)
           call eigh(ham,Eval)
-          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.1) then
+          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.5) then
             weyl_index=1
             write(*,*) "Brutal iterations: found Weyl point at ",kpoint/pi, "value is ", abs(Eval(3))
-            call chern_retriever(kpoint)
+            call chern_retriever_stokes(kpoint)
             !exit xloop
           end if
         end do zloop
@@ -464,58 +465,62 @@ contains
   end subroutine chern_retriever
 
 
-  !subroutine chern_retriever(kpoint)   !integrates Berry connection on a path round kpoint (Stokes theorem) 
-    !real(8)                         :: z2
-    !real(8),dimension(3)            :: kpoint
-    !real(8)                         :: e,a,b
-    !integer                         :: unit
-    !e=pi/50
-    !write(*,*) "Testing chirality"
-    !write(*,*) "Integrating on a square around ",kpoint
-    !z2=0
-    !!
-    !a=kpoint(1)
-    !!
-    !PLANE_INDEX=[kpoint(2)-e,kpoint(3),1.0d0,1.0d0,2.0d0]   ![fixed component on the square, fixed component overall, versor,
-                                                            !!varying varying component index, fixed component index]
-    !!
-    !z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
-    !write(*,*) "Done side 1, Berry flux now is ",z2 
-    !!
-    !a=kpoint(1)
-    !!
-    !PLANE_INDEX=[kpoint(2)+e,kpoint(3),-1.0d0,1.0d0,2.0d0]
-    !!
-    !z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
-    !write(*,*) "Done side 2, Berry flux now is ",z2 
-    !!
-    !a=kpoint(2)
-    !!
-    !PLANE_INDEX=[kpoint(1)-e,kpoint(3),-1.0d0,2.0d0,1.0d0]
-    !!
-    !z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
-    !write(*,*) "Done side 3, Berry flux now is ",z2 
-    !!
-    !a=kpoint(2)
-    !!
-    !PLANE_INDEX=[kpoint(1)+e,kpoint(3),1.0d0,2.0d0,1.0d0]
-    !!
-    !z2=z2-simps(chern_flux_integrable, a-e, a+e, 200)   
-    !write(*,*) "Done side 4, Berry flux now is ",z2 
-    !!
-    !!
-    !z2=z2/(2*pi)
-    !if (z2<0.01d0) then
-      !z2=0.0d0
-    !end if
-    !write(*,*) "Chirailty is ",z2
-    !unit=free_unit()
-    !open(unit,file="Chirality.ed")
-    !write(unit,*) z2
-    !close(unit)
-  !end subroutine chern_retriever
 
-  function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry flux and normal vector; takes 2d input,
+
+
+  subroutine chern_retriever_stokes(kpoint)   !integrates Berry connection on a path round kpoint (Stokes theorem) 
+    real(8)                         :: z2
+    real(8),dimension(3)            :: kpoint
+    real(8)                         :: e,a,b
+    integer                         :: unit
+    e=pi/50
+    write(*,*) "Testing chirality"
+    write(*,*) "Integrating on a square around ",kpoint
+    z2=0
+    !
+    a=kpoint(1)
+    !
+    PLANE_INDEX=[kpoint(2)-e,kpoint(3),1.0d0,1.0d0,2.0d0]   ![fixed component on the square, fixed component overall, versor,
+                                                            !varying varying component index, fixed component index]
+    !
+    z2=z2-simps(chern_flux_integrable_stokes, a-e, a+e, 200)   
+    write(*,*) "Done side 1, Berry flux now is ",z2 
+    !
+    a=kpoint(1)
+    !
+    PLANE_INDEX=[kpoint(2)+e,kpoint(3),-1.0d0,1.0d0,2.0d0]
+    !
+    z2=z2-simps(chern_flux_integrable_stokes, a-e, a+e, 200)   
+    write(*,*) "Done side 2, Berry flux now is ",z2 
+    !
+    a=kpoint(2)
+    !
+    PLANE_INDEX=[kpoint(1)-e,kpoint(3),-1.0d0,2.0d0,1.0d0]
+    !
+    z2=z2-simps(chern_flux_integrable_stokes, a-e, a+e, 200)   
+    write(*,*) "Done side 3, Berry flux now is ",z2 
+    !
+    a=kpoint(2)
+    !
+    PLANE_INDEX=[kpoint(1)+e,kpoint(3),1.0d0,2.0d0,1.0d0]
+    !
+    z2=z2-simps(chern_flux_integrable_stokes, a-e, a+e, 200)   
+    write(*,*) "Done side 4, Berry flux now is ",z2 
+    !
+    !
+    z2=z2/(2*pi)
+    write(*,*) "Chirailty is ",z2
+    unit=free_unit()
+    open(unit,file="Chirality.ed",position="append")
+    write(unit,*) kpoint, z2
+    close(unit)
+  end subroutine chern_retriever_stokes
+
+
+
+
+
+  function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry curvature and normal vector; takes 2d input,
     real(8),dimension(3)                     :: kpoint
     real(8),dimension(:)                     :: kpoint_
     real(8)                                  :: flux
@@ -539,26 +544,26 @@ contains
 
 
 
-  !function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry flux and normal vector; takes 2d input,
-    !real(8),dimension(3)                     :: kpoint
-    !real(8)                                  :: kpoint_
-    !real(8)                                  :: flux
-    !real(8),dimension(3)                     :: connection 
-    !real(8),dimension(3)                     :: normal
-    !integer                                  :: versor,varying_comp,fixed_comp
-    !!
-    !normal=[0.0d0,0.0d0,0.0d0]
-    !kpoint=[0.0d0,0.0d0,0.0d0]
-    !versor=IDINT(PLANE_INDEX(3))
-    !varying_comp=IDINT(PLANE_INDEX(4))
-    !fixed_comp=IDINT(PLANE_INDEX(5))
-    !normal(varying_comp)=versor
-    !kpoint(varying_comp)=kpoint_
-    !kpoint(fixed_comp)=PLANE_INDEX(1)
-    !kpoint(3)=PLANE_INDEX(2)
-    !connection=get_Berry_Connection(kpoint)
-    !flux=dot_product(connection,normal)  
-  !end function chern_flux_integrable
+  function chern_flux_integrable_stokes(kpoint_) result(flux) !gives scalar product between Berry connection and normal vector, takes 1d input,
+    real(8),dimension(3)                     :: kpoint
+    real(8)                                  :: kpoint_
+    real(8)                                  :: flux
+    real(8),dimension(3)                     :: connection 
+    real(8),dimension(3)                     :: normal
+    integer                                  :: versor,varying_comp,fixed_comp
+    !
+    normal=[0.0d0,0.0d0,0.0d0]
+    kpoint=[0.0d0,0.0d0,0.0d0]
+    versor=IDINT(PLANE_INDEX(3))
+    varying_comp=IDINT(PLANE_INDEX(4))
+    fixed_comp=IDINT(PLANE_INDEX(5))
+    normal(varying_comp)=versor
+    kpoint(varying_comp)=kpoint_
+    kpoint(fixed_comp)=PLANE_INDEX(1)
+    kpoint(3)=PLANE_INDEX(2)
+    connection=get_Berry_Connection(kpoint)
+    flux=dot_product(connection,normal)  
+  end function chern_flux_integrable_stokes
 
 
 
@@ -572,14 +577,15 @@ contains
     complex (8),dimension(M,M)             :: Eigvec ![Nlso][Nlso]
     real(8),dimension(M)                   :: Eigval ![Nlso]
     complex(8),dimension(M)                :: BlochStates ![Nlso]
+    complex(8)                             :: temp
     !
     !
     Eigvec=hk_weyl(kpoint,M)
     call eigh(Eigvec,Eigval)
     BlochStates = Eigvec(:,ICOMP)
-    if (REALPART(BlochStates(1))<0.0d0) then
-      BlochStates=-1.0d0*BlochStates
-    end if
+    !Impose global phase
+    temp=ATAN(IMAGPART(BlochStates(1))/REALPART(BlochStates(1)))
+    BlochStates=(cos(temp)+xi*sin(temp))*Blochstates
   end function get_occupied_state
 
 
