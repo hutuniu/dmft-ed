@@ -27,7 +27,8 @@ program ed_wsm_3d
   complex(8),dimension(4,4)     :: Gamma1,Gamma2,Gamma3,Gamma5
   real(8),dimension(4,3)        :: TEST2
   real(8),dimension(4)          :: TEST1,TEST3 
-  real(8),dimension(3)        :: kpoint
+  real(8),dimension(3)          :: kpoint
+  real(8),dimension(:),allocatable  ::wm,wr
   call parse_cmd_variable(finput,"FINPUT",default='inputED_WSM.conf')
   call parse_input_variable(hkfile,"HKFILE",finput,default="hkfile.in")
   call parse_input_variable(nk,"NK",finput,default=30)
@@ -107,15 +108,17 @@ program ed_wsm_3d
      !
      !
      ! compute the local gf:
-     call dmft_gloc_matsubara(Hk,Wtk,Gmats,Smats,iprint=3)
-     !
+     call dmft_gloc_matsubara(Hk,Wtk,Gmats,Smats)
+     if(allocated(wm))deallocate(wm);allocate(wm(Lmats))
+     wm = pi/beta*dble(2*arange(1,Lmats)-1)
+     call dmft_print_gf_matsubara(wm,Gmats,"Gloc",iprint=3)
      !
      !
      ! compute the Weiss field (only the Nineq ones)
      if(cg_scheme=='weiss')then
-        call dmft_weiss(Gmats,Smats,Weiss,Hloc=j2so(wsmHloc),iprint=3)
+        call dmft_weiss(Gmats,Smats,Weiss,Hloc=j2so(wsmHloc))
      else
-        call dmft_delta(Gmats,Smats,Weiss,Hloc=j2so(wsmHloc),iprint=3)
+        call dmft_delta(Gmats,Smats,Weiss,Hloc=j2so(wsmHloc))
      endif
      !
      !
@@ -144,10 +147,12 @@ program ed_wsm_3d
 
   
   ! compute the local gf:
-  !call dmft_gloc_realaxis(Hk,Wtk,Greal,Sreal,iprint=3)
-  
+  call dmft_gloc_realaxis(Hk,Wtk,Greal,Sreal)
+  if(allocated(wr))deallocate(wr);allocate(wr(Lreal))
+  wr = linspace(wini,wfin,Lreal) 
+  call dmft_print_gf_realaxis(wm,Greal,"Gloc",iprint=3)
   !Get kinetic energy:
-  !call dmft_kinetic_energy(Hk,Wtk,Smats)
+  call dmft_kinetic_energy(Hk,Wtk,Smats)
 
 
   !Get 3d Bands from Top. Hamiltonian
@@ -374,8 +379,8 @@ contains
           if (abs(Eval(3))+abs(Eval(2)) .lt. 0.5) then
             weyl_index=1
             write(*,*) "Brutal iterations: found Weyl point at ",kpoint/pi, "value is ", abs(Eval(3))
-            call chern_retriever_stokes(kpoint)
-            !exit xloop
+            call chern_retriever(kpoint)
+            exit xloop
           end if
         end do zloop
       end do yloop
@@ -468,57 +473,6 @@ contains
 
 
 
-  subroutine chern_retriever_stokes(kpoint)   !integrates Berry connection on a path round kpoint (Stokes theorem) 
-    real(8)                         :: z2
-    real(8),dimension(3)            :: kpoint
-    real(8)                         :: e,a,b
-    integer                         :: unit
-    e=pi/50
-    write(*,*) "Testing chirality"
-    write(*,*) "Integrating on a square around ",kpoint
-    z2=0
-    !
-    a=kpoint(1)
-    !
-    PLANE_INDEX=[kpoint(2)-e,kpoint(3),1.0d0,1.0d0,2.0d0]   ![fixed component on the square, fixed component overall, versor,
-                                                            !varying varying component index, fixed component index]
-    !
-    z2=z2-simps(chern_flux_integrable_stokes, a-e, a+e, 200)   
-    write(*,*) "Done side 1, Berry flux now is ",z2 
-    !
-    a=kpoint(1)
-    !
-    PLANE_INDEX=[kpoint(2)+e,kpoint(3),-1.0d0,1.0d0,2.0d0]
-    !
-    z2=z2-simps(chern_flux_integrable_stokes, a-e, a+e, 200)   
-    write(*,*) "Done side 2, Berry flux now is ",z2 
-    !
-    a=kpoint(2)
-    !
-    PLANE_INDEX=[kpoint(1)-e,kpoint(3),-1.0d0,2.0d0,1.0d0]
-    !
-    z2=z2-simps(chern_flux_integrable_stokes, a-e, a+e, 200)   
-    write(*,*) "Done side 3, Berry flux now is ",z2 
-    !
-    a=kpoint(2)
-    !
-    PLANE_INDEX=[kpoint(1)+e,kpoint(3),1.0d0,2.0d0,1.0d0]
-    !
-    z2=z2-simps(chern_flux_integrable_stokes, a-e, a+e, 200)   
-    write(*,*) "Done side 4, Berry flux now is ",z2 
-    !
-    !
-    z2=z2/(2*pi)
-    write(*,*) "Chirailty is ",z2
-    unit=free_unit()
-    open(unit,file="Chirality.ed",position="append")
-    write(unit,*) kpoint, z2
-    close(unit)
-  end subroutine chern_retriever_stokes
-
-
-
-
 
   function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry curvature and normal vector; takes 2d input,
     real(8),dimension(3)                     :: kpoint
@@ -544,32 +498,6 @@ contains
 
 
 
-  function chern_flux_integrable_stokes(kpoint_) result(flux) !gives scalar product between Berry connection and normal vector, takes 1d input,
-    real(8),dimension(3)                     :: kpoint
-    real(8)                                  :: kpoint_
-    real(8)                                  :: flux
-    real(8),dimension(3)                     :: connection 
-    real(8),dimension(3)                     :: normal
-    integer                                  :: versor,varying_comp,fixed_comp
-    !
-    normal=[0.0d0,0.0d0,0.0d0]
-    kpoint=[0.0d0,0.0d0,0.0d0]
-    versor=IDINT(PLANE_INDEX(3))
-    varying_comp=IDINT(PLANE_INDEX(4))
-    fixed_comp=IDINT(PLANE_INDEX(5))
-    normal(varying_comp)=versor
-    kpoint(varying_comp)=kpoint_
-    kpoint(fixed_comp)=PLANE_INDEX(1)
-    kpoint(3)=PLANE_INDEX(2)
-    connection=get_Berry_Connection(kpoint)
-    flux=dot_product(connection,normal)  
-  end function chern_flux_integrable_stokes
-
-
-
-
-
-
   function get_occupied_state(kpoint,M) result(BlochStates) !takes nth occupied state of Hamiltonian in kpoint (n is passed by
     real(8),dimension(:),intent(in)        :: kpoint
     !
@@ -577,15 +505,19 @@ contains
     complex (8),dimension(M,M)             :: Eigvec ![Nlso][Nlso]
     real(8),dimension(M)                   :: Eigval ![Nlso]
     complex(8),dimension(M)                :: BlochStates ![Nlso]
-    complex(8)                             :: temp
+    real(8)                                :: rep, imp     
     !
     !
     Eigvec=hk_weyl(kpoint,M)
     call eigh(Eigvec,Eigval)
     BlochStates = Eigvec(:,ICOMP)
     !Impose global phase
-    temp=ATAN(IMAGPART(BlochStates(1))/REALPART(BlochStates(1)))
-    BlochStates=(cos(temp)+xi*sin(temp))*Blochstates
+    !TODO: Kill global phase assuming first component is real. Question,
+    !how to deal with a real-valued phase (opposite sign)
+    rep=REALPART(BlochStates(1))
+    imp=IMAGPART(BlochStates(1))
+    BlochStates=(dconjg(BlochStates(1))/(rep*rep+imp*imp))*Blochstates
+    write(*,*) "BLOCHSTATE=",BlochStates(1)
   end function get_occupied_state
 
 
