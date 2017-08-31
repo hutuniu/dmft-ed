@@ -547,8 +547,8 @@ contains
     !Impose global phase
     !TODO: Kill global phase assuming first component is real. Question,
     !how to deal with a real-valued phase (opposite sign)
-    rep=REALPART(BlochStates(1))
-    imp=IMAGPART(BlochStates(1))
+    rep=REAL(REAL(BlochStates(1)))
+    imp=REAL(AIMAG(BlochStates(1)))
     BlochStates=(dconjg(BlochStates(1))/sqrt(rep*rep+imp*imp))*Blochstates
     !write(*,*) "BLOCHSTATE(1)=",BlochStates(1)
   end function get_occupied_state
@@ -570,7 +570,7 @@ contains
       BlochStates=get_occupied_state(kpoint,Nso)
       call djacobian_complex(kpoint,TmpKMat,Nso)
       do i = 1,size(kpoint)
-        BerryConnection(i) = BerryConnection(i) - IMAGPART(dot_product(BlochStates, TmpKmat(:,i)))
+        BerryConnection(i) = BerryConnection(i) - REAL(AIMAG(dot_product(BlochStates, TmpKmat(:,i))))
       enddo
     enddo
   end function get_Berry_connection
