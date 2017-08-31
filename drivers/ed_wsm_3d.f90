@@ -28,7 +28,6 @@ program ed_wsm_3d
   real(8),dimension(4,3)        :: TEST2
   real(8),dimension(4)          :: TEST1,TEST3 
   real(8),dimension(3)          :: kpoint
-  real(8),dimension(:),allocatable  ::wm,wr
   call parse_cmd_variable(finput,"FINPUT",default='inputED_WSM.conf')
   call parse_input_variable(hkfile,"HKFILE",finput,default="hkfile.in")
   call parse_input_variable(nk,"NK",finput,default=30)
@@ -109,9 +108,7 @@ program ed_wsm_3d
      !
      ! compute the local gf:
      call dmft_gloc_matsubara(Hk,Wtk,Gmats,Smats)
-     if(allocated(wm))deallocate(wm);allocate(wm(Lmats))
-     wm = pi/beta*dble(2*arange(1,Lmats)-1)
-     call dmft_print_gf_matsubara(wm,Gmats,"Gloc",iprint=3)
+     call dmft_print_gf_matsubara(Gmats,"Gloc",iprint=3)
      !
      !
      ! compute the Weiss field (only the Nineq ones)
@@ -146,21 +143,21 @@ program ed_wsm_3d
   enddo
 
   
-  ! compute the local gf:
-  call dmft_gloc_realaxis(Hk,Wtk,Greal,Sreal)
-  if(allocated(wr))deallocate(wr);allocate(wr(Lreal))
-  wr = linspace(wini,wfin,Lreal) 
-  call dmft_print_gf_realaxis(wm,Greal,"Gloc",iprint=3)
-  !Get kinetic energy:
-  call dmft_kinetic_energy(Hk,Wtk,Smats)
+  !! compute the local gf:
+  !call dmft_gloc_realaxis(Hk,Wtk,Greal,Sreal)
+  !call dmft_print_gf_realaxis(Greal,"Gloc",iprint=3)
+  !!Get kinetic energy:
+  !call dmft_kinetic_energy(Hk,Wtk,Smats)
 
 
-  !Get 3d Bands from Top. Hamiltonian
-  call solve_hk_topological( so2j(Smats(:,:,:,:,1),Nso) )
+  !!Get 3d Bands from Top. Hamiltonian
+  !call solve_hk_topological( so2j(Smats(:,:,:,:,1),Nso) )
 
-  !Find out if it is a semimetal
+  !!Find out if it is a semimetal
   call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
 
+   call chern_retriever_sphere([0.0d0,0.0d0,0.0d0])
+   call chern_retriever_sphere([pi*0.134188,pi*0.325236,pi*0.5436])
   !call chern_retriever([0.0d0,0.0d0,0.0d0])
   !write(*,*) "ADESSO DEI TEST"
   !!Find out weyl point chirality
@@ -376,10 +373,10 @@ contains
           test_brutal=test_brutal+1
           ham=hk_weyl(kpoint,N)
           call eigh(ham,Eval)
-          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.5) then
+          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.2) then
             weyl_index=1
             write(*,*) "Brutal iterations: found Weyl point at ",kpoint/pi, "value is ", abs(Eval(3))
-            call chern_retriever(kpoint)
+            call chern_retriever_sphere(kpoint)
             exit xloop
           end if
         end do zloop
@@ -470,10 +467,6 @@ contains
   end subroutine chern_retriever
 
 
-
-
-
-
   function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry curvature and normal vector; takes 2d input,
     real(8),dimension(3)                     :: kpoint
     real(8),dimension(:)                     :: kpoint_
@@ -498,6 +491,46 @@ contains
 
 
 
+
+  subroutine chern_retriever_sphere(kpoint)   !integrates Berry flux on a cubic surface around the point kpoint
+    real(8)                         :: z2
+    real(8),dimension(3)            :: kpoint
+    integer                         :: unit
+    write(*,*) "Testing chirality"
+    write(*,*) "Integrating on a sphere around ",kpoint
+    z2=0
+    !
+    z2=z2-simps2d(chern_flux_integrable_sphere,[0.d0,2*pi],[-pi/2,pi/2],N0=200,iterative=.false.)   
+    write(*,*) "Done, Berry flux now is ",z2 
+    write(*,*) "Chirailty is ",z2/(2*pi)
+    !
+    unit=free_unit()
+    open(unit,file="Chirality.ed")
+    write(unit,*) z2/(2*pi)
+    close(unit)
+  end subroutine chern_retriever_sphere
+
+
+
+  function chern_flux_integrable_sphere(angles) result(flux) !gives scalar product between Berry curvature and normal vector; takes 2d input,
+    real(8),dimension(:)                     :: angles
+    real(8)                                  :: flux,theta,phi,e
+    real(8),dimension(3)                     :: curvature 
+    real(8),dimension(3)                     :: transf_fact
+    !
+    e=pi/10
+    theta=angles(1)
+    phi=angles(2)
+    transf_fact=[e*e*sin(phi)*sin(phi)*cos(theta),e*e*sin(phi)*sin(phi)*sin(theta),e*e*sin(phi)*cos(phi)]
+    kpoint=[kpoint(1)+e*sin(phi)*cos(theta),kpoint(2)+e*sin(phi)*sin(theta),kpoint(3)+e*cos(phi)]
+    call get_Berry_Curvature(kpoint,curvature)
+    flux=dot_product(curvature,transf_fact)  
+    !write(*,*) flux
+  end function chern_flux_integrable_sphere
+
+
+
+
   function get_occupied_state(kpoint,M) result(BlochStates) !takes nth occupied state of Hamiltonian in kpoint (n is passed by
     real(8),dimension(:),intent(in)        :: kpoint
     !
@@ -516,8 +549,8 @@ contains
     !how to deal with a real-valued phase (opposite sign)
     rep=REALPART(BlochStates(1))
     imp=IMAGPART(BlochStates(1))
-    BlochStates=(dconjg(BlochStates(1))/(rep*rep+imp*imp))*Blochstates
-    write(*,*) "BLOCHSTATE=",BlochStates(1)
+    BlochStates=(dconjg(BlochStates(1))/sqrt(rep*rep+imp*imp))*Blochstates
+    !write(*,*) "BLOCHSTATE(1)=",BlochStates(1)
   end function get_occupied_state
 
 
