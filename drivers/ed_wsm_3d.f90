@@ -3,7 +3,7 @@ program ed_wsm_3d
   USE SCIFOR
   USE DMFT_TOOLS
   implicit none
-  integer                       :: iloop,Lk,Nso,test=0,uno,due,tre
+  integer                       :: iloop,Lk,Nso
   logical                       :: converged
   !Bath:
   integer                       :: Nb
@@ -17,18 +17,13 @@ program ed_wsm_3d
   real(8),allocatable           :: Wtk(:)
   integer,allocatable           :: ik2ix(:),ik2iy(:),ik2iz(:)
   !variables for the model:
-  integer                       :: Nk,Nkpath,CHERN_INDEX,ICOMP,JCOMP,IS_START
+  integer                       :: Nk,Nkpath
   real(8)                       :: e0,mh,lambda,bx,by,bz,BIA
   real(8)                       :: wmixing
-  real(8),dimension(4)          :: PLANE_INDEX
-  real(8),dimension(4)          :: PREVIOUS
   character(len=16)             :: finput
   character(len=32)             :: hkfile
   logical                       :: spinsym,getpoles
   complex(8),dimension(4,4)     :: Gamma1,Gamma2,Gamma3,Gamma5
-  real(8),dimension(4,3)        :: TEST2
-  real(8),dimension(4)          :: TEST1,TEST3 
-  real(8),dimension(3)          :: kpoint
   call parse_cmd_variable(finput,"FINPUT",default='inputED_WSM.conf')
   call parse_input_variable(hkfile,"HKFILE",finput,default="hkfile.in")
   call parse_input_variable(nk,"NK",finput,default=30)
@@ -79,13 +74,15 @@ program ed_wsm_3d
   !
   !
   !Buil the Hamiltonian on a grid or on path
-  call build_hk(trim(hkfile))!
+  call build_hk(trim(hkfile))
   !
-  !
+  !TESTS
+  !Find out if it is a semimetal
   call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
+
   call chern_retriever([0.0d0,0.0d0,0.0d0])
-  STOP
-  
+  call chern_retriever([pi*0.134188,pi*0.325236,pi*0.5436])
+  !
   !Setup solver
   Nb=get_bath_dimension()
   allocate(Bath(Nb))
@@ -148,36 +145,20 @@ program ed_wsm_3d
   enddo
 
   
-  !! compute the local gf:
-  !call dmft_gloc_realaxis(Hk,Wtk,Greal,Sreal)
-  !call dmft_print_gf_realaxis(Greal,"Gloc",iprint=3)
-  !!Get kinetic energy:
-  !call dmft_kinetic_energy(Hk,Wtk,Smats)
+  ! compute the local gf:
+  call dmft_gloc_realaxis(Hk,Wtk,Greal,Sreal)
+  call dmft_print_gf_realaxis(Greal,"Gloc",iprint=3)
+  !Get kinetic energy:
+  call dmft_kinetic_energy(Hk,Wtk,Smats)
 
 
   !!Get 3d Bands from Top. Hamiltonian
-  !call solve_hk_topological( so2j(Smats(:,:,:,:,1),Nso) )
+  call solve_hk_topological( so2j(Smats(:,:,:,:,1),Nso) )
 
   !!Find out if it is a semimetal
   call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
-
-   call chern_retriever([0.0d0,0.0d0,0.0d0])
-   call chern_retriever([pi*0.134188,pi*0.325236,pi*0.5436])
-  !call chern_retriever([0.0d0,0.0d0,0.0d0])
-  !write(*,*) "ADESSO DEI TEST"
-  !!Find out weyl point chirality
-  !do uno=0,20
-    !uno_r=-pi+(pi/10)*uno
-    !!do due=0,20
-      !!due_r=-pi+(pi/10)*due
-      !due=-pi
-      !do tre=0,20
-       !tre_r=-pi+(pi/10)*tre
-       !write(*,*) uno_r,due_r,tre_r
-       !call chern_retriever_stokes([uno_r,due_r,tre_r])
-      !enddo
-    !enddo
-  !!enddo
+  call chern_retriever([0.0d0,0.0d0,0.0d0])
+  call chern_retriever([pi*0.134188,pi*0.325236,pi*0.5436])
 contains
 
 
@@ -407,7 +388,6 @@ contains
     ham=hk_weyl(x,Nso)
     call eigh(ham,Eval)
     fvec=[Eval(3),0.0d0,0.0d0]
-    test=test+1
   end subroutine retrieve_third_band
 
 
