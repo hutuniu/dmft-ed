@@ -17,10 +17,11 @@ program ed_wsm_3d
   real(8),allocatable           :: Wtk(:)
   integer,allocatable           :: ik2ix(:),ik2iy(:),ik2iz(:)
   !variables for the model:
-  integer                       :: Nk,Nkpath,CHERN_INDEX,ICOMP,JCOMP
-  real(8)                       :: e0,mh,lambda,bx,by,bz,BIA,uno_r,due_r,tre_r
+  integer                       :: Nk,Nkpath,CHERN_INDEX,ICOMP,JCOMP,IS_START
+  real(8)                       :: e0,mh,lambda,bx,by,bz,BIA
   real(8)                       :: wmixing
-  real(8),dimension(5)          :: PLANE_INDEX
+  real(8),dimension(4)          :: PLANE_INDEX
+  real(8),dimension(4)          :: PREVIOUS
   character(len=16)             :: finput
   character(len=32)             :: hkfile
   logical                       :: spinsym,getpoles
@@ -81,6 +82,10 @@ program ed_wsm_3d
   call build_hk(trim(hkfile))!
   !
   !
+  call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
+  call chern_retriever([0.0d0,0.0d0,0.0d0])
+  STOP
+  
   !Setup solver
   Nb=get_bath_dimension()
   allocate(Bath(Nb))
@@ -156,8 +161,8 @@ program ed_wsm_3d
   !!Find out if it is a semimetal
   call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
 
-   call chern_retriever_sphere([0.0d0,0.0d0,0.0d0])
-   call chern_retriever_sphere([pi*0.134188,pi*0.325236,pi*0.5436])
+   call chern_retriever([0.0d0,0.0d0,0.0d0])
+   call chern_retriever([pi*0.134188,pi*0.325236,pi*0.5436])
   !call chern_retriever([0.0d0,0.0d0,0.0d0])
   !write(*,*) "ADESSO DEI TEST"
   !!Find out weyl point chirality
@@ -376,7 +381,7 @@ contains
           if (abs(Eval(3))+abs(Eval(2)) .lt. 0.2) then
             weyl_index=1
             write(*,*) "Brutal iterations: found Weyl point at ",kpoint/pi, "value is ", abs(Eval(3))
-            call chern_retriever_sphere(kpoint)
+            call chern_retriever(kpoint)
             exit xloop
           end if
         end do zloop
@@ -411,213 +416,80 @@ contains
   !--------------------------------------------------------------------!
 
   subroutine chern_retriever(kpoint)   !integrates Berry flux on a cubic surface around the point kpoint
-    real(8)                         :: z2
-    real(8),dimension(3)            :: kpoint
-    real(8)                         :: e,a,b
-    integer                         :: unit
-    e=pi/10
+    real(8)                         :: z2,phase
+    real(8),dimension(3)            :: kpoint,kpoint_
+    real(8)                         :: e
+    integer                         :: unit,perm,j,q,N,face_indx,face_sign,side_indx,side_sign,path_indx,border,varying_indx,run_direction
+    integer,dimension(6,6)          :: permutations
+    integer,dimension(4)            :: versor
+    complex(8),dimension(4,4)       :: BlochOld,BlochNew
+    complex(8),dimension(2,2)       :: OverlapMatrix
+    real(8),dimension(4)            :: Eigval
+    e=pi/50
+    N=50
     write(*,*) "Testing chirality"
     write(*,*) "Integrating on a cube around ",kpoint
-    z2=0
+    z2=0.0d0
     !
-    a=kpoint(1)
-    b=kpoint(2)
+    permutations(1,:)=[3,1,2,-1,-2,1] ![index fixing the face, 4*index fixing the path side, coordinate varying on side labelled by #5]
+    permutations(2,:)=[-3,-2,-1,2,1,2] 
+    permutations(3,:)=[1,2,3,-2,-3,2]
+    permutations(4,:)=[-1,-3,-2,3,2,3]
+    permutations(5,:)=[2,3,1,-3,-1,3]
+    permutations(6,:)=[-2,-1,-3,1,3,1]
+    versor=[1,-1,-1,1]
     !
-    PLANE_INDEX=[kpoint(3)+e,1.0d0,1.0d0,2.0d0,3.0d0]
-    !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 1, Berry flux now is ",z2 
-    !
-    PLANE_INDEX=[kpoint(3)-e,-1.0d0,1.0d0,2.0d0,3.0d0]
-    !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 2, Berry flux now is ",z2
-    !
-    a=kpoint(3)
-    b=kpoint(1)
-    !
-    PLANE_INDEX=[kpoint(2)+e,1.0d0,3.0d0,1.0d0,2.0d0]
-    !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 3, Berry flux now is ",z2 
-    !
-    PLANE_INDEX=[kpoint(2)-e,-1.0d0,3.0d0,1.0d0,2.0d0]
-    !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 4, Berry flux now is ",z2 
-    !
-    a=kpoint(2)
-    b=kpoint(3)
-    !
-    PLANE_INDEX=[kpoint(1)+e,1.0d0,2.0d0,3.0d0,1.0d0]
-    !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 5, Berry flux now is ",z2    
-    !
-    PLANE_INDEX=[kpoint(1)-e,-1.0d0,2.0d0,3.0d0,1.0d0]
-    !
-    z2=z2-simps2d(chern_flux_integrable,[a-e,a+e],[b-e,b+e],N0=200,iterative=.false.)   
-    write(*,*) "Done face 6, Berry flux now is ",z2 
-    !
+    do perm=1,6
+      face_indx=ABS(permutations(perm,1))   !which plane am I parallel to?
+      face_sign=SIGN(1,permutations(perm,1)) !top-botton, left-right face, now I have selected one
+      phase=0.0d0   !do path around this face
+      !
+      kpoint_=zero  
+      BlochOld=zero
+      BlochNew=zero
+      OverlapMatrix=zero
+      !
+      kpoint_(face_indx)=kpoint(face_indx)+e*face_sign !fix one coordinate of the running point
+      !
+      do border=2,5 !run along border
+        !
+        side_indx=ABS(permutations(perm,border))      !which direction am I parallel to?
+        side_sign=SIGN(1,permutations(perm,border))   !top-bottom, left-right side, now I've selected one
+        varying_indx=ABS(permutations(perm,border+1)) !the point runs along the other coordinate
+        run_direction=face_sign*versor(border-1)                !direction to run along to have a closed path
+        !
+        kpoint_(side_indx)=kpoint(side_indx)+e*side_sign !fix another coordinate of the running point
+        !
+        do path_indx=1,2*N !run on one side of the border
+          !
+          if (all(BlochOld(:,1) .eq. 0.0d0)) then !if I have yet to start, do one cycle
+            kpoint_(varying_indx)=kpoint(varying_indx)-e*run_direction
+            BlochOld=hk_weyl(kpoint_,4)
+            call eigh(BlochOld,Eigval)  !store old eigenvectors
+          endif
+          kpoint_(varying_indx)=kpoint(varying_indx)-e*run_direction+(e*path_indx/N)*run_direction
+          BlochNew=hk_weyl(kpoint_,4)
+          call eigh(BlochNew,Eigval)  !store new eigenvectors
+          do j=1,2
+            do q=1,2
+              OverlapMatrix(j,q)=dot_product(BlochOld(:,j),BlochNew(:,q))
+            enddo
+          enddo
+          BlochOld=BlochNew !update eigenvectors
+          phase=phase-IMAG(log(det(OverlapMatrix)))
+        enddo !end run on one side of the border
+      enddo !end run on the border
+      z2=z2+phase!  !sum the phase to the face
+    enddo !end run on face
     write(*,*) "Chirailty is ",z2/(2*pi)
-    unit=free_unit()
-    open(unit,file="Chirality.ed")
-    write(unit,*) z2/(2*pi)
-    close(unit)
+    !unit=free_unit()
+    !open(unit,file="Chirality.ed")
+    !write(unit,*) z2
+    !close(unit)
   end subroutine chern_retriever
 
 
-  function chern_flux_integrable(kpoint_) result(flux) !gives scalar product between Berry curvature and normal vector; takes 2d input,
-    real(8),dimension(3)                     :: kpoint
-    real(8),dimension(:)                     :: kpoint_
-    real(8)                                  :: flux
-    real(8),dimension(3)                     :: curvature 
-    real(8),dimension(3)                     :: normal
-    integer                                  :: i,j,k
-    !
-    normal=[0.0d0,0.0d0,0.0d0]
-    kpoint=[0.0d0,0.0d0,0.0d0]
-    i=IDINT(PLANE_INDEX(3))
-    j=IDINT(PLANE_INDEX(4))
-    k=IDINT(PLANE_INDEX(5))
-    normal(k)=PLANE_INDEX(2)
-    kpoint(i)=kpoint_(1)
-    kpoint(j)=kpoint_(2)
-    kpoint(k)=PLANE_INDEX(1)
-    call get_Berry_Curvature(kpoint,curvature)
-    flux=dot_product(curvature,normal)  
-  end function chern_flux_integrable
 
-
-
-
-
-  subroutine chern_retriever_sphere(kpoint)   !integrates Berry flux on a cubic surface around the point kpoint
-    real(8)                         :: z2
-    real(8),dimension(3)            :: kpoint
-    integer                         :: unit
-    write(*,*) "Testing chirality"
-    write(*,*) "Integrating on a sphere around ",kpoint
-    z2=0
-    !
-    z2=z2-simps2d(chern_flux_integrable_sphere,[0.d0,2*pi],[-pi/2,pi/2],N0=200,iterative=.false.)   
-    write(*,*) "Done, Berry flux now is ",z2 
-    write(*,*) "Chirailty is ",z2/(2*pi)
-    !
-    unit=free_unit()
-    open(unit,file="Chirality.ed")
-    write(unit,*) z2/(2*pi)
-    close(unit)
-  end subroutine chern_retriever_sphere
-
-
-
-  function chern_flux_integrable_sphere(angles) result(flux) !gives scalar product between Berry curvature and normal vector; takes 2d input,
-    real(8),dimension(:)                     :: angles
-    real(8)                                  :: flux,theta,phi,e
-    real(8),dimension(3)                     :: curvature 
-    real(8),dimension(3)                     :: transf_fact
-    !
-    e=pi/10
-    theta=angles(1)
-    phi=angles(2)
-    transf_fact=[e*e*sin(phi)*sin(phi)*cos(theta),e*e*sin(phi)*sin(phi)*sin(theta),e*e*sin(phi)*cos(phi)]
-    kpoint=[kpoint(1)+e*sin(phi)*cos(theta),kpoint(2)+e*sin(phi)*sin(theta),kpoint(3)+e*cos(phi)]
-    call get_Berry_Curvature(kpoint,curvature)
-    flux=dot_product(curvature,transf_fact)  
-    !write(*,*) flux
-  end function chern_flux_integrable_sphere
-
-
-
-
-  function get_occupied_state(kpoint,M) result(BlochStates) !takes nth occupied state of Hamiltonian in kpoint (n is passed by
-    real(8),dimension(:),intent(in)        :: kpoint
-    !
-    integer                                :: M
-    complex (8),dimension(M,M)             :: Eigvec ![Nlso][Nlso]
-    real(8),dimension(M)                   :: Eigval ![Nlso]
-    complex(8),dimension(M)                :: BlochStates ![Nlso]
-    real(8)                                :: rep, imp     
-    !
-    !
-    Eigvec=hk_weyl(kpoint,M)
-    call eigh(Eigvec,Eigval)
-    BlochStates = Eigvec(:,ICOMP)
-    !Impose global phase
-    !TODO: Kill global phase assuming first component is real. Question,
-    !how to deal with a real-valued phase (opposite sign)
-    rep=REAL(REAL(BlochStates(1)))
-    imp=REAL(AIMAG(BlochStates(1)))
-    BlochStates=(dconjg(BlochStates(1))/sqrt(rep*rep+imp*imp))*Blochstates
-    !write(*,*) "BLOCHSTATE(1)=",BlochStates(1)
-  end function get_occupied_state
-
-
-
-
-  function get_Berry_connection(kpoint) result(BerryConnection) !gives Berry Connection in kpoint by its definition (eg Turner 2013)
-    real(8),dimension(:),intent(in)                    :: kpoint
-    !
-    integer                                            :: i
-    real(8),dimension(size(kpoint))                    :: BerryConnection ![N_dimensions]    
-    complex(8),dimension(Nso)                          :: BlochStates
-    complex(8),dimension(Nso,size(kpoint))             :: TmpKmat
-    !
-    !
-    BerryConnection=[0.0d0,0.0d0,0.0d0]
-    do ICOMP=1,Norb
-      BlochStates=get_occupied_state(kpoint,Nso)
-      call djacobian_complex(kpoint,TmpKMat,Nso)
-      do i = 1,size(kpoint)
-        BerryConnection(i) = BerryConnection(i) - REAL(AIMAG(dot_product(BlochStates, TmpKmat(:,i))))
-      enddo
-    enddo
-  end function get_Berry_connection
-
-
-
-
-  subroutine get_Berry_Curvature(kpoint,BerryCurvature) !Does curl to get Berry Curvature
-    real(8),dimension(:)                      :: kpoint
-    !
-    real(8),dimension(:,:),allocatable        :: TmpKmat ![N_dimension][N_dimension]
-    real(8),dimension(3)                      :: BerryCurvature ![N_dimensions]    
-    !
-    allocate(TmpKMat(size(kpoint),size(kpoint))) 
-    !
-    !Do the rotor to get Berry Curvature
-    call djacobian(get_Berry_connection,kpoint,TmpKMat)
-    BerryCurvature(1)=TmpKMat(3,2)-TmpKMat(2,3)
-    BerryCurvature(2)=TmpKMat(1,3)-TmpKMat(3,1)
-    BerryCurvature(3)=TmpKMat(2,1)-TmpKMat(1,2)
-    !
-    deallocate(TmpKMat)
-  end subroutine get_Berry_Curvature
-
-
-
-
-
-  subroutine djacobian_complex(kpoint,jacobian,M)
-    real(8),dimension(:)                        :: kpoint
-    real(8),dimension(size(kpoint))             :: kpoint1,kpoint2,delta
-    complex(8),dimension(M)                     :: eigenstate1,eigenstate2
-    complex(8),dimension(M,size(kpoint))        :: jacobian
-    integer                                     :: i,j,M
-    !
-    do j=1,size(kpoint)
-      delta=zero
-      delta(j)=0.001d0
-      kpoint1=kpoint+delta
-      kpoint2=kpoint-delta
-      eigenstate1=get_occupied_state(kpoint1,M)
-      eigenstate2=get_occupied_state(kpoint2,M)
-      jacobian(:,j)=(eigenstate1-eigenstate2)/(2*delta(j))
-    enddo
-  end subroutine djacobian_complex
-
-  
 
 
 
