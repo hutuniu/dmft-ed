@@ -24,6 +24,7 @@ program ed_wsm_3d
   character(len=32)             :: hkfile
   logical                       :: spinsym,getpoles
   complex(8),dimension(4,4)     :: Gamma1,Gamma2,Gamma3,Gamma5
+  !
   call parse_cmd_variable(finput,"FINPUT",default='inputED_WSM.conf')
   call parse_input_variable(hkfile,"HKFILE",finput,default="hkfile.in")
   call parse_input_variable(nk,"NK",finput,default=30)
@@ -79,10 +80,9 @@ program ed_wsm_3d
   !TESTS
   !Find out if it is a semimetal
   call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
-
-  call chern_retriever([0.0d0,0.0d0,0.0d0])
-  call chern_retriever([pi*0.134188,pi*0.325236,pi*0.5436])
-  !
+  !call chern_retriever([-3.1415926535897931d0,-0.16755166848237124d0,-0.60737458069855776d0])
+  !call chern_retriever([pi*0.134188,pi*0.325236,pi*0.5436])
+  STOP
   !Setup solver
   Nb=get_bath_dimension()
   allocate(Bath(Nb))
@@ -157,8 +157,8 @@ program ed_wsm_3d
 
   !!Find out if it is a semimetal
   call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
-  call chern_retriever([0.0d0,0.0d0,0.0d0])
-  call chern_retriever([pi*0.134188,pi*0.325236,pi*0.5436])
+  !call chern_retriever([0.0d0,0.0d0,0.0d0])
+  !call chern_retriever([pi*0.134188,pi*0.325236,pi*0.5436])
 contains
 
 
@@ -331,7 +331,7 @@ contains
 
   subroutine is_weyl_brutal(N,sigma)
     integer                                 :: weyl_index, unit,test_brutal=0,i,j,k,mash_thickness
-    real                                    :: step
+    real(8)                                    :: step
     complex(8),dimension(Nso,Nso)           :: sigma(Nso,Nso)
     integer                                 :: N
     real(8),dimension(:),allocatable        :: kpoint
@@ -347,10 +347,10 @@ contains
     mash_thickness=10
     step=2*pi/(mash_thickness*Nk)
     !
-    write(*,*) "Starting Weyl point search"
+    !write(*,*) "Starting Weyl point search"
     !
     kpoint=[-pi,-pi,-pi]
-    xloop: do i=0,mash_thickness+Nk-1
+    xloop: do i=0,mash_thickness*Nk-1
       kpoint(1)=-pi+step*i
       yloop: do j=0,mash_thickness*Nk-1
         kpoint(2)=-pi+step*j
@@ -359,11 +359,13 @@ contains
           test_brutal=test_brutal+1
           ham=hk_weyl(kpoint,N)
           call eigh(ham,Eval)
-          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.2) then
+          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.01) then
             weyl_index=1
-            write(*,*) "Brutal iterations: found Weyl point at ",kpoint/pi, "value is ", abs(Eval(3))
-            call chern_retriever(kpoint)
-            exit xloop
+            write(*,*) "----------------------------------------"
+            write(*,*) "Brutal iterations: found Weyl point at ",kpoint, "value is ", abs(Eval(3))
+            call chern_retriever(kpoint,step)
+            write(*,*) "----------------------------------------"
+            !exit xloop
           end if
         end do zloop
       end do yloop
@@ -395,20 +397,21 @@ contains
   !CHERN NUMBER EVALUATION  (NEEDS FIXING AND OPTIMIZATION)
   !--------------------------------------------------------------------!
 
-  subroutine chern_retriever(kpoint)   !integrates Berry flux on a cubic surface around the point kpoint
+  subroutine chern_retriever(kpoint,cubesize)   !integrates Berry flux on a cubic surface around the point kpoint
     real(8)                         :: z2,phase
     real(8),dimension(3)            :: kpoint,kpoint_
-    real(8)                         :: e
-    integer                         :: unit,perm,j,q,N,face_indx,face_sign,side_indx,side_sign,path_indx,border,varying_indx,run_direction
+    real(8)                         :: e,phase_mod,cubesize
+    integer                         :: unit,TEST,perm,j,q,N,face_indx,face_sign,side_indx,side_sign,path_indx,border,varying_indx,run_direction
     integer,dimension(6,6)          :: permutations
     integer,dimension(4)            :: versor
     complex(8),dimension(4,4)       :: BlochOld,BlochNew
     complex(8),dimension(2,2)       :: OverlapMatrix
     real(8),dimension(4)            :: Eigval
-    e=pi/50
-    N=50
-    write(*,*) "Testing chirality"
-    write(*,*) "Integrating on a cube around ",kpoint
+    do TEST=40,40
+    e=cubesize/(2*TEST)
+    N=500
+    !write(*,*) "Testing chirality"
+    !write(*,*) "Integrating on a cube around ",kpoint
     z2=0.0d0
     !
     permutations(1,:)=[3,1,2,-1,-2,1] ![index fixing the face, 4*index fixing the path side, coordinate varying on side labelled by #5]
@@ -459,13 +462,22 @@ contains
           phase=phase-IMAG(log(det(OverlapMatrix)))
         enddo !end run on one side of the border
       enddo !end run on the border
-      z2=z2+phase!  !sum the phase to the face
+      phase_mod=sign(1.0d0,phase)*mod(abs(phase),2*pi)
+      if(abs(abs(phase_mod)-2*pi) .lt. 0.00001)then
+        phase_mod=0.0d0
+      endif
+      z2=z2+phase_mod!  !sum the phase to the face
     enddo !end run on face
-    write(*,*) "Chirailty is ",z2/(2*pi)
-    !unit=free_unit()
-    !open(unit,file="Chirality.ed")
-    !write(unit,*) z2
-    !close(unit)
+    write(*,*) "Chirality is ",z2/(2*pi)
+    unit=free_unit()
+    open(unit,file="Chirality.ed",position="append")
+    if (abs(z2) .lt. 0.001)then
+      write(unit,'(4F16.9)')kpoint(1),kpoint(2),kpoint(3),0.0d0
+    else if (abs(z2)>0.5d0)then
+      write(unit,'(4F16.9)')kpoint(1),kpoint(2),kpoint(3),sign(1.0d0,z2/(2*pi))
+    endif
+    close(unit)
+  enddo
   end subroutine chern_retriever
 
 
