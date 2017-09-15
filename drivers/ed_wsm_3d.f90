@@ -350,7 +350,7 @@ contains
     write(*,*) "Starting Weyl point search"
     !
     kpoint=[-pi,-pi,-pi]
-    xloop: do i=0,mash_thickness+Nk-1
+    xloop: do i=0,mash_thickness*Nk-1
       kpoint(1)=-pi+step*i
       yloop: do j=0,mash_thickness*Nk-1
         kpoint(2)=-pi+step*j
