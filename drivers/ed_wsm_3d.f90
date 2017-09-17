@@ -359,7 +359,7 @@ contains
           test_brutal=test_brutal+1
           ham=hk_weyl(kpoint,N)
           call eigh(ham,Eval)
-          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.01) then
+          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.005) then
             weyl_index=1
             write(*,*) "----------------------------------------"
             write(*,*) "Brutal iterations: found Weyl point at ",kpoint, "value is ", abs(Eval(3))
@@ -398,16 +398,17 @@ contains
   !--------------------------------------------------------------------!
 
   subroutine chern_retriever(kpoint,cubesize)   !integrates Berry flux on a cubic surface around the point kpoint
-    real(8)                         :: z2,phase
+    real(8)                         :: z2
+    complex(8)                      :: phase
     real(8),dimension(3)            :: kpoint,kpoint_
-    real(8)                         :: e,phase_mod,cubesize
+    real(8)                         :: e,cubesize
     integer                         :: unit,TEST,perm,j,q,N,face_indx,face_sign,side_indx,side_sign,path_indx,border,varying_indx,run_direction
     integer,dimension(6,6)          :: permutations
     integer,dimension(4)            :: versor
     complex(8),dimension(4,4)       :: BlochOld,BlochNew
     complex(8),dimension(2,2)       :: OverlapMatrix
     real(8),dimension(4)            :: Eigval
-    do TEST=40,40
+    do TEST=2,2
     e=cubesize/(2*TEST)
     N=500
     !write(*,*) "Testing chirality"
@@ -425,7 +426,7 @@ contains
     do perm=1,6
       face_indx=ABS(permutations(perm,1))   !which plane am I parallel to?
       face_sign=SIGN(1,permutations(perm,1)) !top-botton, left-right face, now I have selected one
-      phase=0.0d0   !do path around this face
+      phase=1.0d0   !do path around this face
       !
       kpoint_=zero  
       BlochOld=zero
@@ -459,22 +460,16 @@ contains
             enddo
           enddo
           BlochOld=BlochNew !update eigenvectors
-          phase=phase-IMAG(log(det(OverlapMatrix)))
+          phase=phase*det(OverlapMatrix)
         enddo !end run on one side of the border
       enddo !end run on the border
-      phase_mod=sign(1.0d0,phase)*mod(abs(phase),2*pi)
-      if(abs(abs(phase_mod)-2*pi) .lt. 0.00001)then
-        phase_mod=0.0d0
-      endif
-      z2=z2+phase_mod!  !sum the phase to the face
+      z2=z2+IMAG(log(phase))!  !sum the phase to the face
     enddo !end run on face
-    write(*,*) "Chirality is ",z2/(2*pi)
+    write(*,*) "Chirality is ",NINT(z2/(2*pi))
     unit=free_unit()
     open(unit,file="Chirality.ed",position="append")
-    if (abs(z2) .lt. 0.001)then
-      write(unit,'(4F16.9)')kpoint(1),kpoint(2),kpoint(3),0.0d0
-    else if (abs(z2)>0.5d0)then
-      write(unit,'(4F16.9)')kpoint(1),kpoint(2),kpoint(3),sign(1.0d0,z2/(2*pi))
+    if (abs(z2)>0.5d0)then
+      write(unit,'(4F16.9)')kpoint(1),kpoint(2),kpoint(3),z2/(2*pi)
     endif
     close(unit)
   enddo
