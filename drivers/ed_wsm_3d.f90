@@ -460,12 +460,12 @@ contains
       z2=z2+IMAG(log(phase))!  !sum the phase to the face
     enddo !end run on face
     write(*,*) "Chirality is ",NINT(z2/(2*pi))
-    unit=free_unit()
-    open(unit,file="Chirality.ed",position="append")
-    if (abs(z2)>0.4d0)then
+    if (abs(z2)>0.4d0)then  !if it's a point, append to Chirality file
+      unit=free_unit()
+      open(unit,file="Chirality.ed",position="append")
       write(unit,'(4F16.9)')kpoint(1),kpoint(2),kpoint(3),SIGN(1.0d0,z2/(2*pi))
+      close(unit)
     endif
-    close(unit)
   end subroutine chern_retriever
 
 
