@@ -81,7 +81,7 @@ program ed_wsm_3d
   !Find out if it is a semimetal
   call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
   !call chern_retriever([-3.1415926535897931d0,-0.16755166848237124d0,-0.60737458069855776d0])
-  !call chern_retriever([pi*0.134188,pi*0.325236,pi*0.5436])
+  !call chern_retriever([0.0d0,0.0d0,0.54454272662223069d0],pi/300)
   STOP
   !Setup solver
   Nb=get_bath_dimension()
@@ -330,7 +330,7 @@ contains
   !--------------------------------------------------------------------!
 
   subroutine is_weyl_brutal(N,sigma)
-    integer                                 :: weyl_index, unit,test_brutal=0,i,j,k,mash_thickness
+    integer                                 :: weyl_index,test_brutal=0,i,j,k,mash_thickness
     real(8)                                    :: step
     complex(8),dimension(Nso,Nso)           :: sigma(Nso,Nso)
     integer                                 :: N
@@ -344,7 +344,7 @@ contains
     weyl_index=0
     call set_sigmaWSM(sigma)
     !
-    mash_thickness=10
+    mash_thickness=20
     step=2*pi/(mash_thickness*Nk)
     !
     !write(*,*) "Starting Weyl point search"
@@ -359,8 +359,7 @@ contains
           test_brutal=test_brutal+1
           ham=hk_weyl(kpoint,N)
           call eigh(ham,Eval)
-          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.005) then
-            weyl_index=1
+          if (abs(Eval(3))+abs(Eval(2)) .lt. 0.1) then
             write(*,*) "----------------------------------------"
             write(*,*) "Brutal iterations: found Weyl point at ",kpoint, "value is ", abs(Eval(3))
             call chern_retriever(kpoint,step)
@@ -370,10 +369,6 @@ contains
         end do zloop
       end do yloop
     end do xloop
-    unit=free_unit()
-    open(unit,file="is_weyl.ed")
-    write(unit,*)weyl_index
-    close(unit)
   end subroutine is_weyl_brutal
 
 
@@ -408,8 +403,7 @@ contains
     complex(8),dimension(4,4)       :: BlochOld,BlochNew
     complex(8),dimension(2,2)       :: OverlapMatrix
     real(8),dimension(4)            :: Eigval
-    do TEST=2,2
-    e=cubesize/(2*TEST)
+    e=cubesize
     N=500
     !write(*,*) "Testing chirality"
     !write(*,*) "Integrating on a cube around ",kpoint
@@ -468,11 +462,10 @@ contains
     write(*,*) "Chirality is ",NINT(z2/(2*pi))
     unit=free_unit()
     open(unit,file="Chirality.ed",position="append")
-    if (abs(z2)>0.5d0)then
-      write(unit,'(4F16.9)')kpoint(1),kpoint(2),kpoint(3),z2/(2*pi)
+    if (abs(z2)>0.4d0)then
+      write(unit,'(4F16.9)')kpoint(1),kpoint(2),kpoint(3),SIGN(1.0d0,z2/(2*pi))
     endif
     close(unit)
-  enddo
   end subroutine chern_retriever
 
 
