@@ -77,12 +77,6 @@ program ed_wsm_3d
   !Buil the Hamiltonian on a grid or on path
   call build_hk(trim(hkfile))
   !
-  !TESTS
-  !Find out if it is a semimetal
-  call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
-  !call chern_retriever([-3.1415926535897931d0,-0.16755166848237124d0,-0.60737458069855776d0])
-  !call chern_retriever([0.0d0,0.0d0,0.54454272662223069d0],pi/300)
-  STOP
   !Setup solver
   Nb=get_bath_dimension()
   allocate(Bath(Nb))
@@ -156,9 +150,7 @@ program ed_wsm_3d
   call solve_hk_topological( so2j(Smats(:,:,:,:,1),Nso) )
 
   !!Find out if it is a semimetal
-  call is_weyl_brutal( Nso, so2j(Smats(:,:,:,:,1),Nso) )
-  !call chern_retriever([0.0d0,0.0d0,0.0d0])
-  !call chern_retriever([pi*0.134188,pi*0.325236,pi*0.5436])
+  call is_weyl( Nso, so2j(Smats(:,:,:,:,1),Nso) )
 contains
 
 
@@ -329,7 +321,7 @@ contains
   !WSM REGION FINDER:
   !--------------------------------------------------------------------!
 
-  subroutine is_weyl_brutal(N,sigma)
+  subroutine is_weyl(N,sigma)
     integer                                 :: weyl_index,test_brutal=0,i,j,k,mash_thickness
     real(8)                                    :: step
     complex(8),dimension(Nso,Nso)           :: sigma(Nso,Nso)
@@ -344,7 +336,7 @@ contains
     weyl_index=0
     call set_sigmaWSM(sigma)
     !
-    mash_thickness=20
+    mash_thickness=10
     step=2*pi/(mash_thickness*Nk)
     !
     !write(*,*) "Starting Weyl point search"
@@ -361,7 +353,7 @@ contains
           call eigh(ham,Eval)
           if (abs(Eval(3))+abs(Eval(2)) .lt. 0.1) then
             write(*,*) "----------------------------------------"
-            write(*,*) "Brutal iterations: found Weyl point at ",kpoint, "value is ", abs(Eval(3))
+            write(*,*) "Found candidate Weyl point at ",kpoint, "value is ", abs(Eval(3))
             call chern_retriever(kpoint,step)
             write(*,*) "----------------------------------------"
             !exit xloop
@@ -369,7 +361,7 @@ contains
         end do zloop
       end do yloop
     end do xloop
-  end subroutine is_weyl_brutal
+  end subroutine is_weyl
 
 
   subroutine retrieve_third_band(n,x,fvec,iflag)
@@ -403,7 +395,8 @@ contains
     complex(8),dimension(4,4)       :: BlochOld,BlochNew
     complex(8),dimension(2,2)       :: OverlapMatrix
     real(8),dimension(4)            :: Eigval
-    e=cubesize
+    e=0.8*cubesize
+    write(*,*) "Cubesize is",2*e
     N=500
     !write(*,*) "Testing chirality"
     !write(*,*) "Integrating on a cube around ",kpoint
@@ -459,11 +452,11 @@ contains
       enddo !end run on the border
       z2=z2+IMAG(log(phase))!  !sum the phase to the face
     enddo !end run on face
-    write(*,*) "Chirality is ",NINT(z2/(2*pi))
-    if (abs(z2)>0.4d0)then  !if it's a point, append to Chirality file
+    write(*,*) "Chirality is ",z2/(2*pi)
+    if (abs(z2/(2*pi))>0.6d0)then  !if it's a point, append to Chirality file
       unit=free_unit()
       open(unit,file="Chirality.ed",position="append")
-      write(unit,'(4F16.9)')kpoint(1),kpoint(2),kpoint(3),SIGN(1.0d0,z2/(2*pi))
+      write(unit,'(4F16.9)')kpoint(1),kpoint(2),kpoint(3),z2/(2*pi)
       close(unit)
     endif
   end subroutine chern_retriever
