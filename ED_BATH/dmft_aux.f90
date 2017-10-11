@@ -315,7 +315,6 @@ subroutine write_dmft_bath(dmft_bath_,unit)
   integer              :: io,jo,iorb,ispin
   complex(8)           :: hybr_aux
   complex(8)           :: hrep_aux(Nspin*Norb,Nspin*Norb)
-  ! if(ED_MPI_ID==0)then
   unit_=LOGfile;if(present(unit))unit_=unit
   if(.not.dmft_bath_%status)stop "write_dmft_bath error: bath not allocated"
   select case(bath_type)
@@ -433,7 +432,6 @@ subroutine write_dmft_bath(dmft_bath_,unit)
      end select
      !
   end select
-  ! endif
 end subroutine write_dmft_bath
 
 

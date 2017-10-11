@@ -152,12 +152,13 @@ program ed_SOC
   !
   !#########        BUILD Hk        #########
   !
-  call build_hk(trim(hkfile))
+  call build_hk(trim(hkfile))                              !;stop
   if(surface)then
       allocate(Wtk(Nk*Nk));Wtk=1.d0/(Nk*Nk)
   else
       allocate(Wtk(Nk*Nk*Nk));Wtk=1.d0/(Nk*Nk*Nk)
   endif
+  stop
   if(nonint_mu_shift)stop
   !
   !#########          BATH          #########
@@ -320,7 +321,7 @@ program ed_SOC
               conv_funct(i)=sum(nn2so_reshape(delta(:,:,:,:,i),Nspin,Norb))
            enddo
         endif
-        converged = check_convergence(conv_funct,dmft_error,nsuccess,nloop)
+        if(converged_n)converged = check_convergence(conv_funct,dmft_error,nsuccess,nloop)
         write(LOGfile,'(a35,L3)') "sigma converged",converged
         write(LOGfile,'(a35,L3)') "dens converged",converged_n
         converged = converged .and. converged_n
@@ -418,18 +419,19 @@ contains
     bk_x = [1.d0,0.d0,0.d0]*2*pi
     bk_y = [0.d0,1.d0,0.d0]*2*pi
     bk_z = [0.d0,0.d0,1.d0]*2*pi
-    call TB_set_bk(bk_x,bk_y,bk_z)
     !
     if(allocated(Hk))deallocate(Hk)
     !
     if(surface) then
+       call TB_set_bk(bk_x,bk_y)
        Lk=Nk*Nk
        if(master)write(LOGfile,*)"surface tot k-points:",Lk
        allocate(Hk(Nso,Nso,Lk));Hk=zero
        Sigma_correction=zero
-       call TB_build_model(Hk,hk_Ti3dt2g,Nso,[Nk,Nk,0])
-       if(master.AND.present(file)) call TB_write_hk(Hk,file,Nso,Norb,1,1,[Nk,Nk,0])
+       call TB_build_model(Hk,hk_Ti3dt2g,Nso,[Nk,Nk])
+       if(master.AND.present(file)) call TB_write_hk(Hk,file,Nso,Norb,1,1,[Nk,Nk])
     else
+       call TB_set_bk(bk_x,bk_y,bk_z)
        Lk=Nk*Nk*Nk
        if(master)write(LOGfile,*)"bulk tot k-points:",Lk
        allocate(Hk(Nso,Nso,Lk));Hk=zero
@@ -442,6 +444,19 @@ contains
     where(abs((d_t2g_Hloc))<1.d-9)d_t2g_Hloc=0d0
     d_t2g_Hloc_nn=so2nn_reshape(d_t2g_Hloc,Nspin,Norb)
     call TB_write_hloc(d_t2g_Hloc,file)
+
+
+  !  open(unit=1234,file='hkfile.mine',action='write',position='rewind',status='unknown')
+  !  do ik=i,Lk
+  !     write(1234,*)
+  !     write(1234,*)
+  !     do io=1,Nso
+  !        write(1234,'(6F12.7,1X,6F12.7)') (real(Hk(io,jo,ik)),jo=1,Nso), (aimag(Hk(io,jo,ik)),jo=1,Nso)
+  !     enddo
+  !  enddo
+  !  close(1234)
+
+
     !
     !-----  Build the local GF in the spin-orbital Basis   -----
     !
@@ -544,7 +559,11 @@ contains
     real(8),allocatable                          :: HoppingMatrix(:,:)
     complex(8),allocatable                       :: U(:,:),Udag(:,:)
     !
-    kx=kvec(1);ky=kvec(2);kz=kvec(3)
+    if(surface)then
+       kx=kvec(1);ky=kvec(2)
+    else
+       kx=kvec(1);ky=kvec(2);kz=kvec(3)
+    endif
     !
     allocate(HoppingMatrix(Norb,0:6));HoppingMatrix=0.0d0
     call get_hopping(HoppingMatrix)
@@ -613,7 +632,9 @@ contains
           hk(1,1) = t(0)+(                       & !onsite_orbX
                 -2.*t(1)*cos(kx)                 & !t_100_orbX
                 -2.*t(2)*cos(ky)                 & !t_010_orbX
-                -1.*t(3))*t0                       !t_001_orbX
+          !      -1.*t(3))*t0                       !t_001_orbX
+                )*t0                       !t_001_orbX
+
           !dw
           hk(2,2) = hk(1,1)
        else
@@ -625,7 +646,7 @@ contains
                 -1.*t(3)                         & !t_001_orbX
                 -2.*t(4)*cos(ky)                 & !t_011_orbX
                 -2.*t(5)*cos(kx)                 & !t_101_orbX
-                -4.*t(6)*cos(kx)*cos(ky))*t0      !t_110_orbX
+                -4.*t(6)*cos(kx)*cos(ky))*t0       !t_110_orbX
           !dw
           hk(2,2) = hk(1,1)
        endif
@@ -849,9 +870,15 @@ contains
           T(3,0) = 0.0d0
        else
           T=1.0d0
-          T(1,0) = +SOC
-          T(2,0) = -SOC/2.d0
-          T(3,0) = -SOC/2.d0
+          if(surface)then
+             T(1,0) = +SOC
+             T(2,0) = 0.0d0
+             T(3,0) = 0.0d0
+          else
+             T(1,0) = +SOC
+             T(2,0) = -SOC/2.d0
+             T(3,0) = -SOC/2.d0
+          endif
        endif
     else
        if(surface)then
