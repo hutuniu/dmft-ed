@@ -304,13 +304,13 @@ contains
     Hk(1:2,1:2) = &
          (Mh - e0*(cos(kx) + cos(ky) + cos(kz)) )*pauli_tau_z +&
          lambda*sin(kx)*pauli_tau_x + lambda*sin(ky)*pauli_tau_y +&
-         by*pauli_tau_y + bz*pauli_tau_z
+         bz*pauli_tau_z
     Hk(3:4,3:4) = conjg( &
          (Mh - e0*(cos(-kx) + cos(-ky) + cos(-kz)) )*pauli_tau_z +&
-         lambda*sin(-kx)*pauli_tau_x + lambda*sin(-ky)*pauli_tau_y +&
-         by*pauli_tau_y - bz*pauli_tau_z)
-    Hk(1:2,3:4) = lambda*sin(kz)*pauli_tau_x -xi*BIA*pauli_tau_y + bx*pauli_tau_z
-    Hk(3:4,1:2) = lambda*sin(kz)*pauli_tau_x +xi*BIA*pauli_tau_y + bx*pauli_tau_z
+         lambda*sin(-kx)*pauli_tau_x + lambda*sin(-ky)*pauli_tau_y -&
+         bz*pauli_tau_z)
+    Hk(1:2,3:4) = lambda*sin(kz)*pauli_tau_x -xi*BIA*pauli_tau_y + bx*pauli_tau_z - xi*by*pauli_tau_0
+    Hk(3:4,1:2) = lambda*sin(kz)*pauli_tau_x +xi*BIA*pauli_tau_y + bx*pauli_tau_z + xi*by*pauli_tau_0
     !
     !add the SigmaWSM term to get Topologial Hamiltonian if required:
     Hk = Hk + dreal(SigmaWSM)
