@@ -49,6 +49,7 @@ program ed_SOC
   !custom variables for convergence test:
   complex(8),allocatable,dimension(:)            :: conv_funct
   !custom variables for chempot search:
+  character(len=32)                              :: ed_file_suffix
   logical                                        :: converged_n,upprshft
   integer                                        :: conv_n_loop=0
   integer                                        :: shift_n_loop=0
@@ -103,6 +104,7 @@ program ed_SOC
   call add_ctrl_var(wfin,'wfin')
   call add_ctrl_var(eps,"eps")
   call add_ctrl_var(Jz_basis,"JZ_BASIS")
+  call add_ctrl_var(ed_file_suffix,"ed_file_suffix")
   !
   !#########       ALLOCATION       #########
   !
@@ -178,13 +180,13 @@ program ed_SOC
      call ed_get_sigma_real(Sreal)
      !
      !get local Gf's
-     call dmft_gloc_matsubara(Hk,Wtk,Gmats,Smats,iprint=4)
-     call dmft_gloc_realaxis(Hk,Wtk,Greal,Sreal,iprint=4)
+     call dmft_gloc_matsubara(Hk,Wtk,Gmats,Smats);                   call dmft_print_gf_matsubara(Gmats,"Gloc",iprint=3)
+     call dmft_gloc_realaxis(Hk,Wtk,Greal,Sreal) ;                   call dmft_print_gf_realaxis(Greal,"Gloc",iprint=3)
      !
      !operations on Weiss/Delta
      if(cg_scheme=='weiss')then
         !get Weiss
-        call dmft_weiss(Gmats,Smats,Weiss,d_t2g_Hloc_nn,iprint=4)
+        call dmft_weiss(Gmats,Smats,Weiss,d_t2g_Hloc_nn) ;           call dmft_print_gf_matsubara(Gmats,"WeissG0",iprint=3)
         !mix Weiss
         if(iloop>1)Weiss = wmixing*Weiss + (1.d0-wmixing)*Weiss_old
         !old Weiss
@@ -198,7 +200,7 @@ program ed_SOC
         endif
      else
         !get Delta
-        call dmft_delta(Gmats,Smats,Delta,d_t2g_Hloc_nn,iprint=4)
+        call dmft_delta(Gmats,Smats,Delta,d_t2g_Hloc_nn);            call dmft_print_gf_matsubara(Gmats,"Delta",iprint=3)
         !mix Delta
         if(iloop>1)Delta = wmixing*Delta + (1.d0-wmixing)*Delta_old
         !old Delta
@@ -414,25 +416,27 @@ contains
           Gmats(:,:,i)=Gmats(:,:,i) + inverse_g0k( xi*wm(i) , Hk(:,:,ik) )/Lk
        enddo
     enddo
-    if(master)then
-       do ispin=1,Nspin
-          do jspin=1,Nspin
-             do iorb=1,Norb
-                do jorb=1,Norb
-                   io = iorb + (ispin-1)*Norb
-                   jo = jorb + (jspin-1)*Norb
-                   call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_wm.dat",wm,Gmats(io,jo,:))
-                enddo
-             enddo
-          enddo
-       enddo
-    endif
+    !if(master)then
+    !   do ispin=1,Nspin
+    !      do jspin=1,Nspin
+    !         do iorb=1,Norb
+    !            do jorb=1,Norb
+    !               io = iorb + (ispin-1)*Norb
+    !               jo = jorb + (jspin-1)*Norb
+    !               call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_wm.dat",wm,Gmats(io,jo,:))
+    !            enddo
+    !         enddo
+    !      enddo
+    !   enddo
+    !endif
     if(rotateG0loc) then
        !
        allocate(Gso(Nspin,Nspin,Norb,Norb,Lmats));Gso=zero
        do i=1,Lmats
           Gso(:,:,:,:,i)=so2nn_reshape(Gmats(:,:,i),Nspin,Norb)
        enddo
+       !
+       if(master) call dmft_print_gf_matsubara(Gso,"G0loc",iprint=3)
        call Jz_rotate(Gso,"G0lc","A","wm")
        deallocate(Gso)
        !
@@ -464,25 +468,27 @@ contains
              Greal(:,:,i)=Greal(:,:,i) + inverse_g0k(dcmplx(wr(i),eps),Hk(:,:,ik),mu)/Lk
           enddo
        enddo
-       if(master)then
-          do ispin=1,Nspin
-             do jspin=1,Nspin
-                do iorb=1,Norb
-                   do jorb=1,Norb
-                      io = iorb + (ispin-1)*Norb
-                      jo = jorb + (jspin-1)*Norb
-                      call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_wr.dat",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
-                   enddo
-                enddo
-             enddo
-          enddo
-       endif
+       !if(master)then
+       !   do ispin=1,Nspin
+       !      do jspin=1,Nspin
+       !         do iorb=1,Norb
+       !            do jorb=1,Norb
+       !               io = iorb + (ispin-1)*Norb
+       !               jo = jorb + (jspin-1)*Norb
+       !               call splot("G0loc_l"//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_wr.dat",wr,-dimag(Greal(io,jo,:))/pi,dreal(Greal(io,jo,:)))
+       !            enddo
+       !         enddo
+       !      enddo
+       !   enddo
+       !endif
        if(rotateG0loc) then
           !
           allocate(Gso(Nspin,Nspin,Norb,Norb,Lreal));Gso=zero
           do i=1,Lreal
              Gso(:,:,:,:,i)=so2nn_reshape(Greal(:,:,i),Nspin,Norb)
           enddo
+          !
+          if(master) call dmft_print_gf_realaxis(Gso,"G0loc",iprint=3)
           call Jz_rotate(Gso,"G0lc","A","wr")
           deallocate(Gso)
           !
@@ -885,6 +891,7 @@ contains
     real(8),               intent(out),optional  ::   bottom_,top_
     real(8),               intent(in), optional  ::   lvl_
     complex(8),allocatable                       ::   f_in(:,:,:),f_out(:,:,:),Gimp(:,:,:,:,:)
+    complex(8),allocatable                       ::   Fso_out(:,:,:,:,:)
     complex(8),allocatable,dimension(:)          ::   Luttinger,z_rot
     complex(8),dimension(Nspin*Norb,Nspin*Norb)  ::   theta_C,impHloc_rot,rho_ab
     real(8),dimension(Nspin*Norb,Nspin*Norb)     ::   dens_rot
@@ -894,7 +901,7 @@ contains
     real(8)                                      ::   bttm,tp,lvl,dw
     real(8)                                      ::   norm,fact
     real(8)                                      ::   LS_0,jz_0,jz_0_sq,Ek0
-    character(len=12)                            ::   file_rotation
+    character(len=10)                            ::   file_rotation
     integer                                      ::   isetup=0
     !
     integer                                      ::   posupper,poslower
@@ -917,8 +924,9 @@ contains
     call build_rotation(theta_C,impHloc_rot)
     !
     Lfreq=size(Fso,dim=5)
-    if(allocated( f_in))deallocate( f_in);allocate( f_in(Nspin*Norb,Nspin*Norb,Lfreq));f_in=zero
-    if(allocated(f_out))deallocate(f_out);allocate(f_out(Nspin*Norb,Nspin*Norb,Lfreq));f_out=zero
+    if(allocated( f_in))  deallocate( f_in);  allocate(   f_in(Nspin*Norb,Nspin*Norb,Lfreq));f_in=zero
+    if(allocated(f_out))  deallocate(f_out);  allocate(  f_out(Nspin*Norb,Nspin*Norb,Lfreq));f_out=zero
+    if(allocated(Fso_out))deallocate(Fso_out);allocate(Fso_out(Nspin,Nspin,Norb,Norb,Lfreq));Fso_out=zero
     !
     if(isetup==1) then
        if(master)write(LOGfile,*) "  G0loc rotation"
@@ -1130,26 +1138,32 @@ contains
           !
           !7)save the rotated function
           if(isetup==1) then
-             file_rotation="G0lc_rot_"//type_rot//"_l"
+             file_rotation="G0lc_rot_"//type_rot!//"_l"
           elseif(isetup==2) then
-             file_rotation="Gloc_rot_"//type_rot//"_l"
+             file_rotation="Gloc_rot_"//type_rot!//"_l"
           elseif(isetup==3) then
-             file_rotation="impS_rot_"//type_rot//"_l"
+             file_rotation="impS_rot_"//type_rot!//"_l"
           elseif(isetup==4) then
-             file_rotation="impG_rot_"//type_rot//"_l"
+             file_rotation="impG_rot_"//type_rot!//"_l"
           endif
-          do ispin=1,Nspin
-             do jspin=1,Nspin
-                do iorb=1,Norb
-                   do jorb=1,Norb
-                      io = iorb + (ispin-1)*Norb
-                      jo = jorb + (jspin-1)*Norb
-                      call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_"//type_freq//".dat",&
-                                 w,fact*dimag(f_out(io,jo,:)),dreal(f_out(io,jo,:)))
-                   enddo
-                enddo
-             enddo
+          Fso_out=zero
+          do i=1,Lfreq
+             Fso_out(:,:,:,:,i)=so2nn_reshape(f_out(:,:,i),Nspin,Norb)
           enddo
+          if(type_freq=="wr") call dmft_print_gf_realaxis( Fso_out,file_rotation,iprint=3)
+          if(type_freq=="wm") call dmft_print_gf_matsubara(Fso_out,file_rotation,iprint=3)
+          !do ispin=1,Nspin
+          !   do jspin=1,Nspin
+          !      do iorb=1,Norb
+          !         do jorb=1,Norb
+          !            io = iorb + (ispin-1)*Norb
+          !            jo = jorb + (jspin-1)*Norb
+          !            call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_"//type_freq//".dat",&
+          !                       w,fact*dimag(f_out(io,jo,:)),dreal(f_out(io,jo,:)))
+          !         enddo
+          !      enddo
+          !   enddo
+          !enddo
           !
           !8)non interacting rho and observables in the case f_in = G0loc(w)
           if(isetup==1.and.type_freq=="wr")then
@@ -1306,26 +1320,32 @@ contains
           !
           !5)save the rotated function
           if(isetup==1) then
-             file_rotation="G0lc_rot_"//type_rot//"_l"
+             file_rotation="G0lc_rot_"//type_rot!//"_l"
           elseif(isetup==2) then
-             file_rotation="Gloc_rot_"//type_rot//"_l"
+             file_rotation="Gloc_rot_"//type_rot!//"_l"
           elseif(isetup==3) then
-             file_rotation="impS_rot_"//type_rot//"_l"
+             file_rotation="impS_rot_"//type_rot!//"_l"
           elseif(isetup==4) then
-             file_rotation="impG_rot_"//type_rot//"_l"
+             file_rotation="impG_rot_"//type_rot!//"_l"
           endif
-          do ispin=1,Nspin
-             do jspin=1,Nspin
-                do iorb=1,Norb
-                   do jorb=1,Norb
-                      io = iorb + (ispin-1)*Norb
-                      jo = jorb + (jspin-1)*Norb
-                      call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_"//type_freq//".dat",&
-                                 w,fact*dimag(f_out(io,jo,:)),dreal(f_out(io,jo,:)))
-                   enddo
-                enddo
-             enddo
+          Fso_out=zero
+          do i=1,Lfreq
+             Fso_out(:,:,:,:,i)=so2nn_reshape(f_out(:,:,i),Nspin,Norb)
           enddo
+          if(type_freq=="wr") call dmft_print_gf_realaxis( Fso_out,file_rotation,iprint=3)
+          if(type_freq=="wm") call dmft_print_gf_matsubara(Fso_out,file_rotation,iprint=3)
+          !do ispin=1,Nspin
+          !   do jspin=1,Nspin
+          !      do iorb=1,Norb
+          !         do jorb=1,Norb
+          !            io = iorb + (ispin-1)*Norb
+          !            jo = jorb + (jspin-1)*Norb
+          !            call splot(file_rotation//reg(txtfy(iorb))//reg(txtfy(jorb))//"_s"//reg(txtfy(ispin))//reg(txtfy(jspin))//"_"//type_freq//".dat",&
+          !                       w,fact*dimag(f_out(io,jo,:)),dreal(f_out(io,jo,:)))
+          !         enddo
+          !      enddo
+          !   enddo
+          !enddo
           !
        endif
     endif
